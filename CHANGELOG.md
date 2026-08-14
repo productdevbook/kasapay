@@ -21,6 +21,10 @@ both are the kind 0.0.x exists to make.
 
 ### Added
 
+- `Stripe::refund` and `Stripe::cancel`, which had no counterpart to iyzico's.
+  Refunding in a currency the payment was not in cannot be refused before
+  sending — Stripe takes a bare integer — so it is caught against the answer,
+  and the error says the money has already moved.
 - `classic`, iyzico's other API — the hosted checkout form, refunds, cancel,
   stored cards, BIN lookup. Twelve of iyzico's ninety-six documented
   operations, and none of them touches a card number.
