@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use kasapay_core::{
     Charge, ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId,
-    Provider, Status,
+    Provider, RefundRequest, RefundStatus, Status,
 };
 use kasapay_iyzico::in_store::{Client, Config};
 use serde_json::json;
@@ -505,4 +505,84 @@ async fn a_full_refund_names_no_amount_at_all() {
         )
         .await
         .expect("the refund starts");
+}
+
+/// The session iyzico opens for a refund the payer has still to approve.
+fn refund_session() -> serde_json::Value {
+    json!({
+        "status": "success",
+        "paymentId": 12_345_678_i64,
+        "deepLinkUrl": "https://iyzi.link/refund-abc",
+        "paymentSessionToken": "tok-refund",
+    })
+}
+
+#[tokio::test]
+async fn a_refund_through_the_trait_stalls_on_the_payer_approving_it() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/payment/refund"))
+        .and(header("x-callback-url", "https://merchant.test/refunded"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_session()))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::new("12345678"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .customer("kasiyer-7")
+        .return_url("https://merchant.test/refunded".parse().expect("valid url"))
+        .build()
+        .expect("valid request");
+
+    let refund = client(&server).refund(&request).await.expect("it starts");
+    // Nothing has moved: the payer approves it in iyzico's app first.
+    assert_eq!(refund.status, RefundStatus::RequiresAction);
+    assert!(refund.status.is_open());
+    assert!(refund.next_action.is_some());
+    // The id is the session token, which is what iyzico gives per attempt.
+    assert_eq!(refund.id.as_str(), "tok-refund");
+    assert_eq!(refund.amount.minor_units(), 5000);
+}
+
+#[tokio::test]
+async fn a_refund_without_a_user_id_or_a_callback_never_opens_a_socket() {
+    // No mock is mounted; reaching iyzico at all fails the test.
+    let server = MockServer::start().await;
+    let iyzico = client(&server);
+
+    let no_customer = RefundRequest::builder(PaymentId::new("12345678"))
+        .return_url("https://merchant.test/refunded".parse().expect("valid url"))
+        .build()
+        .expect("valid request");
+    let error = iyzico
+        .refund(&no_customer)
+        .await
+        .expect_err("iyzico needs the userId");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+
+    let no_callback = RefundRequest::builder(PaymentId::new("12345678"))
+        .customer("kasiyer-7")
+        .build()
+        .expect("valid request");
+    let error = iyzico
+        .refund(&no_callback)
+        .await
+        .expect_err("iyzico needs somewhere to post the result");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+#[tokio::test]
+async fn a_refund_carrying_an_idempotency_key_is_refused_rather_than_dropped() {
+    let server = MockServer::start().await;
+    let request = RefundRequest::builder(PaymentId::new("12345678"))
+        .customer("kasiyer-7")
+        .return_url("https://merchant.test/refunded".parse().expect("valid url"))
+        .idempotency_key(IdempotencyKey::new("ref-1"))
+        .build()
+        .expect("valid request");
+    let error = client(&server)
+        .refund(&request)
+        .await
+        .expect_err("a key iyzico cannot honour is not accepted");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }

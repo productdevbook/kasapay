@@ -5,6 +5,7 @@ use std::fmt;
 use crate::charge::{Charge, ChargeRequest, PaymentId};
 use crate::error::Error;
 use crate::money::Money;
+use crate::refund::{Refund, RefundRequest};
 
 /// Names a provider.
 ///
@@ -128,6 +129,30 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// than a silent success: giving that money back is a refund, a different
     /// act with a different entry in the ledger.
     async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error>;
+
+    /// Gives money back off a payment.
+    ///
+    /// This is the only way money goes back, and it is not the inverse of
+    /// [`Provider::capture`]: captured money is refunded, not un-captured, and
+    /// the two are different entries in a ledger.
+    ///
+    /// [`RefundRequest::amount`] of `None` gives back all of it; `Some` gives
+    /// back part, which requires [`Capabilities::partial_refund`].
+    ///
+    /// **A capture refunded three times is ordinary** — three returned items
+    /// out of an order of five — so the returned [`Refund`] carries its own
+    /// [`RefundId`](crate::RefundId) rather than the payment's, and each of
+    /// those can be replayed under its own
+    /// [`idempotency_key`](RefundRequest::idempotency_key). Whether a provider
+    /// allows the second one at all is
+    /// [`Capabilities::repeated_refund`].
+    ///
+    /// A refund is not instant. Read [`Refund::status`]: a provider that makes
+    /// the payer approve it answers
+    /// [`RefundStatus::RequiresAction`](crate::RefundStatus::RequiresAction)
+    /// with a [`NextAction`](crate::NextAction), the same shape
+    /// [`Provider::charge`] uses.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error>;
 
     /// What this provider will do, before there is a payment to ask about.
     fn capabilities(&self) -> Capabilities;

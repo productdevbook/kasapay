@@ -13,7 +13,11 @@
 //!   [`NextAction::ConfirmOnClient`](kasapay_core::NextAction::ConfirmOnClient)
 //!   carrying the `client_secret` for Stripe.js.
 //! - [`Stripe::refund`] gives money back, and [`Stripe::cancel`] withdraws a
-//!   payment that was never captured. Neither is on the shared trait yet.
+//!   payment that was never captured. Both are on the shared trait, and the
+//!   inherent methods are what it delegates to.
+//! - A refund's `reason` travels as metadata under [`REASON_METADATA_KEY`]:
+//!   Stripe's own `reason` takes three fixed values and free text is not one
+//!   of them.
 //! - **A declined card is not [`Status::Failed`](kasapay_core::Status::Failed).**
 //!   Stripe puts such a PaymentIntent back to `requires_payment_method`, which
 //!   arrives as [`Status::RequiresAction`](kasapay_core::Status::RequiresAction)
@@ -56,4 +60,4 @@ mod client;
 mod convert;
 
 #[doc(inline)]
-pub use crate::client::{DEFAULT_TIMEOUT, ORDER_METADATA_KEY, Refund, RefundState, Stripe};
+pub use crate::client::{DEFAULT_TIMEOUT, ORDER_METADATA_KEY, REASON_METADATA_KEY, Stripe};

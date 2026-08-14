@@ -15,7 +15,8 @@ use std::sync::Mutex;
 
 use kasapay::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Status, async_trait,
+    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Status,
+    async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -105,11 +106,34 @@ impl Provider for Kumbara {
         })
     }
 
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        let Some(amount) = request.amount else {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                Self::ID,
+                "kumbara refunds an amount, never the lot",
+            ));
+        };
+        let mut seen = self.seen.lock().expect("the mutex is not poisoned");
+        seen.push(request.payment.as_str().to_owned());
+        Ok(Refund {
+            id: RefundId::new(format!("kmb_ref_{}", seen.len())),
+            payment: request.payment.clone(),
+            amount,
+            status: RefundStatus::Succeeded,
+            next_action: None,
+            reference: Some("kmb-host-1".into()),
+            provider: Self::ID,
+            raw: Raw::default(),
+        })
+    }
+
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: true,
             partial_capture: true,
-            ..Capabilities::default()
+            partial_refund: true,
+            repeated_refund: true,
         }
     }
 }
@@ -199,4 +223,44 @@ async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them()
     let canceled = kumbara.cancel(&id).await.expect("the hold is released");
     assert_eq!(canceled.status, Status::Canceled);
     assert!(!canceled.status.is_open());
+}
+
+#[tokio::test]
+async fn one_capture_can_be_refunded_three_times_and_each_is_its_own_refund() {
+    // Three returned items out of an order of five: ordinary, and the reason a
+    // Refund carries an id of its own rather than the payment's.
+    let kumbara = Kumbara::default();
+    assert!(kumbara.capabilities().repeated_refund);
+    let payment = PaymentId::new("kmb_ord-1");
+
+    let mut ids = Vec::new();
+    for _ in 0..3 {
+        let request = RefundRequest::builder(payment.clone())
+            .amount(Money::parse("2.00", Currency::Try).expect("valid amount"))
+            .reason("returned")
+            .build()
+            .expect("valid request");
+        let refund = kumbara.refund(&request).await.expect("the money goes back");
+        assert_eq!(refund.payment, payment);
+        assert_eq!(refund.amount.minor_units(), 200);
+        assert_eq!(refund.status, RefundStatus::Succeeded);
+        assert!(!refund.status.is_open());
+        ids.push(refund.id);
+    }
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), 3, "each refund is its own object");
+}
+
+#[tokio::test]
+async fn a_refund_a_provider_will_not_make_is_unsupported_rather_than_a_guess() {
+    let kumbara = Kumbara::default();
+    let request = RefundRequest::builder(PaymentId::new("kmb_ord-1"))
+        .build()
+        .expect("valid request");
+    let error = kumbara
+        .refund(&request)
+        .await
+        .expect_err("kumbara has no whole-payment shorthand");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }

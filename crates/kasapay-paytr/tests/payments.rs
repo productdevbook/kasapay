@@ -5,7 +5,10 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
+use kasapay_core::{
+    Currency, ErrorKind, IdempotencyKey, Money, NextAction, OrderRef, PaymentId, Provider,
+    RefundRequest, RefundStatus, Status,
+};
 use kasapay_paytr::{Config, Credentials, PayTr, payment};
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, method, path};
@@ -371,4 +374,80 @@ async fn a_refund_paytr_will_never_accept_is_not_retryable() {
         assert_eq!(error.kind(), kind, "code {code}");
         assert!(!error.is_retryable(), "{code} will never be accepted");
     }
+}
+
+#[tokio::test]
+async fn a_partial_refund_through_the_trait_names_the_order_reference() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/iade"))
+        .and(body_string_contains("merchant_oid=ord-1"))
+        .and(body_string_contains("return_amount=50.00"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "success"})))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::new("ord-1"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .build()
+        .expect("valid request");
+    let refund = client(&server)
+        .refund(&request)
+        .await
+        .expect("the refund goes through");
+
+    assert_eq!(refund.amount.minor_units(), 5000);
+    assert_eq!(refund.status, RefundStatus::Pending);
+    // PayTR answers a refund with a status and nothing else, so this id is
+    // composed — and two refunds of 50 lira would collide on it.
+    assert_eq!(refund.id.as_str(), "ord-1:50.00");
+    assert!(refund.reference.is_none());
+}
+
+#[tokio::test]
+async fn a_whole_refund_reads_what_the_payer_was_charged_first() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            // The basket came to 149.90; an instalment surcharge took the
+            // payer to 159.90, and that is what has to go back.
+            "payment_amount": "149.90",
+            "payment_total": "159.90",
+            "currency": "TL",
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/iade"))
+        .and(body_string_contains("return_amount=159.90"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "success"})))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::new("ord-1"))
+        .build()
+        .expect("valid request");
+    let refund = client(&server)
+        .refund(&request)
+        .await
+        .expect("the refund goes through");
+    assert_eq!(refund.amount.minor_units(), 15_990);
+}
+
+#[tokio::test]
+async fn a_refund_carrying_an_idempotency_key_is_refused_rather_than_dropped() {
+    // No mock is mounted: this stops before a socket opens.
+    let server = MockServer::start().await;
+    let request = RefundRequest::builder(PaymentId::new("ord-1"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .idempotency_key(IdempotencyKey::new("ref-1"))
+        .build()
+        .expect("valid request");
+    let error = client(&server)
+        .refund(&request)
+        .await
+        .expect_err("a key PayTR cannot honour is not accepted");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }

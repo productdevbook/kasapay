@@ -47,12 +47,18 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-iyzico` | two iyzico APIs: `in_store` and `classic` |
 | `kasapay-paytr` | PayTR's hosted form, status, refund, payment notice |
 
-**The shared trait is `charge`, `charge_status`, `capture` and `cancel`**, with
-`capabilities()` saying which of them a provider actually does — iyzico's
-In-Store flow takes the money at authorisation and has no capture step, and a
-caller planning a checkout needs to know that before it has a payment. Refunds,
-webhooks and saved cards live on the providers for now — they enter the trait
-once more than two providers have been written against them, not before.
+**The shared trait is `charge`, `charge_status`, `capture`, `cancel` and
+`refund`**, with `capabilities()` saying which of them a provider actually does
+— iyzico's In-Store flow takes the money at authorisation and has no capture
+step, and a caller planning a checkout needs to know that before it has a
+payment. Webhooks and saved cards live on the providers for now — they enter
+the trait once more than two providers have been written against them, not
+before.
+
+`refund` is not the inverse of `capture`: captured money is refunded, not
+un-captured. One capture refunded three times is ordinary — three returned
+items — so a `Refund` carries an id of its own, and `repeated_refund` is where
+a provider says whether it will allow the second one.
 
 **iyzico** is two APIs that barely resemble each other. `in_store` is the
 counter flow, authenticated with plain headers, lira only. `classic` is

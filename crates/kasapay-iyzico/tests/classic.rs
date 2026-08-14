@@ -7,7 +7,10 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
+use kasapay_core::{
+    Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, RefundRequest,
+    RefundStatus, Status,
+};
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{Association, CardType, Client, Config, checkout};
 use serde_json::json;
@@ -804,4 +807,53 @@ async fn the_classic_client_refuses_to_start_a_payment_through_the_trait() {
         .expect_err("the hosted form needs more than a ChargeRequest carries");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
     assert!(error.to_string().contains("start_checkout_form"));
+}
+
+#[tokio::test]
+async fn a_refund_through_the_trait_carries_the_banks_reference() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payment/refund"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "conversationId": "12345678",
+            "price": "50",
+            "currency": "TRY",
+            "hostReference": "host-ref-1",
+            "signature": "57967ab442a60d7d8e44162f5f9807680a9eaa94d41421f5b0b52b9a4a0609a8",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::new("12345678"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .build()
+        .expect("valid request");
+    let refund = client(&server)
+        .refund(&request)
+        .await
+        .expect("the refund goes through");
+
+    assert_eq!(refund.amount.minor_units(), 5000);
+    assert_eq!(refund.reference.as_deref(), Some("host-ref-1"));
+    // iyzico issues no refund id, so this one is composed — and the bank's
+    // reference is what makes it unique.
+    assert_eq!(refund.id.as_str(), "12345678:host-ref-1");
+    assert_eq!(refund.status, RefundStatus::Pending);
+}
+
+#[tokio::test]
+async fn a_whole_refund_is_refused_rather_than_guessed_at() {
+    // No mock is mounted: iyzico has no whole-payment shorthand and this must
+    // not turn into a read followed by a guess.
+    let server = MockServer::start().await;
+    let request = RefundRequest::builder(PaymentId::new("12345678"))
+        .build()
+        .expect("valid request");
+    let error = client(&server)
+        .refund(&request)
+        .await
+        .expect_err("the classic refund needs an amount");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }

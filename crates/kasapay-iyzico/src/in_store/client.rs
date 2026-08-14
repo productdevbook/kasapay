@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Secret,
+    Status,
 };
 use url::Url;
 
@@ -204,7 +205,9 @@ impl Client {
     /// Cancels or refunds a payment, in whole or in part.
     ///
     /// Like [`Provider::charge`], this only starts the flow: the payer
-    /// approves it through the returned deep link.
+    /// approves it through the returned deep link. [`Provider::refund`] is the
+    /// same call in the shared shape, reading `user_id` and `callback_url` off
+    /// the [`RefundRequest`].
     pub async fn refund(
         &self,
         user_id: &str,
@@ -337,6 +340,74 @@ impl Provider for Client {
             "the In-Store API holds no authorisation to release; \
              giving the money back is Client::refund",
         ))
+    }
+
+    /// Starts a refund the payer then approves in iyzico's app.
+    ///
+    /// The In-Store API needs two things on a refund that it also needs on a
+    /// charge, and refuses one without them:
+    ///
+    /// - [`RefundRequest::customer`] is iyzico's `userId`.
+    /// - [`RefundRequest::return_url`] becomes the `x-callback-url` header.
+    ///
+    /// So the returned [`Refund`] is
+    /// [`RefundStatus::RequiresAction`] with a deep link, never a settled
+    /// one — the money moves when the payer approves it, and
+    /// [`Client::decrypt_callback`] is what reports that it did.
+    ///
+    /// # The id is derived, not iyzico's
+    ///
+    /// iyzico issues no refund id. [`Refund::id`] is the
+    /// `paymentSessionToken` of the session this refund opened, which is
+    /// unique per attempt and is the only per-refund value iyzico sends. Where
+    /// there is no token — a refund iyzico answered without opening a session
+    /// — it falls back to `{paymentId}:refund`, which is **not** unique across
+    /// two refunds of the same payment. A caller keying a ledger on it should
+    /// treat the second form as a collision waiting to happen.
+    ///
+    /// [`Capabilities::repeated_refund`] is false here, so kasapay does not
+    /// claim two refunds of one payment work at all.
+    ///
+    /// # The amount is the one asked for
+    ///
+    /// iyzico's answer to `/payment/refund` carries no amount, so
+    /// [`Refund::amount`] is [`RefundRequest::amount`] echoed back. A whole
+    /// refund — `amount: None` — therefore reads as zero lira, because nothing
+    /// in this exchange says what the payment came to. Read
+    /// [`Provider::charge_status`] for that.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "the In-Store API documents no idempotency mechanism for a refund",
+            ));
+        }
+        let user_id = request.customer.as_deref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "RefundRequest::customer carries iyzico's userId and is required",
+            )
+        })?;
+        let callback_url = request.return_url.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "RefundRequest::return_url is required: iyzico makes the payer approve \
+                 the refund and posts the result to it",
+            )
+        })?;
+
+        let charge = Client::refund(
+            self,
+            user_id,
+            &request.payment,
+            request.amount,
+            callback_url,
+        )
+        .await?;
+        Ok(refund_from_session(request, charge))
     }
 
     /// No separate capture, and refunds only in the ways iyzico documents.
@@ -600,4 +671,40 @@ fn query_into_charge(response: wire::PaymentQueryResponse, raw: Raw) -> Result<C
         provider: PROVIDER,
         raw,
     })
+}
+
+/// Reads the session a refund opened as a [`Refund`].
+///
+/// The deep link is the whole answer: nothing has moved yet, and the amount
+/// iyzico echoes is the one that was asked for.
+fn refund_from_session(request: &RefundRequest, charge: Charge) -> Refund {
+    let token = match &charge.next_action {
+        Some(NextAction::Redirect {
+            continuation: Some(token),
+            ..
+        }) => Some(token.clone()),
+        _ => None,
+    };
+    let id = token.map_or_else(
+        || RefundId::new(format!("{}:refund", request.payment)),
+        |token| RefundId::new(token),
+    );
+    Refund {
+        id,
+        payment: request.payment.clone(),
+        amount: request
+            .amount
+            .unwrap_or_else(|| Money::from_minor_units(0, Currency::Try)),
+        status: if charge.next_action.is_some() {
+            RefundStatus::RequiresAction
+        } else {
+            RefundStatus::Pending
+        },
+        next_action: charge.next_action,
+        // iyzico answers a refund with a session, not a bank reference; the
+        // reference arrives on the decrypted callback instead.
+        reference: None,
+        provider: PROVIDER,
+        raw: charge.raw,
+    }
 }

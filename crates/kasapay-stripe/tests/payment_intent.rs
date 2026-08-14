@@ -11,9 +11,9 @@
 
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, NextAction, OrderRef, PaymentId,
-    Provider, Status,
+    Provider, RefundRequest, RefundStatus, Status,
 };
-use kasapay_stripe::{ORDER_METADATA_KEY, RefundState, Stripe};
+use kasapay_stripe::{ORDER_METADATA_KEY, REASON_METADATA_KEY, Stripe};
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -321,6 +321,13 @@ fn refund_body(amount: i64, status: &str) -> serde_json::Value {
     })
 }
 
+fn partial(payment: &str, amount: &str, currency: Currency) -> RefundRequest {
+    RefundRequest::builder(PaymentId::new(payment))
+        .amount(Money::parse(amount, currency).expect("valid amount"))
+        .build()
+        .expect("valid request")
+}
+
 #[tokio::test]
 async fn a_partial_refund_sends_minor_units_and_the_intent() {
     let server = MockServer::start().await;
@@ -333,17 +340,14 @@ async fn a_partial_refund_sends_minor_units_and_the_intent() {
         .await;
 
     let refund = client(&server)
-        .refund(
-            &PaymentId::new("pi_kasapay1"),
-            Some(Money::parse("5.00", Currency::Usd).expect("valid amount")),
-        )
+        .refund(&partial("pi_kasapay1", "5.00", Currency::Usd))
         .await
         .expect("the refund goes through");
 
-    assert_eq!(&*refund.id, "re_kasapay1");
+    assert_eq!(refund.id.as_str(), "re_kasapay1");
     assert_eq!(refund.amount.minor_units(), 500);
     assert_eq!(refund.amount.currency(), Currency::Usd);
-    assert_eq!(refund.status, RefundState::Succeeded);
+    assert_eq!(refund.status, RefundStatus::Succeeded);
 }
 
 #[tokio::test]
@@ -356,7 +360,11 @@ async fn a_full_refund_sends_no_amount_at_all() {
         .await;
 
     let refund = client(&server)
-        .refund(&PaymentId::new("pi_kasapay1"), None)
+        .refund(
+            &RefundRequest::builder(PaymentId::new("pi_kasapay1"))
+                .build()
+                .expect("valid request"),
+        )
         .await
         .expect("the refund goes through");
 
@@ -365,7 +373,7 @@ async fn a_full_refund_sends_no_amount_at_all() {
     // Sending amount=0 would refund nothing; the field has to be absent.
     assert!(!body.contains("amount="), "unexpected amount in {body}");
     assert_eq!(refund.amount.minor_units(), 1999);
-    assert_eq!(refund.status, RefundState::Pending);
+    assert_eq!(refund.status, RefundStatus::Pending);
 }
 
 #[tokio::test]
@@ -379,10 +387,7 @@ async fn refunding_in_a_currency_the_payment_was_not_in_is_caught() {
         .await;
 
     let error = client(&server)
-        .refund(
-            &PaymentId::new("pi_kasapay1"),
-            Some(Money::parse("5.00", Currency::Try).expect("valid amount")),
-        )
+        .refund(&partial("pi_kasapay1", "5.00", Currency::Try))
         .await
         .expect_err("the currencies do not match");
     assert_eq!(error.kind(), ErrorKind::Malformed);
@@ -400,13 +405,10 @@ async fn an_unknown_refund_state_is_kept_rather_than_dropped() {
         .await;
 
     let refund = client(&server)
-        .refund(
-            &PaymentId::new("pi_kasapay1"),
-            Some(Money::parse("5.00", Currency::Usd).expect("valid amount")),
-        )
+        .refund(&partial("pi_kasapay1", "5.00", Currency::Usd))
         .await
         .expect("the refund goes through");
-    assert_eq!(refund.status, RefundState::Other("reversing".into()));
+    assert_eq!(refund.status, RefundStatus::Other("reversing".into()));
 }
 
 #[tokio::test]
@@ -456,4 +458,61 @@ async fn capabilities_say_stripe_separates_authorisation_from_capture() {
     assert!(capabilities.partial_capture);
     assert!(capabilities.partial_refund);
     assert!(capabilities.repeated_refund);
+}
+
+#[tokio::test]
+async fn a_refund_sends_its_idempotency_key_and_its_reason() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .and(header("idempotency-key", "ref-ord-1-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "succeeded")))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::new("pi_kasapay1"))
+        .amount(Money::parse("5.00", Currency::Usd).expect("valid amount"))
+        .reason("returned unopened")
+        .idempotency_key(IdempotencyKey::new("ref-ord-1-a"))
+        .build()
+        .expect("valid request");
+    let refund = client(&server)
+        .refund(&request)
+        .await
+        .expect("the refund goes through");
+    assert_eq!(refund.provider.as_str(), "stripe");
+
+    let sent = server.received_requests().await.expect("recorded");
+    let body = String::from_utf8(sent[0].body.clone()).expect("utf-8");
+    // Stripe's own `reason` takes three fixed values, so free text travels as
+    // metadata instead of being dropped.
+    assert!(body.contains(REASON_METADATA_KEY), "no reason in {body}");
+}
+
+#[test]
+fn a_refund_of_zero_is_refused_before_there_is_a_request_to_send() {
+    // The builder is where this stops, so no adapter has to repeat the check
+    // and no socket is ever opened for it.
+    RefundRequest::builder(PaymentId::new("pi_kasapay1"))
+        .amount(Money::parse("0.00", Currency::Usd).expect("valid amount"))
+        .build()
+        .expect_err("zero refunds nothing");
+}
+
+#[tokio::test]
+async fn refund_is_reachable_through_the_trait() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "succeeded")))
+        .mount(&server)
+        .await;
+
+    let provider: Box<dyn Provider> = Box::new(client(&server));
+    let refund = provider
+        .refund(&partial("pi_kasapay1", "5.00", Currency::Usd))
+        .await
+        .expect("the refund goes through");
+    assert_eq!(refund.id.as_str(), "re_kasapay1");
+    assert_eq!(refund.payment, PaymentId::new("pi_kasapay1"));
 }

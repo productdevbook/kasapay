@@ -10,6 +10,18 @@ all are the kind 0.0.x exists to make.
 
 ### Breaking
 
+- **`Provider` gains `refund`, with no default.** It takes a `RefundRequest`
+  rather than loose arguments, because a retried refund is exactly where an
+  idempotency key is needed and a bare `(payment, amount, reason)` has nowhere
+  to put one. The returned `Refund` carries a `RefundId` of its own: one
+  capture refunded three times is three refunds, and a ledger keyed on the
+  payment would collapse them.
+
+  `kasapay_stripe::RefundState` is `kasapay_core::RefundStatus`, and
+  `kasapay_stripe::Refund` is `kasapay_core::Refund` — `Stripe::refund` now
+  takes a `RefundRequest` and is what the trait delegates to. `Refund::id` is a
+  `RefundId` rather than a `Box<str>`; read it with `.as_str()`.
+
 - **`Provider` gains `capture`, `cancel` and `capabilities`, none with a
   default.** A provider outside this workspace has to answer all three. No
   default on purpose: an adapter that cannot capture has to say so rather than

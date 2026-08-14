@@ -20,6 +20,16 @@
 //! authorisation — so [`Provider::capabilities`] says which, and it says so
 //! before there is a payment to ask about.
 //!
+//! # Giving money back
+//!
+//! [`Provider::refund`] is the only way money goes back. Capture has no
+//! inverse: captured money is refunded, not un-captured, and the two are
+//! different entries in a ledger. A [`Refund`] carries its own
+//! [`RefundId`] because one capture is commonly refunded several times — three
+//! returned items out of an order of five — and
+//! [`Capabilities::repeated_refund`] is where a provider says whether it will
+//! allow that.
+//!
 //! # Amounts
 //!
 //! [`Money`] counts minor units. There is no `f64` anywhere in this crate,
@@ -34,6 +44,7 @@ mod error;
 mod money;
 mod provider;
 mod raw;
+mod refund;
 mod secret;
 
 #[doc(inline)]
@@ -49,5 +60,9 @@ pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 pub use crate::provider::{Capabilities, Provider, ProviderId, async_trait};
 #[doc(inline)]
 pub use crate::raw::Raw;
+#[doc(inline)]
+pub use crate::refund::{
+    Refund, RefundId, RefundRequest, RefundRequestBuilder, RefundRequestError, RefundStatus,
+};
 #[doc(inline)]
 pub use crate::secret::Secret;

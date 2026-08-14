@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, PaymentId,
-    Provider, ProviderId, Raw, Status,
+    Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Status,
 };
 use url::Url;
 
@@ -929,6 +929,63 @@ impl Provider for Client {
             "voiding a classic payment answers a Reversal rather than a charge; \
              call Client::cancel",
         ))
+    }
+
+    /// Takes an amount back off a payment, through `/v2/payment/refund`.
+    ///
+    /// # An amount is required
+    ///
+    /// iyzico's classic refund takes the amount to give back and has no
+    /// whole-payment shorthand, so [`RefundRequest::amount`] of `None` is
+    /// [`ErrorKind::InvalidRequest`] rather than a guess at the total. Read
+    /// the payment with [`Client::checkout_result`] and pass what it says.
+    ///
+    /// # The id is derived, not iyzico's
+    ///
+    /// iyzico issues no refund id. [`Refund::id`] is
+    /// `{paymentId}:{hostReference}` where the bank gave a reference, and
+    /// `{paymentId}:{price}` where it did not — which does **not** distinguish
+    /// two refunds of the same amount against the same payment.
+    /// [`Refund::reference`] carries the bank's reference on its own for
+    /// reconciliation.
+    ///
+    /// [`Client::refund_transaction`] refunds one line of a basket instead,
+    /// which is what a shop returning one item of three actually wants, and it
+    /// is not reachable through this trait: `paymentTransactionId` is not a
+    /// payment id and [`RefundRequest`] has nowhere to put one.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "iyzico documents no idempotency mechanism for a refund",
+            ));
+        }
+        let amount = request.amount.ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "iyzico's classic refund takes the amount to give back and has no \
+                 whole-payment shorthand; read the payment and pass what it says",
+            )
+        })?;
+        let reversal = Client::refund(self, &request.payment, amount).await?;
+        let key = reversal.host_reference.as_deref().map_or_else(
+            || format!("{}:{}", request.payment, amount.to_decimal_string()),
+            |reference| format!("{}:{reference}", request.payment),
+        );
+        Ok(Refund {
+            id: RefundId::new(key),
+            payment: request.payment.clone(),
+            amount: reversal.amount,
+            // The refund is accepted here and settles at the bank days later;
+            // iyzico reports no state of its own on the response.
+            status: RefundStatus::Pending,
+            next_action: None,
+            reference: reversal.host_reference,
+            provider: PROVIDER,
+            raw: reversal.raw,
+        })
     }
 
     /// No separate capture, and refunds the way iyzico documents them.

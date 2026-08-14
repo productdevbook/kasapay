@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Secret,
+    Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_core::payment_intent::{
@@ -20,6 +20,12 @@ use crate::convert;
 /// Stripe has no field of its own for the merchant's order number, so it goes
 /// in metadata and comes back out here.
 pub const ORDER_METADATA_KEY: &str = "kasapay_order";
+
+/// A refund's reason travels as Refund metadata under this key.
+///
+/// Stripe's own `reason` accepts three values — `duplicate`, `fraudulent`,
+/// `requested_by_customer` — and nothing else, so free text cannot go there.
+pub const REASON_METADATA_KEY: &str = "kasapay_reason";
 
 /// How long a request waits before it is given up on.
 ///
@@ -58,8 +64,9 @@ impl Stripe {
 
     /// Gives money back off a payment.
     ///
-    /// `amount: None` refunds all of it. Repeated partial refunds are allowed
-    /// up to what was captured.
+    /// [`RefundRequest::amount`] of `None` refunds all of it. Repeated partial
+    /// refunds are allowed up to what was captured, and each is its own
+    /// `re_…` on the returned [`Refund`].
     ///
     /// # The currency is the payment's
     ///
@@ -69,24 +76,46 @@ impl Stripe {
     /// it is checked against the currency Stripe reports back, and a mismatch
     /// is an error **after the money has moved**. Read
     /// [`Provider::charge_status`] first if the caller is not certain.
-    pub async fn refund(
-        &self,
-        payment: &PaymentId,
-        amount: Option<Money>,
-    ) -> Result<Refund, Error> {
-        let mut create = CreateRefund::new().payment_intent(payment.as_str().to_owned());
-        if let Some(amount) = amount {
+    pub async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        let mut create = CreateRefund::new().payment_intent(request.payment.as_str().to_owned());
+        if let Some(amount) = request.amount {
+            amount.require_positive().map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    convert::PROVIDER,
+                    "a refund takes an amount above zero, or None for the lot",
+                )
+                .with_source(e)
+            })?;
             create = create.amount(amount.minor_units());
         }
-        let refund = create
-            .customize()
+        if let Some(reason) = &request.reason {
+            create = create.metadata(reason_metadata(reason, request));
+        } else if !request.metadata.is_empty() {
+            create = create.metadata(
+                request
+                    .metadata
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            );
+        }
+
+        let customized = create.customize();
+        let customized = match &request.idempotency_key {
+            Some(key) => {
+                customized.request_strategy(RequestStrategy::Idempotent(idempotency_key(key)?))
+            }
+            None => customized,
+        };
+        let refund = customized
             .timeout(DEFAULT_TIMEOUT)
             .send(self.inner.as_ref())
             .await
             .map_err(|e| convert::error(&e).with_source(e))?;
 
         let refunded = convert::amount(refund.amount, &refund.currency)?;
-        if let Some(asked) = amount
+        if let Some(asked) = request.amount
             && asked.currency() != refunded.currency()
         {
             return Err(Error::new(
@@ -99,14 +128,24 @@ impl Stripe {
             ));
         }
 
+        let status = refund
+            .status
+            .as_deref()
+            .map_or(RefundStatus::Pending, refund_status);
         Ok(Refund {
-            id: refund.id.as_str().into(),
-            payment: payment.clone(),
+            id: RefundId::new(refund.id.as_str()),
+            payment: request.payment.clone(),
             amount: refunded,
-            status: refund
-                .status
-                .as_deref()
-                .map_or(RefundState::Pending, RefundState::from),
+            // Stripe reports a refund needing the payer through
+            // `next_action`, which async-stripe types as an opaque object with
+            // no URL this crate can hand on. The status says it; the raw body
+            // carries the rest.
+            next_action: None,
+            // Stripe's `re_…` is both the id and the reconciliation
+            // reference; there is no second one to put here.
+            reference: None,
+            status,
+            provider: convert::PROVIDER,
             raw: Raw::from_json(&serde_json::json!({
                 "id": refund.id.as_str(),
                 "amount": refund.amount,
@@ -219,6 +258,10 @@ impl Provider for Stripe {
         Stripe::cancel(self, id).await
     }
 
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        Stripe::refund(self, request).await
+    }
+
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: true,
@@ -301,50 +344,36 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
     })
 }
 
-/// Where a refund has got to.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum RefundState {
-    /// Sent, not yet settled.
-    Pending,
-    /// Waiting on somebody — a bank transfer refund needs the payer's details.
-    RequiresAction,
-    /// The money is back.
-    Succeeded,
-    /// It did not go back, and `failure_reason` on the raw response says why.
-    Failed,
-    /// Withdrawn before it settled.
-    Canceled,
-    /// A state Stripe has added since this was written.
-    Other(Box<str>),
-}
-
-impl From<&str> for RefundState {
-    fn from(value: &str) -> Self {
-        match value {
-            "pending" => Self::Pending,
-            "requires_action" => Self::RequiresAction,
-            "succeeded" => Self::Succeeded,
-            "failed" => Self::Failed,
-            "canceled" => Self::Canceled,
-            other => Self::Other(other.into()),
-        }
+/// Stripe's refund states, in kasapay's terms.
+///
+/// One that Stripe adds later arrives as
+/// [`RefundStatus::Other`](kasapay_core::RefundStatus::Other) rather than as a
+/// failure: a caller's refund handler must not start erroring because Stripe
+/// shipped a new state.
+fn refund_status(value: &str) -> RefundStatus {
+    match value {
+        "pending" => RefundStatus::Pending,
+        "requires_action" => RefundStatus::RequiresAction,
+        "succeeded" => RefundStatus::Succeeded,
+        "failed" => RefundStatus::Failed,
+        "canceled" => RefundStatus::Canceled,
+        other => RefundStatus::Other(other.into()),
     }
 }
 
-/// Money given back off a Stripe payment.
-#[derive(Debug, Clone)]
-pub struct Refund {
-    /// Stripe's own id for the refund, which a second attempt must not reuse.
-    pub id: Box<str>,
-    /// The payment it came off.
-    pub payment: PaymentId,
-    /// How much went back.
-    pub amount: Money,
-    /// Where it has got to.
-    pub status: RefundState,
-    /// The fields of Stripe's answer worth keeping.
-    pub raw: Raw,
+/// A refund's reason travels as metadata: Stripe's own `reason` is a closed
+/// set of three values and free text is not one of them.
+fn reason_metadata(
+    reason: &str,
+    request: &RefundRequest,
+) -> std::collections::HashMap<String, String> {
+    let mut pairs: std::collections::HashMap<String, String> = request
+        .metadata
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    pairs.insert(REASON_METADATA_KEY.to_owned(), reason.to_owned());
+    pairs
 }
 
 /// What lands on [`Charge::raw`] for Stripe.

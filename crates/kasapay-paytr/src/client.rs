@@ -7,7 +7,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Status,
+    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Status,
 };
 use url::Url;
 
@@ -297,6 +297,32 @@ impl PayTr {
         Ok(BASE64.encode(json))
     }
 
+    /// What the payer was actually charged, for a refund of the whole payment.
+    ///
+    /// `payment_total` rather than `payment_amount`: an instalment surcharge
+    /// lands on the former, and refunding the basket total would leave the
+    /// surcharge with the merchant.
+    async fn charged_total(&self, order: &str) -> Result<Money, Error> {
+        let (response, _) = self.status(order).await?;
+        let currency = response
+            .currency
+            .as_deref()
+            .map_or(Ok(Currency::Try), parse_currency)?;
+        let total = response
+            .payment_total
+            .as_deref()
+            .or(response.payment_amount.as_deref())
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Malformed,
+                    PAYTR,
+                    "PayTR reported no amount for this payment, so there is no whole to refund",
+                )
+            })?;
+        Money::parse(total, currency)
+            .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))
+    }
+
     /// The status query, which both `charge_status` and `refunds` read.
     async fn status(&self, order: &str) -> Result<(crate::wire::StatusResponse, Raw), Error> {
         let token = self
@@ -486,6 +512,64 @@ impl Provider for PayTr {
             PAYTR,
             "PayTR holds no authorisation to release; giving the money back is PayTr::refund",
         ))
+    }
+
+    /// Gives money back off a payment, named by its order reference.
+    ///
+    /// [`RefundRequest::amount`] of `None` reads the payment back first —
+    /// PayTR takes the amount to return and has no whole-payment shorthand —
+    /// and refunds `payment_total`, which is what the payer was actually
+    /// charged rather than what the basket came to. That is one extra request
+    /// before the money moves, and it is the honest way to refund "all of it".
+    ///
+    /// # The id is derived, not PayTR's
+    ///
+    /// PayTR answers a refund with `status: success` and nothing else — no
+    /// id, no reference, not even the amount. [`Refund::id`] is therefore
+    /// `{merchant_oid}:{amount}` and it is **a guess**: two refunds of the
+    /// same amount against one payment produce the same id, and PayTR allows
+    /// exactly that. A caller writing it into a unique index will reject the
+    /// second one.
+    ///
+    /// [`PayTr::refunds`] is the way out: it reads every refund PayTR has
+    /// recorded against a payment, each with its own `return_ref_num`, and
+    /// that reference is unique where this id is not.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PAYTR,
+                "PayTR documents no idempotency mechanism for a refund",
+            ));
+        }
+        let order = OrderRef::new(request.payment.as_str());
+        let amount = match request.amount {
+            Some(amount) => {
+                amount.require_positive().map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidRequest,
+                        PAYTR,
+                        "a refund takes an amount above zero, or None for the lot",
+                    )
+                    .with_source(e)
+                })?;
+                amount
+            }
+            None => self.charged_total(request.payment.as_str()).await?,
+        };
+        let raw = PayTr::refund(self, &order, amount).await?;
+        Ok(Refund {
+            id: RefundId::new(format!("{}:{}", order, amount.to_decimal_string())),
+            payment: request.payment.clone(),
+            amount,
+            // PayTR accepts the refund here and settles it later; the status
+            // query is where a settled one shows up, with its reference.
+            status: RefundStatus::Pending,
+            next_action: None,
+            reference: None,
+            provider: PAYTR,
+            raw,
+        })
     }
 
     /// No separate capture; refunds are partial and may be repeated.
