@@ -1,2 +1,4 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+# ".." keeps clippy's own defaults; OpenAPI is not code and does not want backticks.
+doc-valid-idents = ["..", "OpenAPI"]

@@ -251,7 +251,6 @@ fn http_error(status: reqwest::StatusCode, body: &[u8]) -> Error {
         404 => ErrorKind::NotFound,
         429 => ErrorKind::RateLimited,
         400 | 422 => ErrorKind::InvalidRequest,
-        500..=599 => ErrorKind::Provider,
         _ => ErrorKind::Provider,
     };
     let message = parsed
