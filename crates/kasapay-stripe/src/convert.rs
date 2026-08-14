@@ -75,16 +75,48 @@ pub(crate) fn status(status: &stripe_shared::PaymentIntentStatus) -> Status {
 
 /// Maps a Stripe client failure onto kasapay's error.
 ///
-/// The HTTP status is the whole signal: Stripe answers 402 for a card the
-/// network refused and 400 for a request it would not have sent on.
+/// Stripe says what kind of failure it was in the body, so the body is read
+/// rather than the HTTP status guessed from — and the message a caller sees is
+/// Stripe's own sentence rather than a Debug dump of their error struct, which
+/// is what `StripeError`'s own `Display` produces.
 pub(crate) fn error(error: &stripe::StripeError) -> Error {
-    let kind = match error {
-        stripe::StripeError::Stripe(_, code) => kind_for_status(*code),
-        stripe::StripeError::JSONDeserialize(_) => ErrorKind::Malformed,
-        stripe::StripeError::ClientError(_) | stripe::StripeError::Timeout => ErrorKind::Transport,
-        stripe::StripeError::ConfigError(_) => ErrorKind::InvalidRequest,
+    let stripe::StripeError::Stripe(api, status) = error else {
+        let kind = match error {
+            stripe::StripeError::JSONDeserialize(_) => ErrorKind::Malformed,
+            stripe::StripeError::ClientError(_) | stripe::StripeError::Timeout => {
+                ErrorKind::Transport
+            }
+            stripe::StripeError::ConfigError(_) => ErrorKind::InvalidRequest,
+            stripe::StripeError::Stripe(..) => unreachable!("matched by the let-else"),
+        };
+        return Error::new(kind, PROVIDER, error.to_string());
     };
-    Error::new(kind, PROVIDER, error.to_string())
+
+    let kind = match &api.type_ {
+        stripe_shared::ApiErrorsType::CardError => ErrorKind::Declined,
+        stripe_shared::ApiErrorsType::ApiError => ErrorKind::Provider,
+        // An invalid request, a reused idempotency key with different
+        // parameters, or a type this build has not met: the status says as
+        // much as anything else does.
+        _ => kind_for_status(*status),
+    };
+
+    let message = api
+        .message
+        .clone()
+        .unwrap_or_else(|| format!("Stripe answered {status} with no message"));
+    let error = Error::new(kind, PROVIDER, message);
+
+    // `decline_code` is the specific reason — `insufficient_funds` — and
+    // `code` the general one — `card_declined`. A shop shows the first.
+    match api
+        .decline_code
+        .as_deref()
+        .or_else(|| api.code.as_ref().map(stripe_shared::ApiErrorsCode::as_str))
+    {
+        Some(code) => error.with_code(code),
+        None => error,
+    }
 }
 
 /// Maps the HTTP status of a Stripe error response onto a kind.
@@ -109,6 +141,14 @@ mod tests {
         assert!(!ErrorKind::Declined.is_retryable());
         assert_eq!(super::kind_for_status(400), ErrorKind::InvalidRequest);
         assert_eq!(super::kind_for_status(401), ErrorKind::Auth);
+    }
+
+    #[test]
+    fn an_authentication_failure_is_not_a_bad_request() {
+        // 401 and 403 both mean the key, not the request.
+        assert_eq!(super::kind_for_status(401), ErrorKind::Auth);
+        assert_eq!(super::kind_for_status(403), ErrorKind::Auth);
+        assert!(!ErrorKind::Auth.is_retryable());
     }
 
     #[test]
