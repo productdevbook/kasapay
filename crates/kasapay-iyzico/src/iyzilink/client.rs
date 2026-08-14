@@ -151,7 +151,7 @@ impl Client {
     /// than sent: iyzico answers a page out of range with an error code and
     /// nothing a caller can act on.
     pub async fn list(&self, page: u32, count: u32) -> Result<LinkPage, Error> {
-        if page < 1 || count < 1 || count > MAX_COUNT {
+        if page < 1 || !(1..=MAX_COUNT).contains(&count) {
             return Err(Error::new(
                 ErrorKind::InvalidRequest,
                 PROVIDER,
@@ -309,7 +309,7 @@ pub struct LinkDetails {
 impl LinkDetails {
     /// Reads one link out of the bytes iyzico sent for it.
     fn read(value: &RawValue) -> Result<Self, Error> {
-        let product: wire::Product = serde_json::from_str(value.get()).map_err(|e| {
+        let item: wire::Item = serde_json::from_str(value.get()).map_err(|e| {
             Error::new(
                 ErrorKind::Malformed,
                 PROVIDER,
@@ -318,7 +318,7 @@ impl LinkDetails {
             .with_source(e)
         })?;
 
-        let price = match (product.price.as_deref(), product.currency_code.as_deref()) {
+        let price = match (item.price.as_deref(), item.currency_code.as_deref()) {
             (Some(price), Some(code)) => match code.parse::<Currency>() {
                 Ok(currency) => Some(
                     Money::parse(wire::decimal(price), currency)
@@ -333,29 +333,29 @@ impl LinkDetails {
         };
 
         Ok(Self {
-            token: product.token.unwrap_or_default().into_boxed_str(),
-            name: product.name.map(String::into_boxed_str),
-            description: product.description.map(String::into_boxed_str),
-            conversation_id: product.conversation_id.map(String::into_boxed_str),
+            token: item.token.unwrap_or_default().into_boxed_str(),
+            name: item.name.map(String::into_boxed_str),
+            description: item.description.map(String::into_boxed_str),
+            conversation_id: item.conversation_id.map(String::into_boxed_str),
             price,
-            url: product.url.as_deref().map(parse_url).transpose()?,
-            image_url: product.image_url.map(String::into_boxed_str),
-            kind: product.product_type.as_deref().map(LinkKind::from),
-            status: product.product_status.as_deref().map(LinkStatus::from),
-            merchant_id: product.merchant_id,
-            address_ignorable: product.address_ignorable,
-            sold_count: product.sold_count,
-            instalments: product.installment_requested,
-            stock_enabled: product.stock_enabled,
-            stock_count: product.stock_count,
-            flexible_price: product.flexible_link,
-            preset_prices: product
+            url: item.url.as_deref().map(parse_url).transpose()?,
+            image_url: item.image_url.map(String::into_boxed_str),
+            kind: item.product_type.as_deref().map(LinkKind::from),
+            status: item.product_status.as_deref().map(LinkStatus::from),
+            merchant_id: item.merchant_id,
+            address_ignorable: item.address_ignorable,
+            sold_count: item.sold_count,
+            instalments: item.installment_requested,
+            stock_enabled: item.stock_enabled,
+            stock_count: item.stock_count,
+            flexible_price: item.flexible_link,
+            preset_prices: item
                 .preset_price_values
                 .unwrap_or_default()
                 .iter()
                 .map(|value| wire::decimal(value).into())
                 .collect(),
-            category: product.category_type.as_deref().map(Category::from),
+            category: item.category_type.as_deref().map(Category::from),
             raw: Raw::from_text(value.get()),
         })
     }

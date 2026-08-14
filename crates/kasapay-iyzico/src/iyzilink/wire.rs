@@ -150,7 +150,7 @@ pub(crate) struct ListData {
 
 /// One link, as a detail query and a listing both describe it.
 #[derive(Debug, Deserialize)]
-pub(crate) struct Product {
+pub(crate) struct Item {
     pub(crate) token: Option<String>,
     pub(crate) name: Option<String>,
     pub(crate) description: Option<String>,
