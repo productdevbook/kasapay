@@ -295,3 +295,80 @@ fn a_payment_needs_an_email_a_payer_ip_and_a_basket() {
         payment::PaymentError::NoPayerIp
     );
 }
+
+/// Every one of these is a code and a message from PayTR's own error list.
+#[tokio::test]
+async fn a_refund_paytr_says_to_retry_is_retryable() {
+    for (code, reason) in [
+        ("000", "iade yapilamiyor, daha sonra tekrar deneyin"),
+        ("010", "Net bakiyeniz yetersiz"),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/odeme/iade"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "status": "failed",
+                "err_no": code,
+                "reason": reason,
+            })))
+            .mount(&server)
+            .await;
+
+        let error = client(&server)
+            .refund(
+                &OrderRef::new("ord-1"),
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+            )
+            .await
+            .expect_err("a refused refund is not a refund");
+        assert_eq!(error.code(), Some(code));
+        assert!(error.is_retryable(), "{code} says to try again later");
+    }
+}
+
+#[tokio::test]
+async fn a_refund_paytr_will_never_accept_is_not_retryable() {
+    for (code, reason, kind) in [
+        (
+            "009",
+            "Toplam iade tutari odeme tutarindan fazla olamaz",
+            ErrorKind::InvalidRequest,
+        ),
+        (
+            "011",
+            "Bir yildan eski islemler icin iade islemi yapilamaz.",
+            ErrorKind::InvalidRequest,
+        ),
+        (
+            "008",
+            "XYZ odeme tipi iade desteklemiyor",
+            ErrorKind::Unsupported,
+        ),
+        (
+            "005",
+            "merchant_oid ile basarili odeme bulunamadi",
+            ErrorKind::NotFound,
+        ),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/odeme/iade"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "status": "failed",
+                "err_no": code,
+                "reason": reason,
+            })))
+            .mount(&server)
+            .await;
+
+        let error = client(&server)
+            .refund(
+                &OrderRef::new("ord-1"),
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+            )
+            .await
+            .expect_err("a refused refund is not a refund");
+        assert_eq!(error.kind(), kind, "code {code}");
+        assert!(!error.is_retryable(), "{code} will never be accepted");
+    }
+}

@@ -264,7 +264,7 @@ impl PayTr {
             .await?;
         if response.status.as_deref() != Some("success") {
             let error = Error::new(
-                ErrorKind::InvalidRequest,
+                refund_error_kind(response.err_no.as_deref()),
                 PAYTR,
                 response
                     .reason
@@ -353,6 +353,7 @@ impl PayTr {
             return Err(Error::new(
                 match status.as_u16() {
                     401 | 403 => ErrorKind::Auth,
+                    404 => ErrorKind::NotFound,
                     429 => ErrorKind::RateLimited,
                     500..=599 => ErrorKind::Provider,
                     _ => ErrorKind::InvalidRequest,
@@ -501,6 +502,32 @@ fn parse_currency(value: &str) -> Result<Currency, Error> {
             PAYTR,
             format!("kasapay has no Currency for PayTR's {other}"),
         )),
+    }
+}
+
+/// What a refund's error number means, from PayTR's own list.
+///
+/// Two of these say "try again later" in so many words, and reporting them as
+/// a flat rejection is how a caller's retry loop gives up on a refund that
+/// would have gone through.
+///
+/// <https://dev.paytr.com/hata-kodlari>
+fn refund_error_kind(code: Option<&str>) -> ErrorKind {
+    match code {
+        // "iade yapilamiyor, daha sonra tekrar deneyin" — the refund service
+        // is locked while a payout runs — and "Net bakiyeniz yetersiz", where
+        // the balance may be there tomorrow.
+        Some("000" | "010") => ErrorKind::Provider,
+        // "paytr_token gonderilmedi veya gecersiz"
+        Some("004") => ErrorKind::Auth,
+        // "merchant_oid ile basarili odeme bulunamadi", and the payment that
+        // exists but has not been reported yet.
+        Some("005" | "007") => ErrorKind::NotFound,
+        // "XYZ odeme tipi iade desteklemiyor"
+        Some("008") => ErrorKind::Unsupported,
+        // Everything else is a request PayTR will never accept: a bad amount,
+        // more than was taken, or a payment over a year old.
+        _ => ErrorKind::InvalidRequest,
     }
 }
 
