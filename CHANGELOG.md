@@ -5,10 +5,14 @@ order releases happen, newest first.
 
 ## Unreleased
 
-Three changes break code written against 0.0.1. All are cheap to follow and
+These changes break code written against 0.0.1. All are cheap to follow and
 all are the kind 0.0.x exists to make.
 
 ### Breaking
+
+- **`classic::Client::refund`, `refund_transaction` and `cancel` take a
+  `reason`.** `Option<&classic::Reason>`, and `None` sends what they sent
+  before — every existing call keeps its meaning by gaining one argument.
 
 - **`Provider` gains `capture`, `cancel` and `capabilities`, none with a
   default.** A provider outside this workspace has to answer all three. No
@@ -50,6 +54,15 @@ all are the kind 0.0.x exists to make.
 
 - Two examples under `crates/kasapay/examples/`, built by CI so they cannot
   drift from the API.
+- **A reason on an iyzico refund and cancel.** `classic::ReasonCode` is the
+  four iyzico documents — `Other`, `Fraud`, `BuyerRequest`, `DoublePayment` —
+  and `classic::Reason` pairs one with the optional free text beside it.
+  iyzico only accepts a description alongside a reason, so the description
+  hangs off the reason rather than sitting in a second `Option` a caller could
+  fill on its own. `Fraud` and `DoublePayment` are what a shop tells its
+  acquirer, and they land in chargeback and reconciliation reporting.
+- `classic::Reversal` is exported. It is what all three of those answer, and
+  it was a public type in a private module that no caller could name.
 - `classic::Client` implements `Provider` for reading: `charge_status` takes
   the checkout form's token. `charge` answers `Unsupported` and names
   `start_checkout_form`, because the form needs more than `ChargeRequest`

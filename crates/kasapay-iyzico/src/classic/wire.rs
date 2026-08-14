@@ -224,6 +224,10 @@ pub(crate) struct RefundRequest<'a> {
     pub(crate) payment_id: &'a str,
     pub(crate) price: String,
     pub(crate) currency: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reason: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) description: Option<&'a str>,
 }
 
 /// `POST /payment/refund` — an amount off one line of a payment.
@@ -236,6 +240,10 @@ pub(crate) struct RefundTransactionRequest<'a> {
     pub(crate) payment_transaction_id: &'a str,
     pub(crate) price: String,
     pub(crate) currency: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reason: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) description: Option<&'a str>,
 }
 
 /// `POST /payment/cancel`.
@@ -246,6 +254,10 @@ pub(crate) struct CancelRequest<'a> {
     pub(crate) conversation_id: &'a str,
     #[serde(rename = "paymentId")]
     pub(crate) payment_id: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reason: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) description: Option<&'a str>,
 }
 
 /// The answer to either refund, and to a cancel.

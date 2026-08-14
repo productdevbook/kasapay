@@ -332,13 +332,27 @@ impl Client {
     /// refund may be made in succession"*. That is what
     /// [`Capabilities::repeated_refund`](kasapay_core::Capabilities::repeated_refund)
     /// reports for this provider.
-    pub async fn refund(&self, payment: &PaymentId, amount: Money) -> Result<Reversal, Error> {
+    ///
+    /// # The reason
+    ///
+    /// [`Reason`] is what iyzico is told the money went back for, and `None`
+    /// sends neither field. It is worth sending: `Fraud` and `DoublePayment`
+    /// are what a shop tells its acquirer, and they end up in chargeback and
+    /// reconciliation reporting where `Other` says nothing.
+    pub async fn refund(
+        &self,
+        payment: &PaymentId,
+        amount: Money,
+        reason: Option<&Reason>,
+    ) -> Result<Reversal, Error> {
         let body = wire::RefundRequest {
             locale: "tr",
             conversation_id: payment.as_str(),
             payment_id: payment.as_str(),
             price: amount.to_decimal_string(),
             currency: amount.currency().code(),
+            reason: reason.map(|reason| reason.code().as_str()),
+            description: reason.and_then(Reason::description),
         };
         let (response, raw) = self
             .post::<_, wire::ReversalResponse>("/v2/payment/refund", &body)
@@ -354,10 +368,13 @@ impl Client {
     /// This is the one to use for a basket with more than one line — see
     /// [`Client::refund`] for why. The amount must not exceed that line's own
     /// price, rather than the payment's.
+    ///
+    /// `reason` is the same as on [`Client::refund`].
     pub async fn refund_transaction(
         &self,
         transaction: &str,
         amount: Money,
+        reason: Option<&Reason>,
     ) -> Result<Reversal, Error> {
         let body = wire::RefundTransactionRequest {
             locale: "tr",
@@ -365,6 +382,8 @@ impl Client {
             payment_transaction_id: transaction,
             price: amount.to_decimal_string(),
             currency: amount.currency().code(),
+            reason: reason.map(|reason| reason.code().as_str()),
+            description: reason.and_then(Reason::description),
         };
         let (response, raw) = self
             .post::<_, wire::ReversalResponse>("/payment/refund", &body)
@@ -384,11 +403,19 @@ impl Client {
     /// payment was voided when it was not. Read
     /// [`Client::charge_status`](Client::checkout_result) afterwards if that
     /// matters to the caller's ledger.
-    pub async fn cancel(&self, payment: &PaymentId) -> Result<Reversal, Error> {
+    ///
+    /// `reason` is the same as on [`Client::refund`].
+    pub async fn cancel(
+        &self,
+        payment: &PaymentId,
+        reason: Option<&Reason>,
+    ) -> Result<Reversal, Error> {
         let body = wire::CancelRequest {
             locale: "tr",
             conversation_id: payment.as_str(),
             payment_id: payment.as_str(),
+            reason: reason.map(|reason| reason.code().as_str()),
+            description: reason.and_then(Reason::description),
         };
         let (response, raw) = self
             .post::<_, wire::ReversalResponse>("/payment/cancel", &body)
@@ -719,6 +746,102 @@ fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Res
         provider: PROVIDER,
         raw,
     })
+}
+
+/// Why money went back, and optionally what to say about it.
+///
+/// iyzico takes a `reason` and a free-text `description` on both refunds and a
+/// cancel, with one rule that is easy to get wrong: **a description is only
+/// accepted alongside a reason.** So the two are one value rather than two
+/// options — a description can only be written onto a `Reason` that already
+/// carries a code, and `None` sends neither field.
+///
+/// ```
+/// use kasapay_iyzico::classic::{Reason, ReasonCode};
+///
+/// let plain = Reason::new(ReasonCode::Fraud);
+/// let noted = Reason::new(ReasonCode::BuyerRequest).describe("returned unopened");
+///
+/// assert_eq!(plain.description(), None);
+/// assert_eq!(noted.description(), Some("returned unopened"));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reason {
+    code: ReasonCode,
+    description: Option<Box<str>>,
+}
+
+impl Reason {
+    /// A reason on its own, with nothing said beside it.
+    #[must_use]
+    pub const fn new(code: ReasonCode) -> Self {
+        Self {
+            code,
+            description: None,
+        }
+    }
+
+    /// Adds the free text iyzico keeps beside the reason.
+    #[must_use]
+    pub fn describe(mut self, description: impl Into<Box<str>>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// What iyzico is told this was.
+    #[must_use]
+    pub const fn code(&self) -> ReasonCode {
+        self.code
+    }
+
+    /// The free text, if there is any.
+    #[must_use]
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+}
+
+impl From<ReasonCode> for Reason {
+    fn from(code: ReasonCode) -> Self {
+        Self::new(code)
+    }
+}
+
+/// The four reasons iyzico documents for a refund or a cancel.
+///
+/// Not a label for the shop's own use: this is what a merchant tells their
+/// acquirer about why money went back, and it lands in chargeback and
+/// reconciliation reporting. A fraudulent order refunded as
+/// [`ReasonCode::Other`] has told iyzico nothing, and cannot tell it later.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReasonCode {
+    /// None of the other three.
+    Other,
+    /// The payment was not the cardholder's.
+    Fraud,
+    /// The buyer asked for their money back.
+    BuyerRequest,
+    /// The same money was taken twice.
+    DoublePayment,
+}
+
+impl ReasonCode {
+    /// The word iyzico expects on the wire.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Other => "OTHER",
+            Self::Fraud => "FRAUD",
+            Self::BuyerRequest => "BUYER_REQUEST",
+            Self::DoublePayment => "DOUBLE_PAYMENT",
+        }
+    }
+}
+
+impl fmt::Display for ReasonCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 /// Money taken back off a payment, by a refund or a cancel.

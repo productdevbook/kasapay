@@ -9,7 +9,9 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
 use kasapay_iyzico::Credentials;
-use kasapay_iyzico::classic::{Association, CardType, Client, Config, checkout};
+use kasapay_iyzico::classic::{
+    Association, CardType, Client, Config, Reason, ReasonCode, checkout,
+};
 use serde_json::json;
 use wiremock::matchers::{body_json, header, header_exists, method, path};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -609,6 +611,7 @@ async fn a_refund_takes_an_amount_back_and_is_verified() {
         .refund(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
+            None,
         )
         .await
         .expect("the refund goes through");
@@ -639,6 +642,7 @@ async fn a_forged_refund_is_refused() {
         .refund(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
+            None,
         )
         .await
         .expect_err("a tampered refund must not be believed");
@@ -663,6 +667,7 @@ async fn iyzicos_own_retryable_flag_decides_whether_a_failure_is_worth_repeating
         .refund(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
+            None,
         )
         .await
         .expect_err("a failure status is not a refund");
@@ -689,6 +694,7 @@ async fn a_refund_iyzico_will_never_accept_is_not_retryable() {
         .refund(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
+            None,
         )
         .await
         .expect_err("refunding more than was taken is not a refund");
@@ -718,7 +724,7 @@ async fn a_cancel_is_accepted_unsigned_because_iyzico_does_not_sign_it() {
     // The default client requires a signature everywhere else; cancel is the
     // one operation iyzico documents no signature for.
     let reversal = client(&server)
-        .cancel(&PaymentId::new("12345678"))
+        .cancel(&PaymentId::new("12345678"), None)
         .await
         .expect("the cancel goes through");
     assert_eq!(reversal.amount.minor_units(), 14_990);
@@ -749,10 +755,123 @@ async fn refunding_one_line_of_a_basket_names_the_transaction_not_the_payment() 
         .refund_transaction(
             "txn-9",
             Money::parse("20.00", Currency::Try).expect("valid"),
+            None,
         )
         .await
         .expect_err("no such transaction");
     assert_eq!(error.code(), Some("5092"));
+}
+
+#[tokio::test]
+async fn a_reason_and_its_description_both_go_out_on_a_refund() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payment/refund"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "12345678",
+            "paymentId": "12345678",
+            "price": "50.00",
+            "currency": "TRY",
+            "reason": "BUYER_REQUEST",
+            "description": "returned unopened",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "conversationId": "12345678",
+            "price": "50",
+            "currency": "TRY",
+            "signature": "57967ab442a60d7d8e44162f5f9807680a9eaa94d41421f5b0b52b9a4a0609a8",
+        })))
+        .mount(&server)
+        .await;
+
+    let reason = Reason::new(ReasonCode::BuyerRequest).describe("returned unopened");
+    let reversal = client(&server)
+        .refund(
+            &PaymentId::new("12345678"),
+            Money::parse("50.00", Currency::Try).expect("valid amount"),
+            Some(&reason),
+        )
+        .await
+        .expect("the refund goes through");
+
+    assert_eq!(reversal.amount.minor_units(), 5000);
+}
+
+#[tokio::test]
+async fn a_reason_without_a_description_sends_no_description_field() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/cancel"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "12345678",
+            "paymentId": "12345678",
+            "reason": "FRAUD",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "price": "149.90",
+            "currency": "TRY",
+        })))
+        .mount(&server)
+        .await;
+
+    let reversal = client(&server)
+        .cancel(
+            &PaymentId::new("12345678"),
+            Some(&Reason::new(ReasonCode::Fraud)),
+        )
+        .await
+        .expect("the cancel goes through");
+    assert_eq!(reversal.amount.minor_units(), 14_990);
+}
+
+#[tokio::test]
+async fn refunding_one_line_carries_the_reason_too() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/refund"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "txn-9",
+            "paymentTransactionId": "txn-9",
+            "price": "20.00",
+            "currency": "TRY",
+            "reason": "DOUBLE_PAYMENT",
+            "description": "charged twice by the till",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failure",
+            "errorCode": "5092",
+            "errorMessage": "Islem bulunamadi",
+            "retryable": false,
+        })))
+        .mount(&server)
+        .await;
+
+    let reason = Reason::new(ReasonCode::DoublePayment).describe("charged twice by the till");
+    let error = client(&server)
+        .refund_transaction(
+            "txn-9",
+            Money::parse("20.00", Currency::Try).expect("valid"),
+            Some(&reason),
+        )
+        .await
+        .expect_err("no such transaction");
+    assert_eq!(error.code(), Some("5092"));
+}
+
+#[test]
+fn every_reason_renders_the_word_iyzico_documents() {
+    assert_eq!(ReasonCode::Other.to_string(), "OTHER");
+    assert_eq!(ReasonCode::Fraud.to_string(), "FRAUD");
+    assert_eq!(ReasonCode::BuyerRequest.to_string(), "BUYER_REQUEST");
+    assert_eq!(ReasonCode::DoublePayment.to_string(), "DOUBLE_PAYMENT");
+    assert_eq!(Reason::from(ReasonCode::Other).code(), ReasonCode::Other);
 }
 
 #[tokio::test]

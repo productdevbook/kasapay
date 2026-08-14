@@ -20,6 +20,9 @@
 //!   refund comes off is then their choice rather than the shop's
 //! - [`Client::cancel`] — void a payment before it settles
 //!
+//! All three of those take an optional [`Reason`], which is what iyzico is
+//! told the money went back for.
+//!
 //! [`Client`] implements [`Provider`](kasapay_core::Provider), but only half
 //! of it: `charge_status` reads a payment back, and `charge` answers
 //! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) because
@@ -61,4 +64,6 @@ pub mod signature;
 mod wire;
 
 #[doc(inline)]
-pub use crate::classic::client::{Association, BinDetails, CardType, Client, Config, StoredCard};
+pub use crate::classic::client::{
+    Association, BinDetails, CardType, Client, Config, Reason, ReasonCode, Reversal, StoredCard,
+};
