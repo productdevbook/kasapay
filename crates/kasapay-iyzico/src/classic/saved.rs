@@ -157,7 +157,7 @@ fn is_card_number(value: &str) -> bool {
             }
         })
         .sum();
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 /// A payment to take against a card iyzico already holds.
