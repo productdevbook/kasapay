@@ -1,6 +1,6 @@
 //! Saved cards against a mock server standing in for Stripe's API.
 //!
-//! The fixtures come from Stripe's own documentation: the PaymentMethod shape
+//! The fixtures come from Stripe's own documentation: the `PaymentMethod` shape
 //! is the example object from `openapi/fixtures3.json` in
 //! `stripe/openapi`, and the `authentication_required` error body is the
 //! literal example on <https://docs.stripe.com/payments/without-card-authentication>.
@@ -26,7 +26,7 @@ fn client(server: &MockServer) -> Stripe {
     Stripe::with_client(stripe)
 }
 
-/// Stripe's own documented example PaymentMethod object, trimmed to what
+/// Stripe's own documented example `PaymentMethod` object, trimmed to what
 /// `stripe_shared::PaymentMethod` requires plus the card fields this crate
 /// reads — from `openapi/fixtures3.json` in `stripe/openapi`.
 fn payment_method(id: &str, brand: &str, last4: &str) -> serde_json::Value {
