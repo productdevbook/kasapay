@@ -105,9 +105,11 @@ all are the kind 0.0.x exists to make.
   covers the path without the query string — undocumented, but what iyzico's
   own PHP and Python SDKs both do.
 
-  A link priced in `RUB`, `CHF` or `NOK` cannot be built: iyzico takes those and
-  `Currency` has no name for them. One read back in them has `price: None` and
-  the amount still in `raw`.
+  A link priced in yen or dinars cannot be built: iyzico documents a link in
+  seven currencies and those two are not among them. `Currency` names all seven
+  as of the entry above, so nothing iyzico does document a link in is refused
+  here any more. One read back in a code `Currency` cannot name has
+  `price: None` and the amount still in `raw`.
 
 - **`kasapay_paytr::payment_id`**, which builds what PayTR reads a payment back
   by out of the order reference it was opened with. It is the one call that
