@@ -4,12 +4,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Charge, ChargeRequest, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider,
-    ProviderId, Raw, Secret,
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
+    Provider, ProviderId, Raw, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_core::payment_intent::{
-    CancelPaymentIntent, CreatePaymentIntent, RetrievePaymentIntent,
+    CancelPaymentIntent, CapturePaymentIntent, CreatePaymentIntent, RetrievePaymentIntent,
 };
 use stripe_core::refund::CreateRefund;
 
@@ -192,6 +192,41 @@ impl Provider for Stripe {
             .map_err(|e| convert::error(&e).with_source(e))?;
         into_charge(&intent)
     }
+
+    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
+        let mut capture = CapturePaymentIntent::new(id.as_str().to_owned());
+        if let Some(amount) = amount {
+            amount.require_positive().map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    convert::PROVIDER,
+                    "a capture takes an amount above zero, or None for the lot",
+                )
+                .with_source(e)
+            })?;
+            capture = capture.amount_to_capture(amount.minor_units());
+        }
+        let intent = capture
+            .customize()
+            .timeout(DEFAULT_TIMEOUT)
+            .send(self.inner.as_ref())
+            .await
+            .map_err(|e| convert::error(&e).with_source(e))?;
+        into_charge(&intent)
+    }
+
+    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
+        Stripe::cancel(self, id).await
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            separate_capture: true,
+            partial_capture: true,
+            partial_refund: true,
+            repeated_refund: true,
+        }
+    }
 }
 
 /// Stripe bounds the key it will accept; a longer one is refused before sending.
@@ -220,8 +255,13 @@ fn metadata(request: &ChargeRequest) -> std::collections::HashMap<String, String
 }
 
 fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
-    let amount = convert::amount(intent.amount, &intent.currency)?;
     let status = convert::status(&intent.status);
+    // A partial capture leaves `amount` at what was authorised and shows up only in `amount_received`.
+    let amount = if status == kasapay_core::Status::Captured && intent.amount_received > 0 {
+        convert::amount(intent.amount_received, &intent.currency)?
+    } else {
+        convert::amount(intent.amount, &intent.currency)?
+    };
     let order = intent
         .metadata
         .get(ORDER_METADATA_KEY)

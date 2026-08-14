@@ -14,8 +14,8 @@
 use std::sync::Mutex;
 
 use kasapay::{
-    Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Status, async_trait,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
+    PaymentId, Provider, ProviderId, Raw, Status, async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -77,6 +77,40 @@ impl Provider for Kumbara {
             provider: Self::ID,
             raw: Raw::default(),
         })
+    }
+
+    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
+        Ok(Charge {
+            id: id.clone(),
+            order: None,
+            amount: amount.unwrap_or_else(|| Money::from_minor_units(1000, Currency::Try)),
+            order_amount: None,
+            status: Status::Captured,
+            next_action: None,
+            provider: Self::ID,
+            raw: Raw::default(),
+        })
+    }
+
+    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
+        Ok(Charge {
+            id: id.clone(),
+            order: None,
+            amount: Money::from_minor_units(1000, Currency::Try),
+            order_amount: None,
+            status: Status::Canceled,
+            next_action: None,
+            provider: Self::ID,
+            raw: Raw::default(),
+        })
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            separate_capture: true,
+            partial_capture: true,
+            ..Capabilities::default()
+        }
     }
 }
 
@@ -143,4 +177,26 @@ async fn a_caller_can_hold_one_behind_the_trait_object() {
         assert_eq!(second.status, Status::Captured);
         assert!(!second.status.is_open());
     }
+}
+
+#[tokio::test]
+async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them() {
+    let kumbara = Kumbara::default();
+    assert!(kumbara.capabilities().separate_capture);
+    assert!(!kumbara.capabilities().partial_refund);
+
+    let id = PaymentId::new("kmb_ord-1");
+    let captured = kumbara
+        .capture(
+            &id,
+            Some(Money::parse("4.00", Currency::Try).expect("valid amount")),
+        )
+        .await
+        .expect("part of the authorisation is taken");
+    assert_eq!(captured.status, Status::Captured);
+    assert_eq!(captured.amount.minor_units(), 400);
+
+    let canceled = kumbara.cancel(&id).await.expect("the hold is released");
+    assert_eq!(canceled.status, Status::Canceled);
+    assert!(!canceled.status.is_open());
 }

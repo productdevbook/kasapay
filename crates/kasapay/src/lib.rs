@@ -41,9 +41,9 @@
 
 #[doc(inline)]
 pub use kasapay_core::{
-    Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, Currency, Error, ErrorKind,
-    IdempotencyKey, Money, MoneyError, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw,
-    Secret, Status, UnknownCurrency, async_trait,
+    Capabilities, Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, Currency, Error,
+    ErrorKind, IdempotencyKey, Money, MoneyError, NextAction, OrderRef, PaymentId, Provider,
+    ProviderId, Raw, Secret, Status, UnknownCurrency, async_trait,
 };
 
 #[cfg(feature = "iyzico")]

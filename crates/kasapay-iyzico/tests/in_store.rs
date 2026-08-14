@@ -394,3 +394,49 @@ async fn a_bank_timeout_is_retryable_and_a_declined_card_is_not() {
         );
     }
 }
+
+#[tokio::test]
+async fn capture_is_refused_rather_than_answered_as_a_no_op() {
+    // No mock is mounted: a request that reached iyzico would fail this.
+    let server = MockServer::start().await;
+
+    let error = client(&server)
+        .capture(&PaymentId::new("1234567890"), None)
+        .await
+        .expect_err("the In-Store API has no capture step");
+
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+#[tokio::test]
+async fn cancel_is_refused_because_there_is_no_authorisation_to_release() {
+    let server = MockServer::start().await;
+
+    let error = client(&server)
+        .cancel(&PaymentId::new("1234567890"))
+        .await
+        .expect_err("the In-Store API holds nothing to release");
+
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+#[tokio::test]
+async fn capabilities_match_what_the_methods_actually_do() {
+    let server = MockServer::start().await;
+    let client = client(&server);
+    let capabilities = client.capabilities();
+
+    assert!(!capabilities.separate_capture);
+    assert!(!capabilities.partial_capture);
+    assert!(capabilities.partial_refund);
+
+    // The capability and the refusal have to agree, or the capability is a lie.
+    assert_eq!(
+        client
+            .capture(&PaymentId::new("1234567890"), None)
+            .await
+            .expect_err("separate_capture is false")
+            .kind(),
+        ErrorKind::Unsupported
+    );
+}

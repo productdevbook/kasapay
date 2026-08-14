@@ -6,8 +6,8 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
-    Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
+    PaymentId, Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -460,6 +460,42 @@ impl Provider for PayTr {
             provider: PAYTR,
             raw,
         })
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: PayTR's form takes the money outright.
+    ///
+    /// A payment PayTR reports on is one the payer finished, and there is no
+    /// authorisation held for a later call to take.
+    /// [`Capabilities::separate_capture`] says so before a caller gets here.
+    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            "PayTR takes the money when the payer finishes the form and \
+             documents no capture step",
+        ))
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: there is no authorisation to release.
+    ///
+    /// Giving the money back is [`PayTr::refund`], which takes an order
+    /// reference and an amount.
+    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            "PayTR holds no authorisation to release; giving the money back is PayTr::refund",
+        ))
+    }
+
+    /// No separate capture; refunds are partial and may be repeated.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            separate_capture: false,
+            partial_capture: false,
+            partial_refund: true,
+            repeated_refund: true,
+        }
     }
 }
 

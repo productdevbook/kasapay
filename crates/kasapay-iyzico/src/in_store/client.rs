@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Secret, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
+    PaymentId, Provider, ProviderId, Raw, Secret, Status,
 };
 use url::Url;
 
@@ -257,7 +257,8 @@ impl Provider for Client {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 PROVIDER,
-                "the In-Store API documents no idempotency mechanism;                  orderId is the closest thing it has and it is not one",
+                "the In-Store API documents no idempotency mechanism; \
+                 orderId is the closest thing it has and it is not one",
             ));
         }
         let callback_url = request.return_url.as_ref().ok_or_else(|| {
@@ -297,6 +298,54 @@ impl Provider for Client {
             .query(&[("paymentId", numeric)]);
         let (response, raw) = self.send::<wire::PaymentQueryResponse>(request).await?;
         query_into_charge(response, raw)
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: the In-Store flow has no capture step.
+    ///
+    /// The payer approves the payment in iyzico's app and the money is taken
+    /// there and then, so a payment this API reports on is either taken or
+    /// never happened; there is nothing held for a later call to take.
+    /// [`Capabilities::separate_capture`] says the same thing before a caller
+    /// gets this far.
+    ///
+    /// Answering `Ok` with the amount unchanged would be the more convenient
+    /// lie: it would put a capture in the caller's ledger at a time when no
+    /// money moved.
+    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the In-Store API takes the money when the payer approves it and \
+             documents no capture step",
+        ))
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: there is no authorisation to release.
+    ///
+    /// Giving back money the payer has already handed over is a refund, and
+    /// that is [`Client::refund`] — which needs a callback address, because
+    /// iyzico makes the payer approve it too.
+    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the In-Store API holds no authorisation to release; \
+             giving the money back is Client::refund",
+        ))
+    }
+
+    /// No separate capture, and refunds only in the ways iyzico documents.
+    ///
+    /// `repeated_refund` is false because the In-Store documentation says
+    /// nothing about refunding a payment twice, and a capability is a promise
+    /// rather than a guess.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            separate_capture: false,
+            partial_capture: false,
+            partial_refund: true,
+            repeated_refund: false,
+        }
     }
 }
 

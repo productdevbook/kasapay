@@ -51,6 +51,14 @@ fn payment_intent(status: &str, client_secret: Option<&str>) -> serde_json::Valu
     })
 }
 
+/// The same intent, having had part of its authorisation taken.
+fn captured_intent(amount_received: i64) -> serde_json::Value {
+    let mut intent = payment_intent("succeeded", None);
+    intent["amount_received"] = amount_received.into();
+    intent["capture_method"] = "manual".into();
+    intent
+}
+
 fn charge_request() -> ChargeRequest {
     ChargeRequest::builder(
         OrderRef::new("ord-1"),
@@ -244,6 +252,63 @@ async fn charge_status_reads_an_intent_back() {
     assert_eq!(charge.amount.minor_units(), 1999);
 }
 
+#[tokio::test]
+async fn capture_without_an_amount_takes_the_lot() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents/pi_kasapay1/capture"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(captured_intent(1999)))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .capture(&PaymentId::new("pi_kasapay1"), None)
+        .await
+        .expect("the authorisation is taken");
+
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.amount.minor_units(), 1999);
+}
+
+#[tokio::test]
+async fn a_partial_capture_reports_what_was_taken_not_what_was_authorised() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents/pi_kasapay1/capture"))
+        .and(body_string_contains("amount_to_capture=1200"))
+        // Stripe leaves `amount` at the authorised 1999 and answers the rest here.
+        .respond_with(ResponseTemplate::new(200).set_body_json(captured_intent(1200)))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .capture(
+            &PaymentId::new("pi_kasapay1"),
+            Some(Money::parse("12.00", Currency::Usd).expect("valid amount")),
+        )
+        .await
+        .expect("part of the authorisation is taken");
+
+    assert_eq!(charge.amount.minor_units(), 1200);
+    assert_eq!(charge.status, Status::Captured);
+}
+
+#[tokio::test]
+async fn a_capture_of_nothing_is_refused_before_a_socket_opens() {
+    // No mock is mounted: a request that reached the network would fail this.
+    let server = MockServer::start().await;
+
+    let error = client(&server)
+        .capture(
+            &PaymentId::new("pi_kasapay1"),
+            Some(Money::from_minor_units(0, Currency::Usd)),
+        )
+        .await
+        .expect_err("zero is not an amount to capture");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
 fn refund_body(amount: i64, status: &str) -> serde_json::Value {
     json!({
         "id": "re_kasapay1",
@@ -381,4 +446,14 @@ async fn cancelling_a_captured_payment_is_refused() {
         .await
         .expect_err("captured money is refunded, not cancelled");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+#[tokio::test]
+async fn capabilities_say_stripe_separates_authorisation_from_capture() {
+    let server = MockServer::start().await;
+    let capabilities = client(&server).capabilities();
+    assert!(capabilities.separate_capture);
+    assert!(capabilities.partial_capture);
+    assert!(capabilities.partial_refund);
+    assert!(capabilities.repeated_refund);
 }

@@ -12,6 +12,14 @@
 //! browser; iyzico answers a deep link into its own app. Both are the same
 //! shape here, and neither is a success yet.
 //!
+//! # Authorising and capturing
+//!
+//! [`Provider::capture`] takes funds an authorisation is only holding, and
+//! [`Provider::cancel`] releases one that will never be taken. Not every
+//! provider separates the two — iyzico's In-Store flow takes the money at
+//! authorisation — so [`Provider::capabilities`] says which, and it says so
+//! before there is a payment to ask about.
+//!
 //! # Amounts
 //!
 //! [`Money`] counts minor units. There is no `f64` anywhere in this crate,
@@ -38,7 +46,7 @@ pub use crate::error::{Error, ErrorKind};
 #[doc(inline)]
 pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 #[doc(inline)]
-pub use crate::provider::{Provider, ProviderId, async_trait};
+pub use crate::provider::{Capabilities, Provider, ProviderId, async_trait};
 #[doc(inline)]
 pub use crate::raw::Raw;
 #[doc(inline)]
