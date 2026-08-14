@@ -1,4 +1,4 @@
-//! The In-Store API client and its [`Provider`] implementation.
+//! The In-Store client and its [`Provider`] implementation.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -9,7 +9,7 @@ use kasapay_core::{
 };
 use url::Url;
 
-use crate::wire;
+use crate::in_store::wire;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
 
@@ -86,7 +86,7 @@ impl Config {
 ///
 /// Cloning shares one connection pool.
 #[derive(Debug, Clone)]
-pub struct Iyzico {
+pub struct Client {
     inner: Arc<Inner>,
 }
 
@@ -96,7 +96,7 @@ struct Inner {
     config: Config,
 }
 
-impl Iyzico {
+impl Client {
     /// Builds a client with its own HTTP connection pool.
     pub fn new(config: Config) -> Result<Self, reqwest::Error> {
         let http = reqwest::Client::builder().timeout(config.timeout).build()?;
@@ -230,7 +230,7 @@ impl Iyzico {
 }
 
 #[async_trait::async_trait]
-impl Provider for Iyzico {
+impl Provider for Client {
     fn id(&self) -> ProviderId {
         PROVIDER
     }

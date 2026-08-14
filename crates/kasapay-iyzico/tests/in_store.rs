@@ -10,21 +10,21 @@ use kasapay_core::{
     Charge, ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId,
     Provider, Status,
 };
-use kasapay_iyzico::{Config, Iyzico};
+use kasapay_iyzico::in_store::{Client, Config};
 use serde_json::json;
 use wiremock::matchers::{body_json, header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn client(server: &MockServer) -> Iyzico {
+fn client(server: &MockServer) -> Client {
     configured(server, Config::DEFAULT_TIMEOUT)
 }
 
-fn configured(server: &MockServer, timeout: Duration) -> Iyzico {
+fn configured(server: &MockServer, timeout: Duration) -> Client {
     let base = format!("{}/v3/in-store/", server.uri());
     let config = Config::new(&base, "api-key", "secret-key", "merchant-id")
         .expect("valid base")
         .timeout(timeout);
-    Iyzico::new(config).expect("client builds")
+    Client::new(config).expect("client builds")
 }
 
 fn charge_request() -> ChargeRequest {
