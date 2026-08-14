@@ -841,37 +841,6 @@ fn http_error(status: reqwest::StatusCode, body: &str) -> Error {
     Error::new(kind, PROVIDER, format!("HTTP {status}: {body}"))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{Association, CardType, random_key};
-
-    #[test]
-    fn card_types_iyzico_documents_are_named_and_the_rest_are_kept() {
-        assert_eq!(CardType::from("CREDIT_CARD"), CardType::Credit);
-        assert_eq!(CardType::from("DEBIT_CARD"), CardType::Debit);
-        assert_eq!(CardType::from("PREPAID_CARD"), CardType::Prepaid);
-        let unknown = CardType::from("VIRTUAL_CARD");
-        assert_eq!(unknown, CardType::Other("VIRTUAL_CARD".into()));
-        assert_eq!(unknown.to_string(), "VIRTUAL_CARD");
-    }
-
-    #[test]
-    fn every_named_card_type_renders_back_to_what_iyzico_sent() {
-        for name in ["CREDIT_CARD", "DEBIT_CARD", "PREPAID_CARD"] {
-            assert_eq!(CardType::from(name).to_string(), name);
-        }
-        for name in ["VISA", "MASTER_CARD", "AMERICAN_EXPRESS", "TROY"] {
-            assert_eq!(Association::from(name).to_string(), name);
-        }
-    }
-
-    #[test]
-    fn two_random_keys_in_a_row_differ() {
-        // Two requests in the same nanosecond must not share a key.
-        assert_ne!(random_key(), random_key());
-    }
-}
-
 /// The classic API answers for a payment that already exists, and refuses to
 /// start one.
 ///
@@ -904,5 +873,36 @@ impl Provider for Client {
     /// `id` for exactly this call.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         self.checkout_result(id.as_str()).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Association, CardType, random_key};
+
+    #[test]
+    fn card_types_iyzico_documents_are_named_and_the_rest_are_kept() {
+        assert_eq!(CardType::from("CREDIT_CARD"), CardType::Credit);
+        assert_eq!(CardType::from("DEBIT_CARD"), CardType::Debit);
+        assert_eq!(CardType::from("PREPAID_CARD"), CardType::Prepaid);
+        let unknown = CardType::from("VIRTUAL_CARD");
+        assert_eq!(unknown, CardType::Other("VIRTUAL_CARD".into()));
+        assert_eq!(unknown.to_string(), "VIRTUAL_CARD");
+    }
+
+    #[test]
+    fn every_named_card_type_renders_back_to_what_iyzico_sent() {
+        for name in ["CREDIT_CARD", "DEBIT_CARD", "PREPAID_CARD"] {
+            assert_eq!(CardType::from(name).to_string(), name);
+        }
+        for name in ["VISA", "MASTER_CARD", "AMERICAN_EXPRESS", "TROY"] {
+            assert_eq!(Association::from(name).to_string(), name);
+        }
+    }
+
+    #[test]
+    fn two_random_keys_in_a_row_differ() {
+        // Two requests in the same nanosecond must not share a key.
+        assert_ne!(random_key(), random_key());
     }
 }
