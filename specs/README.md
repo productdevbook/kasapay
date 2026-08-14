@@ -102,6 +102,29 @@ The scheme itself — how the signature is computed — lives on
 which carries no fragment and so is not in `specs/` at all.
 `kasapay-iyzico` implements it in `signing.rs`.
 
+### The fragments are not the whole documentation
+
+Everything under `specs/iyzico/` comes from the OpenAPI fragments embedded in
+iyzico's pages. Those pages also carry prose, worked examples and links to
+iyzico's own SDKs, and **none of that is here**. So a field iyzico documents
+only in a sentence, or only by sending it in their PHP SDK, is missing from
+these files and its absence means nothing.
+
+The case that proved it, from #97: the checkout form's `CFInitializeRequest`
+carries no `cardUserKey` and no `registerCard`. Reading only this directory,
+the conclusion is that iyzico offers no way to fill their card vault without
+handling a card number — which is wrong, and would have cost the crate its
+whole saved-card story. iyzico's SDKs send `cardUserKey` on that call, the
+`checkoutFormContent` it answers sets `registerCardEnabled`, and the form's
+result reads `cardToken` and `cardUserKey` back. `PaymentCardSaved` in
+`specs/iyzico/payment/` documents the pair; nothing documents where it comes
+from.
+
+So: **`specs/` is evidence that iyzico said something, never evidence that they
+did not.** Before concluding an endpoint cannot do a thing, read the page — its
+URL is on the operation as `x-iyzico-source` — and look at what their SDKs
+send.
+
 ### Validation
 
 `scripts/validate_specs.py` checks every OpenAPI document against the OpenAPI
