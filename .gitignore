@@ -1,2 +1,4 @@
 /target
 junit.xml
+
+__pycache__/

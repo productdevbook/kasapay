@@ -4,6 +4,18 @@ What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
 ## Unreleased
+### Fixed
+
+- **`specs/iyzico/` was missing fields iyzico documents.** The merge script kept
+  one fragment per operation and preferred the English one, on the belief that
+  the two languages differed only in prose. They differ in substance: the
+  cancel-and-refund page carries `reason` and `description` only in Turkish,
+  and the In-Store refund field is `refundAmount` in one language and
+  `refundPrice` in the other — the two names issue #60 is about. The script now
+  grafts every field one fragment documents and the chosen one does not, per
+  operation rather than per page, and records each graft in the dated index.
+  Twenty-seven fields returned; no operation or field was lost.
+
 
 These changes break code written against 0.0.1. All are cheap to follow and
 all are the kind 0.0.x exists to make.
