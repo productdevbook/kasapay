@@ -154,3 +154,59 @@ pub(crate) struct ErrorResponse {
     #[serde(rename = "errorMessage")]
     pub(crate) error_message: Option<String>,
 }
+
+/// `POST /user` and `DELETE /user`.
+#[derive(Debug, Serialize)]
+pub(crate) struct UserRequest<'a> {
+    #[serde(rename = "userId")]
+    pub(crate) user_id: &'a str,
+}
+
+/// The answer to `POST /user`, and one entry of the list.
+#[derive(Debug, Deserialize)]
+pub(crate) struct UserDetail {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "userId")]
+    pub(crate) user_id: Option<String>,
+    #[serde(default)]
+    pub(crate) enrollments: Vec<EnrollmentItem>,
+}
+
+/// The answer to `GET /user/list`.
+#[derive(Debug, Deserialize)]
+pub(crate) struct UserListResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "userList", default)]
+    pub(crate) user_list: Vec<UserDetail>,
+}
+
+/// A bank a till user is registered with.
+#[derive(Debug, Deserialize)]
+pub(crate) struct EnrollmentItem {
+    #[serde(rename = "enrolledBank")]
+    pub(crate) enrolled_bank: Option<String>,
+    #[serde(rename = "enrolledTerminalId")]
+    pub(crate) enrolled_terminal_id: Option<String>,
+    #[serde(rename = "enrollmentStatus")]
+    pub(crate) enrollment_status: Option<String>,
+}
+
+/// The answer to `DELETE /user`.
+#[derive(Debug, Deserialize)]
+pub(crate) struct DeleteUserResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "userId")]
+    pub(crate) user_id: Option<String>,
+}

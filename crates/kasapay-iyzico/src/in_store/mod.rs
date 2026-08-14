@@ -10,6 +10,8 @@
 //! Three things follow, and they are the ones that surprise callers:
 //!
 //! - `ChargeRequest::customer` is iyzico's `userId` and is **required**.
+//!   [`Client::create_user`] is where one comes from, and a user who exists is
+//!   not yet a user who can charge — they have to be enrolled with a bank.
 //! - `ChargeRequest::return_url` becomes the `x-callback-url` header and is
 //!   **required**.
 //! - This API settles in Turkish lira only; any other currency is
@@ -90,4 +92,4 @@ mod client;
 mod wire;
 
 #[doc(inline)]
-pub use crate::in_store::client::{Client, Config};
+pub use crate::in_store::client::{Client, Config, Enrollment, User};

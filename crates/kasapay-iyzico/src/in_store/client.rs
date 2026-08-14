@@ -161,6 +161,71 @@ impl Client {
         Ok((typed, Raw::from_text(text)))
     }
 
+    /// Registers a till user, and answers which banks they are enrolled with.
+    ///
+    /// This is where a `ChargeRequest::customer` comes from: In-Store requires
+    /// one and there was no way to make one before this. A user that exists is
+    /// not yet a user that can take money — see [`User::can_take_payment`].
+    pub async fn create_user(&self, user_id: &str) -> Result<User, Error> {
+        let request = self
+            .inner
+            .http
+            .post(self.endpoint("user")?)
+            .json(&wire::UserRequest { user_id });
+        let (response, _) = self.send::<wire::UserDetail>(request).await?;
+        user_from(response)
+    }
+
+    /// The till users registered with this merchant, a page at a time.
+    ///
+    /// `page` counts from one, which is iyzico's own convention and not this
+    /// crate's choice.
+    pub async fn users(&self, page: u32, per_page: u32) -> Result<Vec<User>, Error> {
+        let request = self.inner.http.get(self.endpoint("user/list")?).query(&[
+            ("pageNumber", page.to_string()),
+            ("pageCount", per_page.to_string()),
+        ]);
+        let (response, _) = self.send::<wire::UserListResponse>(request).await?;
+        if let Some(error) = user_refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused the user list",
+        ) {
+            return Err(error);
+        }
+        response.user_list.into_iter().map(user_from).collect()
+    }
+
+    /// Forgets a till user.
+    pub async fn forget_user(&self, user_id: &str) -> Result<(), Error> {
+        let request = self
+            .inner
+            .http
+            .delete(self.endpoint("user")?)
+            .json(&wire::UserRequest { user_id });
+        let (response, _) = self.send::<wire::DeleteUserResponse>(request).await?;
+        if let Some(error) = user_refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to forget the user",
+        ) {
+            return Err(error);
+        }
+        // iyzico echoes the user it deleted. A different one coming back means
+        // something other than what was asked for is gone, which is worth an
+        // error rather than a silent success.
+        match response.user_id.as_deref() {
+            Some(deleted) if deleted != user_id => Err(Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                format!("asked iyzico to forget {user_id} and it answered {deleted}"),
+            )),
+            _ => Ok(()),
+        }
+    }
+
     /// Reads the encrypted result iyzico posts to the callback address.
     ///
     /// This is how an In-Store payment finishes. [`Provider::charge`] hands
@@ -352,6 +417,103 @@ impl Provider for Client {
             repeated_refund: false,
         }
     }
+}
+
+/// A till user, and the banks they can take money through.
+#[derive(Debug, Clone)]
+pub struct User {
+    /// What `ChargeRequest::customer` must carry for this user.
+    pub id: Box<str>,
+    /// The banks and terminals this user is registered with.
+    pub enrollments: Vec<Enrollment>,
+}
+
+impl User {
+    /// Whether this user is enrolled anywhere that will take a payment.
+    ///
+    /// Creating a user does not enrol them: a user with no enrollments exists
+    /// and cannot charge, and iyzico reports that as a failed payment rather
+    /// than as a bad request. Checking here is cheaper than finding out at the
+    /// till.
+    #[must_use]
+    pub fn can_take_payment(&self) -> bool {
+        self.enrollments.iter().any(Enrollment::is_active)
+    }
+}
+
+/// One bank a till user is registered with.
+#[derive(Debug, Clone)]
+pub struct Enrollment {
+    /// The bank's name.
+    pub bank: Option<Box<str>>,
+    /// The physical terminal's identifier at that bank.
+    pub terminal: Option<Box<str>>,
+    /// iyzico's own word for where the enrolment has got to.
+    pub status: Option<Box<str>>,
+}
+
+impl Enrollment {
+    /// Whether this enrolment is one that can take money.
+    ///
+    /// iyzico documents no set of values for `enrollmentStatus`, so anything
+    /// that is not plainly a refusal is read as usable. A caller that needs
+    /// certainty should read [`Enrollment::status`] itself.
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        match self.status.as_deref() {
+            Some(status) => !matches!(
+                status.to_ascii_uppercase().as_str(),
+                "PASSIVE" | "PASIF" | "FAILED" | "REJECTED" | "CANCELLED" | "CANCELED"
+            ),
+            // No status at all is how the create response comes back, and a
+            // fresh enrolment is not a refusal.
+            None => true,
+        }
+    }
+}
+
+/// Turns a `status: "failure"` envelope into an error, and anything else into `None`.
+fn user_refused(
+    status: Option<&str>,
+    message: Option<String>,
+    code: Option<String>,
+    fallback: &str,
+) -> Option<Error> {
+    if !failed(status) {
+        return None;
+    }
+    let error = Error::new(
+        crate::errors::kind_for(code.as_deref(), ErrorKind::InvalidRequest),
+        PROVIDER,
+        message.unwrap_or_else(|| fallback.to_owned()),
+    );
+    Some(match code {
+        Some(code) => error.with_code(code),
+        None => error,
+    })
+}
+
+fn user_from(detail: wire::UserDetail) -> Result<User, Error> {
+    if let Some(error) = user_refused(
+        detail.status.as_deref(),
+        detail.error_message,
+        detail.error_code,
+        "iyzico refused the user",
+    ) {
+        return Err(error);
+    }
+    Ok(User {
+        id: detail.user_id.unwrap_or_default().into_boxed_str(),
+        enrollments: detail
+            .enrollments
+            .into_iter()
+            .map(|item| Enrollment {
+                bank: item.enrolled_bank.map(String::into_boxed_str),
+                terminal: item.enrolled_terminal_id.map(String::into_boxed_str),
+                status: item.enrollment_status.map(String::into_boxed_str),
+            })
+            .collect(),
+    })
 }
 
 fn transport_error(error: &reqwest::Error) -> Error {
