@@ -506,3 +506,148 @@ async fn a_full_refund_names_no_amount_at_all() {
         .await
         .expect("the refund starts");
 }
+
+#[tokio::test]
+async fn creating_a_user_answers_the_banks_they_are_enrolled_with() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/user"))
+        .and(header("x-api-key", "api-key"))
+        .and(body_json(json!({ "userId": "kasiyer-7" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "userId": "kasiyer-7",
+            "enrollments": [
+                {
+                    "enrolledBank": "Garanti Bankasi",
+                    "enrolledTerminalId": "TERM-1",
+                    "enrollmentStatus": "ACTIVE",
+                },
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let user = client(&server)
+        .create_user("kasiyer-7")
+        .await
+        .expect("the user is registered");
+
+    assert_eq!(&*user.id, "kasiyer-7");
+    assert_eq!(user.enrollments.len(), 1);
+    assert_eq!(user.enrollments[0].bank.as_deref(), Some("Garanti Bankasi"));
+    assert!(user.can_take_payment());
+}
+
+#[tokio::test]
+async fn a_user_with_no_enrolment_exists_and_cannot_charge() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "userId": "kasiyer-8",
+        })))
+        .mount(&server)
+        .await;
+
+    let user = client(&server)
+        .create_user("kasiyer-8")
+        .await
+        .expect("the user is registered");
+
+    // The distinction the type exists for: registered is not enrolled, and
+    // iyzico reports the difference as a failed payment rather than as a bad
+    // request.
+    assert!(user.enrollments.is_empty());
+    assert!(!user.can_take_payment());
+}
+
+#[tokio::test]
+async fn a_passive_enrolment_does_not_count_as_one_that_can_charge() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "userId": "kasiyer-9",
+            "enrollments": [
+                { "enrolledBank": "Garanti Bankasi", "enrollmentStatus": "PASSIVE" },
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let user = client(&server)
+        .create_user("kasiyer-9")
+        .await
+        .expect("the user is registered");
+    assert!(!user.can_take_payment());
+    // And the raw word is still there for a caller who wants to be certain,
+    // since iyzico documents no set of values for it.
+    assert_eq!(user.enrollments[0].status.as_deref(), Some("PASSIVE"));
+}
+
+#[tokio::test]
+async fn the_user_list_is_paged_the_way_iyzico_counts() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v3/in-store/user/list"))
+        // iyzico counts pages from one, not zero.
+        .and(query_param("pageNumber", "1"))
+        .and(query_param("pageCount", "50"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "userList": [
+                { "userId": "kasiyer-7", "enrollments": [{ "enrolledBank": "A" }] },
+                { "userId": "kasiyer-8" },
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let users = client(&server).users(1, 50).await.expect("the list reads");
+    assert_eq!(users.len(), 2);
+    assert!(users[0].can_take_payment());
+    assert!(!users[1].can_take_payment());
+}
+
+#[tokio::test]
+async fn forgetting_a_user_sends_a_delete_with_a_body() {
+    let server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/v3/in-store/user"))
+        .and(body_json(json!({ "userId": "kasiyer-7" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "userId": "kasiyer-7",
+        })))
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .forget_user("kasiyer-7")
+        .await
+        .expect("the user is forgotten");
+}
+
+#[tokio::test]
+async fn a_refused_user_carries_iyzicos_code() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failure",
+            "errorCode": "5201",
+            "errorMessage": "Kullanici zaten kayitli",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .create_user("kasiyer-7")
+        .await
+        .expect_err("a failure status is not a user");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.code(), Some("5201"));
+}
