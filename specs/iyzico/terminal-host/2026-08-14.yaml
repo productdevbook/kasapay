@@ -665,6 +665,9 @@ components:
           type: boolean
           description: If sent as true, transaction details are shown on the printed slip. If sent as
             false, all transaction details are not shown on the slip.
+          enum:
+          - tr
+          - en
     GmuEodRequest:
       type: object
       required:

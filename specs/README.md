@@ -57,7 +57,7 @@ property that carries an `enum`, across all eleven groups, there are three:
 |---|---|
 | TRY USD EUR GBP RUB CHF NOK | `iyzilink`, `onboarding` |
 | TRY USD EUR GBP CHF NOK | `payment`, `cardstorage`, `reporting` |
-| TRY USD EUR | `subscription`, `terminal-host`, two schemas in `payment` |
+| TRY USD EUR | `subscription`, `terminal-host`, `mass`, two schemas in `payment` |
 
 So a link can be priced in roubles and a payment cannot; a subscription plan
 can be priced in three currencies and a link in seven. A new module has to read

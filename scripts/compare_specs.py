@@ -26,15 +26,33 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SPECS = ROOT / "specs"
 
+# What a field is allowed to be. Losing one of these loses a documented fact
+# without losing the field, which is why they are counted alongside the names.
+CONSTRAINTS = (
+    "enum",
+    "format",
+    "pattern",
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "multipleOf",
+)
+
 
 def fields(document: dict) -> dict[str, set[str]]:
-    """Every operation in the document, and the field names it carries.
+    """Every operation, and the field names and constraints it carries.
 
     Names, not paths. A dotted path through a document where twenty schemas
     refer to each other is exponential in the nesting depth — one iyzico area
     produced millions of them — and what is worth catching is a field that
     stopped being documented at all, which a name catches. A field that only
     moved deeper reads as unchanged, which is the right answer often enough.
+
+    Constraints count as things carried, written `currency!enum`. A field whose
+    `enum` disappears still has its name, so counting names alone reported no
+    loss while mass payout's list of currencies was missing — which is how the
+    loss lasted until somebody implementing that API noticed by hand.
     """
     schemas = document.get("components", {}).get("schemas", {})
     # Each named schema is walked once. Without this, twenty operations sharing
@@ -57,7 +75,9 @@ def fields(document: dict) -> dict[str, set[str]]:
         if "$ref" in node:
             return named(node["$ref"].rsplit("/", 1)[-1])
         found = set(node.get("properties") or {})
-        for schema in (node.get("properties") or {}).values():
+        for name, schema in (node.get("properties") or {}).items():
+            if isinstance(schema, dict):
+                found |= {f"{name}!{key}" for key in CONSTRAINTS if key in schema}
             found |= walk(schema)
         if "items" in node:
             found |= walk(node["items"])

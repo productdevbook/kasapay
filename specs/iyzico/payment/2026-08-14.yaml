@@ -69,7 +69,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse10'
+                $ref: '#/components/schemas/ErrorResponse11'
       x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/api/3ds/3ds-entegrasyonu/3ds-baslatma.md
   /payment/3dsecure/initialize/preauth:
     post:
@@ -98,7 +98,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse10'
+                $ref: '#/components/schemas/ErrorResponse11'
       x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md
   /payment/auth:
     post:
@@ -325,7 +325,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse11'
+                $ref: '#/components/schemas/ErrorResponse12'
       x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/odeme-formu/cf-entegrasyonu/cf-baslatma.md
   /payment/iyzipos/checkoutform/initialize/preauth/ecom:
     post:
@@ -355,7 +355,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse11'
+                $ref: '#/components/schemas/ErrorResponse12'
       x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md
   /payment/iyzipos/installment:
     post:
@@ -475,7 +475,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse9'
+                $ref: '#/components/schemas/ErrorResponse10'
       x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md
   /payment/postauth:
     post:
@@ -622,7 +622,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse12'
+                $ref: '#/components/schemas/ErrorResponse13'
       x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md
   /payment/refund:
     post:
@@ -1834,6 +1834,30 @@ components:
       properties:
         status:
           type: string
+          description: Success/failure indicator.
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          description: Timestamp (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID of the request.
+    ErrorResponse11:
+      type: object
+      properties:
+        status:
+          type: string
           description: Yapılan isteğin sonucunu bildirir.
           enum:
           - success
@@ -1853,7 +1877,7 @@ components:
         conversationId:
           type: string
           description: İstek ile eşleşen ID.
-    ErrorResponse11:
+    ErrorResponse12:
       type: object
       properties:
         status:
@@ -1877,7 +1901,7 @@ components:
         conversationId:
           type: string
           description: İstek ile eşleşen ID.
-    ErrorResponse12:
+    ErrorResponse13:
       type: object
       properties:
         status:
@@ -2079,6 +2103,9 @@ components:
         status:
           type: string
           description: Success/failure indicator.
+          enum:
+          - success
+          - failure
         errorCode:
           type: string
           description: Error code.
