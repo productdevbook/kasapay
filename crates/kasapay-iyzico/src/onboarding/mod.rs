@@ -24,14 +24,16 @@
 //! `POST /v1/agent/get_auth_key` and `POST /v1/agent/logout` — that were
 //! considered for this module and left out. They are not a sub-merchant
 //! operation at all: iyzico's own description is a mobile "app2app" session
-//! for the `PayPOS` product, and they authenticate with a **plain
+//! for the PayPOS product, and they authenticate with a **plain
 //! `Authorization: Basic sck_…` header and a required `PaynetMobile` header**,
-//! neither of which is [`IYZWSv2`](crate::Credentials) signing. Nothing in
-//! this crate speaks that scheme — it is closer to [`in_store`](crate::in_store)'s
-//! plain headers than to anything here — and bolting a second authentication
-//! scheme onto a client built for a different one, for two calls that have
-//! nothing to do with a sub-merchant's paperwork, is not "fitting cleanly".
-//! Left for whoever adds app2app support on its own terms.
+//! neither of which is [`IYZWSv2`](crate::Credentials) signing. Bolting a
+//! second authentication scheme onto a client built for a different one, for
+//! two calls that have nothing to do with a sub-merchant's paperwork, is not
+//! "fitting cleanly" — so they are implemented instead in
+//! [`crate::agent`], with [`crate::softpos`] on the session key they answer.
+//! Its module documentation goes further than the paragraph above: the two
+//! headers are not PayPOS's *only* difference from the classic API — every
+//! fragment behind them points at a Paynet host, not iyzico's own.
 //!
 //! # Three types, not a bag of `Option`s
 //!

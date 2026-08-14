@@ -13,4 +13,6 @@ doc-valid-idents = [
     "IYZWSv2",
     "HMACSHA256",
     "PayTR",
+    "PayPOS",
+    "PayPos",
 ]
