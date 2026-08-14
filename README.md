@@ -44,25 +44,47 @@ synchronously, so kasapay does not pretend to.
 | `kasapay` | facade; providers behind features |
 | `kasapay-core` | `Money`, `Charge`, `Error`, `Provider`. No network, no HTTP client |
 | `kasapay-stripe` | over [`async-stripe`](https://github.com/arlyon/async-stripe) |
-| `kasapay-iyzico` | In-Store API v3 |
+| `kasapay-iyzico` | two iyzico APIs: `in_store` and `classic` |
 
-v0.1 covers `charge` and `charge_status`. Refunds, webhooks and saved cards are
-where providers disagree most; they enter the shared trait once more than two
-of them have been written, not before.
+**The shared trait is `charge` and `charge_status`.** Refunds, capture and
+webhooks live on the providers for now — they enter the trait once more than
+two providers have been written against them, not before.
+
+**iyzico** is two APIs that barely resemble each other. `in_store` is the
+counter flow, authenticated with plain headers, lira only. `classic` is
+everything else, signed with `IYZWSv2`: the hosted checkout form, refunds,
+cancel, stored cards, BIN lookup. Twelve of iyzico's ninety-six documented
+operations, and none of them touches a card number.
+
+**Every iyzico response is verified.** They sign the money-moving ones with an
+HMAC over selected fields of the reply, and kasapay refuses one that does not
+match — or one that carries no signature at all, unless you say otherwise.
+A forged callback is how a shop ships against a payment that never happened.
 
 ## Where providers differ, it says so
 
-- `Charge::raw` — the provider's own response, untouched.
+- `Charge::raw` — the provider's own answer, kept whole.
 - `Stripe::client` — the `async-stripe` client itself, for calls kasapay
   does not make.
-- iyzico settles in lira only and requires `customer` and `return_url`. Ask it
-  for USD and you get `ErrorKind::Unsupported` before a socket opens.
+- iyzico's In-Store settles in lira only and requires `customer` and
+  `return_url`. Ask it for USD and you get `ErrorKind::Unsupported` before a
+  socket opens.
+- The hosted checkout form does **not** go through `Provider::charge`. It needs
+  a buyer's identity number, two addresses and an itemised basket, none of
+  which belongs in `ChargeRequest`. The trait can express what every provider
+  answers; it cannot express what each one demands.
 
 ## Amounts
 
 `Money` counts minor units. No `f64` anywhere. `Money::parse("149.905", TRY)`
 is an error, not a rounding, and a decimal on the wire is written from the
-integer — `149.90`, never `149.90000000000001`.
+integer — `149.90`, never `149.90000000000001`. JPY has no minor unit and KWD
+has three, and both are tested.
+
+`checked_add` and `checked_sub` refuse to mix currencies; `partial_cmp`
+answers `None` across them, because ten lira and ten dollars have no order.
+There are no `+` and `-` operators: they would have to panic on a mismatch,
+and a panic mid-checkout is worse than a `Result` somebody has to read.
 
 ## Specs
 
