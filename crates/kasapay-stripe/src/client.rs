@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Error, ErrorKind, InstrumentId, Money, NextAction,
-    OrderRef, PaymentId, Provider, ProviderId, Raw, Secret,
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, Instrument, InstrumentId, Money,
+    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_client_core::{RequestBuilder, StripeMethod};
@@ -394,6 +394,16 @@ impl Provider for Stripe {
         Stripe::cancel(self, id).await
     }
 
+    /// Lists a customer's saved cards, through [`Stripe::stored_cards`].
+    async fn instruments(&self, customer: &str) -> Result<Vec<Instrument>, Error> {
+        Ok(self
+            .stored_cards(customer)
+            .await?
+            .into_iter()
+            .map(instrument_from_stored_card)
+            .collect())
+    }
+
     /// Separate capture, partial capture and repeated partial refunds, all as
     /// Stripe documents them for a PaymentIntent — and a card Stripe holds can
     /// be charged: [`Stripe::stored_cards`] lists them and
@@ -506,6 +516,32 @@ fn into_refund(refund: stripe_shared::Refund, payment: &PaymentId) -> Result<Ref
             "failure_reason": refund.failure_reason,
         })),
     })
+}
+
+/// Turns Stripe's own [`saved::StoredCard`] into the shape
+/// [`Provider::instruments`] answers.
+///
+/// The card's brand and last four go into the label; everything the crate
+/// modelled about it goes into [`Instrument::raw`](kasapay_core::Instrument::raw)
+/// — a reconstruction rather than the body Stripe sent, the same reason
+/// `into_charge`'s `RawIntent` is one: `async-stripe` hands back a typed
+/// `PaymentMethod` with the original bytes already gone.
+fn instrument_from_stored_card(card: saved::StoredCard) -> Instrument {
+    let raw = Raw::from_json(&serde_json::json!({
+        "id": card.token.as_str(),
+        "brand": card.brand.to_string(),
+        "last4": &*card.last_four,
+        "funding": card.funding.to_string(),
+        "exp_month": card.exp_month,
+        "exp_year": card.exp_year,
+        "country": card.country.as_deref(),
+    }));
+    let label = Some(format!("{} •••• {}", card.brand, card.last_four).into());
+    Instrument {
+        id: card.token,
+        label,
+        raw,
+    }
 }
 
 /// Where a refund has got to.

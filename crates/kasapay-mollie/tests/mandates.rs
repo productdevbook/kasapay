@@ -206,6 +206,55 @@ async fn listing_mandates_reads_each_ones_own_status() {
     assert!(mandate.raw.text_at("/count").is_none());
 }
 
+/// `Provider::instruments` is `Mollie::mandates` behind the shared trait,
+/// with `method` becoming the label.
+#[tokio::test]
+async fn provider_instruments_lists_the_same_mandates() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/customers/cst_4qqhO89gsT/mandates"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": {
+                "mandates": [{
+                    "resource": "mandate",
+                    "id": "mdt_h3gAaD5zP",
+                    "mode": "live",
+                    "status": "valid",
+                    "method": "directdebit",
+                    "details": {},
+                    "mandateReference": "EXAMPLE-CORP-MD13804",
+                    "signatureDate": "2023-05-07",
+                    "customerId": "cst_4qqhO89gsT",
+                    "scopes": ["customer-not-present"],
+                    "createdAt": "2023-05-07T10:49:08+00:00",
+                    "_links": {
+                        "self": { "href": "...", "type": "application/hal+json" }
+                    }
+                }]
+            },
+            "_links": {
+                "self": { "href": "...", "type": "application/hal+json" }
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let instruments = client(&server)
+        .instruments("cst_4qqhO89gsT")
+        .await
+        .expect("the list reads back");
+
+    assert_eq!(instruments.len(), 1);
+    let instrument = &instruments[0];
+    assert_eq!(instrument.id, InstrumentId::issued("mdt_h3gAaD5zP"));
+    assert_eq!(instrument.label.as_deref(), Some("directdebit"));
+    assert_eq!(
+        instrument.raw.text_at("/mandateReference").as_deref(),
+        Some("EXAMPLE-CORP-MD13804")
+    );
+}
+
 /// Mollie's `get-mandate-200-1` example.
 #[tokio::test]
 async fn reading_a_mandate_back_by_id() {

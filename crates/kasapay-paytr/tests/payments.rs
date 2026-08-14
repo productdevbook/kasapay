@@ -314,6 +314,17 @@ async fn starting_a_payment_through_the_shared_trait_is_refused_with_the_way_out
     assert!(error.to_string().contains("start_payment"));
 }
 
+#[tokio::test]
+async fn listing_saved_instruments_is_refused_with_the_way_out() {
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let error = client(&server)
+        .instruments("utoken-1")
+        .await
+        .expect_err("this crate cannot sign a cardstorage request");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
 #[test]
 fn a_payment_needs_an_email_a_payer_ip_and_a_basket() {
     let payer = || payment::Payer {

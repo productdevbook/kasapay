@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, Money, NextAction,
+    OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
 };
 use url::Url;
 
@@ -405,6 +405,16 @@ impl Provider for Client {
             PROVIDER,
             "the In-Store API holds no authorisation to release; \
              giving the money back is Client::refund",
+        ))
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: the payer taps a card at a counter
+    /// and nothing here is kept for later. There is no vault to list.
+    async fn instruments(&self, _customer: &str) -> Result<Vec<Instrument>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the In-Store API holds no card in a vault; the payer taps one at a counter",
         ))
     }
 
