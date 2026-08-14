@@ -757,8 +757,6 @@ async fn refunding_one_line_of_a_basket_names_the_transaction_not_the_payment() 
 
 #[tokio::test]
 async fn the_classic_client_answers_charge_status_through_the_shared_trait() {
-    use kasapay_core::Provider as _;
-
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
@@ -791,8 +789,6 @@ async fn the_classic_client_answers_charge_status_through_the_shared_trait() {
 
 #[tokio::test]
 async fn the_classic_client_refuses_to_start_a_payment_through_the_trait() {
-    use kasapay_core::Provider as _;
-
     let server = MockServer::start().await;
     // No mock: a request reaching the network would fail the test.
     let request = kasapay_core::ChargeRequest::builder(
