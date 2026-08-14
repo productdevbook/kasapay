@@ -249,12 +249,20 @@ impl Provider for Stripe {
         Stripe::cancel(self, id).await
     }
 
+    /// Everything but a saved instrument, which this crate does not yet charge.
+    ///
+    /// Stripe has the vault — a `pm_…` made in the payer's browser, listed
+    /// under a customer — but nothing here sends one, so
+    /// [`Capabilities::saved_instruments`] is false rather than a yes over a
+    /// call that would then ignore the instrument. Confirming a PaymentIntent
+    /// against a `pm_…` today goes through [`Stripe::client`].
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: true,
             partial_capture: true,
             partial_refund: true,
             repeated_refund: true,
+            saved_instruments: false,
         }
     }
 }

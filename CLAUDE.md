@@ -121,3 +121,9 @@ from `specs/`.
 iyzico's `/payment/query` status mapping. The documented response body has no
 status field, so `receipt.approved` and `isRefundable` are what
 `query_into_charge` reads. Check it first against a sandbox account.
+
+iyzico's `/payment/auth` status mapping, for the same reason: the documented
+response has no `paymentStatus`, so `fraudStatus` is what
+`into_saved_card_charge` reads — 0 is `Pending`, -1 is `Failed`, anything else
+is `Captured`. What has not been seen is whether a fraud rejection arrives as
+`status: "failure"` or as a success carrying -1.

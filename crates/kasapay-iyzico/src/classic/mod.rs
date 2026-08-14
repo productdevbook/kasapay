@@ -6,14 +6,17 @@
 //!
 //! # What is here
 //!
-//! Eight operations, chosen because none of them touches a card number:
+//! Ten operations, chosen because none of them touches a card number:
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
 //! - [`Client::checkout_result`] — read what became of it, by the
 //!   [`FormToken`] the form was opened with
+//! - [`Client::payment`] — read a finished payment back by its id
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
+//! - [`Client::pay_with_saved_card`] — charge one of them, by the pair that
+//!   names it rather than by a number
 //! - [`Client::forget_card`] — drop one of them
 //! - [`Client::refund`] and [`Client::refund_transaction`] — take money back.
 //!   The second is the one for a basket with more than one line: iyzico says
@@ -38,16 +41,45 @@
 //! above; what the trait still answers here is which provider this is and what
 //! it can do.
 //!
-//! The checkout form is how most integrations should take a payment here:
-//! iyzico hosts the form and collects the card, so nothing sensitive crosses
-//! the caller's server.
+//! # Where a card number may live, and where it does not
 //!
-//! Taking a payment through this API needs the card on the request, which
-//! `ChargeRequest` has nowhere to put and which drags PCI scope in with it.
-//! **So does storing a card**: `POST /cardstorage/card` wants the number too.
-//! The way to store a card without one reaching the caller's server is the
-//! hosted checkout form, which collects it directly. That is a decision about
-//! the core rather than about this module.
+//! Nowhere in this crate. A first payment goes through the checkout form:
+//! iyzico hosts it and collects the card, so nothing sensitive crosses the
+//! caller's server. A repeat payment goes through
+//! [`Client::pay_with_saved_card`], which sends the `cardUserKey` and
+//! `cardToken` iyzico answered when the card was stored — the same
+//! `/payment/auth` endpoint an ordinary card payment uses, filled the other of
+//! the two ways iyzico documents for it.
+//!
+//! What is left out is the API call that stores a card. `POST
+//! /cardstorage/card` wants `cardNumber`, `expireMonth`, `expireYear` and
+//! `cardHolderName`, and `registerCard: 1` stores the card being charged and
+//! exists only on the endpoints that take a number. Neither is here.
+//!
+//! **The hosted form fills the vault instead, and no card number goes near
+//! this process while it does.** iyzico's form offers the payer a save-my-card
+//! box of its own, and the `cardUserKey` and `cardToken` it produces come back
+//! on the form's result. Neither field is in `specs/`, whose record of the
+//! form's request and answer is silent on both — they are in iyzico's own SDKs
+//! and in the sample result on their documentation site, so this crate follows
+//! those rather than pretending the loop is open.
+//!
+//! [`CheckoutFormBuilder::card_user_key`](checkout::CheckoutFormBuilder::card_user_key)
+//! is the outbound half: send the key a payer already has and iyzico shows
+//! them their saved cards and files any new one under the same key. Without
+//! it, every card a payer saves lands under a key of its own and nothing ties
+//! them together. The inbound half is on
+//! [`Charge::raw`](kasapay_core::Charge::raw), because a saved card is not
+//! something the shared [`Charge`](kasapay_core::Charge) has a field for —
+//! [`Client::checkout_result`] says which two paths to read.
+//!
+//! So: fill the vault through the form, read it, charge it, empty it, and hold
+//! the handles as [`InstrumentId`](kasapay_core::InstrumentId).
+//!
+//! The other reason a payment cannot go through
+//! [`Provider::charge`](kasapay_core::Provider::charge) is unchanged: iyzico
+//! wants a buyer with an identity number, two addresses and an itemised basket
+//! either way, and `ChargeRequest` carries none of it.
 //!
 //! # Example
 //!
@@ -68,6 +100,7 @@
 
 pub mod checkout;
 mod client;
+pub mod saved;
 pub mod signature;
 mod wire;
 

@@ -46,6 +46,22 @@
 //! [`Charge::id`] is an `Option` for the provider that has not named the
 //! payment yet, and never an empty string.
 //!
+//! # No type here holds a card number
+//!
+//! There is no field on [`ChargeRequest`] for one and there will not be. A
+//! server that touches a card number is in PCI DSS scope on the merchant's
+//! longest self-assessment rather than its shortest, and a library that makes
+//! it easy to put one in a struct makes it easy to end up there without
+//! noticing. Every provider kasapay ships has a way of taking a payment that
+//! never sends a number through the caller's process — a page the provider
+//! hosts, a token the payer's browser makes, a redirect — and those are the
+//! ways kasapay implements.
+//!
+//! What a returning customer needs instead is [`InstrumentId`]: the provider
+//! keeps the card and hands back a handle to it, and the handle is what a
+//! payment carries. Charging one is not the same act as taking a card number,
+//! and only the first of the two is here.
+//!
 //! # Amounts
 //!
 //! [`Money`] counts minor units. There is no `f64` anywhere in this crate,
@@ -71,7 +87,7 @@ pub use crate::charge::{
 #[doc(inline)]
 pub use crate::error::{Error, ErrorKind};
 #[doc(inline)]
-pub use crate::id::{Id, IdKind, IdSource, PaymentId, kind};
+pub use crate::id::{Id, IdKind, IdSource, InstrumentId, PaymentId, kind};
 #[doc(inline)]
 pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 #[doc(inline)]

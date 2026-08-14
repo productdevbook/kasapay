@@ -7,10 +7,12 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
+use kasapay_core::{
+    Currency, ErrorKind, InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, Status,
+};
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{
-    Association, CardType, Client, Config, FormToken, Reason, ReasonCode, checkout,
+    Association, CardType, Client, Config, FormToken, Reason, ReasonCode, checkout, saved,
 };
 use serde_json::json;
 use wiremock::matchers::{body_json, header, header_exists, method, path};
@@ -208,13 +210,13 @@ async fn stored_cards_come_back_without_a_card_number_in_sight() {
         .expect("the cards list");
 
     assert_eq!(cards.len(), 2);
-    assert_eq!(&*cards[0].token, "tok-1");
+    assert_eq!(cards[0].token, InstrumentId::issued("tok-1"));
     assert_eq!(cards[0].alias.as_deref(), Some("Bonus kartim"));
     assert_eq!(cards[0].last_four.as_deref(), Some("0004"));
     assert_eq!(cards[0].card_type, Some(CardType::Credit));
     assert_eq!(cards[0].association, Some(Association::MasterCard));
     // A card iyzico knows little about is still a card.
-    assert_eq!(&*cards[1].token, "tok-2");
+    assert_eq!(cards[1].token, InstrumentId::issued("tok-2"));
     assert!(cards[1].alias.is_none());
     assert_eq!(cards[1].card_type, Some(CardType::Debit));
 }
@@ -251,7 +253,7 @@ async fn forgetting_a_card_sends_a_delete_with_a_body() {
         .await;
 
     client(&server)
-        .forget_card("user-key-1", "tok-1")
+        .forget_card("user-key-1", &InstrumentId::issued("tok-1"))
         .await
         .expect("the card is forgotten");
 }
@@ -270,7 +272,7 @@ async fn a_refused_delete_is_an_error_carrying_iyzicos_code() {
         .await;
 
     let error = client(&server)
-        .forget_card("user-key-1", "tok-gone")
+        .forget_card("user-key-1", &InstrumentId::issued("tok-gone"))
         .await
         .expect_err("a failure status is not a deletion");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
@@ -311,6 +313,260 @@ fn item(price: &str) -> checkout::BasketItem {
         kind: checkout::ItemKind::Physical,
         price: Money::parse(price, Currency::Try).expect("valid amount"),
     }
+}
+
+fn saved_card() -> saved::Card {
+    saved::Card::new("card-user-key-1", InstrumentId::issued("card-token-1"))
+        .expect("two handles name a stored card")
+}
+
+fn saved_payment() -> saved::Payment {
+    saved::Payment::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        buyer(),
+        saved_card(),
+    )
+    .billing_address(address())
+    .item(item("149.90"))
+    .build()
+    .expect("valid payment")
+}
+
+/// The body iyzico is sent, with the two handles where a card would be.
+fn saved_card_body() -> serde_json::Value {
+    json!({
+        "locale": "tr",
+        "conversationId": "ord-1",
+        "price": "149.90",
+        "paidPrice": "149.90",
+        "currency": "TRY",
+        "basketId": "ord-1",
+        "paymentCard": {
+            "cardUserKey": "card-user-key-1",
+            "cardToken": "card-token-1",
+        },
+        "buyer": {
+            "id": "buyer-1", "name": "Ayse", "surname": "Yilmaz",
+            "identityNumber": "11111111111", "email": "ayse@example.test",
+            "gsmNumber": "+905350000000", "registrationAddress": "Bagdat Cad. 1",
+            "city": "Istanbul", "country": "Turkey",
+        },
+        "billingAddress": {
+            "contactName": "Ayse Yilmaz", "address": "Bagdat Cad. 1",
+            "city": "Istanbul", "country": "Turkey",
+        },
+        "shippingAddress": {
+            "contactName": "Ayse Yilmaz", "address": "Bagdat Cad. 1",
+            "city": "Istanbul", "country": "Turkey",
+        },
+        "basketItems": [{
+            "id": "item-1", "name": "Kahve", "category1": "Icecek",
+            "itemType": "PHYSICAL", "price": "149.90",
+        }],
+    })
+}
+
+/// A stored-card payment as iyzico answers it: no `paymentStatus`, a
+/// `fraudStatus`, and a signature over the payment's own six fields.
+fn saved_card_response(fraud_status: i64) -> serde_json::Value {
+    json!({
+        "status": "success",
+        "paymentId": "12345678",
+        "currency": "TRY",
+        "basketId": "ord-1",
+        "conversationId": "ord-1",
+        "paidPrice": "149.90",
+        "price": "149.90",
+        "fraudStatus": fraud_status,
+        // HMAC-SHA256("12345678:TRY:ord-1:ord-1:149.9:149.9", "secret-key")
+        "signature": "d5595c2f02e49a4e81dd1cdc9b03d2b9d9bd90910b9f6ab004abfce1247b5440",
+    })
+}
+
+#[tokio::test]
+async fn charging_a_stored_card_sends_two_handles_and_no_card_number() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .and(header_exists("authorization"))
+        .and(body_json(saved_card_body()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(saved_card_response(1)))
+        .mount(&server)
+        .await;
+
+    let iyzipay = client(&server);
+    // A capability that says yes over a call that then fails is a bug in the
+    // adapter, so the two are asserted together.
+    assert!(iyzipay.capabilities().saved_instruments);
+    let charge = iyzipay
+        .pay_with_saved_card(&saved_payment())
+        .await
+        .expect("the stored card is charged");
+
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.id, Some(PaymentId::issued("12345678")));
+    assert_eq!(charge.amount.minor_units(), 14_990);
+
+    // The body matcher above pins the shape; this pins the thing that matters
+    // about it, and would fail the day a card field is added to the request.
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body =
+        String::from_utf8(sent.first().expect("one request").body.clone()).expect("valid utf-8");
+    for field in [
+        "cardNumber",
+        "cvc",
+        "expireMonth",
+        "expireYear",
+        "cardHolderName",
+    ] {
+        assert!(!body.contains(field), "{field} reached iyzico: {body}");
+    }
+}
+
+#[tokio::test]
+async fn a_payment_iyzicos_fraud_filters_are_still_reading_is_not_money_taken() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(saved_card_response(0)))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .pay_with_saved_card(&saved_payment())
+        .await
+        .expect("the request itself worked");
+    // iyzico says to wait for their notification, so this is not Captured.
+    assert_eq!(charge.status, Status::Pending);
+    assert!(charge.status.is_open());
+}
+
+#[tokio::test]
+async fn a_stored_card_iyzico_no_longer_holds_carries_its_own_code() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failure",
+            "errorCode": "5107",
+            "errorMessage": "Kart bulunamadi",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .pay_with_saved_card(&saved_payment())
+        .await
+        .expect_err("a failure status is not a payment");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.code(), Some("5107"));
+}
+
+#[tokio::test]
+async fn a_forged_stored_card_payment_is_refused() {
+    let server = MockServer::start().await;
+    let mut body = saved_card_response(1);
+    // Ten times the amount, the signature left as it was.
+    body["paidPrice"] = json!("1499.00");
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .pay_with_saved_card(&saved_payment())
+        .await
+        .expect_err("a tampered amount must not become a Charge");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+}
+
+#[tokio::test]
+async fn an_instalment_surcharge_is_charged_and_reported_apart_from_the_basket() {
+    let server = MockServer::start().await;
+    let mut expected = saved_card_body();
+    expected["paidPrice"] = json!("164.90");
+    expected["installment"] = json!(3);
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .and(body_json(expected))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "164.90",
+            "price": "149.90",
+            "installment": 3,
+            "fraudStatus": 1,
+            // HMAC-SHA256("12345678:TRY:ord-1:ord-1:164.9:149.9", "secret-key")
+            "signature": "2e929a2f5c4730d20969459f82d9cc8d1dbc9302d8381b4223117e68c06a5ca1",
+        })))
+        .mount(&server)
+        .await;
+
+    let payment = saved::Payment::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        buyer(),
+        saved_card(),
+    )
+    .paid_price(Money::parse("164.90", Currency::Try).expect("valid amount"))
+    .billing_address(address())
+    .item(item("149.90"))
+    .instalment(3)
+    .build()
+    .expect("valid payment");
+
+    let charge = client(&server)
+        .pay_with_saved_card(&payment)
+        .await
+        .expect("the stored card is charged");
+    // What moves is the surcharged amount; the basket is what the goods came to.
+    assert_eq!(charge.amount.minor_units(), 16_490);
+    assert_eq!(charge.order_amount.map(Money::minor_units), Some(14_990));
+}
+
+#[test]
+fn a_stored_card_payment_is_checked_the_way_a_form_is() {
+    let bare = || {
+        saved::Payment::builder(
+            OrderRef::new("ord-1"),
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+            buyer(),
+            saved_card(),
+        )
+    };
+    assert_eq!(
+        bare().item(item("149.90")).build().expect_err("no address"),
+        saved::PaymentError::NoBillingAddress
+    );
+    assert_eq!(
+        bare()
+            .billing_address(address())
+            .build()
+            .expect_err("no basket"),
+        saved::PaymentError::EmptyBasket
+    );
+    assert!(matches!(
+        bare()
+            .billing_address(address())
+            .item(item("100.00"))
+            .build()
+            .expect_err("the lines do not come to the total"),
+        saved::PaymentError::BasketDoesNotAddUp { .. }
+    ));
+    assert_eq!(
+        bare()
+            .billing_address(address())
+            .item(item("149.90"))
+            .instalment(0)
+            .build()
+            .expect_err("zero instalments takes no money"),
+        saved::PaymentError::NoInstalments
+    );
 }
 
 fn form() -> checkout::CheckoutForm {
@@ -392,6 +648,88 @@ async fn opening_a_form_gives_a_page_to_send_the_payer_to() {
         }
         other => panic!("expected a redirect, got {other:?}"),
     }
+}
+
+/// The form is the pan-free way into iyzico's vault, and the key decides whose.
+///
+/// The test above pins the body exactly and carries no `cardUserKey`, so the
+/// pair of them says the field goes out when it is set and is absent when it is
+/// not — an empty one would file the payer's card under a key of iyzico's
+/// choosing.
+#[tokio::test]
+async fn a_form_offers_the_payer_the_cards_iyzico_already_holds_for_them() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let with_key = checkout::CheckoutForm::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "https://merchant.test/callback".parse().expect("valid url"),
+        buyer(),
+    )
+    .billing_address(address())
+    .item(item("149.90"))
+    .card_user_key("card-user-key-1")
+    .build()
+    .expect("valid form");
+
+    client(&server)
+        .start_checkout_form(&with_key)
+        .await
+        .expect("the form opens");
+
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body: serde_json::Value =
+        serde_json::from_slice(&sent.first().expect("one request").body).expect("valid json");
+    assert_eq!(body["cardUserKey"], json!("card-user-key-1"));
+}
+
+/// The pair iyzico answers when the payer saved a card, and where to read it.
+#[tokio::test]
+async fn a_form_the_payer_saved_a_card_on_answers_the_handles_for_it() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            "currency": "TRY",
+            "token": "cf-token-1",
+            "cardUserKey": "card-user-key-1",
+            "cardToken": "card-token-1",
+            "lastFourDigits": "0004",
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .checkout_result(&FormToken::issued("cf-token-1"))
+        .await
+        .expect("the form reads back");
+
+    // Not on the Charge: a saved card is one provider's idea, and the shared
+    // type has no field for it.
+    let key = charge.raw.text_at("/cardUserKey").expect("the vault's key");
+    let token = charge.raw.text_at("/cardToken").expect("the card's token");
+    let card = saved::Card::new(key, InstrumentId::issued(token)).expect("a card to charge again");
+    assert_eq!(card.user_key(), "card-user-key-1");
+    assert_eq!(card.token().as_str(), "card-token-1");
 }
 
 #[tokio::test]

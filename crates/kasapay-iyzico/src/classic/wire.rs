@@ -114,6 +114,10 @@ pub(crate) struct CheckoutFormRequest<'a> {
     pub(crate) callback_url: String,
     #[serde(rename = "enabledInstallments", skip_serializing_if = "Vec::is_empty")]
     pub(crate) enabled_installments: Vec<u8>,
+    /// Not in iyzico's documentation of this request; in every one of their
+    /// SDKs, which is what this follows.
+    #[serde(rename = "cardUserKey", skip_serializing_if = "Option::is_none")]
+    pub(crate) card_user_key: Option<&'a str>,
     pub(crate) buyer: BuyerBody<'a>,
     #[serde(rename = "billingAddress")]
     pub(crate) billing_address: AddressBody<'a>,
@@ -183,6 +187,43 @@ pub(crate) struct CheckoutFormResponse {
     pub(crate) conversation_id: Option<String>,
 }
 
+/// `POST /payment/auth` — a payment against a card iyzico already holds.
+#[derive(Debug, Serialize)]
+pub(crate) struct SavedCardPaymentRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    pub(crate) price: String,
+    #[serde(rename = "paidPrice")]
+    pub(crate) paid_price: String,
+    pub(crate) currency: &'a str,
+    #[serde(rename = "basketId")]
+    pub(crate) basket_id: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) installment: Option<u8>,
+    #[serde(rename = "paymentCard")]
+    pub(crate) payment_card: SavedCardBody<'a>,
+    pub(crate) buyer: BuyerBody<'a>,
+    #[serde(rename = "billingAddress")]
+    pub(crate) billing_address: AddressBody<'a>,
+    #[serde(rename = "shippingAddress")]
+    pub(crate) shipping_address: AddressBody<'a>,
+    #[serde(rename = "basketItems")]
+    pub(crate) basket_items: Vec<BasketItemBody<'a>>,
+}
+
+/// The `paymentCard` of a stored-card payment: two handles and no card.
+///
+/// iyzico's `paymentCard` will take a `cardNumber` as well. This type has no
+/// field for one, which is what keeps the choice out of the caller's hands.
+#[derive(Debug, Serialize)]
+pub(crate) struct SavedCardBody<'a> {
+    #[serde(rename = "cardUserKey")]
+    pub(crate) card_user_key: &'a str,
+    #[serde(rename = "cardToken")]
+    pub(crate) card_token: &'a str,
+}
+
 /// `POST /payment/iyzipos/checkoutform/auth/ecom/detail`.
 #[derive(Debug, Serialize)]
 pub(crate) struct CheckoutResultRequest<'a> {
@@ -198,9 +239,12 @@ pub(crate) struct PaymentDetailRequest<'a> {
     pub(crate) payment_id: &'a str,
 }
 
-/// A payment as iyzico reports it, from the form's result or from the payment
-/// itself. `token` is only on the first; the two differ in what they sign, not
-/// in what they answer.
+/// A payment as iyzico reports it, from the form's result, from the payment
+/// itself, or from a stored-card charge.
+///
+/// `token` is only on the first and `paymentStatus` only on the first two; a
+/// stored-card charge says how it went in `status` and `fraudStatus` instead.
+/// The three differ in what they sign, not in what they answer.
 #[derive(Debug, Deserialize)]
 pub(crate) struct PaymentResultResponse {
     pub(crate) status: Option<String>,
@@ -210,6 +254,9 @@ pub(crate) struct PaymentResultResponse {
     pub(crate) error_message: Option<String>,
     #[serde(rename = "paymentStatus")]
     pub(crate) payment_status: Option<String>,
+    /// 1 approved, 0 under review, -1 rejected.
+    #[serde(rename = "fraudStatus")]
+    pub(crate) fraud_status: Option<i64>,
     #[serde(rename = "paymentId")]
     pub(crate) payment_id: Option<String>,
     #[serde(rename = "basketId")]

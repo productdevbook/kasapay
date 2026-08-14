@@ -419,6 +419,8 @@ impl Provider for Client {
             partial_capture: false,
             partial_refund: true,
             repeated_refund: false,
+            // The payer taps a card at a counter; there is no vault in this API.
+            saved_instruments: false,
         }
     }
 }

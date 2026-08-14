@@ -59,11 +59,11 @@ authenticate the same way. `in_store` is the counter flow, three plain headers,
 lira only. `terminal` is a cash register driving a physical POS device: an
 OAuth2 bearer token that expires, and a call that returns when somebody has
 presented a card. `classic` is everything else, signed with `IYZWSv2`: the
-hosted checkout form, refunds, cancel, stored cards, BIN lookup — with
-`iyzilink`, pay-by-link, `subscription`, the products and plans a recurring
-charge is sold out of, and `mass`, money going out rather than coming in, over
-the same client. Forty-two of iyzico's ninety-six documented operations, and
-none of them touches a card number.
+hosted checkout form, refunds, cancel, stored cards and charging one, BIN
+lookup — with `iyzilink`, pay-by-link, `subscription`, the products and plans a
+recurring charge is sold out of, and `mass`, money going out rather than coming
+in, over the same client. Forty-three of iyzico's ninety-six documented
+operations, and none of them touches a card number.
 
 **Every iyzico response iyzico signs is verified.** They sign the money-moving
 ones with an HMAC over selected fields of the reply, and kasapay refuses one
@@ -102,6 +102,40 @@ the Terminal API's fourteen.
   `classic::Client::checkout_result` is what takes one — `charge_status` reads
   a finished payment by its id. An identifier says what it names as well as who
   issued it, so handing one to the other's call does not compile.
+
+## No card number goes through kasapay
+
+There is no field for one on `ChargeRequest` and no type in this workspace that
+can hold one. A server that touches a card number is in PCI DSS scope on the
+merchant's longest self-assessment rather than its shortest, and a library that
+makes it easy to put one in a struct makes it easy to end up there without
+noticing.
+
+Every provider here has a way of taking a payment that never sends a number
+through the caller's process, and it is the way kasapay implements: iyzico
+hosts its checkout form and PayTR its payment page; Stripe's `pm_…` is made by
+Stripe.js in the payer's browser; Mollie only ever redirects.
+
+A returning customer is `InstrumentId` — the provider keeps the card and hands
+back a handle, and the handle is what the payment carries.
+`iyzico::classic::Client::pay_with_saved_card` is the first of these:
+`POST /payment/auth`, the same endpoint an ordinary card payment uses, with the
+`cardUserKey` and `cardToken` where the number would be. `saved::Card` has no
+field for a number and refuses a value that is one by shape.
+`Capabilities::saved_instruments` says which providers can do this before there
+is a payment to ask about.
+
+**The card gets into the vault through the hosted form, not through an API
+call.** `POST /cardstorage/card` wants `cardNumber`, `expireMonth`,
+`expireYear` and `cardHolderName`, and `registerCard: 1` stores the card a
+payment already carries — neither is in this crate. iyzico's checkout form
+offers the payer a save-my-card box instead, and answers the `cardUserKey` and
+`cardToken` on its result: `checkout::CheckoutFormBuilder::card_user_key` sends
+the key so a payer's cards stay under one, and `Charge::raw` at `/cardUserKey`
+and `/cardToken` is where the pair comes back. Neither field is in `specs/` —
+iyzico's documentation of that request and that response mentions neither, and
+their own SDKs send and read both. Stripe is the same shape from the other
+side: the `pm_…` is made by Stripe.js in the browser, never on the server.
 
 ## Amounts
 

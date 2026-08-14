@@ -48,6 +48,14 @@ pub mod kind {
     impl super::IdKind for Payment {
         const NAMES: &'static str = "payment";
     }
+
+    /// One instrument the provider holds and can charge again.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct Instrument;
+
+    impl super::IdKind for Instrument {
+        const NAMES: &'static str = "saved instrument";
+    }
 }
 
 /// How a provider names one thing of kind `K`.
@@ -128,6 +136,31 @@ impl<K: IdKind> Id<K> {
 /// handle to something that is not a payment — the token of a checkout form the
 /// payer has not finished — is a different kind and will not fit here.
 pub type PaymentId = Id<kind::Payment>;
+
+/// How the provider names one card it holds, so a payment need not carry one.
+///
+/// The provider keeps the card; the caller keeps this. Charging it sends the
+/// handle where a card number would otherwise go, which is the only reason a
+/// returning customer can be charged without anybody's server touching a
+/// number: Stripe issues `pm_…`, iyzico a `cardToken`, PayTR a `ctoken`.
+///
+/// # It is half of the name at two of the three
+///
+/// iyzico's `cardToken` means nothing without the `cardUserKey` whose vault it
+/// sits in, and PayTR's `ctoken` nothing without its `utoken`. That other half
+/// is the payer, and kasapay already has somewhere to put it —
+/// [`ChargeRequest::customer`](crate::ChargeRequest::customer). Stripe's
+/// `pm_…` stands alone.
+///
+/// # Nothing here creates one
+///
+/// kasapay charges a saved instrument and does not store a card, because
+/// storing one is where the card number is. iyzico's vault is filled by
+/// `POST /cardstorage/card`, which wants the number; Stripe's by
+/// `stripe.createPaymentMethod` in the payer's browser, which is the caller's
+/// page rather than their server. Either way the handle arrives from outside
+/// this library, and [`Id::issued`] is how it comes in.
+pub type InstrumentId = Id<kind::Instrument>;
 
 // Written out rather than derived: a derive would demand the same trait of `K`.
 impl<K: IdKind> fmt::Debug for Id<K> {
