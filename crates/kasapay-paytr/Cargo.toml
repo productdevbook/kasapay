@@ -25,6 +25,7 @@ url.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
+url.workspace = true
 wiremock.workspace = true
 
 [lints]

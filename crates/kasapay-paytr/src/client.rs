@@ -6,8 +6,9 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Event, EventId, EventKind,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId,
+    RefundRequest, RefundStatus, Status,
 };
 use url::Url;
 
@@ -574,6 +575,107 @@ impl Provider for PayTr {
             reference: None,
             provider: PAYTR,
             raw,
+        })
+    }
+
+    /// Reads a payment notice, refusing one that is not PayTR's.
+    ///
+    /// The notice is a form POST, not JSON: `merchant_oid`, `status`,
+    /// `total_amount` and a `hash` over the three of them with the merchant
+    /// salt sitting **between** the reference and the outcome. That placement
+    /// is unique to this one call and is the detail worth getting right —
+    /// believing a forged notice is how a shop ships against a payment nobody
+    /// made.
+    ///
+    /// # Answer `OK` even when this returns `Err`
+    ///
+    /// PayTR retries a notice until the reply body is exactly `OK`, so a
+    /// handler that answers an error status keeps the retry coming for days. A
+    /// notice that fails verification should be answered `OK` and then
+    /// **ignored** — not acted on. Nothing in this crate can enforce that,
+    /// which is why it is said here.
+    ///
+    /// # The id is derived, and it is coarse
+    ///
+    /// PayTR sends nothing that identifies a delivery. [`Event::id`] is
+    /// `{merchant_oid}:{status}`, which is
+    /// [`EventId::Derived`] over exactly those two fields — enough for a
+    /// unique index to collapse PayTR's own retries of one outcome, and not
+    /// enough for anything else. PayTR sends one notice per payment outcome,
+    /// so this holds as long as that does.
+    ///
+    /// # `total_amount` is in kuruş here
+    ///
+    /// The notice sends amounts already multiplied by a hundred, where the
+    /// status query sends `149.90`. Two spellings of the same figure across
+    /// two calls of one API, and reading the wrong one is a hundredfold error.
+    fn verify_webhook(&self, _headers: &[(String, String)], body: &[u8]) -> Result<Event, Error> {
+        let mut order = None;
+        let mut status = None;
+        let mut total = None;
+        let mut hash = None;
+        let mut currency = None;
+        for (key, value) in url::form_urlencoded::parse(body) {
+            match key.as_ref() {
+                "merchant_oid" => order = Some(value.into_owned()),
+                "status" => status = Some(value.into_owned()),
+                "total_amount" => total = Some(value.into_owned()),
+                "hash" => hash = Some(value.into_owned()),
+                "currency" => currency = Some(value.into_owned()),
+                _ => {}
+            }
+        }
+        let (Some(order), Some(status), Some(total)) = (order, status, total) else {
+            return Err(Error::new(
+                ErrorKind::Untrusted,
+                PAYTR,
+                "the notice was missing a field the hash is computed over, so it \
+                 cannot be shown to have come from PayTR",
+            ));
+        };
+        let hash = hash.ok_or_else(|| {
+            Error::new(
+                ErrorKind::Untrusted,
+                PAYTR,
+                "the notice carried no hash; PayTR signs every one, so this is not one",
+            )
+        })?;
+        if !self
+            .inner
+            .config
+            .credentials()
+            .verify_callback(&hash, &order, &status, &total)
+        {
+            return Err(Error::new(
+                ErrorKind::Untrusted,
+                PAYTR,
+                "the notice's hash does not match what PayTR should have sent; \
+                 answer it OK and ignore it, and do not act on it",
+            ));
+        }
+
+        Ok(Event {
+            id: EventId::Derived {
+                key: format!("{order}:{status}").into_boxed_str(),
+                from: &["merchant_oid", "status"],
+            },
+            kind: match status.as_str() {
+                "success" => EventKind::Captured,
+                "failed" => EventKind::Failed,
+                other => EventKind::Other(other.into()),
+            },
+            payment: Some(PaymentId::new(order)),
+            // Already in minor units on a notice, unlike everywhere else.
+            amount: total.parse::<i64>().ok().map(|minor| {
+                // The notice names its currency where the merchant takes more
+                // than one; lira is what PayTR sends when it says nothing.
+                let currency = currency.as_deref().map_or(Currency::Try, |code| {
+                    parse_currency(code).unwrap_or(Currency::Try)
+                });
+                Money::from_minor_units(minor, currency)
+            }),
+            provider: PAYTR,
+            raw: Raw::from_text(String::from_utf8_lossy(body).into_owned()),
         })
     }
 

@@ -6,6 +6,7 @@ use crate::charge::{Charge, ChargeRequest, PaymentId};
 use crate::error::Error;
 use crate::money::Money;
 use crate::refund::{Refund, RefundRequest};
+use crate::webhook::{Event, EventKind};
 
 /// Names a provider.
 ///
@@ -153,6 +154,41 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// with a [`NextAction`](crate::NextAction), the same shape
     /// [`Provider::charge`] uses.
     async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error>;
+
+    /// Turns a delivery the provider made into an [`Event`], or refuses it.
+    ///
+    /// This is the only way to get an `Event`, and it checks the signature
+    /// before it reads anything else. A body that cannot be shown to have come
+    /// from the provider is
+    /// [`ErrorKind::Untrusted`](crate::ErrorKind::Untrusted) — including one
+    /// carrying no signature at all, which must never fall through as if the
+    /// header were optional. A forged delivery is how a shop ships against a
+    /// payment nobody made.
+    ///
+    /// Comparison is constant time, and a provider that timestamps its
+    /// signature has that checked too: a body replayed a day later is refused
+    /// even though its signature is genuine.
+    ///
+    /// # An unmodelled event type is not a failure
+    ///
+    /// A delivery whose type this crate does not model comes back as
+    /// [`EventKind::Other`] carrying the provider's own word for it — never
+    /// `Err`. Providers retry a delivery until it is accepted, so answering an
+    /// error for an event type that was added last week puts a working
+    /// endpoint into a redelivery loop that lasts days.
+    ///
+    /// # Headers
+    ///
+    /// `headers` is every header of the delivery, in any order, spelled
+    /// however the caller's HTTP server spells them —
+    /// [`header`](crate::header) matches them without regard to case. A slice
+    /// of pairs rather than a `HeaderMap` because `kasapay-core` holds no HTTP
+    /// client and will not take a dependency on one framework's type.
+    ///
+    /// `body` is the bytes exactly as they arrived. A signature covers those
+    /// bytes, so a body that has been through a JSON parse and back verifies
+    /// against nothing.
+    fn verify_webhook(&self, headers: &[(String, String)], body: &[u8]) -> Result<Event, Error>;
 
     /// What this provider will do, before there is a payment to ask about.
     fn capabilities(&self) -> Capabilities;

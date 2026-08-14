@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Secret,
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, Event, Money, NextAction, OrderRef,
+    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_core::payment_intent::{
@@ -40,6 +40,10 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Debug, Clone)]
 pub struct Stripe {
     inner: Arc<stripe::Client>,
+    /// The endpoint's `whsec_…`, which is a different secret from the API key
+    /// and is the only thing that can verify a delivery.
+    webhook_secret: Option<Secret>,
+    webhook_tolerance: Duration,
 }
 
 impl Stripe {
@@ -48,7 +52,33 @@ impl Stripe {
     pub fn new(secret_key: &Secret) -> Self {
         Self {
             inner: Arc::new(stripe::Client::new(secret_key.expose())),
+            webhook_secret: None,
+            webhook_tolerance: crate::webhook::DEFAULT_TOLERANCE,
         }
+    }
+
+    /// Holds the endpoint's signing secret, so deliveries can be verified.
+    ///
+    /// This is the `whsec_…` from the webhook endpoint in Stripe's dashboard,
+    /// **not** the API key: one endpoint has one, and a second endpoint has a
+    /// different one. Without it
+    /// [`Provider::verify_webhook`] refuses every delivery rather than
+    /// verifying nothing.
+    #[must_use]
+    pub fn with_webhook_secret(mut self, secret: Secret) -> Self {
+        self.webhook_secret = Some(secret);
+        self
+    }
+
+    /// Changes how far out of date a delivery may be, from
+    /// [`DEFAULT_TOLERANCE`](crate::DEFAULT_TOLERANCE).
+    ///
+    /// Widening it widens the window in which a body captured off the wire can
+    /// be replayed against this endpoint. There is rarely a good reason.
+    #[must_use]
+    pub const fn with_webhook_tolerance(mut self, tolerance: Duration) -> Self {
+        self.webhook_tolerance = tolerance;
+        self
     }
 
     /// Builds a client over an `async-stripe` client the caller configured.
@@ -59,6 +89,8 @@ impl Stripe {
     pub fn with_client(client: stripe::Client) -> Self {
         Self {
             inner: Arc::new(client),
+            webhook_secret: None,
+            webhook_tolerance: crate::webhook::DEFAULT_TOLERANCE,
         }
     }
 
@@ -253,6 +285,15 @@ impl Provider for Stripe {
 
     async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
         Stripe::refund(self, request).await
+    }
+
+    fn verify_webhook(&self, headers: &[(String, String)], body: &[u8]) -> Result<Event, Error> {
+        crate::webhook::verify(
+            self.webhook_secret.as_ref(),
+            self.webhook_tolerance,
+            headers,
+            body,
+        )
     }
 
     fn capabilities(&self) -> Capabilities {

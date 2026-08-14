@@ -42,9 +42,9 @@
 #[doc(inline)]
 pub use kasapay_core::{
     Capabilities, Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, Currency, Error,
-    ErrorKind, IdempotencyKey, Money, MoneyError, NextAction, OrderRef, PaymentId, Provider,
-    ProviderId, Raw, Refund, RefundId, RefundRequest, RefundRequestBuilder, RefundRequestError,
-    RefundStatus, Secret, Status, UnknownCurrency, async_trait,
+    ErrorKind, Event, EventId, EventKind, IdempotencyKey, Money, MoneyError, NextAction, OrderRef,
+    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundRequestBuilder,
+    RefundRequestError, RefundStatus, Secret, Status, UnknownCurrency, async_trait, header,
 };
 
 #[cfg(feature = "iyzico")]

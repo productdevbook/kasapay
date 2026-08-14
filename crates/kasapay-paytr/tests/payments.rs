@@ -6,8 +6,8 @@
 )]
 
 use kasapay_core::{
-    Currency, ErrorKind, IdempotencyKey, Money, NextAction, OrderRef, PaymentId, Provider,
-    RefundRequest, RefundStatus, Status,
+    Currency, ErrorKind, EventId, EventKind, IdempotencyKey, Money, NextAction, OrderRef,
+    PaymentId, Provider, RefundRequest, RefundStatus, Status,
 };
 use kasapay_paytr::{Config, Credentials, PayTr, payment};
 use serde_json::json;
@@ -450,4 +450,69 @@ async fn a_refund_carrying_an_idempotency_key_is_refused_rather_than_dropped() {
         .await
         .expect_err("a key PayTR cannot honour is not accepted");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// The notice PayTR posts, hashed the way it hashes it: the salt sits between
+/// the order reference and the outcome.
+fn notice(order: &str, status: &str, total: &str) -> String {
+    let hash = credentials().callback_hash(order, status, total);
+    let hash = url::form_urlencoded::byte_serialize(hash.as_bytes()).collect::<String>();
+    format!("merchant_oid={order}&status={status}&total_amount={total}&hash={hash}")
+}
+
+#[tokio::test]
+async fn a_signed_payment_notice_reads_as_an_event() {
+    let server = MockServer::start().await;
+    let event = client(&server)
+        .verify_webhook(&[], notice("ord-1", "success", "15990").as_bytes())
+        .expect("hashed by PayTR");
+
+    assert_eq!(event.kind, EventKind::Captured);
+    assert_eq!(event.payment.expect("named").as_str(), "ord-1");
+    // A notice sends minor units where the status query sends "149.90".
+    assert_eq!(event.amount.expect("carried").minor_units(), 15_990);
+    assert_eq!(
+        event.id,
+        EventId::Derived {
+            key: "ord-1:success".into(),
+            from: &["merchant_oid", "status"],
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_forged_or_unhashed_notice_never_becomes_an_event() {
+    let server = MockServer::start().await;
+    let paytr = client(&server);
+
+    // The hash of a 50 lira notice, on a body claiming 159.90.
+    let forged =
+        notice("ord-1", "success", "5000").replace("total_amount=5000", "total_amount=15990");
+    let error = paytr
+        .verify_webhook(&[], forged.as_bytes())
+        .expect_err("the amount was changed under a good hash");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+
+    let error = paytr
+        .verify_webhook(&[], b"merchant_oid=ord-1&status=success&total_amount=15990")
+        .expect_err("no hash is not a missing one to ignore");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+}
+
+#[tokio::test]
+async fn a_failed_notice_is_a_failure_and_an_unknown_status_is_not_an_error() {
+    let server = MockServer::start().await;
+    let paytr = client(&server);
+
+    let failed = paytr
+        .verify_webhook(&[], notice("ord-1", "failed", "0").as_bytes())
+        .expect("hashed by PayTR");
+    assert_eq!(failed.kind, EventKind::Failed);
+
+    // PayTR adding a status must not turn a working endpoint into a retry
+    // loop that lasts days.
+    let unknown = paytr
+        .verify_webhook(&[], notice("ord-1", "chargeback", "15990").as_bytes())
+        .expect("hashed by PayTR");
+    assert_eq!(unknown.kind, EventKind::Other("chargeback".into()));
 }

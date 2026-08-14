@@ -51,9 +51,9 @@ synchronously, so kasapay does not pretend to.
 `refund`**, with `capabilities()` saying which of them a provider actually does
 — iyzico's In-Store flow takes the money at authorisation and has no capture
 step, and a caller planning a checkout needs to know that before it has a
-payment. Webhooks and saved cards live on the providers for now — they enter
-the trait once more than two providers have been written against them, not
-before.
+payment, plus `verify_webhook` for what the provider tells us out of band.
+Saved cards live on the providers for now — they enter the trait once more than
+two providers have been written against them, not before.
 
 `refund` is not the inverse of `capture`: captured money is refunded, not
 un-captured. One capture refunded three times is ordinary — three returned
@@ -65,6 +65,15 @@ counter flow, authenticated with plain headers, lira only. `classic` is
 everything else, signed with `IYZWSv2`: the hosted checkout form, refunds,
 cancel, stored cards, BIN lookup. Twelve of iyzico's ninety-six documented
 operations, and none of them touches a card number.
+
+**A webhook is verified before it is read.** `verify_webhook` checks the
+signature in constant time and refuses a body carrying none, so an `Event`
+cannot exist unless the provider sent it. Stripe's timestamp is checked too: a
+signature never expires on its own, and a body captured off the wire would
+otherwise still verify a week later. An event type kasapay does not model is
+`EventKind::Other`, never an error — a provider retries a rejected delivery for
+days. And `Event::id` says whether the provider issued it or kasapay composed
+it, because a caller writes that into a unique index.
 
 **Every iyzico response is verified.** They sign the money-moving ones with an
 HMAC over selected fields of the reply, and kasapay refuses one that does not

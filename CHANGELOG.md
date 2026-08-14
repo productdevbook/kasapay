@@ -10,6 +10,25 @@ all are the kind 0.0.x exists to make.
 
 ### Breaking
 
+- **`Provider` gains `verify_webhook`, with no default.** A payment that
+  finishes out of band was only observable by polling; this is the callback
+  instead, and it verifies before it reads. There is no way to build an `Event`
+  from an unverified body, a delivery with no signature is `Untrusted` rather
+  than accepted, and an event type kasapay does not model is `EventKind::Other`
+  rather than an error — an `Err` there puts a working endpoint into the
+  provider's redelivery loop for days.
+
+  `Event::id` is an `EventId`, not a `String`: `Provider(..)` where the
+  provider issued the id and `Derived { key, from }` where kasapay composed it,
+  with `from` naming the fields it was built out of. A caller writes this into
+  a unique index, and whether that index is a correctness guarantee or a
+  heuristic is not something to hide behind one type.
+
+  `Stripe::with_webhook_secret` holds the endpoint's `whsec_…`, and the
+  timestamp is checked against `kasapay_stripe::DEFAULT_TOLERANCE` — a Stripe
+  signature never expires on its own, so a body captured off the wire would
+  otherwise verify a week later.
+
 - **`Provider` gains `refund`, with no default.** It takes a `RefundRequest`
   rather than loose arguments, because a retried refund is exactly where an
   idempotency key is needed and a bare `(payment, amount, reason)` has nowhere

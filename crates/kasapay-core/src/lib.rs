@@ -30,6 +30,23 @@
 //! [`Capabilities::repeated_refund`] is where a provider says whether it will
 //! allow that.
 //!
+//! # Learning what happened without asking
+//!
+//! A payment that finishes out of band — the payer came back to the provider
+//! rather than to us — is reported by a delivery to a callback address, and
+//! [`Provider::verify_webhook`] is what turns one into an [`Event`]. Three
+//! things about it are load-bearing:
+//!
+//! - **Verification comes before anything else.** There is no way to build an
+//!   [`Event`] out of an unsigned body, because there is no constructor that
+//!   does not check first.
+//! - **An event type kasapay does not model is [`EventKind::Other`], not an
+//!   error.** A provider adds types without asking, and answering `Err` puts
+//!   the caller into a redelivery loop that lasts days.
+//! - **[`EventId`] says whether the provider issued the id or kasapay composed
+//!   it**, because a caller writes it into a unique index and the two are not
+//!   the same promise.
+//!
 //! # Amounts
 //!
 //! [`Money`] counts minor units. There is no `f64` anywhere in this crate,
@@ -46,6 +63,7 @@ mod provider;
 mod raw;
 mod refund;
 mod secret;
+mod webhook;
 
 #[doc(inline)]
 pub use crate::charge::{
@@ -66,3 +84,5 @@ pub use crate::refund::{
 };
 #[doc(inline)]
 pub use crate::secret::Secret;
+#[doc(inline)]
+pub use crate::webhook::{Event, EventId, EventKind, header};

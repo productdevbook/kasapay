@@ -586,3 +586,15 @@ async fn a_refund_carrying_an_idempotency_key_is_refused_rather_than_dropped() {
         .expect_err("a key iyzico cannot honour is not accepted");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
+
+#[tokio::test]
+async fn the_in_store_callback_cannot_be_verified_from_its_own_body() {
+    // iyzico does not sign it: it is an encrypted blob, and only
+    // decrypt_callback opens it — with a token this delivery does not carry.
+    let server = MockServer::start().await;
+    let error = client(&server)
+        .verify_webhook(&[], br#"{"data":"AAAA"}"#)
+        .expect_err("there is nothing here to check a signature against");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert!(error.to_string().contains("paymentSessionToken"));
+}

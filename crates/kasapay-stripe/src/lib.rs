@@ -26,6 +26,15 @@
 //! - Anything this crate does not model is reachable through
 //!   [`Stripe::client`], which hands back the `async-stripe` client itself.
 //!
+//! # Webhooks
+//!
+//! [`Stripe::with_webhook_secret`] holds the endpoint's `whsec_…` — a
+//! different secret from the API key — and
+//! [`Provider::verify_webhook`](kasapay_core::Provider::verify_webhook) checks
+//! the HMAC in constant time **and** the timestamp against
+//! [`DEFAULT_TOLERANCE`], because a Stripe signature never expires on its own
+//! and a body captured off the wire would otherwise verify a week later.
+//!
 //! # Retrying
 //!
 //! Safe. `ChargeRequest::idempotency_key` is sent as Stripe's
@@ -58,6 +67,9 @@
 
 mod client;
 mod convert;
+mod webhook;
 
 #[doc(inline)]
 pub use crate::client::{DEFAULT_TIMEOUT, ORDER_METADATA_KEY, REASON_METADATA_KEY, Stripe};
+#[doc(inline)]
+pub use crate::webhook::DEFAULT_TOLERANCE;

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Secret,
-    Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Event, Money, NextAction,
+    OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus,
+    Secret, Status,
 };
 use url::Url;
 
@@ -413,6 +413,31 @@ impl Provider for Client {
         )
         .await?;
         Ok(refund_from_session(request, charge))
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: this callback cannot be verified from
+    /// its own body.
+    ///
+    /// iyzico does not sign the In-Store callback. It posts an encrypted
+    /// `data` blob, and the only thing that opens it is
+    /// [`Client::decrypt_callback`] — which needs the `paymentSessionToken`
+    /// from the charge that started the flow. That token is per-payment state
+    /// the caller holds and the delivery does not carry, so there is nothing
+    /// here for a `(headers, body)` signature to check against.
+    ///
+    /// **Answering `Ok` with the decrypted body would be the convenient lie**:
+    /// it would put a verified-looking [`Event`] in front of a caller whose
+    /// only guarantee was that iyzico's decrypt endpoint accepted a blob
+    /// somebody posted us. `Unsupported` names the token that is missing
+    /// instead.
+    fn verify_webhook(&self, _headers: &[(String, String)], _body: &[u8]) -> Result<Event, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the In-Store callback is not signed: it is an encrypted blob that only \
+             Client::decrypt_callback opens, and that needs the paymentSessionToken \
+             from the charge, which this delivery does not carry",
+        ))
     }
 
     /// No separate capture, and refunds only in the ways iyzico documents.

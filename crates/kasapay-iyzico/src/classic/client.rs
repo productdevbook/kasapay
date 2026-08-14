@@ -6,8 +6,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, PaymentId,
-    Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Event, EventId, EventKind,
+    Money, NextAction, PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest,
+    RefundStatus, Status,
 };
 use url::Url;
 
@@ -994,6 +995,82 @@ impl Provider for Client {
             reference: reversal.host_reference,
             provider: PROVIDER,
             raw: reversal.raw,
+        })
+    }
+
+    /// Reads the 3DS callback iyzico posts back, refusing one that is not theirs.
+    ///
+    /// The callback is a form POST carrying `conversationData`,
+    /// `conversationId`, `mdStatus`, `paymentId`, `status` and a `signature`
+    /// over those five in that order — [`signature::Signed::Callback`] names
+    /// them. The comparison is the same constant-time one every other iyzico
+    /// response goes through.
+    ///
+    /// # The id is derived, not iyzico's
+    ///
+    /// iyzico sends nothing that identifies a delivery. [`Event::id`] is
+    /// `{paymentId}:{status}:{conversationId}`, as
+    /// [`EventId::Derived`] over exactly those three fields. That is enough to
+    /// collapse a redelivery of one 3DS outcome and **not** enough to tell two
+    /// deliveries about one payment apart — which is a guess about how iyzico
+    /// behaves, not something they document.
+    ///
+    /// # It carries no amount
+    ///
+    /// The callback says which payment and whether 3DS passed, and nothing
+    /// about money, so [`Event::amount`] is always `None`. The amount comes
+    /// from reading the payment back.
+    ///
+    /// # `mdStatus` is the verdict, not `status`
+    ///
+    /// `status: "success"` means the callback itself is well formed. `mdStatus`
+    /// of `1` is the only value that means the payer authenticated; every
+    /// other value is a failure with its own reason, and treating a successful
+    /// callback as a successful payment is the mistake this refuses to make.
+    fn verify_webhook(&self, _headers: &[(String, String)], body: &[u8]) -> Result<Event, Error> {
+        let mut fields: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for (key, value) in url::form_urlencoded::parse(body) {
+            fields.insert(key.into_owned(), value.into_owned());
+        }
+        let read = |name: &str| fields.get(name).map_or("", String::as_str);
+        let signature = fields.get("signature").ok_or_else(|| {
+            Error::new(
+                ErrorKind::Untrusted,
+                PROVIDER,
+                "the callback carried no signature; iyzico signs this one, so it has \
+                 not been shown to have come from them",
+            )
+        })?;
+        self.check_signature(
+            Some(signature.as_str()),
+            &[
+                read("conversationData"),
+                read("conversationId"),
+                read("mdStatus"),
+                read("paymentId"),
+                read("status"),
+            ],
+        )?;
+
+        let md_status = read("mdStatus");
+        let status = read("status");
+        Ok(Event {
+            id: EventId::Derived {
+                key: format!("{}:{status}:{}", read("paymentId"), read("conversationId"))
+                    .into_boxed_str(),
+                from: &["paymentId", "status", "conversationId"],
+            },
+            kind: match (status, md_status) {
+                ("success", "1") => EventKind::Captured,
+                ("success", _) => EventKind::Failed,
+                (other, _) => EventKind::Other(other.into()),
+            },
+            payment: Some(PaymentId::new(read("paymentId"))),
+            // The callback reports authentication, not money.
+            amount: None,
+            provider: PROVIDER,
+            raw: Raw::from_text(String::from_utf8_lossy(body).into_owned()),
         })
     }
 

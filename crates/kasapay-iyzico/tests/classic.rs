@@ -8,8 +8,8 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
-    Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, RefundRequest,
-    RefundStatus, Status,
+    Currency, ErrorKind, EventId, EventKind, Money, NextAction, OrderRef, PaymentId, Provider,
+    RefundRequest, RefundStatus, Status,
 };
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{Association, CardType, Client, Config, checkout};
@@ -856,4 +856,69 @@ async fn a_whole_refund_is_refused_rather_than_guessed_at() {
         .await
         .expect_err("the classic refund needs an amount");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// The five fields iyzico signs on a 3DS callback, in the order it signs them.
+fn callback_body(md_status: &str, status: &str) -> String {
+    let values = ["conv-data", "ord-1", md_status, "12345678", status];
+    let signature = Credentials::new("api-key", "secret-key").response_signature(&values);
+    format!(
+        "conversationData=conv-data&conversationId=ord-1&mdStatus={md_status}\
+         &paymentId=12345678&status={status}&signature={signature}"
+    )
+}
+
+#[tokio::test]
+async fn a_signed_3ds_callback_reads_as_an_event() {
+    let server = MockServer::start().await;
+    let event = client(&server)
+        .verify_webhook(&[], callback_body("1", "success").as_bytes())
+        .expect("signed by iyzico");
+
+    assert_eq!(event.kind, EventKind::Captured);
+    assert_eq!(event.payment.expect("named").as_str(), "12345678");
+    // The callback reports authentication, not money.
+    assert!(event.amount.is_none());
+    assert_eq!(
+        event.id,
+        EventId::Derived {
+            key: "12345678:success:ord-1".into(),
+            from: &["paymentId", "status", "conversationId"],
+        }
+    );
+    // And it says so: a caller keying a ledger on this reads `from` and knows
+    // what its uniqueness rests on.
+    assert!(event.id.is_derived());
+}
+
+#[tokio::test]
+async fn a_3ds_callback_that_authenticated_nobody_is_not_a_captured_payment() {
+    let server = MockServer::start().await;
+    // status is "success" — the callback is well formed — and mdStatus is not
+    // 1, so the payer did not authenticate. Reading `status` alone here is the
+    // mistake that ships goods against a payment that failed.
+    let event = client(&server)
+        .verify_webhook(&[], callback_body("0", "success").as_bytes())
+        .expect("signed by iyzico");
+    assert_eq!(event.kind, EventKind::Failed);
+}
+
+#[tokio::test]
+async fn a_tampered_or_unsigned_callback_never_becomes_an_event() {
+    let server = MockServer::start().await;
+    let iyzico = client(&server);
+
+    let tampered = callback_body("1", "success").replace("mdStatus=1", "mdStatus=0");
+    let error = iyzico
+        .verify_webhook(&[], tampered.as_bytes())
+        .expect_err("one field changed, same signature");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+
+    let error = iyzico
+        .verify_webhook(
+            &[],
+            b"conversationData=conv-data&conversationId=ord-1&mdStatus=1&paymentId=12345678&status=success",
+        )
+        .expect_err("no signature is not a missing one to ignore");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
 }

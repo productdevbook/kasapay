@@ -14,9 +14,9 @@
 use std::sync::Mutex;
 
 use kasapay::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundRequest, RefundStatus, Status,
-    async_trait,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Event, EventId, EventKind,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId,
+    RefundRequest, RefundStatus, Status, async_trait, header,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -125,6 +125,35 @@ impl Provider for Kumbara {
             reference: Some("kmb-host-1".into()),
             provider: Self::ID,
             raw: Raw::default(),
+        })
+    }
+
+    /// Kumbara signs with a shared word in a header, which is enough to show
+    /// what the trait requires of an adapter and nothing like enough for real
+    /// money.
+    fn verify_webhook(&self, headers: &[(String, String)], body: &[u8]) -> Result<Event, Error> {
+        let Some("kumbara-secret") = header(headers, "x-kumbara-signature") else {
+            return Err(Error::new(
+                ErrorKind::Untrusted,
+                Self::ID,
+                "the delivery is not kumbara's",
+            ));
+        };
+        let text = String::from_utf8_lossy(body).into_owned();
+        let (id, kind) = text.split_once(':').unwrap_or((text.as_str(), "other"));
+        Ok(Event {
+            id: EventId::Derived {
+                key: id.into(),
+                from: &["line"],
+            },
+            kind: match kind {
+                "captured" => EventKind::Captured,
+                other => EventKind::Other(other.into()),
+            },
+            payment: Some(PaymentId::new(id)),
+            amount: None,
+            provider: Self::ID,
+            raw: Raw::from_text(text.clone()),
         })
     }
 
@@ -263,4 +292,41 @@ async fn a_refund_a_provider_will_not_make_is_unsupported_rather_than_a_guess() 
         .await
         .expect_err("kumbara has no whole-payment shorthand");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+#[tokio::test]
+async fn an_unsigned_delivery_never_becomes_an_event() {
+    let kumbara = Kumbara::default();
+    let signed = vec![(
+        "X-Kumbara-Signature".to_owned(),
+        "kumbara-secret".to_owned(),
+    )];
+
+    let error = kumbara
+        .verify_webhook(&[], b"kmb_ord-1:captured")
+        .expect_err("no signature is not a missing one to ignore");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+
+    let event = kumbara
+        .verify_webhook(&signed, b"kmb_ord-1:captured")
+        .expect("signed by kumbara");
+    assert_eq!(event.kind, EventKind::Captured);
+    assert_eq!(event.payment.expect("named").as_str(), "kmb_ord-1");
+    // Kumbara sends no id of its own, and says so rather than pretending.
+    assert!(event.id.is_derived());
+}
+
+#[tokio::test]
+async fn an_event_kumbara_added_later_is_other_rather_than_an_error() {
+    // The rule the whole trait rests on: an Err here puts a working endpoint
+    // into the provider's redelivery loop.
+    let kumbara = Kumbara::default();
+    let signed = vec![(
+        "x-kumbara-signature".to_owned(),
+        "kumbara-secret".to_owned(),
+    )];
+    let event = kumbara
+        .verify_webhook(&signed, b"kmb_ord-1:piggy_bank_emptied")
+        .expect("an unheard-of type is still a delivery");
+    assert_eq!(event.kind, EventKind::Other("piggy_bank_emptied".into()));
 }
