@@ -7,9 +7,9 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use kasapay_core::ErrorKind;
+use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, Status};
 use kasapay_iyzico::Credentials;
-use kasapay_iyzico::classic::{Association, CardType, Client, Config};
+use kasapay_iyzico::classic::{Association, CardType, Client, Config, checkout};
 use serde_json::json;
 use wiremock::matchers::{body_json, header, header_exists, method, path};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -273,4 +273,238 @@ async fn a_refused_delete_is_an_error_carrying_iyzicos_code() {
         .expect_err("a failure status is not a deletion");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.code(), Some("5107"));
+}
+
+fn buyer() -> checkout::Buyer {
+    checkout::Buyer {
+        id: "buyer-1".into(),
+        name: "Ayse".into(),
+        surname: "Yilmaz".into(),
+        identity_number: "11111111111".into(),
+        email: "ayse@example.test".into(),
+        phone: "+905350000000".into(),
+        registration_address: "Bagdat Cad. 1".into(),
+        city: "Istanbul".into(),
+        country: "Turkey".into(),
+        zip_code: None,
+        ip: None,
+    }
+}
+
+fn address() -> checkout::Address {
+    checkout::Address {
+        contact_name: "Ayse Yilmaz".into(),
+        address: "Bagdat Cad. 1".into(),
+        city: "Istanbul".into(),
+        country: "Turkey".into(),
+        zip_code: None,
+    }
+}
+
+fn item(price: &str) -> checkout::BasketItem {
+    checkout::BasketItem {
+        id: "item-1".into(),
+        name: "Kahve".into(),
+        category: "Icecek".into(),
+        kind: checkout::ItemKind::Physical,
+        price: Money::parse(price, Currency::Try).expect("valid amount"),
+    }
+}
+
+fn form() -> checkout::CheckoutForm {
+    checkout::CheckoutForm::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "https://merchant.test/callback".parse().expect("valid url"),
+        buyer(),
+    )
+    .billing_address(address())
+    .item(item("149.90"))
+    .build()
+    .expect("valid form")
+}
+
+#[tokio::test]
+async fn opening_a_form_gives_a_page_to_send_the_payer_to() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .and(header_exists("authorization"))
+        // Decimal strings, never floats: 149.90 and not 149.90000000000001.
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "ord-1",
+            "price": "149.90",
+            "paidPrice": "149.90",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "callbackUrl": "https://merchant.test/callback",
+            "buyer": {
+                "id": "buyer-1", "name": "Ayse", "surname": "Yilmaz",
+                "identityNumber": "11111111111", "email": "ayse@example.test",
+                "gsmNumber": "+905350000000", "registrationAddress": "Bagdat Cad. 1",
+                "city": "Istanbul", "country": "Turkey",
+            },
+            "billingAddress": {
+                "contactName": "Ayse Yilmaz", "address": "Bagdat Cad. 1",
+                "city": "Istanbul", "country": "Turkey",
+            },
+            "shippingAddress": {
+                "contactName": "Ayse Yilmaz", "address": "Bagdat Cad. 1",
+                "city": "Istanbul", "country": "Turkey",
+            },
+            "basketItems": [{
+                "id": "item-1", "name": "Kahve", "category1": "Icecek",
+                "itemType": "PHYSICAL", "price": "149.90",
+            }],
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .start_checkout_form(&form())
+        .await
+        .expect("the form opens");
+
+    assert_eq!(charge.status, Status::RequiresAction);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+    match charge.next_action.expect("a form to send the payer to") {
+        NextAction::Redirect { url, continuation } => {
+            assert_eq!(
+                url.as_str(),
+                "https://sandbox-cpp.iyzipay.com/?token=cf-token-1"
+            );
+            // The token has to survive: the callback carries nothing else.
+            assert_eq!(continuation.as_deref(), Some("cf-token-1"));
+        }
+        other => panic!("expected a redirect, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn a_finished_form_reports_the_payment() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .and(body_json(json!({ "locale": "tr", "token": "cf-token-1" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "paidPrice": "149.90",
+            "currency": "TRY",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .checkout_result("cf-token-1")
+        .await
+        .expect("the form reads back");
+
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.id.as_str(), "12345678");
+    assert_eq!(charge.amount.minor_units(), 14_990);
+    assert_eq!(
+        charge.order.map(|o| o.as_str().to_owned()),
+        Some("ord-1".to_owned())
+    );
+}
+
+#[tokio::test]
+async fn a_query_that_worked_can_still_report_a_refused_card() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "FAILURE",
+            "paymentId": "12345678",
+            "paidPrice": "149.90",
+            "currency": "TRY",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .checkout_result("cf-token-1")
+        .await
+        .expect("the query itself worked");
+    // status: success means the query worked, not that the payment did.
+    assert_eq!(charge.status, Status::Failed);
+}
+
+#[tokio::test]
+async fn a_form_the_payer_has_not_finished_is_still_pending() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "status": "success" })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .checkout_result("cf-token-1")
+        .await
+        .expect("the query worked");
+    assert_eq!(charge.status, Status::Pending);
+    assert!(charge.status.is_open());
+}
+
+#[test]
+fn a_basket_that_does_not_add_up_is_refused_before_sending() {
+    let error = checkout::CheckoutForm::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "https://merchant.test/callback".parse().expect("valid url"),
+        buyer(),
+    )
+    .billing_address(address())
+    .item(item("100.00"))
+    .build()
+    .expect_err("the lines do not come to the total");
+
+    // iyzico refuses this with an error code nobody can read; better to say so
+    // here, where the two numbers are in hand.
+    assert!(matches!(
+        error,
+        checkout::CheckoutFormError::BasketDoesNotAddUp { .. }
+    ));
+}
+
+#[test]
+fn a_form_needs_a_billing_address_and_a_basket() {
+    let bare = || {
+        checkout::CheckoutForm::builder(
+            OrderRef::new("ord-1"),
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+            "https://merchant.test/callback".parse().expect("valid url"),
+            buyer(),
+        )
+    };
+    assert_eq!(
+        bare().item(item("149.90")).build().expect_err("no address"),
+        checkout::CheckoutFormError::NoBillingAddress
+    );
+    assert_eq!(
+        bare()
+            .billing_address(address())
+            .build()
+            .expect_err("no basket"),
+        checkout::CheckoutFormError::EmptyBasket
+    );
+}
+
+#[test]
+fn shipping_defaults_to_the_billing_address() {
+    let form = form();
+    assert_eq!(form.shipping_address.address, form.billing_address.address);
+    // And paid_price defaults to the basket total when nothing is added.
+    assert_eq!(form.paid_price, form.price);
 }

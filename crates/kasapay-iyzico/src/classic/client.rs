@@ -5,9 +5,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use kasapay_core::{Error, ErrorKind, ProviderId, Raw};
+use kasapay_core::{
+    Charge, Currency, Error, ErrorKind, Money, NextAction, PaymentId, ProviderId, Raw, Status,
+};
 use url::Url;
 
+use crate::classic::checkout::CheckoutForm;
 use crate::classic::wire;
 use crate::signing::Credentials;
 
@@ -113,6 +116,128 @@ impl Client {
             .post::<_, wire::BinCheckResponse>("/payment/bin/check", &body)
             .await?;
         into_bin_details(response, raw)
+    }
+
+    /// Opens a hosted checkout form and hands back where to send the payer.
+    ///
+    /// iyzico hosts the form and collects the card, so no card data crosses
+    /// this process. The returned [`Charge`] is
+    /// [`Status::RequiresAction`] with a
+    /// [`NextAction::Redirect`] whose `continuation` is the form's token —
+    /// keep it, because [`Client::checkout_result`] needs it and the callback
+    /// carries nothing else that identifies the payment.
+    pub async fn start_checkout_form(&self, form: &CheckoutForm) -> Result<Charge, Error> {
+        let currency = form.price.currency();
+        let body = wire::CheckoutFormRequest {
+            locale: "tr",
+            conversation_id: form.order.as_str(),
+            price: form.price.to_decimal_string(),
+            paid_price: form.paid_price.to_decimal_string(),
+            currency: currency.code(),
+            basket_id: form.order.as_str(),
+            callback_url: form.callback_url.to_string(),
+            enabled_installments: form.instalments.clone(),
+            buyer: wire::BuyerBody {
+                id: &form.buyer.id,
+                name: &form.buyer.name,
+                surname: &form.buyer.surname,
+                identity_number: &form.buyer.identity_number,
+                email: &form.buyer.email,
+                gsm_number: &form.buyer.phone,
+                registration_address: &form.buyer.registration_address,
+                city: &form.buyer.city,
+                country: &form.buyer.country,
+                zip_code: form.buyer.zip_code.as_deref(),
+                ip: form.buyer.ip.as_deref(),
+            },
+            billing_address: address_body(&form.billing_address),
+            shipping_address: address_body(&form.shipping_address),
+            basket_items: form
+                .basket
+                .iter()
+                .map(|item| wire::BasketItemBody {
+                    id: &item.id,
+                    name: &item.name,
+                    category1: &item.category,
+                    item_type: item.kind.as_str(),
+                    price: item.price.to_decimal_string(),
+                })
+                .collect(),
+        };
+
+        let (response, raw) = self
+            .post::<_, wire::CheckoutFormResponse>(
+                "/payment/iyzipos/checkoutform/initialize/auth/ecom",
+                &body,
+            )
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to open the form",
+        ) {
+            return Err(error);
+        }
+        let token = response.token.ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                "an opened form carried no token",
+            )
+        })?;
+        let page = response.payment_page_url.ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                "an opened form carried no paymentPageUrl",
+            )
+        })?;
+
+        Ok(Charge {
+            // iyzico has no payment id until the payer is done; the form's
+            // token is what identifies it until then.
+            id: PaymentId::new(token.as_str()),
+            order: Some(form.order.clone()),
+            amount: form.paid_price,
+            status: Status::RequiresAction,
+            next_action: Some(NextAction::Redirect {
+                url: Url::parse(&page).map_err(|e| {
+                    Error::new(
+                        ErrorKind::Malformed,
+                        PROVIDER,
+                        "paymentPageUrl is not a URL",
+                    )
+                    .with_source(e)
+                })?,
+                continuation: Some(token.into_boxed_str()),
+            }),
+            provider: PROVIDER,
+            raw,
+        })
+    }
+
+    /// Reads what became of a checkout form, by the token it was opened with.
+    pub async fn checkout_result(&self, token: &str) -> Result<Charge, Error> {
+        let body = wire::CheckoutResultRequest {
+            locale: "tr",
+            token,
+        };
+        let (response, raw) = self
+            .post::<_, wire::CheckoutResultResponse>(
+                "/payment/iyzipos/checkoutform/auth/ecom/detail",
+                &body,
+            )
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message.clone(),
+            response.error_code.clone(),
+            "iyzico refused to read the form",
+        ) {
+            return Err(error);
+        }
+        into_checkout_charge(response, raw)
     }
 
     /// Lists the cards stored against a user key.
@@ -317,6 +442,56 @@ impl From<&str> for Association {
             other => Self::Other(other.into()),
         }
     }
+}
+
+fn address_body(address: &crate::classic::checkout::Address) -> wire::AddressBody<'_> {
+    wire::AddressBody {
+        contact_name: &address.contact_name,
+        address: &address.address,
+        city: &address.city,
+        country: &address.country,
+        zip_code: address.zip_code.as_deref(),
+    }
+}
+
+/// Reads a finished checkout form as a [`Charge`].
+///
+/// `paymentStatus` is the field that matters, and `status: "success"` only
+/// means the query worked — a refused card comes back as a successful query
+/// reporting a failure.
+fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Result<Charge, Error> {
+    let currency = response
+        .currency
+        .as_deref()
+        .map_or(Ok(Currency::Try), str::parse)
+        .map_err(|e: kasapay_core::UnknownCurrency| {
+            Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
+        })?;
+    let amount = response
+        .paid_price
+        .as_deref()
+        .map(|price| Money::parse(price, currency))
+        .transpose()
+        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
+        .unwrap_or_else(|| Money::from_minor_units(0, currency));
+
+    let status = match response.payment_status.as_deref() {
+        Some("SUCCESS") => Status::Captured,
+        Some("FAILURE") => Status::Failed,
+        Some("INIT_THREEDS" | "CALLBACK_THREEDS" | "BKM_POS_SELECTED") => Status::RequiresAction,
+        // No paymentStatus at all means the payer has not finished.
+        _ => Status::Pending,
+    };
+
+    Ok(Charge {
+        id: PaymentId::new(response.payment_id.unwrap_or_default()),
+        order: response.basket_id.map(kasapay_core::OrderRef::new),
+        amount,
+        status,
+        next_action: None,
+        provider: PROVIDER,
+        raw,
+    })
 }
 
 /// A card iyzico holds for a user, named by a token rather than a number.
