@@ -37,11 +37,18 @@ impl fmt::Display for ProviderId {
     }
 }
 
+/// Marks an implementation of [`Provider`] so its `async fn`s compile.
+///
+/// Re-exported because the version has to match the one this trait was defined
+/// with, and matching it by hand is a footgun for anyone writing a provider
+/// outside this workspace.
+pub use async_trait::async_trait;
+
 /// Takes a payment and reports on it.
 ///
 /// Implementations are cheap to clone and safe to share: hold one per process,
 /// not one per request.
-#[async_trait::async_trait]
+#[async_trait]
 pub trait Provider: fmt::Debug + Send + Sync {
     /// Which provider this is.
     fn id(&self) -> ProviderId;

@@ -39,7 +39,7 @@
 pub use kasapay_core::{
     Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, Currency, Error, ErrorKind,
     IdempotencyKey, Money, MoneyError, NextAction, OrderRef, PaymentId, Provider, ProviderId,
-    Secret, Status, UnknownCurrency,
+    Secret, Status, UnknownCurrency, async_trait,
 };
 
 #[cfg(feature = "iyzico")]
