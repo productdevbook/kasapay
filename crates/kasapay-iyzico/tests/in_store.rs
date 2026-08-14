@@ -1,5 +1,8 @@
 //! The In-Store flow against a mock server standing in for iyzico.
-#![allow(clippy::expect_used, reason = "a fixture that cannot be built is a failed test")]
+#![allow(
+    clippy::expect_used,
+    reason = "a fixture that cannot be built is a failed test"
+)]
 
 use kasapay_core::{ChargeRequest, Currency, ErrorKind, Money, OrderRef, PaymentId, Provider};
 use kasapay_iyzico::{Config, Iyzico};
