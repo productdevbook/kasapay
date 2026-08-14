@@ -137,22 +137,47 @@
 //! crate reports, where PayTR's `err_no` and iyzico's `errorCode` are not, and
 //! the offending field is named in the message instead.
 //!
+//! # Customers and mandates
+//!
+//! Mollie's saved instrument is a mandate — `mdt_…`, held against a customer
+//! and read back as an [`InstrumentId`](kasapay_core::InstrumentId), the same
+//! kind Stripe's `pm_…` and iyzico's `cardToken` are.
+//! [`Capabilities::saved_instruments`](kasapay_core::Capabilities::saved_instruments)
+//! is true because of it.
+//!
+//! [`Mollie::create_customer`] registers a customer to hang one on.
+//! [`Mollie::charge_first`] opens a payment with `sequenceType: first`, which
+//! establishes a mandate as a side effect — Mollie's own documented example
+//! carries the new `mdt_…` on the payment while it is still `open`, before
+//! the payer has done anything. [`Mollie::mandates`] and [`Mollie::mandate`]
+//! list a customer's mandates and read one back; [`MandateStatus`] is
+//! `valid`, `pending` or `invalid`, and Mollie's own enum has no fourth value
+//! for "revoked" — see its documentation for what that means for telling the
+//! two apart.
+//!
+//! [`Mollie::charge_with_mandate`] is the charge itself: `sequenceType:
+//! recurring` with the `mandateId`, and
+//! [`ChargeRequest::customer`](kasapay_core::ChargeRequest::customer)
+//! carrying the customer, the other half of the name. **It answers no
+//! redirect.** Mollie's own documented example for a recurring payment
+//! carries `redirectUrl: null` and no `checkout` link, so
+//! [`Charge::next_action`](kasapay_core::Charge::next_action) reads `None`
+//! here where [`Provider::charge`](kasapay_core::Provider::charge) would
+//! carry a [`NextAction::Redirect`](kasapay_core::NextAction::Redirect).
+//!
+//! Revoking a mandate is not here, and neither is creating a subscription off
+//! one.
+//!
 //! # What is not here
 //!
-//! Mollie's API is eighty-seven paths and this crate maps five of them. Not
+//! Mollie's API is eighty-seven paths and this crate maps eight of them. Not
 //! modelled, and reachable through [`Charge::raw`](kasapay_core::Charge::raw)
 //! or not at all: payment methods and the `method` field, `lines` and the
 //! addresses that go with them, `statusReason` — which Mollie documents as
-//! point-of-sale only — subscriptions, customers, payment links, chargebacks,
+//! point-of-sale only — subscriptions, payment links, chargebacks,
 //! settlements, and Mollie Connect. Listing refunds is not here either: that
-//! call paginates, and half a list is worse than none.
-//!
-//! **Charging a card Mollie already holds is not here**, which is why
-//! [`Capabilities::saved_instruments`](kasapay_core::Capabilities::saved_instruments)
-//! is false. Mollie's saved instrument is a mandate — `mdt_…`, held against a
-//! customer and charged with `sequenceType: recurring` — and no call in this
-//! crate sends one. That is a boundary of the adapter rather than of Mollie,
-//! and the capability says so the way a checkout needs to hear it.
+//! call paginates, and half a list is worse than none. Revoking a mandate is
+//! the same kind of gap on the customer side.
 //!
 //! # Example
 //!
@@ -193,7 +218,8 @@ pub const MOLLIE: ProviderId = ProviderId::new("mollie");
 
 #[doc(inline)]
 pub use crate::client::{
-    Capture, CaptureState, Config, Mollie, ORDER_METADATA_KEY, Refund, RefundState,
+    Capture, CaptureState, Config, Customer, Mandate, MandateStatus, Mollie, ORDER_METADATA_KEY,
+    Refund, RefundState,
 };
 #[doc(inline)]
-pub use crate::id::{CaptureId, RefundId};
+pub use crate::id::{CaptureId, CustomerId, RefundId};

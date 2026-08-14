@@ -245,6 +245,39 @@ all are the kind 0.0.x exists to make.
   validation moved into the fetcher, which exits non-zero rather than recording
   a document it could not check.
 
+- **`kasapay-mollie` gains customers, mandates, and `capabilities().saved_instruments`
+  flips to true.** `Mollie::create_customer` registers a `cst_…`.
+  `Mollie::charge_first` opens a payment with `sequenceType: first`, which
+  establishes a mandate as a side effect — Mollie's own documented example
+  carries the new `mdt_…` on the payment while it is still `open`, before the
+  payer has done anything. `Mollie::mandates` and `Mollie::mandate` list a
+  customer's mandates and read one back, each as a `mollie::Mandate` whose
+  `id` is a `kasapay_core::InstrumentId` — the same kind Stripe's `pm_…` and
+  iyzico's `cardToken` are — and whose `customer` is the `mollie::CustomerId`
+  it is hung on.
+
+  `Mollie::charge_with_mandate` is the charge itself: `sequenceType:
+  recurring` with the `mandateId`, and `ChargeRequest::customer` carrying the
+  customer, the other half of the name the same way iyzico's `cardUserKey`
+  sits beside its `cardToken`. **It answers no redirect.** Mollie's own
+  documented example for a recurring payment carries `redirectUrl: null` and
+  no `checkout` link in `_links` — only `changePaymentState`, which this
+  crate does not read — so `Charge::next_action` is `None` here, where
+  `Provider::charge` would carry a `NextAction::Redirect`.
+
+  `mollie::MandateStatus` is `Valid`, `Pending`, `Invalid` or `Other` for
+  whatever Mollie starts sending later. Their own enum has no fourth value
+  for "revoked": a mandate that was revoked and one that never signed both
+  read `invalid`, and nothing in the status alone tells the two apart.
+  `charge_with_mandate` does not check this before sending — a status read
+  moments earlier can go stale before the charge lands, so Mollie's own
+  answer is the one that has not, and a pending or invalid mandate is
+  Mollie's ordinary refusal rather than a fault in this crate.
+
+  `scripts/fetch_mollie.py`'s `KEEP` grows to eight paths — `/v2/customers`
+  and both mandate paths join the five payment ones — so the same fetch,
+  meta and `--write-document` flow above now covers what this adds too.
+
 - **`paytr::Notice`, the payment notice as a type — and the only place PayTR
   reports a refusal.** PayTR's status query answers a payment that succeeded or
   an error, so a refused payment was reachable only as an `ErrorKind::NotFound`

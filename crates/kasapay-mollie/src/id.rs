@@ -5,6 +5,12 @@
 //! `re_…` for a refund. [`IdSource`](kasapay_core::IdSource) cannot separate
 //! them — the provider issued all three — so the kind does, and the compiler
 //! holds it.
+//!
+//! A fourth is `cst_…`, the customer a mandate is hung on. `mdt_…`, the
+//! mandate itself, is not here: it is core's own
+//! [`InstrumentId`](kasapay_core::InstrumentId), the same kind Stripe's
+//! `pm_…` and iyzico's `cardToken` are, because that is what it is — the
+//! saved instrument this adapter charges.
 
 use kasapay_core::Id;
 
@@ -25,6 +31,14 @@ pub mod kind {
     impl kasapay_core::IdKind for Refund {
         const NAMES: &'static str = "mollie refund";
     }
+
+    /// One customer, existing so a mandate has somewhere to be hung.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct Customer;
+
+    impl kasapay_core::IdKind for Customer {
+        const NAMES: &'static str = "mollie customer";
+    }
 }
 
 /// Mollie's identifier for one capture — `cpt_…`.
@@ -39,3 +53,12 @@ pub type CaptureId = Id<kind::Capture>;
 /// Not a [`PaymentId`](kasapay_core::PaymentId), for the same reason a
 /// [`CaptureId`] is not.
 pub type RefundId = Id<kind::Refund>;
+
+/// Mollie's identifier for one customer — `cst_…`.
+///
+/// A mandate is named by two things: [`InstrumentId`](kasapay_core::InstrumentId)
+/// for the `mdt_…` itself, and this for whose customer it belongs to —
+/// [`ChargeRequest::customer`](kasapay_core::ChargeRequest::customer) carries
+/// the same string when charging one. Not a [`PaymentId`](kasapay_core::PaymentId)
+/// or an [`InstrumentId`](kasapay_core::InstrumentId): a customer is neither.
+pub type CustomerId = Id<kind::Customer>;
