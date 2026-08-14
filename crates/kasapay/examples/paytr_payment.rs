@@ -13,13 +13,14 @@
 //!
 //! The half nobody gets right is the payment notice. PayTR does not wait for
 //! the payer to come back — it posts the outcome to the merchant and retries
-//! until the reply body is exactly `OK`. The two notices below stand in for
-//! that POST, one signed the way PayTR signs it and one not.
+//! until the reply body is exactly `OK`. It is also the only place a refusal
+//! is reported. The three notices below stand in for that POST: one that PayTR
+//! would have signed, one refusing the payment, and one forged.
 
 use std::error::Error;
 
-use kasapay::paytr::{Config, Credentials, PayTr, payment, payment_id};
-use kasapay::{Currency, ErrorKind, Money, NextAction, OrderRef, Provider};
+use kasapay::paytr::{Config, Credentials, Notice, PayTr, payment, payment_id};
+use kasapay::{Currency, ErrorKind, Money, NextAction, OrderRef, Provider, Status};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -69,69 +70,66 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let total = charge.amount.minor_units().to_string();
-    let signed = Notice {
-        merchant_oid: order.as_str().to_owned(),
-        status: "success".to_owned(),
-        total_amount: total.clone(),
+    let notice = |outcome: &str| Notice {
+        merchant_oid: order.as_str().into(),
+        status: outcome.into(),
+        total_amount: total.as_str().into(),
         hash: paytr
             .credentials()
-            .callback_hash(order.as_str(), "success", &total),
-        failed_reason: None,
+            .callback_hash(order.as_str(), outcome, &total)
+            .into(),
+        failed_reason_code: None,
+        failed_reason_msg: None,
+        payment_amount: None,
+        currency: Some("TL".into()),
+        payment_type: Some("card".into()),
+        test_mode: Some("1".into()),
+    };
+    let refused = Notice {
+        failed_reason_code: Some("0".into()),
+        failed_reason_msg: Some("Kartin limiti yetersiz".into()),
+        ..notice("failed")
     };
     let forged = Notice {
-        hash: "not the hash PayTR would have sent".to_owned(),
-        ..signed.clone()
+        hash: "not the hash PayTR would have sent".into(),
+        ..notice("success")
     };
 
-    println!("answered {}", answer_notice(paytr.credentials(), &signed));
-    println!("answered {}", answer_notice(paytr.credentials(), &forged));
+    for posted in [notice("success"), refused, forged] {
+        println!("answered {}", answer_notice(paytr.credentials(), &posted));
+    }
 
-    // PayTR's status query answers a payment that happened, or an error saying
-    // it does not know one — a refusal is reported on the notice, not here.
+    // The status query answers a payment that succeeded. A payment PayTR
+    // refused and an order it never heard of are the same answer here, which
+    // is why the refusal above came off the notice instead.
     match paytr.charge_status(&payment_id(&order)).await {
         Ok(settled) => println!("paid {}", settled.amount),
-        Err(e) if e.kind() == ErrorKind::NotFound => println!("PayTR knows no such payment"),
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            println!("PayTR reports no successful payment for {order}");
+        }
         Err(e) => return Err(e.into()),
     }
 
     Ok(())
 }
 
-/// The fields of a payment notice a web handler would read off the form POST.
-#[derive(Clone)]
-struct Notice {
-    merchant_oid: String,
-    status: String,
-    total_amount: String,
-    hash: String,
-    failed_reason: Option<String>,
-}
-
 /// What the handler writes back, which is `OK` whatever the notice said.
 fn answer_notice(credentials: &Credentials, notice: &Notice) -> &'static str {
-    if !credentials.verify_callback(
-        &notice.hash,
-        &notice.merchant_oid,
-        &notice.status,
-        &notice.total_amount,
-    ) {
-        // Answering anything else makes PayTR retry it for days, and acting on
-        // it is how a shop ships against a payment nobody made.
-        println!("a notice for {} did not verify", notice.merchant_oid);
-        return "OK";
-    }
-
-    match notice.status.as_str() {
-        "success" => println!(
-            "{} paid {} minor units",
-            notice.merchant_oid, notice.total_amount
-        ),
-        "failed" => println!(
+    // The currency is not covered by PayTR's hash, so it comes from what the
+    // payment was opened in rather than from the notice.
+    match notice.charge(credentials, Currency::Try) {
+        Ok(charge) if charge.status == Status::Failed => println!(
             "{} was refused: {}",
             notice.merchant_oid,
-            notice.failed_reason.as_deref().unwrap_or("no reason given")
+            notice
+                .failed_reason_msg
+                .as_deref()
+                .unwrap_or("no reason given")
         ),
-        other => println!("{} carried an unknown status {other}", notice.merchant_oid),
+        Ok(charge) => println!("{} paid {}", notice.merchant_oid, charge.amount),
+        // Answering anything else makes PayTR retry it for days, and acting on
+        // it is how a shop ships against a payment nobody made.
+        Err(e) => println!("{} was not acted on: {e}", notice.merchant_oid),
     }
     "OK"
 }

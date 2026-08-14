@@ -23,29 +23,39 @@
 //! apart here, and a caller writing this identifier into a unique index is
 //! relying on their own discipline rather than PayTR's guarantee.
 //!
-//! # A failed payment is an error, not a status
-//!
-//! PayTR's status query answers a payment that happened, or an error saying it
-//! does not know one. So
-//! [`charge_status`](kasapay_core::Provider::charge_status) here produces only
-//! [`Status::Captured`](kasapay_core::Status::Captured) — never
-//! [`Failed`](kasapay_core::Status::Failed) — and a payment that was refused
-//! comes back as [`ErrorKind::NotFound`](kasapay_core::ErrorKind::NotFound).
-//!
-//! The payment notice is where a refusal is actually reported: it carries
-//! `status=failed` with a reason. Poll the status query to confirm a success;
-//! read the notice to learn about a failure.
-//!
-//! # The payment notice
+//! # A refusal arrives on the notice
 //!
 //! PayTR does not wait for the payer to come back. It posts the outcome to the
 //! merchant's notification address, retries until the body of the reply is
 //! exactly `OK`, and signs it with a hash whose salt sits in a different place
-//! from every other call. [`Credentials::verify_callback`] checks it.
+//! from every other call. [`Notice::charge`] checks that hash and answers the
+//! [`Charge`](kasapay_core::Charge) it reports: a refused payment is
+//! [`Status::Failed`](kasapay_core::Status::Failed) with the amount that was
+//! attempted, which is the only place this crate produces that status.
 //!
 //! **A notice that does not verify should still be answered `OK`** and then
 //! ignored. Anything else makes PayTR retry it for days, and acting on it is
 //! how a shop ships against a payment nobody made.
+//!
+//! # The status query cannot tell a refusal from an unknown order
+//!
+//! It answers a payment that succeeded, or an error. So
+//! [`charge_status`](kasapay_core::Provider::charge_status) here produces only
+//! [`Status::Captured`](kasapay_core::Status::Captured), and a payment PayTR
+//! refused and an order it has never heard of are the same
+//! [`ErrorKind::NotFound`](kasapay_core::ErrorKind::NotFound) with PayTR's own
+//! `err_no` on it. Nothing in the answer separates them, so nothing here
+//! pretends to.
+//!
+//! Poll the status query to confirm a success; read the notice to learn about
+//! a failure.
+//!
+//! # Nothing here says a payment was refunded
+//!
+//! PayTR reports refunds as a list on the payment and gives the payment itself
+//! no refunded state. So [`PayTr::refunds`] summed and compared against
+//! [`Charge::amount`](kasapay_core::Charge::amount) is what answers "is this
+//! fully refunded"; [`Status`](kasapay_core::Status) has no word for it.
 //!
 //! # Looking a card up before charging it
 //!
@@ -118,6 +128,7 @@
 
 pub mod card;
 mod client;
+pub mod notice;
 pub mod payment;
 mod signing;
 mod wire;
@@ -126,5 +137,7 @@ mod wire;
 pub use crate::card::{CardDetails, CardKind, CardScheme};
 #[doc(inline)]
 pub use crate::client::{Config, PAYTR, PayTr, RefundRecord, payment_id};
+#[doc(inline)]
+pub use crate::notice::Notice;
 #[doc(inline)]
 pub use crate::signing::Credentials;
