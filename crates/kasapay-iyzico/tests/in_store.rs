@@ -344,3 +344,53 @@ async fn a_failure_status_on_decrypt_is_an_error_not_a_charge() {
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.code(), Some("6001"));
 }
+
+#[tokio::test]
+async fn a_bank_timeout_is_retryable_and_a_declined_card_is_not() {
+    // Both are iyzico's own codes and their own messages.
+    for (code, message, retryable) in [
+        (
+            "10219",
+            "Banka tarafinda hata olustu, lutfen tekrar deneyin.",
+            true,
+        ),
+        (
+            "10214",
+            "Banka tarafinda hata olustu, lutfen tekrar deneyin.",
+            true,
+        ),
+        ("10051", "Kart limiti yetersiz, bakiye yetersiz.", false),
+        (
+            "10209",
+            "Kartiniz bloke, lutfen bankanizla iletisime gecin.",
+            false,
+        ),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v3/in-store/payment/init"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "status": "failure",
+                "errorCode": code,
+                "errorMessage": message,
+            })))
+            .mount(&server)
+            .await;
+
+        let error = client(&server)
+            .charge(&charge_request())
+            .await
+            .expect_err("a failure status is not a charge");
+        assert_eq!(error.code(), Some(code));
+        assert_eq!(
+            error.is_retryable(),
+            retryable,
+            "{code}: {}",
+            if retryable {
+                "the bank asked us to come back"
+            } else {
+                "the bank said no"
+            }
+        );
+    }
+}

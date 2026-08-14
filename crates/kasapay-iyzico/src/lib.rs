@@ -31,6 +31,7 @@
 //! Ninety-six operations across eleven groups. Four are implemented.
 
 pub mod classic;
+mod errors;
 pub mod in_store;
 mod signing;
 
