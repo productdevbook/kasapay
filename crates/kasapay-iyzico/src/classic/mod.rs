@@ -6,7 +6,7 @@
 //!
 //! # What is here
 //!
-//! Five operations, chosen because none of them touches a card number:
+//! Eight operations, chosen because none of them touches a card number:
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
@@ -14,6 +14,8 @@
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
 //! - [`Client::forget_card`] — drop one of them
+//! - [`Client::refund`] and [`Client::refund_transaction`] — take money back
+//! - [`Client::cancel`] — void a payment before it settles
 //!
 //! The checkout form is how most integrations should take a payment here:
 //! iyzico hosts the form and collects the card, so nothing sensitive crosses
