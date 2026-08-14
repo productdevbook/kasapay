@@ -74,6 +74,26 @@ Branches are cheap and merges are serial: open the pull request, let CI say
 whether it is right, and let one person merge. Two agents merging to `main`
 concurrently is the same problem one layer up.
 
+### Rebuilding a branch reverts what landed while you were away
+
+`git reset --mixed origin/main` moves the branch and leaves the working tree
+alone — which is the point, and which is also how a whole paragraph of
+somebody else's work disappears. The file in your tree is the one you edited
+hours ago. Anything that landed in it meanwhile is simply not there, and
+committing it takes it out. It has happened here: a branch rebuilt as one
+commit would have silently reverted a section of `specs/README.md` that had
+landed in between.
+
+Nothing catches this. It is not a conflict, the tests pass, and CI has no
+opinion about a paragraph that used to exist. So after rewriting a branch,
+before pushing:
+
+    git diff origin/main...HEAD | grep '^-' | grep -v '^---'
+
+Every removed line should be one you meant to remove. If a line you have never
+seen appears there, something landed while you were working and you are about
+to take it back out.
+
 ## Nothing is built or tested on this machine
 
 This machine serves live sites; a build taking every core has taken it off the
