@@ -21,14 +21,21 @@ OUT = ROOT / "specs" / "iyzico"
 PRODUCTION = "https://api.iyzipay.com"
 SANDBOX = "https://sandbox-api.iyzipay.com"
 
-# Not OpenAPI types. iyzico's fragments use Java's names for them.
+# Not OpenAPI types. iyzico's fragments use Java's names, and their own
+# lowercase ones: `decimal` alone appears 864 times, on nearly every money field
+# in the API. An amount is carried as a string so no reader is tempted to put it
+# through a float.
 JAVA_TYPES = {
     "BigDecimal": ("string", "decimal"),
+    "decimal": ("string", "decimal"),
     "Long": ("integer", "int64"),
+    "long": ("integer", "int64"),
     "Integer": ("integer", "int32"),
     "Double": ("number", "double"),
     "Boolean": ("boolean", None),
     "String": ("string", None),
+    "date": ("string", "date"),
+    "Date": ("string", "date"),
 }
 
 
@@ -77,20 +84,24 @@ def fragments(markdown: str):
             continue
 
 
-def repair(node):
-    """Fixes the two things the embedded fragments consistently get wrong."""
+def repair(node, in_security: bool = False):
+    """Fixes the things the embedded fragments consistently get wrong.
+
+    `in_security` keeps the walk off `securitySchemes`, where `type: http` and
+    `type: apiKey` are the real OpenAPI values rather than Java's.
+    """
     if isinstance(node, dict):
-        declared = node.get("type")
+        declared = None if in_security else node.get("type")
         if declared in JAVA_TYPES:
             openapi_type, fmt = JAVA_TYPES[declared]
             node["type"] = openapi_type
             if fmt:
                 node["format"] = fmt
-        for value in node.values():
-            repair(value)
+        for key, value in node.items():
+            repair(value, in_security or key == "securitySchemes")
     elif isinstance(node, list):
         for value in node:
-            repair(value)
+            repair(value, in_security)
     return node
 
 

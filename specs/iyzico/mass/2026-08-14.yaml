@@ -181,8 +181,9 @@ components:
       - currency
       properties:
         value:
-          type: decimal
+          type: string
           description: Amount to send.
+          format: decimal
         currency:
           type: string
           description: Currency code.
@@ -233,8 +234,9 @@ components:
         systemTime:
           type: integer
         balance:
-          type: decimal
+          type: string
           description: Available balance amount for mass payout transactions.
+          format: decimal
     MassPayoutInitializeRequest:
       type: object
       description: Mass payout initialization request.
@@ -367,9 +369,11 @@ components:
           items:
             type: string
         totalAmount:
-          type: decimal
+          type: string
+          format: decimal
         commissionAmount:
-          type: decimal
+          type: string
+          format: decimal
         currencyCode:
           type: string
     MassPayoutItemRetrieveResponse:
@@ -452,9 +456,11 @@ components:
         merchantId:
           type: integer
         totalAmount:
-          type: decimal
+          type: string
+          format: decimal
         totalSuccessfulAmount:
-          type: decimal
+          type: string
+          format: decimal
         massPayoutStatus:
           type: string
           description: Mass payout lifecycle status (enum).
@@ -467,6 +473,7 @@ components:
           - INSUFFICIENT_BALANCE
           - CANCELED
         totalCommissionAmount:
-          type: decimal
+          type: string
+          format: decimal
         currency:
           type: string

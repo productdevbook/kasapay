@@ -1173,8 +1173,9 @@ components:
           type: string
           description: İşlemi başlatan kullanıcı ID'si.
         paymentId:
-          type: long
+          type: integer
           description: İade edilecek ödemenin ID'si.
+          format: int64
         refundPrice:
           type: string
           format: decimal
@@ -1203,8 +1204,9 @@ components:
           type: string
           description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
         systemTime:
-          type: long
+          type: integer
           description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+          format: int64
         paymentId:
           type: integer
           description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde

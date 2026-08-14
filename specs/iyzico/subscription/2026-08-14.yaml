@@ -918,8 +918,9 @@ components:
           type: string
           description: Pricing plan name.
         price:
-          type: decimal
+          type: string
           description: Amount to charge on each billing period.
+          format: decimal
         currencyCode:
           type: string
           enum:
@@ -988,8 +989,9 @@ components:
               type: string
               description: Product reference code.
             price:
-              type: decimal
+              type: string
               description: Subscription price.
+              format: decimal
             currencyCode:
               type: string
               enum:
@@ -1042,8 +1044,9 @@ components:
               type: string
               description: Product reference code.
             price:
-              type: decimal
+              type: string
               description: Subscription price.
+              format: decimal
             currencyCode:
               type: string
               enum:
@@ -1578,8 +1581,9 @@ components:
           type: string
           description: Plan name.
         price:
-          type: decimal
+          type: string
           description: Plan price (Decimal).
+          format: decimal
         paymentInterval:
           type: string
           enum:
@@ -2106,8 +2110,9 @@ components:
           type: string
           description: Reference code of the subscription period (order).
         price:
-          type: decimal
+          type: string
           description: Period price.
+          format: decimal
         currencyCode:
           type: string
           enum:
@@ -2326,8 +2331,9 @@ components:
               type: string
               description: Updated plan name.
             price:
-              type: decimal
+              type: string
               description: Plan price.
+              format: decimal
             paymentInterval:
               type: string
               enum:
@@ -2434,8 +2440,10 @@ components:
               type: integer
               description: Creation time (epoch ms).
             startDate:
-              type: date
+              type: string
               description: Start time (epoch ms).
+              format: date
             endDate:
-              type: date
+              type: string
               description: End time (epoch ms).
+              format: date

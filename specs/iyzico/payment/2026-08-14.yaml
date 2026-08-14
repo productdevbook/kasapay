@@ -537,11 +537,13 @@ paths:
                   - tr
                   - en
                 paidPrice:
-                  type: decimal
+                  type: string
                   description: Kullanıcıdan tahsil edilecek toplam tutar.
+                  format: decimal
                 price:
-                  type: decimal
+                  type: string
                   description: Sepet toplam tutarı.
+                  format: decimal
                 paymentGroup:
                   type: string
                   description: Ödeme grubu. Default; PRODUCT.
@@ -934,11 +936,13 @@ components:
           type: string
           description: If sent in the request, echoed back in the response for correlation.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total amount charged.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
@@ -962,18 +966,22 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant’s own installment/commission rate. If `price=100` and `paidPrice=110`,
             the merchant rate is 10%. Informational.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant’s own commission amount (e.g., 10 in the example above). Informational.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission rate amount.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee for the payment.
+          format: decimal
         cardType:
           type: string
           description: Card type.
@@ -1068,8 +1076,9 @@ components:
           type: string
           description: Product ID.
         price:
-          type: decimal
+          type: string
           description: Product price.
+          format: decimal
         name:
           type: string
           description: Product name.
@@ -1090,9 +1099,10 @@ components:
           description: Sub-merchant key for the service provider. Not used in the standard business model;
             required only for marketplace model.
         subMerchantPrice:
-          type: decimal
+          type: string
           description: Amount to be transferred to the sub-merchant. Not used in the standard business
             model; required only for marketplace model.
+          format: decimal
     BasketItem2:
       type: object
       required:
@@ -1106,8 +1116,9 @@ components:
           type: string
           description: Item ID.
         price:
-          type: decimal
+          type: string
           description: Item price.
+          format: decimal
         name:
           type: string
           description: Item name.
@@ -1144,8 +1155,9 @@ components:
           type: string
           description: Item ID.
         price:
-          type: decimal
+          type: string
           description: Item price.
+          format: decimal
         name:
           type: string
           description: Item name.
@@ -1182,8 +1194,9 @@ components:
           type: string
           description: Ürün ID.
         price:
-          type: decimal
+          type: string
           description: Ürün fiyatı.
+          format: decimal
         name:
           type: string
           description: Ürün adı.
@@ -1542,11 +1555,13 @@ components:
           description: Request/response correlation ID. The value sent in the request is returned unchanged
             in the response.
         price:
-          type: decimal
+          type: string
           description: Basket total.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total amount to be charged.
+          format: decimal
         currency:
           type: string
           description: Currency. Default is `TRY`.
@@ -1614,11 +1629,13 @@ components:
           description: İstek/yanıt eşleştirme ID’si. İstekte gönderilen değer, response'da aynen geri
             döner.
         price:
-          type: decimal
+          type: string
           description: Sepet toplamı.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Tahsil edilecek toplam tutar.
+          format: decimal
         currency:
           type: string
           description: Para birimi. Varsayılan; TRY.
@@ -1767,11 +1784,13 @@ components:
           type: string
           description: Correlation ID that matches the request.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total charged amount.
+          format: decimal
         installment:
           type: integer
           description: Number of installments.
@@ -1789,19 +1808,23 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant’s installment/commission rate. For example, if price=100 and paidPrice=110,
             the rate is 10%. Informational.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant’s installment/commission amount. Example; 10 when price=100 and paidPrice=110.
             Informational.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico processing commission amount for the payment.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico processing fee for the payment.
+          format: decimal
         cardType:
           type: string
           description: Card type.
@@ -1860,11 +1883,13 @@ components:
                 type: string
                 description: Merchant-provided ID of the item in the basket.
               price:
-                type: decimal
+                type: string
                 description: Item amount on the merchant’s side.
+                format: decimal
               paidPrice:
-                type: decimal
+                type: string
                 description: Collected amount distributed per line item. Must be stored by the merchant.
+                format: decimal
               transactionStatus:
                 type: integer
                 description: 'Status of the payment line item.
@@ -1884,58 +1909,72 @@ components:
                 - 1
                 - 2
               blockageRate:
-                type: decimal
+                type: string
                 description: Merchant blockage rate for this line item. According to the iyzico–merchant
                   agreement, a per-transaction blockage may be applied to mitigate fraud risk.
+                format: decimal
               blockageRateAmountMerchant:
-                type: decimal
+                type: string
                 description: Portion of the blockage amount reflected to the merchant. If the blockage
                   exceeds the merchant amount, it is reflected to the sub-merchant as well.
+                format: decimal
               blockageResolvedDate:
                 type: string
                 description: Blockage resolution datetime for this line item. Format **yyyy-MM-dd HH:mm:ss**
                   (e.g., 2015-10-19 14:36:52).
               iyziCommissionFee:
-                type: decimal
+                type: string
                 description: Portion of iyzico processing fee distributed to this line item.
+                format: decimal
               iyziCommissionRateAmount:
-                type: decimal
+                type: string
                 description: Portion of iyzico processing commission distributed to this line item.
+                format: decimal
               merchantCommissionRate:
-                type: decimal
+                type: string
                 description: Merchant’s installment/commission rate distributed to this line item.
+                format: decimal
               merchantCommissionRateAmount:
-                type: decimal
+                type: string
                 description: Merchant’s installment/commission amount distributed to this line item.
+                format: decimal
               merchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Amount to be paid out to the merchant for this line item after fees/commissions
                   and blockages.
+                format: decimal
               convertedPayout:
                 type: object
                 description: Post-conversion calculations per line item.
                 properties:
                   paidPrice:
-                    type: decimal
+                    type: string
                     description: Collected amount per line item (must be stored).
+                    format: decimal
                   iyziCommissionFee:
-                    type: decimal
+                    type: string
                     description: iyzico processing fee distributed to this line item.
+                    format: decimal
                   iyziCommissionRateAmount:
-                    type: decimal
+                    type: string
                     description: iyzico processing commission distributed to this line item.
+                    format: decimal
                   blockageRateAmountMerchant:
-                    type: decimal
+                    type: string
                     description: Portion of the blockage reflected to the merchant.
+                    format: decimal
                   merchantPayoutAmount:
-                    type: decimal
+                    type: string
                     description: Amount to be paid to the merchant after fees/commissions and blockages.
+                    format: decimal
                   iyziConversionRate:
-                    type: decimal
+                    type: string
                     description: Conversion rate.
+                    format: decimal
                   iyziConversionRateAmount:
-                    type: decimal
+                    type: string
                     description: Amount resulting from the conversion rate.
+                    format: decimal
           currency:
             type: string
             description: Currency of the payment.
@@ -2005,8 +2044,9 @@ components:
           type: string
           description: Canceled payment number.
         price:
-          type: decimal
+          type: string
           description: Canceled payment amount.
+          format: decimal
         currency:
           type: string
           description: Currency (payment currency).
@@ -2024,30 +2064,37 @@ components:
       description: Post-conversion calculations per line item.
       properties:
         paidPrice:
-          type: decimal
+          type: string
           description: Distribution of the collected amount for this line. Must be stored by the merchant.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: Distributed iyzico transaction fee for this line.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Distributed iyzico commission amount for this line.
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Portion of the blockage amount reflected to the merchant for this line.
+          format: decimal
         blockageRateAmountSubMerchant:
           type: string
         subMerchantPayoutAmount:
           type: string
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be sent to the merchant after fees/commissions/blockages.
+          format: decimal
         iyziConversationRate:
-          type: decimal
+          type: string
           description: Conversion rate.
+          format: decimal
         iyziConversationRateAmount:
-          type: decimal
+          type: string
           description: Amount after applying the conversion rate.
+          format: decimal
         currency:
           type: string
           enum:
@@ -2062,32 +2109,41 @@ components:
       description: Dönüştürülmüş (varsa kur/komisyon sonrası) payout bilgileri.
       properties:
         paidPrice:
-          type: decimal
+          type: string
           description: Dönüştürülmüş tahsilat tutarı.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Dönüştürülmüş iyzico komisyon tutarı.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: Dönüştürülmüş iyzico işlem ücreti.
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Dönüştürülmüş üye işyeri bloke tutarı.
+          format: decimal
         blockageRateAmountSubMerchant:
-          type: decimal
+          type: string
           description: Dönüştürülmüş alt üye işyeri bloke tutarı.
+          format: decimal
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Dönüştürülmüş alt üye işyeri hakediş tutarı.
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Dönüştürülmüş üye işyeri hakediş tutarı.
+          format: decimal
         iyziConversionRate:
-          type: decimal
+          type: string
           description: Kullanılan dönüşüm kuru (varsa).
+          format: decimal
         iyziConversionRateAmount:
-          type: decimal
+          type: string
           description: Kur dönüşümüne karşılık gelen tutar (varsa).
+          format: decimal
         currency:
           type: string
           description: Payout para birimi.
@@ -2238,8 +2294,9 @@ components:
           type: string
           description: Related payment transaction id (if any).
         price:
-          type: decimal
+          type: string
           description: Related amount (if any).
+          format: decimal
         retryable:
           type: boolean
           description: Whether the operation can be retried.
@@ -2724,24 +2781,29 @@ components:
           - 1
           - 2
         price:
-          type: decimal
+          type: string
           description: Item amount on the merchant side.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Distribution of the collected amount for this line. Must be stored by the merchant.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
         blockageRate:
-          type: decimal
+          type: string
           description: Merchant blockage rate for the line. Per agreement, iyzico may apply blockage to
             mitigate fraud risk.
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Portion of the blockage amount reflected to the merchant for this line.
+          format: decimal
         blockageRateAmountsubMerchant:
-          type: decimal
+          type: string
           description: Blockage amount for the sub-merchant on this line.
+          format: decimal
         blockageResolvedDate:
           type: string
           description: Blockage release date for the transaction. Format; yyyy-MM-dd HH:mm:ss (e.g., 2015-10-19
@@ -2749,29 +2811,36 @@ components:
           enum:
           - '2015-10-19 14:36:52'
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: Distributed iyzico transaction fee for this line.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Distributed iyzico commission amount for this line.
+          format: decimal
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Distributed merchant commission rate for this line.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Distributed merchant commission amount for this line.
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be sent to the merchant after fees/commissions/blockages.
+          format: decimal
         subMerchantPrice:
-          type: decimal
+          type: string
           description: Sub-merchant entitlement.
+          format: decimal
         subMerchantPayoutRate:
           type: string
           description: Sub-merchant payout rate.
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be transferred to the sub-merchant.
+          format: decimal
         convertedPayout:
           $ref: '#/components/schemas/ConvertedPayout'
     ItemTransaction2:
@@ -2803,47 +2872,60 @@ components:
           - 1
           - 2
         price:
-          type: decimal
+          type: string
           description: Kalemin fiyatı.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Bu kalem için tahsil edilen tutar.
+          format: decimal
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Üye işyeri komisyon oranı (kalem bazında).
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Üye işyeri komisyon tutarı (kalem bazında).
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico komisyon tutarı (kalem bazında).
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico işlem ücreti (kalem bazında).
+          format: decimal
         blockageRate:
-          type: decimal
+          type: string
           description: Bloke oranı.
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Üye işyeri bloke tutarı.
+          format: decimal
         blockageRateAmountSubMerchant:
-          type: decimal
+          type: string
           description: Alt üye işyeri bloke tutarı.
+          format: decimal
         blockageResolvedDate:
           type: string
           description: Blokenin çözümlendiği tarih (`YYYY-MM-DD hh:mm:ss`).
         subMerchantPrice:
-          type: decimal
+          type: string
           description: Alt üye işyeri fiyatı (varsa).
+          format: decimal
         subMerchantPayoutRate:
-          type: decimal
+          type: string
           description: Alt üye işyeri ödeme oranı (varsa).
+          format: decimal
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Alt üye işyeri hakediş tutarı.
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Üye işyeri net hakediş tutarı (kalem bazında).
+          format: decimal
         convertedPayout:
           $ref: '#/components/schemas/ConvertedPayout2'
     PaymentAuthSavedCardRequest:
@@ -2860,11 +2942,13 @@ components:
           type: string
           description: Unique ID for request/response correlation.
         paidPrice:
-          type: decimal
+          type: string
           description: Total amount to be charged from the customer.
+          format: decimal
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         installment:
           type: integer
           description: Installment count. If omitted, single installment (1) is used.
@@ -3049,11 +3133,13 @@ components:
           type: string
           description: ID matching the request.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total charged amount.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
@@ -3076,17 +3162,21 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant’s installment/commission rate (informational).
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant’s installment/commission amount (informational).
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission amount.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee.
+          format: decimal
         cardType:
           type: string
           description: Card type.
@@ -3126,11 +3216,13 @@ components:
                 type: string
                 description: Merchant-defined item ID in the basket.
               price:
-                type: decimal
+                type: string
                 description: Item price on merchant side.
+                format: decimal
               paidPrice:
-                type: decimal
+                type: string
                 description: Collected amount allocated to this line item.
+                format: decimal
               transactionStatus:
                 type: integer
                 description: 'Line item status.
@@ -3150,54 +3242,68 @@ components:
                 - 1
                 - 2
               blockageRate:
-                type: decimal
+                type: string
                 description: Merchant blockage rate at line level.
+                format: decimal
               blockageRateAmountMerchant:
-                type: decimal
+                type: string
                 description: Blockage amount reflected to the merchant.
+                format: decimal
               blockageResolvedDate:
                 type: string
                 description: Blockage release date (yyyy-MM-dd HH:mm:ss).
               iyziCommissionFee:
-                type: decimal
+                type: string
                 description: iyzico fee allocated to the line item.
+                format: decimal
               iyziCommissionRateAmount:
-                type: decimal
+                type: string
                 description: iyzico commission allocated to the line item.
+                format: decimal
               merchantCommissionRate:
-                type: decimal
+                type: string
                 description: Merchant’s commission rate allocated to the line item.
+                format: decimal
               merchantCommissionRateAmount:
-                type: decimal
+                type: string
                 description: Merchant’s commission amount allocated to the line item.
+                format: decimal
               merchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Amount to be paid to the merchant after fees/blocks.
+                format: decimal
               convertedPayout:
                 type: object
                 description: Post-conversion calculations per line item.
                 properties:
                   paidPrice:
-                    type: decimal
+                    type: string
                     description: Collected amount allocated to this line item.
+                    format: decimal
                   iyziCommissionFee:
-                    type: decimal
+                    type: string
                     description: iyzico fee allocated to the line item.
+                    format: decimal
                   iyziCommissionRateAmount:
-                    type: decimal
+                    type: string
                     description: iyzico commission allocated to the line item.
+                    format: decimal
                   blockageRateAmountMerchant:
-                    type: decimal
+                    type: string
                     description: Merchant-side blockage amount.
+                    format: decimal
                   merchantPayoutAmount:
-                    type: decimal
+                    type: string
                     description: Amount to be paid to the merchant after fees/blocks.
+                    format: decimal
                   iyziConversationRate:
-                    type: decimal
+                    type: string
                     description: Conversion rate.
+                    format: decimal
                   iyziConversationRateAmount:
-                    type: decimal
+                    type: string
                     description: Converted amount produced by the rate.
+                    format: decimal
         authCode:
           type: string
           description: Authorization code returned by the bank.
@@ -3243,11 +3349,13 @@ components:
           type: string
           description: İstek ile eşleşen ID.
         price:
-          type: decimal
+          type: string
           description: Sepet toplam tutarı.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Tahsil edilen toplam tutar.
+          format: decimal
         installment:
           type: integer
           description: Taksit sayısı.
@@ -3265,19 +3373,23 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Üye işyerinin uyguladığı vade/komisyon oranı. Örneğin price=100, paidPrice=110
             ise üye işyeri vade/komisyon oranı %10’dur. Bilgi amaçlıdır.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Üye işyerinin uyguladığı vade/komisyon tutarı. Örneğin price=100, paidPrice=110
             ise üye işyeri vade/komisyon tutarı 10’dur. Bilgi amaçlıdır.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Ödemeye ait iyzico işlem komisyon tutarı.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: Ödemeye ait iyzico işlem ücreti.
+          format: decimal
         cardType:
           type: string
           description: Kart tipi.
@@ -3337,12 +3449,14 @@ components:
                 type: string
                 description: Üye işyeri tarafından iletilen, sepetteki ürüne ait id.
               price:
-                type: decimal
+                type: string
                 description: Üye işyeri tarafındaki sepetteki ürüne ait tutar.
+                format: decimal
               paidPrice:
-                type: decimal
+                type: string
                 description: Tahsilat tutarının kırılım bazındaki dağılımı. Üye işyeri tarafından mutlaka
                   saklanmalıdır.
+                format: decimal
               transactionStatus:
                 type: integer
                 description: 'Ödeme kırılımının durumu.
@@ -3362,83 +3476,100 @@ components:
                 - 1
                 - 2
               blockageRate:
-                type: decimal
+                type: string
                 description: Kırılım bazında üye işyeri blokaj oranı. iyzico – üye işyeri anlaşmasına
                   göre, üye işyerine işlem bazında blokaj uygulayabilir. Bu blokaj üye işyeri fraud riskini
                   önlemek içindir, blokaj süresi boyunca para iyzico’da tutulur, bu süre sonrasında üye
                   işyerine gönderilir.
+                format: decimal
               blockageRateAmountMerchant:
-                type: decimal
+                type: string
                 description: Kırılım bazında üye işyeri blokaj tutarının, üye işyerine yansıyan rakamı.
                   Blokaj tutarı mümkün olduğunca üye işyerine yansıtılır. Eğer blokaj tutarı, üye işyeri
                   tutarından daha büyükse bu durumda alt üye işyerine de yansıtılır.
+                format: decimal
               blockageRateAmountsubMerchant:
-                type: decimal
+                type: string
                 description: Kırılım bazında alt üye işyeri blokaj tutarı.
+                format: decimal
               blockageResolvedDate:
                 type: string
                 description: İşlem bazında blokaj çözülme tarihi. yyyy-MM-dd HH:mm:ss formatındadır, örn.
                   2015-10-19 14:36:52.
               iyziCommissionFee:
-                type: decimal
+                type: string
                 description: iyzico işlem ücretinin kırılım bazında dağılmış tutarı.
+                format: decimal
               iyziCommissionRateAmount:
-                type: decimal
+                type: string
                 description: iyzico işlem komisyon tutarının kırılım bazında dağılmış tutarı.
+                format: decimal
               merchantCommissionRate:
-                type: decimal
+                type: string
                 description: Üye işyerinin uyguladığı vade/komisyon oranının kırılım bazında dağılmış
                   oranı.
+                format: decimal
               merchantCommissionRateAmount:
-                type: decimal
+                type: string
                 description: Üye işyerinin uyguladığı vade/komisyon tutarıın, kırılım bazında dağılmış
                   tutarı.
+                format: decimal
               merchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Bu kırılım için, iyzico işlem ücreti, komisyon tutarı ve blokajlar düşüldükten
                   sonra üye işyerine gönderilecek tutar.
+                format: decimal
               subMerchantPrice:
-                type: decimal
+                type: string
                 description: Alt üye işyeri hakedişi.
+                format: decimal
               subMerchantPayoutRate:
                 type: string
                 description: Alt üye işyeri gönderilecek tutar oranı.
               subMerchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Alt üye işyerine aktarılacak tutar.
+                format: decimal
               convertedPayout:
                 type: object
                 description: Kırılım bazında, kur çevrimi sonrası hesaplamalar.
                 properties:
                   paidPrice:
-                    type: decimal
+                    type: string
                     description: Tahsilat tutarının kırılım bazındaki dağılımı. Üye işyeri tarafından
                       mutlaka saklanmalıdır.
+                    format: decimal
                   iyziCommissionFee:
-                    type: decimal
+                    type: string
                     description: iyzico işlem ücretinin kırılım bazında dağılmış tutarı.
+                    format: decimal
                   iyziCommissionRateAmount:
-                    type: decimal
+                    type: string
                     description: iyzico işlem komisyon tutarının kırılım bazında dağılmış tutarı.
+                    format: decimal
                   blockageRateAmountMerchant:
-                    type: decimal
+                    type: string
                     description: Kırılım bazında üye işyeri blokaj tutarının, üye işyerine yansıyan rakamı.
                       Blokaj tutarı mümkün olduğunca üye işyerine yansıtılır. Eğer blokaj tutarı, üye
                       işyeri tutarından daha büyükse bu durumda alt üye işyerine de yansıtılır.
+                    format: decimal
                   blockageRateAmountSubMerchant:
                     type: string
                   subMerchantPayoutAmount:
                     type: string
                   merchantPayoutAmount:
-                    type: decimal
+                    type: string
                     description: Bu kırılım için, iyzico işlem ücreti, komisyon tutarı ve blokajlar düşüldükten
                       sonra üye işyerine gönderilecek tutar.
+                    format: decimal
                   iyziConversationRate:
-                    type: decimal
+                    type: string
                     description: Kur oranı.
+                    format: decimal
                   iyziConversationRateAmount:
-                    type: decimal
+                    type: string
                     description: Kur oranı sonucu tutar.
+                    format: decimal
         authCode:
           type: string
           description: Bankadan dönen authCode değeri.
@@ -3470,11 +3601,13 @@ components:
           type: string
           description: ID matching the request.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total collected amount.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
@@ -3492,19 +3625,23 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant's applied installment/commission rate. For example, if price=100 and paidPrice=110,
             the merchant rate is 10%. Informational.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant's commission amount. For example, if price=100 and paidPrice=110, the
             commission is 10. Informational.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico transaction commission amount.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee.
+          format: decimal
         cardType:
           type: string
           description: Card type.
@@ -3563,11 +3700,13 @@ components:
                 type: string
                 description: ID of the item in the basket provided by the merchant.
               price:
-                type: decimal
+                type: string
                 description: Amount of the item in the merchant's basket.
+                format: decimal
               paidPrice:
-                type: decimal
+                type: string
                 description: Distributed collected amount per breakdown. Must be stored by the merchant.
+                format: decimal
               transactionStatus:
                 type: integer
                 description: 'Status of the payment breakdown.
@@ -3587,73 +3726,90 @@ components:
                 - 1
                 - 2
               blockageRate:
-                type: decimal
+                type: string
                 description: Merchant blockage rate per breakdown.
+                format: decimal
               blockageRateAmountMerchant:
-                type: decimal
+                type: string
                 description: Portion of the blockage amount reflected to the merchant.
+                format: decimal
               blockageRateAmountsubMerchant:
-                type: decimal
+                type: string
                 description: Sub-merchant blockage amount per breakdown.
+                format: decimal
               blockageResolvedDate:
                 type: string
                 description: Blockage release date per transaction. Format yyyy-MM-dd HH:mm:ss, e.g. 2015-10-19
                   14:36:52.
               iyziCommissionFee:
-                type: decimal
+                type: string
                 description: iyzico transaction fee distributed per breakdown.
+                format: decimal
               iyziCommissionRateAmount:
-                type: decimal
+                type: string
                 description: iyzico commission amount distributed per breakdown.
+                format: decimal
               merchantCommissionRate:
-                type: decimal
+                type: string
                 description: Merchant commission rate distributed per breakdown.
+                format: decimal
               merchantCommissionRateAmount:
-                type: decimal
+                type: string
                 description: Merchant commission amount distributed per breakdown.
+                format: decimal
               merchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Amount to be sent to the merchant after fees, commissions and blockages are
                   deducted for this breakdown.
+                format: decimal
               subMerchantPrice:
-                type: decimal
+                type: string
                 description: Sub-merchant entitlement.
+                format: decimal
               subMerchantPayoutRate:
                 type: string
                 description: Rate of the amount to be sent to the sub-merchant.
               subMerchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Amount to be transferred to the sub-merchant.
+                format: decimal
               convertedPayout:
                 type: object
                 description: Post-conversion calculations per breakdown.
                 properties:
                   paidPrice:
-                    type: decimal
+                    type: string
                     description: Distributed collected amount per breakdown. Must be stored by the merchant.
+                    format: decimal
                   iyziCommissionFee:
-                    type: decimal
+                    type: string
                     description: iyzico transaction fee distributed per breakdown.
+                    format: decimal
                   iyziCommissionRateAmount:
-                    type: decimal
+                    type: string
                     description: iyzico commission amount distributed per breakdown.
+                    format: decimal
                   blockageRateAmountMerchant:
-                    type: decimal
+                    type: string
                     description: Portion of blockage amount reflected to the merchant.
+                    format: decimal
                   blockageRateAmountSubMerchant:
                     type: string
                   subMerchantPayoutAmount:
                     type: string
                   merchantPayoutAmount:
-                    type: decimal
+                    type: string
                     description: Amount to be sent to the merchant after fees, commissions and blockages
                       are deducted for this breakdown.
+                    format: decimal
                   iyziConversationRate:
-                    type: decimal
+                    type: string
                     description: Exchange rate.
+                    format: decimal
                   iyziConversationRateAmount:
-                    type: decimal
+                    type: string
                     description: Amount after applying the exchange rate.
+                    format: decimal
         authCode:
           type: string
           description: Auth code returned by the bank.
@@ -3694,8 +3850,9 @@ components:
           type: string
           description: Gerçekleştirilen ön provizyon işlemine ait iyzico'dan dönen ödeme numarası bilgisi.
         paidPrice:
-          type: decimal
+          type: string
           description: Karttan tahsil edilecek nihai tutar.
+          format: decimal
         ip:
           type: string
           description: İsteği gönderen istemcinin IP adresi.
@@ -3725,11 +3882,13 @@ components:
           type: string
           description: Gönderildiyse, istekteki conversationId tekrarlanır.
         price:
-          type: decimal
+          type: string
           description: Sepet toplam tutarı.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Tahsil edilen (kapama yapılan) tutar.
+          format: decimal
         installment:
           type: integer
           description: Taksit sayısı; `1` tek çekim anlamına gelir.
@@ -3744,17 +3903,21 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Üye işyeri uygulanan komisyon oranı.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Üye işyeri komisyon tutarı (bilgilendirme amaçlı).
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico komisyon tutarı.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico işlem ücreti.
+          format: decimal
         cardType:
           type: string
           description: Kart tipi.
@@ -3843,8 +4006,9 @@ components:
           type: string
           description: Item ID.
         price:
-          type: decimal
+          type: string
           description: Item price.
+          format: decimal
         name:
           type: string
           description: Item name.
@@ -3945,8 +4109,9 @@ components:
           type: string
           description: Request/response correlation ID.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         basketId:
           type: string
           description: Basket ID.
@@ -3971,8 +4136,9 @@ components:
           - CHF
           description: Currency. Default; TRY.
         paidPrice:
-          type: decimal
+          type: string
           description: Amount to be collected.
+          format: decimal
         paymentChannel:
           type: string
           enum:
@@ -4067,8 +4233,9 @@ components:
           - en
           description: Response language.
         price:
-          type: decimal
+          type: string
           description: Amount to refund. **Must not exceed** the item price.
+          format: decimal
         currency:
           type: string
           description: Payment currency.
@@ -4100,8 +4267,9 @@ components:
           type: string
           description: Refunded payment item identifier.
         price:
-          type: decimal
+          type: string
           description: Refunded amount.
+          format: decimal
         currency:
           type: string
           description: Currency.
@@ -4145,8 +4313,9 @@ components:
           - en
           description: Response language.
         price:
-          type: decimal
+          type: string
           description: Amount to refund. **Must not exceed** the payment total.
+          format: decimal
         currency:
           type: string
           description: Payment currency.
@@ -4175,8 +4344,9 @@ components:
           type: string
           description: Refunded payment identifier.
         price:
-          type: decimal
+          type: string
           description: Refunded amount.
+          format: decimal
         currency:
           type: string
           description: Currency.
@@ -4240,11 +4410,13 @@ components:
           type: string
           description: Unique ID for request/response correlation.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Final amount to be charged to the customer.
+          format: decimal
         currency:
           type: string
           description: Currency. Default; TRY.
@@ -4331,11 +4503,13 @@ components:
           type: string
           description: İstek/yanıt eşleştirme ID’si.
         price:
-          type: decimal
+          type: string
           description: Sepet toplamı.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Tahsil edilecek nihai tutar.
+          format: decimal
         currency:
           type: string
           description: Para birimi. Varsayılan; TRY.
@@ -4480,9 +4654,10 @@ components:
           type: string
           description: Unique ID for request/response correlation.
         paidPrice:
-          type: decimal
+          type: string
           description: Collected amount to be used in 3DS v2 completion. Must match the paidPrice sent
             in INIT 3DS.
+          format: decimal
         basketId:
           type: string
           description: Basket ID (must match INIT 3DS basketId).
@@ -4519,11 +4694,13 @@ components:
           type: string
           description: ID matching the request.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total charged amount.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
@@ -4546,17 +4723,21 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant’s installment/commission rate (informational).
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant’s installment/commission amount (informational).
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission amount.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee.
+          format: decimal
         cardType:
           type: string
           description: Card type.
@@ -4596,11 +4777,13 @@ components:
                 type: string
                 description: Merchant-defined item ID in the basket.
               price:
-                type: decimal
+                type: string
                 description: Item price on merchant side.
+                format: decimal
               paidPrice:
-                type: decimal
+                type: string
                 description: Collected amount allocated to this line item.
+                format: decimal
               transactionStatus:
                 type: integer
                 description: 'Line item status.
@@ -4620,54 +4803,68 @@ components:
                 - 1
                 - 2
               blockageRate:
-                type: decimal
+                type: string
                 description: Merchant blockage rate at line level.
+                format: decimal
               blockageRateAmountMerchant:
-                type: decimal
+                type: string
                 description: Blockage amount reflected to the merchant.
+                format: decimal
               blockageResolvedDate:
                 type: string
                 description: Blockage release date (yyyy-MM-dd HH:mm:ss).
               iyziCommissionFee:
-                type: decimal
+                type: string
                 description: iyzico fee allocated to the line item.
+                format: decimal
               iyziCommissionRateAmount:
-                type: decimal
+                type: string
                 description: iyzico commission allocated to the line item.
+                format: decimal
               merchantCommissionRate:
-                type: decimal
+                type: string
                 description: Merchant’s commission rate allocated to the line item.
+                format: decimal
               merchantCommissionRateAmount:
-                type: decimal
+                type: string
                 description: Merchant’s commission amount allocated to the line item.
+                format: decimal
               merchantPayoutAmount:
-                type: decimal
+                type: string
                 description: Amount to be paid to the merchant after fees/blocks.
+                format: decimal
               convertedPayout:
                 type: object
                 description: Post-conversion calculations per line item.
                 properties:
                   paidPrice:
-                    type: decimal
+                    type: string
                     description: Collected amount allocated to this line item.
+                    format: decimal
                   iyziCommissionFee:
-                    type: decimal
+                    type: string
                     description: iyzico fee allocated to the line item.
+                    format: decimal
                   iyziCommissionRateAmount:
-                    type: decimal
+                    type: string
                     description: iyzico commission allocated to the line item.
+                    format: decimal
                   blockageRateAmountMerchant:
-                    type: decimal
+                    type: string
                     description: Merchant-side blockage amount.
+                    format: decimal
                   merchantPayoutAmount:
-                    type: decimal
+                    type: string
                     description: Amount to be paid to the merchant after fees/blocks.
+                    format: decimal
                   iyziConversationRate:
-                    type: decimal
+                    type: string
                     description: Conversion rate.
+                    format: decimal
                   iyziConversationRateAmount:
-                    type: decimal
+                    type: string
                     description: Converted amount produced by the rate.
+                    format: decimal
         authCode:
           type: string
           description: Authorization code returned by the bank.

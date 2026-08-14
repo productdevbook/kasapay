@@ -127,11 +127,13 @@ components:
           type: string
           description: If sent in the request, echoed back in the response for correlation.
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total amount charged.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
@@ -155,18 +157,22 @@ components:
           - -1
           - 1
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant’s own installment/commission rate. If `price=100` and `paidPrice=110`,
             the merchant rate is 10%. Informational.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant’s own commission amount (e.g., 10 in the example above). Informational.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission rate amount.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee for the payment.
+          format: decimal
         cardType:
           type: string
           description: Card type.
@@ -532,30 +538,37 @@ components:
       description: Post-conversion calculations per line item.
       properties:
         paidPrice:
-          type: decimal
+          type: string
           description: Distribution of the collected amount for this line. Must be stored by the merchant.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: Distributed iyzico transaction fee for this line.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Distributed iyzico commission amount for this line.
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Portion of the blockage amount reflected to the merchant for this line.
+          format: decimal
         blockageRateAmountSubMerchant:
           type: string
         subMerchantPayoutAmount:
           type: string
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be sent to the merchant after fees/commissions/blockages.
+          format: decimal
         iyziConversationRate:
-          type: decimal
+          type: string
           description: Conversion rate.
+          format: decimal
         iyziConversationRateAmount:
-          type: decimal
+          type: string
           description: Amount after applying the conversion rate.
+          format: decimal
         currency:
           type: string
           enum:
@@ -609,24 +622,29 @@ components:
           - 1
           - 2
         price:
-          type: decimal
+          type: string
           description: Item amount on the merchant side.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Distribution of the collected amount for this line. Must be stored by the merchant.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
         blockageRate:
-          type: decimal
+          type: string
           description: Merchant blockage rate for the line. Per agreement, iyzico may apply blockage to
             mitigate fraud risk.
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Portion of the blockage amount reflected to the merchant for this line.
+          format: decimal
         blockageRateAmountsubMerchant:
-          type: decimal
+          type: string
           description: Blockage amount for the sub-merchant on this line.
+          format: decimal
         blockageResolvedDate:
           type: string
           description: Blockage release date for the transaction. Format; yyyy-MM-dd HH:mm:ss (e.g., 2015-10-19
@@ -634,28 +652,35 @@ components:
           enum:
           - '2015-10-19 14:36:52'
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: Distributed iyzico transaction fee for this line.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Distributed iyzico commission amount for this line.
+          format: decimal
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Distributed merchant commission rate for this line.
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Distributed merchant commission amount for this line.
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be sent to the merchant after fees/commissions/blockages.
+          format: decimal
         subMerchantPrice:
-          type: decimal
+          type: string
           description: Sub-merchant entitlement.
+          format: decimal
         subMerchantPayoutRate:
           type: string
           description: Sub-merchant payout rate.
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be transferred to the sub-merchant.
+          format: decimal
         convertedPayout:
           $ref: '#/components/schemas/ConvertedPayout'

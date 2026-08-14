@@ -143,8 +143,9 @@ components:
           type: string
           description: Conversation ID of the cancel operation.
         refundPrice:
-          type: decimal
+          type: string
           description: Cancel/refund amount.
+          format: decimal
         refundStatus:
           type: integer
           description: Cancel/refund status code.
@@ -171,32 +172,41 @@ components:
       type: object
       properties:
         paidPrice:
-          type: decimal
+          type: string
           description: Distribution of collected amount at line-item level.
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission amount (line-item, after conversion).
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee (line-item, after conversion).
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Merchant blockage amount (after conversion, merchant).
+          format: decimal
         blockageRateAmountSubMerchant:
-          type: decimal
+          type: string
           description: Sub-merchant blockage amount (after conversion).
+          format: decimal
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be transferred to the sub-merchant (after conversion).
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be sent to the merchant (after conversion).
+          format: decimal
         iyziConversionRate:
-          type: decimal
+          type: string
           description: FX rate.
+          format: decimal
         iyziConversionRateAmount:
-          type: decimal
+          type: string
           description: Amount after applying the FX rate.
+          format: decimal
         currency:
           type: string
           description: Currency.
@@ -257,11 +267,13 @@ components:
           type: string
           description: Payment phase.
         price:
-          type: decimal
+          type: string
           description: Item/transaction amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Collected amount.
+          format: decimal
         transactionCurrency:
           type: string
           description: Transaction currency.
@@ -307,23 +319,29 @@ components:
           type: string
           description: Basket ID.
         iyzicoCommission:
-          type: decimal
+          type: string
           description: Commission (for PAYMENT).
+          format: decimal
         iyzicoFee:
-          type: decimal
+          type: string
           description: Transaction fee (for PAYMENT).
+          format: decimal
         parity:
-          type: decimal
+          type: string
           description: FX parity (for PAYMENT).
+          format: decimal
         iyzicoConversionAmount:
-          type: decimal
+          type: string
           description: FX conversion amount (for PAYMENT).
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be paid to the merchant (for PAYMENT).
+          format: decimal
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be paid to the sub-merchant (for PAYMENT).
+          format: decimal
     ReportingDailyTransactionsResponse:
       allOf:
       - $ref: '#/components/schemas/BaseResponse'
@@ -365,47 +383,60 @@ components:
           - 1
           - 2
         price:
-          type: decimal
+          type: string
           description: Item amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Distribution of collected amount at line-item level.
+          format: decimal
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant surcharge/commission rate (line-item).
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant surcharge/commission amount (line-item).
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission amount (line-item).
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee (line-item).
+          format: decimal
         blockageRate:
-          type: decimal
+          type: string
           description: Merchant blockage rate (line-item).
+          format: decimal
         blockageRateAmountMerchant:
-          type: decimal
+          type: string
           description: Blockage amount reflected to the merchant.
+          format: decimal
         blockageRateAmountSubMerchant:
-          type: decimal
+          type: string
           description: Blockage amount reflected to the sub-merchant.
+          format: decimal
         blockageResolvedDate:
           type: string
           description: Blockage resolution date (ISO-8601).
         subMerchantPrice:
-          type: decimal
+          type: string
           description: Sub-merchant item amount.
+          format: decimal
         subMerchantPayoutRate:
-          type: decimal
+          type: string
           description: Rate of payout to sub-merchant.
+          format: decimal
         subMerchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be transferred to the sub-merchant.
+          format: decimal
         merchantPayoutAmount:
-          type: decimal
+          type: string
           description: Amount to be sent to the merchant after commissions and blockages.
+          format: decimal
         convertedPayout:
           $ref: '#/components/schemas/ReportingConvertedPayout'
         refunds:
@@ -448,26 +479,32 @@ components:
 
             '
         price:
-          type: decimal
+          type: string
           description: Basket total amount.
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Total collected amount.
+          format: decimal
         installment:
           type: integer
           description: Installment count.
         merchantCommissionRate:
-          type: decimal
+          type: string
           description: Merchant’s surcharge/commission rate (informational).
+          format: decimal
         merchantCommissionRateAmount:
-          type: decimal
+          type: string
           description: Merchant’s surcharge/commission amount (informational).
+          format: decimal
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: iyzico commission amount for the payment.
+          format: decimal
         iyziCommissionFee:
-          type: decimal
+          type: string
           description: iyzico transaction fee for the payment.
+          format: decimal
         paymentConversationId:
           type: string
           description: Conversation ID of the payment.
@@ -585,8 +622,9 @@ components:
           type: string
           description: Conversation ID of the refund.
         refundPrice:
-          type: decimal
+          type: string
           description: Refund amount.
+          format: decimal
         refundStatus:
           type: integer
           description: Refund status code.
@@ -613,5 +651,6 @@ components:
           type: string
           description: hostReference value returned by the provider.
         iyziCommissionRateAmount:
-          type: decimal
+          type: string
           description: Commission amount on the refund (if any).
+          format: decimal

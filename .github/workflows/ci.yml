@@ -53,6 +53,17 @@ jobs:
       - run: rm rust-toolchain.toml
       - run: cargo check --workspace --all-features
 
+  specs:
+    name: specs are valid OpenAPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install pyyaml openapi-spec-validator
+      - run: python3 scripts/validate_specs.py --strict
+
   features:
     name: every feature combination compiles
     runs-on: ubuntu-latest
