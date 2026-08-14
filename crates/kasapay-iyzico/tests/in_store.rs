@@ -143,7 +143,10 @@ async fn query_reads_an_approved_payment_as_captured() {
 
     assert_eq!(charge.status, kasapay_core::Status::Captured);
     assert_eq!(charge.amount.minor_units(), 14_990);
-    assert_eq!(charge.order.map(|o| o.to_string()), Some("ord-1".to_owned()));
+    assert_eq!(
+        charge.order.map(|o| o.to_string()),
+        Some("ord-1".to_owned())
+    );
     assert_eq!(charge.raw["transactionDetail"]["currencyCode"], "TRY");
 }
 

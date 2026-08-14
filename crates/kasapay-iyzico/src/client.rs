@@ -215,7 +215,12 @@ impl Provider for Iyzico {
             .header("x-callback-url", callback_url.as_str())
             .json(&body);
         let (response, raw) = self.send::<wire::SessionResponse>(http).await?;
-        session_into_charge(response, raw, Some(request.order.clone()), Some(request.amount))
+        session_into_charge(
+            response,
+            raw,
+            Some(request.order.clone()),
+            Some(request.amount),
+        )
     }
 
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {

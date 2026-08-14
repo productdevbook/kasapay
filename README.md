@@ -1,95 +1,80 @@
 # kasapay
 
-One payment API in Rust, over more than one payment provider.
+One payment API in Rust, over any payment provider.
+
+Write against one trait; the provider becomes a deployment decision. Stripe and
+iyzico ship today — PayPal, Adyen, Mollie, PayTR, Param, Craftgate and the rest
+are the same shape, and a provider outside this repository is a first-class one:
+implement `Provider`, name it with `ProviderId::new`.
 
 ```toml
-[dependencies]
 kasapay = { version = "0.1", features = ["stripe", "iyzico"] }
 ```
 
 ```rust
-use kasapay::{ChargeRequest, Currency, Money, NextAction, OrderRef, Provider, Status};
+let charge = provider.charge(
+    &ChargeRequest::builder(OrderRef::new("ord-1"), Money::parse("149.90", Currency::Try)?)
+        .customer("kasiyer-7")
+        .return_url("https://merchant.example/callback".parse()?)
+        .build()?,
+).await?;
 
-let request = ChargeRequest::builder(
-    OrderRef::new("ord-2026-0001"),
-    Money::parse("149.90", Currency::Try)?,
-)
-.customer("kasiyer-7")
-.return_url("https://merchant.example/callback".parse()?)
-.build()?;
-
-let charge = provider.charge(&request).await?;
-
-match charge.status {
-    Status::RequiresAction => match charge.next_action {
-        Some(NextAction::Redirect { url, .. }) => send_the_payer_to(url),
-        Some(NextAction::ConfirmOnClient { client_secret }) => hand_to_the_browser(client_secret),
-        None => unreachable!("a stalled charge always says what it is waiting for"),
-    },
-    Status::Captured => mark_paid(),
-    _ => wait(),
+match charge.next_action {
+    Some(NextAction::Redirect { url, .. }) => send_payer_to(url),
+    Some(NextAction::ConfirmOnClient { client_secret }) => hand_to_browser(client_secret),
+    None if charge.status == Status::Captured => mark_paid(),
+    None => wait(),
 }
 ```
 
-`provider` there is a `Stripe` or an `Iyzico` — or an `Arc<dyn Provider>`
-chosen at runtime. The calling code does not change.
+`provider` is a `Stripe`, an `Iyzico`, or an `Arc<dyn Provider>` picked at
+runtime. The calling code is the same.
 
-## The one thing to understand first
+## `charge()` returning `Ok` is not a payment
 
-**`charge()` returning `Ok` does not mean the money moved.** Every provider
-worth supporting stalls somewhere: Stripe hands back a `client_secret` for the
-browser to confirm, iyzico hands back a deep link into its own app. So `charge`
-returns a `Charge` with a `Status` and, when it is waiting, a `NextAction`
-saying what the payer must do. There is no method that returns "paid", because
-no provider can answer that synchronously.
+Every provider stalls somewhere: Stripe wants the browser to confirm a
+`client_secret`, iyzico wants the payer in its own app. So `charge` returns a
+`Status` and a `NextAction`, never "paid". No provider can answer that
+synchronously, so kasapay does not pretend to.
 
-## What is here
+## Crates
 
-| Crate | |
+| | |
 |---|---|
-| `kasapay` | the facade — re-exports everything, providers behind features |
-| `kasapay-core` | `Money`, `Charge`, `Error`, and the `Provider` trait. No network |
-| `kasapay-stripe` | Stripe, over [`async-stripe`](https://github.com/arlyon/async-stripe) |
-| `kasapay-iyzico` | iyzico In-Store API v3, written against its documented spec |
+| `kasapay` | facade; providers behind features |
+| `kasapay-core` | `Money`, `Charge`, `Error`, `Provider`. No network, no HTTP client |
+| `kasapay-stripe` | over [`async-stripe`](https://github.com/arlyon/async-stripe) |
+| `kasapay-iyzico` | In-Store API v3 |
 
-`kasapay-core` has no HTTP client in it and never will. A provider crate brings
-its own, and a provider that lives outside this repository is a first-class one:
-implement `Provider`, name yourself with `ProviderId::new`.
+v0.1 covers `charge` and `charge_status`. Refunds, webhooks and saved cards are
+where providers disagree most; they enter the shared trait once more than two
+of them have been written, not before.
 
-### What v0.1 covers
+## Where providers differ, it says so
 
-Taking a payment (`charge`) and reading it back (`charge_status`), plus
-iyzico's refund as a provider-specific method. Refunds, webhooks and saved
-cards are not in the shared trait yet — they are where providers disagree
-most, and putting them in before the abstraction has been used in anger is how
-these libraries end up leaking.
-
-## What is deliberately not abstracted
-
-Providers are not interchangeable, and pretending they are is the failure mode
-of every library like this one. Where they differ, kasapay says so out loud:
-
-- **`Charge::raw`** carries the provider's own response, untouched. Anything
-  not modelled is still reachable.
-- **`Stripe::client`** hands back the `async-stripe` client itself for calls
-  kasapay does not make.
-- **iyzico requires** `customer` (it is their `userId`) and `return_url` (it
-  becomes the `x-callback-url` header), and settles in Turkish lira only. Ask
-  it for USD and you get `ErrorKind::Unsupported` before a socket is opened.
+- `Charge::raw` — the provider's own response, untouched.
+- `Stripe::client` — the `async-stripe` client itself, for calls kasapay
+  does not make.
+- iyzico settles in lira only and requires `customer` and `return_url`. Ask it
+  for USD and you get `ErrorKind::Unsupported` before a socket opens.
 
 ## Amounts
 
-`Money` counts minor units — 14990, not 149.90 — and there is no `f64` in the
-crate. `Money::parse("149.905", Currency::Try)` is an error rather than a
-rounding. When a provider wants a decimal on the wire, it is written from the
-integer, so 149.90 goes out as `149.90` and never as `149.90000000000001`.
+`Money` counts minor units. No `f64` anywhere. `Money::parse("149.905", TRY)`
+is an error, not a rounding, and a decimal on the wire is written from the
+integer — `149.90`, never `149.90000000000001`.
 
 ## Specs
 
-`specs/` holds what each provider said its API was, dated. iyzico publishes no
-OpenAPI file at all — theirs is reassembled from the fragments embedded in
-their documentation page. A weekly job refetches both and opens a pull request
-when anything moved. See [`specs/README.md`](specs/README.md).
+`specs/` records what each provider said its API was, dated. iyzico publishes
+no OpenAPI file; theirs is reassembled from their documentation page. A weekly
+job refetches and opens a PR when anything moved — [`specs/README.md`](specs/README.md).
+
+## Adding a provider
+
+Implement `Provider` in a `kasapay-<name>` crate, add a spec fetcher under
+`scripts/`, add a feature to `kasapay`. Tests run against `wiremock`; no
+credentials, no network.
 
 ## Developing
 
@@ -97,12 +82,7 @@ when anything moved. See [`specs/README.md`](specs/README.md).
 cargo fmt --all
 cargo clippy --workspace --all-targets --all-features
 cargo nextest run --workspace --all-features
-cargo test --workspace --all-features --doc   # nextest does not run doctests
+cargo test --workspace --all-features --doc   # nextest skips doctests
 ```
-
-The iyzico tests run against a `wiremock` server, so the suite needs no
-credentials and reaches no network.
-
-## Licence
 
 MIT.

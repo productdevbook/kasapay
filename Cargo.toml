@@ -5,9 +5,9 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-# The minimum edition 2024 needs. Raised only when something here stops
-# compiling on it, never to follow the current stable.
-rust-version = "1.85"
+# Set by async-stripe, which needs 1.88. Raised only when a dependency
+# forces it, never to follow the current stable.
+rust-version = "1.88"
 license = "MIT"
 repository = "https://github.com/productdevbook/kasapay"
 authors = ["kasapay contributors"]

@@ -103,14 +103,21 @@ mod tests {
     #[test]
     fn every_currency_survives_the_round_trip() {
         for currency in [Currency::Try, Currency::Usd, Currency::Eur, Currency::Gbp] {
-            assert_eq!(super::currency_back(&super::currency(currency)), Some(currency));
+            assert_eq!(
+                super::currency_back(&super::currency(currency)),
+                Some(currency)
+            );
         }
     }
 
     #[test]
     fn the_three_stalled_statuses_collapse_to_one() {
         use stripe_shared::PaymentIntentStatus as S;
-        for stalled in [S::RequiresAction, S::RequiresConfirmation, S::RequiresPaymentMethod] {
+        for stalled in [
+            S::RequiresAction,
+            S::RequiresConfirmation,
+            S::RequiresPaymentMethod,
+        ] {
             assert_eq!(super::status(&stalled), Status::RequiresAction);
         }
         assert_eq!(super::status(&S::Succeeded), Status::Captured);

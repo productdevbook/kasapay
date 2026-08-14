@@ -1,6 +1,6 @@
 [package]
 name = "kasapay"
-description = "One payment API over Stripe and iyzico"
+description = "One payment API in Rust over any payment provider"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

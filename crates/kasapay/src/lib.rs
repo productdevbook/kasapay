@@ -1,8 +1,10 @@
-//! One payment API over Stripe and iyzico.
+//! One payment API over any payment provider.
 //!
-//! Write against [`Provider`] and the provider becomes a deployment decision
-//! rather than a rewrite. Everything a caller needs is re-exported here;
-//! the adapters are behind features, one per provider.
+//! Write against [`Provider`] and which provider takes the money becomes a
+//! deployment decision rather than a rewrite. Stripe and iyzico ship with this
+//! workspace; a provider that lives elsewhere is a first-class one — implement
+//! [`Provider`], name it with [`ProviderId::new`]. Everything a caller needs is
+//! re-exported here; the bundled adapters are behind features, one each.
 //!
 //! ```toml
 //! kasapay = { version = "0.1", features = ["stripe", "iyzico"] }

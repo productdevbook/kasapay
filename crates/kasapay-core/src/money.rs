@@ -102,7 +102,10 @@ impl Money {
     /// Builds an amount from a count of minor units — 1050 for 10.50 TRY.
     #[must_use]
     pub const fn from_minor_units(minor_units: i64, currency: Currency) -> Self {
-        Self { minor_units, currency }
+        Self {
+            minor_units,
+            currency,
+        }
     }
 
     /// Reads a plain decimal string such as `"10.50"`.
@@ -206,11 +209,15 @@ mod tests {
     #[test]
     fn pads_a_missing_fractional_part() {
         assert_eq!(
-            Money::parse("7", Currency::Usd).expect("valid").minor_units(),
+            Money::parse("7", Currency::Usd)
+                .expect("valid")
+                .minor_units(),
             700
         );
         assert_eq!(
-            Money::parse("7.5", Currency::Usd).expect("valid").minor_units(),
+            Money::parse("7.5", Currency::Usd)
+                .expect("valid")
+                .minor_units(),
             750
         );
     }

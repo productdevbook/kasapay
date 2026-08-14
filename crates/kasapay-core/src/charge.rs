@@ -96,7 +96,10 @@ impl Status {
     /// Whether the payment can still change without a further request from us.
     #[must_use]
     pub const fn is_open(self) -> bool {
-        matches!(self, Self::Pending | Self::RequiresAction | Self::Authorized)
+        matches!(
+            self,
+            Self::Pending | Self::RequiresAction | Self::Authorized
+        )
     }
 }
 
@@ -277,7 +280,10 @@ mod tests {
             .expect("valid request");
         assert_eq!(request.order.as_str(), "ord-1");
         assert_eq!(request.description.as_deref(), Some("bir kahve"));
-        assert_eq!(request.metadata.get("site").map(String::as_str), Some("vucod"));
+        assert_eq!(
+            request.metadata.get("site").map(String::as_str),
+            Some("vucod")
+        );
         assert!(request.customer.is_none());
     }
 
