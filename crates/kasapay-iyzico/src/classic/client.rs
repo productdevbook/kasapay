@@ -570,9 +570,36 @@ impl Client {
         path: &str,
         body: &B,
     ) -> Result<(T, Raw), Error> {
-        let payload = serde_json::to_string(body).map_err(|e| {
-            Error::new(ErrorKind::InvalidRequest, PROVIDER, "request is not JSON").with_source(e)
-        })?;
+        self.request(method, path, "", Some(body)).await
+    }
+
+    /// Signs and sends one request, body or no body, query or no query.
+    ///
+    /// `query` is everything from the `?` onwards and is **not signed**: the
+    /// signature covers `path` alone. That is what iyzico's own SDKs do —
+    /// their PHP client cuts the URL at the `?` before hashing it and their
+    /// Python one calls `split('?')[0]` — and the endpoints that take query
+    /// parameters are the ones this matters for.
+    ///
+    /// `None` for the body signs and sends nothing at all, which is what
+    /// iyzico's authentication page describes for a request without one.
+    /// `Some` is serialised once and both signed and sent as those exact
+    /// bytes: signing a re-serialised copy signs something the server will not
+    /// receive, and the failure looks like bad credentials.
+    pub(crate) async fn request<B: serde::Serialize, T: serde::de::DeserializeOwned>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        query: &str,
+        body: Option<&B>,
+    ) -> Result<(T, Raw), Error> {
+        let payload = match body {
+            Some(body) => serde_json::to_string(body).map_err(|e| {
+                Error::new(ErrorKind::InvalidRequest, PROVIDER, "request is not JSON")
+                    .with_source(e)
+            })?,
+            None => String::new(),
+        };
         let random_key = random_key();
         let authorization =
             self.inner
@@ -580,15 +607,18 @@ impl Client {
                 .credentials
                 .authorization(&random_key, path, &payload);
 
-        let url = format!("{}{path}", self.inner.config.base_url);
-        let response = self
+        let url = format!("{}{path}{query}", self.inner.config.base_url);
+        let mut request = self
             .inner
             .http
             .request(method, &url)
             .header("Authorization", authorization)
             .header("x-iyzi-rnd", &random_key)
-            .header("Content-Type", "application/json")
-            .body(payload)
+            .header("Content-Type", "application/json");
+        if !payload.is_empty() {
+            request = request.body(payload);
+        }
+        let response = request
             .send()
             .await
             .map_err(|e| transport_error(&e).with_source(e))?;
@@ -918,7 +948,7 @@ pub struct BinDetails {
 ///
 /// The classic API answers 200 for a refusal and puts the verdict in the body,
 /// so the HTTP status is not the thing to read.
-fn refused(
+pub(crate) fn refused(
     status: Option<&str>,
     message: Option<String>,
     code: Option<String>,

@@ -23,6 +23,10 @@
 //! All three of those take an optional [`Reason`], which is what iyzico is
 //! told the money went back for.
 //!
+//! iyzico Link is part of this API as well, and is signed the same way, but it
+//! is a product rather than a payment call: it lives in [`crate::iyzilink`],
+//! over this same [`Client`].
+//!
 //! [`Client`] implements [`Provider`](kasapay_core::Provider), but only half
 //! of it: `charge_status` reads a payment back, and `charge` answers
 //! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) because
@@ -67,3 +71,5 @@ mod wire;
 pub use crate::classic::client::{
     Association, BinDetails, CardType, Client, Config, Reason, ReasonCode, Reversal, StoredCard,
 };
+
+pub(crate) use crate::classic::client::refused;
