@@ -153,13 +153,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
       security:
       - ApiKeyAuth: []
@@ -208,65 +208,76 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sifre-cozme.md
   /v3/in-store/payment/init:
     post:
+      tags:
+      - Payment
       summary: Ödeme Başlatma
-      description: Mağaza içi bir ödeme işlemini başlatmak için kullanılır.
+      description: 'Müşterinin ödeme sürecini başlatır.
+
+        Başarılı yanıt içindeki `deepLinkUrl` ile müşteri iyzico uygulamasına yönlendirilir.
+
+
+        **Entegrasyon Akışı:**
+
+        1. Bu endpoint ile `deepLinkUrl` ve `paymentSessionToken` alınır.
+
+        2. Müşteri `deepLinkUrl` ile yönlendirilir (iyzico uygulaması açılır).
+
+        3. Müşteri ödemeyi tamamlar.
+
+        4. Callback URL''e şifreli sonuç iletilir.
+
+        5. `/crypt/decrypt` ile şifreli data çözülür.
+
+        '
       operationId: initPayment
       parameters:
-      - name: x-api-key
-        in: header
-        required: true
-        description: iyzico panelinizdeki CepPOS API anahtarı
-        schema:
-          type: string
-      - name: x-secret-key
-        in: header
-        required: true
-        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
-        schema:
-          type: string
-      - name: x-merchant-id
-        in: header
-        required: true
-        description: iyzico hesabınızın üye işyeri numarası
-        schema:
-          type: string
       - name: x-callback-url
         in: header
         required: true
-        description: Sorgulanacak ödemenin ID'si
+        description: İşlem sonucu bildirimi için callback URL
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uri
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InitRequest'
+              $ref: '#/components/schemas/PaymentInitRequest'
       responses:
         '200':
           description: Ödeme başarıyla başlatıldı
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InitResponse'
-        '400':
-          description: Hatalı istek veya doğrulama hatası
+                $ref: '#/components/schemas/PaymentInitResponse'
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/odeme-baslatma.md
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
   /v3/in-store/payment/query:
     post:
       summary: Ödeme Durumu Sorgulama
@@ -310,13 +321,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse3'
+                $ref: '#/components/schemas/ErrorResponse2'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse3'
+                $ref: '#/components/schemas/ErrorResponse2'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sorgulama.md
     get:
       tags:
@@ -344,13 +355,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
       security:
       - ApiKeyAuth: []
@@ -358,34 +369,23 @@ paths:
         MerchantIdAuth: []
   /v3/in-store/payment/refund:
     post:
-      summary: Ödeme İade İşlemi
-      description: Tamamlanmış bir ödemenin tamamını veya bir kısmını iade etmek için kullanılır.
+      tags:
+      - Payment
+      summary: İptal / İade Başlat
+      description: 'Daha önce gerçekleştirilmiş bir ödeme için iptal veya iade işlemi başlatır.
+
+        `refundAmount` girilmezse tam iade yapılır.
+
+        '
       operationId: refundPayment
       parameters:
-      - name: x-api-key
-        in: header
-        required: true
-        description: iyzico panelinizdeki CepPOS API anahtarı
-        schema:
-          type: string
-      - name: x-secret-key
-        in: header
-        required: true
-        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
-        schema:
-          type: string
-      - name: x-merchant-id
-        in: header
-        required: true
-        description: iyzico hesabınızın üye işyeri numarası
-        schema:
-          type: string
       - name: x-callback-url
         in: header
         required: true
         description: İşlem sonucu bildirimi için callback URL
         schema:
           type: string
+          format: uri
       requestBody:
         required: true
         content:
@@ -394,18 +394,28 @@ paths:
               $ref: '#/components/schemas/RefundRequest'
       responses:
         '200':
-          description: İade talebi başarıyla alındı
+          description: İade işlemi başarıyla başlatıldı
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RefundResponse'
-        '400':
-          description: Geçersiz parametre veya iade edilemez durum
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/iptal-iade.md
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
   /v3/in-store/user:
     post:
       tags:
@@ -450,19 +460,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Geçersiz veya eksik header
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
     delete:
       tags:
@@ -507,19 +517,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Geçersiz veya eksik header
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
   /v3/in-store/user/list:
     get:
@@ -571,19 +581,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Geçersiz veya eksik header
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Sunucu hatası
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse2'
+                $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
 components:
   schemas:
@@ -659,15 +669,6 @@ components:
       properties:
         status:
           type: string
-        errorCode:
-          type: string
-        errorMessage:
-          type: string
-    ErrorResponse2:
-      type: object
-      properties:
-        status:
-          type: string
           description: İşlemin sonucunu gösterir. Hata durumunda her zaman "failure" döner.
         errorCode:
           type: string
@@ -676,7 +677,7 @@ components:
         errorMessage:
           type: string
           description: Hatayı açıklayan, okunabilir hata mesajı. Loglama ve hata ayıklama amacıyla kullanılabilir.
-    ErrorResponse3:
+    ErrorResponse2:
       type: object
       properties:
         status:
@@ -703,41 +704,6 @@ components:
         transaction:
           description: Ödemeye ait banka işlem detayları, kart bilgileri ve fiş verilerini içeren nesne.
           $ref: '#/components/schemas/Transaction2'
-    InitRequest:
-      type: object
-      required:
-      - userId
-      - orderId
-      - amount
-      properties:
-        userId:
-          type: number
-          format: float
-          description: Ödemeyi yapacak kullanıcı ID'si
-        orderId:
-          type: string
-          description: Sipariş referans numarası
-        amount:
-          type: string
-          description: Ödeme tutarı
-    InitResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
-        deepLinkUrl:
-          type: string
-          description: Ödeme oturumuna özgü token. Ödeme tamamlandıktan sonra /crypt/decrypt adımında
-            şifre çözmek için kullanılır.
-        paymentSessionToken:
-          type: string
-          description: Müşterinin iyzico mobil uygulamasına yönlendirileceği deep link URL'i. Bu link
-            açıldığında uygulama ödeme ekranını başlatır.
-        paymentId:
-          type: string
-          description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde
-            referans olarak kullanılır.
     OAuthAuthorizeErrorResponse:
       type: object
       properties:
@@ -877,6 +843,50 @@ components:
           type: string
           format: date-time
           description: İşlem tarihi ve saati.
+    PaymentInitRequest:
+      type: object
+      required:
+      - userId
+      - orderId
+      - amount
+      properties:
+        userId:
+          type: string
+          description: Ödemeyi yapacak kullanıcı ID'si
+        orderId:
+          type: string
+          description: Sipariş referans numarası
+        amount:
+          type: string
+          description: Ödeme tutarı
+          format: decimal
+    PaymentInitResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        errorCode:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
+        errorMessage:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
+        deepLinkUrl:
+          type: string
+          description: Müşterinin iyzico mobil uygulamasına yönlendirileceği deep link URL'i. Bu link
+            açıldığında uygulama ödeme ekranını başlatır.
+        paymentSessionToken:
+          type: string
+          description: Ödeme oturumuna özgü token. Ödeme tamamlandıktan sonra /crypt/decrypt adımında
+            şifre çözmek için kullanılır.
+        paymentId:
+          type: integer
+          format: int64
+          description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde
+            referans olarak kullanılır.
     PaymentQueryResponse:
       type: object
       properties:
@@ -1149,11 +1159,16 @@ components:
       properties:
         userId:
           type: string
-          description: İşlemi başlatan kullanıcı ID'si.
+          description: İşlemi başlatan kullanıcı ID'si
         paymentId:
           type: integer
-          description: İade edilecek ödemenin ID'si.
+          description: İade edilecek ödemenin ID'si
           format: int64
+        refundAmount:
+          type: string
+          nullable: true
+          description: Kısmi iade tutarı; girilmezse tam iade yapılır
+          format: decimal
         refundPrice:
           type: string
           format: decimal
@@ -1164,6 +1179,14 @@ components:
         status:
           type: string
           description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        errorCode:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
+        errorMessage:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
         deepLinkUrl:
           type: string
           description: Müşteriyi iade onay ekranına yönlendiren deep link URL'i. İade akışı bu link üzerinden
