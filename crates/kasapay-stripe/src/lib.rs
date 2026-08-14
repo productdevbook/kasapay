@@ -31,6 +31,19 @@
 //! `Idempotency-Key`, so replaying a charge with the same key takes the money
 //! once. Without a key, a retry is a second charge.
 //!
+//! # Which `async-stripe`
+//!
+//! Exactly `1.0.0-rc.8`, pinned rather than ranged. The 1.0 line is a
+//! prerelease and a candidate has changed generated types before —
+//! `PaymentIntent` gained a public field between rc.6 and rc.7 — so which one
+//! this is built against is not left to resolution.
+//!
+//! It costs a caller one thing: a crate that depends on `async-stripe` itself
+//! has to be on the same candidate, because two exact pins at different
+//! candidates cannot resolve together. [`Stripe::client`] hands the client back
+//! so that reaching what this crate does not model needs no second dependency.
+//! The pin becomes a range the day 1.0.0 ships.
+//!
 //! # Example
 //!
 //! ```no_run

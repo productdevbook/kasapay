@@ -94,6 +94,15 @@ all are the kind 0.0.x exists to make.
   licence, a wildcard version or a source outside crates.io, checked on every
   push and again daily — an advisory lands against a tree that has not changed.
 
+- **`kasapay-stripe` says which `async-stripe` it is built against**, and why it
+  is pinned exactly rather than ranged. `=1.0.0-rc.8` is still the newest
+  candidate published and there is no 1.0.0; a candidate has changed generated
+  types before, so the version is chosen here rather than by resolution. The
+  cost to a caller is that a crate depending on `async-stripe` itself must be on
+  the same candidate — two exact pins at different candidates do not resolve
+  together — and `Stripe::client` exists so that reaching past what this crate
+  models needs no second dependency at all.
+
 - **`Stripe::capture`, whole or partial.** Stripe leaves `amount` at what was
   authorised and reports a partial capture in `amount_received`, so
   `Charge::amount` reads the latter where the two differ — the trait promises

@@ -28,9 +28,8 @@ tracing = "0.1.44"
 reqwest = { version = "0.13.4", default-features = false, features = ["form", "json", "query", "rustls"] }
 url = "2.5.8"
 
-# The 1.0 line is a prerelease but it is the maintained one: rc.8 is newer than
-# 0.41 and it is what the weekly OpenAPI regeneration lands on. Pinned exactly
-# because a prerelease may break between candidates.
+# The maintained line is the 1.0 prerelease, not 0.41. Pinned exactly because a
+# candidate has changed generated types under us; loosen to "1" when 1.0.0 ships.
 async-stripe = { version = "=1.0.0-rc.8", default-features = false, features = ["rustls-tls-native", "rustls-aws-lc-rs"] }
 async-stripe-core = { version = "=1.0.0-rc.8", default-features = false, features = ["payment_intent", "refund"] }
 async-stripe-shared = { version = "=1.0.0-rc.8", default-features = false }
