@@ -36,6 +36,23 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay_iyzico::iyzilink`, all seven iyzico Link operations.** Create a
+  link or a one-off fast link, read one back, list them, replace one, turn one
+  on or off, delete one. It is built over `classic::Client` — same host, same
+  `IYZWSv2` signing, same connection pool — so `iyzilink::Client::new(classic)`
+  is the whole setup.
+
+  Two things a caller has to know. **iyzico documents no response signature for
+  any of these**: their signature page lists no iyzilink endpoint and no
+  iyzilink schema carries the field, so nothing here is verified and a link's
+  details are only as trustworthy as the connection. And the request signature
+  covers the path without the query string — undocumented, but what iyzico's
+  own PHP and Python SDKs both do.
+
+  A link priced in `RUB`, `CHF` or `NOK` cannot be built: iyzico takes those and
+  `Currency` has no name for them. One read back in them has `price: None` and
+  the amount still in `raw`.
+
 - **`PayTr::bin_details`**, PayTR's BIN service: the bank, network, company-card
   flag, non-3-D permission and instalment programme behind the first 6 or 8
   digits of a card number. A BIN PayTR has no record of is `Ok(None)`, not an

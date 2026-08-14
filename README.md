@@ -57,13 +57,16 @@ once more than two providers have been written against them, not before.
 **iyzico** is two APIs that barely resemble each other. `in_store` is the
 counter flow, authenticated with plain headers, lira only. `classic` is
 everything else, signed with `IYZWSv2`: the hosted checkout form, refunds,
-cancel, stored cards, BIN lookup. Twelve of iyzico's ninety-six documented
-operations, and none of them touches a card number.
+cancel, stored cards, BIN lookup — and `iyzilink`, pay-by-link, over the same
+client. Nineteen of iyzico's ninety-six documented operations, and none of them
+touches a card number.
 
-**Every iyzico response is verified.** They sign the money-moving ones with an
-HMAC over selected fields of the reply, and kasapay refuses one that does not
-match — or one that carries no signature at all, unless you say otherwise.
-A forged callback is how a shop ships against a payment that never happened.
+**Every iyzico response iyzico signs is verified.** They sign the money-moving
+ones with an HMAC over selected fields of the reply, and kasapay refuses one
+that does not match — or one that carries no signature at all, unless you say
+otherwise. A forged callback is how a shop ships against a payment that never
+happened. Where they sign nothing there is nothing to check, and the module
+says so: the classic cancel, and every one of iyzilink's seven.
 
 ## Where providers differ, it says so
 
