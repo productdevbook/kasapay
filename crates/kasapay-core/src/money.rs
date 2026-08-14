@@ -280,6 +280,8 @@ impl fmt::Display for Money {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+
     use super::{Currency, Money, MoneyError};
 
     #[test]
@@ -423,7 +425,9 @@ mod tests {
         let large = Money::parse("10.00", Currency::Try).expect("valid");
         assert!(small < large);
         assert!(large >= small);
-        assert_eq!(small.max(large), large);
+        assert_eq!(small.partial_cmp(&large), Some(Ordering::Less));
+        // No `Money::max`: that comes from Ord, which this type deliberately
+        // does not have.
     }
 
     #[test]
