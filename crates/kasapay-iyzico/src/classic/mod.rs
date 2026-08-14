@@ -6,14 +6,17 @@
 //!
 //! # What is here
 //!
-//! Eight operations, chosen because none of them touches a card number:
+//! Ten operations, chosen because none of them touches a card number:
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
 //! - [`Client::checkout_result`] — read what became of it, by the
 //!   [`FormToken`] the form was opened with
+//! - [`Client::payment`] — read a finished payment back by its id
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
+//! - [`Client::pay_with_saved_card`] — charge one of them, by the pair that
+//!   names it rather than by a number
 //! - [`Client::forget_card`] — drop one of them
 //! - [`Client::refund`] and [`Client::refund_transaction`] — take money back.
 //!   The second is the one for a basket with more than one line: iyzico says
@@ -38,16 +41,34 @@
 //! above; what the trait still answers here is which provider this is and what
 //! it can do.
 //!
-//! The checkout form is how most integrations should take a payment here:
-//! iyzico hosts the form and collects the card, so nothing sensitive crosses
-//! the caller's server.
+//! # Where a card number may live, and where it does not
 //!
-//! Taking a payment through this API needs the card on the request, which
-//! `ChargeRequest` has nowhere to put and which drags PCI scope in with it.
-//! **So does storing a card**: `POST /cardstorage/card` wants the number too.
-//! The way to store a card without one reaching the caller's server is the
-//! hosted checkout form, which collects it directly. That is a decision about
-//! the core rather than about this module.
+//! Nowhere in this crate. A first payment goes through the checkout form:
+//! iyzico hosts it and collects the card, so nothing sensitive crosses the
+//! caller's server. A repeat payment goes through
+//! [`Client::pay_with_saved_card`], which sends the `cardUserKey` and
+//! `cardToken` iyzico answered when the card was stored — the same
+//! `/payment/auth` endpoint an ordinary card payment uses, filled the other of
+//! the two ways iyzico documents for it.
+//!
+//! What is left out is storing a card, and that is iyzico's boundary rather
+//! than a decision here. `POST /cardstorage/card` wants `cardNumber`,
+//! `expireMonth`, `expireYear` and `cardHolderName`; `registerCard: 1` on a
+//! payment stores the card being charged, and is only available on the
+//! endpoints that take a number. **iyzico documents no way to put a card in
+//! their vault without holding the number** — not on the checkout form, whose
+//! request has no `cardUserKey` and whose answer returns no `cardToken`, and
+//! not anywhere else. A caller who wants a stored card either was already in
+//! scope to collect one, or gets the handles from something that was.
+//!
+//! So: read the vault, charge it, empty it. Filling it is somebody else's act,
+//! and the handles come in through
+//! [`InstrumentId`](kasapay_core::InstrumentId).
+//!
+//! The other reason a payment cannot go through
+//! [`Provider::charge`](kasapay_core::Provider::charge) is unchanged: iyzico
+//! wants a buyer with an identity number, two addresses and an itemised basket
+//! either way, and `ChargeRequest` carries none of it.
 //!
 //! # Example
 //!
@@ -68,6 +89,7 @@
 
 pub mod checkout;
 mod client;
+pub mod saved;
 pub mod signature;
 mod wire;
 

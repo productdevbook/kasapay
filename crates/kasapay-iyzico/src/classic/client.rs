@@ -6,13 +6,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, PaymentId,
-    Provider, ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, InstrumentId, Money,
+    NextAction, PaymentId, Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
 use crate::classic::checkout::CheckoutForm;
-use crate::classic::{FormToken, signature, wire};
+use crate::classic::{FormToken, saved, signature, wire};
 use crate::signing::Credentials;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
@@ -159,32 +159,10 @@ impl Client {
             basket_id: form.order.as_str(),
             callback_url: form.callback_url.to_string(),
             enabled_installments: form.instalments.clone(),
-            buyer: wire::BuyerBody {
-                id: &form.buyer.id,
-                name: &form.buyer.name,
-                surname: &form.buyer.surname,
-                identity_number: &form.buyer.identity_number,
-                email: &form.buyer.email,
-                gsm_number: &form.buyer.phone,
-                registration_address: &form.buyer.registration_address,
-                city: &form.buyer.city,
-                country: &form.buyer.country,
-                zip_code: form.buyer.zip_code.as_deref(),
-                ip: form.buyer.ip.as_deref(),
-            },
+            buyer: buyer_body(&form.buyer),
             billing_address: address_body(&form.billing_address),
             shipping_address: address_body(&form.shipping_address),
-            basket_items: form
-                .basket
-                .iter()
-                .map(|item| wire::BasketItemBody {
-                    id: &item.id,
-                    name: &item.name,
-                    category1: &item.category,
-                    item_type: item.kind.as_str(),
-                    price: item.price.to_decimal_string(),
-                })
-                .collect(),
+            basket_items: form.basket.iter().map(basket_item_body).collect(),
         };
 
         let (response, raw) = self
@@ -335,6 +313,77 @@ impl Client {
             ],
         )?;
         into_payment_charge(response, raw)
+    }
+
+    /// Charges a card iyzico already holds, sending no card number.
+    ///
+    /// `POST /payment/auth`, with `paymentCard` filled by the `cardUserKey` and
+    /// `cardToken` of a [`saved::Card`] rather than by a number. Everything
+    /// else iyzico wants of an ordinary card payment it wants here too — the
+    /// buyer, both addresses, the itemised basket — which is why this takes a
+    /// [`saved::Payment`] and not a
+    /// [`ChargeRequest`](kasapay_core::ChargeRequest).
+    ///
+    /// The answer is signed over the same six fields as any other payment, and
+    /// one that does not match is [`ErrorKind::Untrusted`] rather than a
+    /// charge.
+    ///
+    /// # This is a payment without 3-D Secure
+    ///
+    /// iyzico documents the stored-card pair on this endpoint alone. The 3-D
+    /// Secure initialise requires `cardNumber` and `cvc`, so there is no
+    /// authenticated variant of this call to offer, and the chargeback
+    /// liability for a payment taken this way sits with the merchant.
+    ///
+    /// # The status comes from `fraudStatus`
+    ///
+    /// A payment iyzico's fraud filters are still reviewing is
+    /// [`Status::Pending`] rather than [`Status::Captured`]: iyzico says to
+    /// wait for their notification. This mapping has not been checked against a
+    /// live account — see the crate's `CLAUDE.md`.
+    pub async fn pay_with_saved_card(&self, payment: &saved::Payment) -> Result<Charge, Error> {
+        let currency = payment.price.currency();
+        let body = wire::SavedCardPaymentRequest {
+            locale: "tr",
+            conversation_id: payment.order.as_str(),
+            price: payment.price.to_decimal_string(),
+            paid_price: payment.paid_price.to_decimal_string(),
+            currency: currency.code(),
+            basket_id: payment.order.as_str(),
+            installment: payment.instalment,
+            payment_card: wire::SavedCardBody {
+                card_user_key: payment.card.user_key(),
+                card_token: payment.card.token().as_str(),
+            },
+            buyer: buyer_body(&payment.buyer),
+            billing_address: address_body(&payment.billing_address),
+            shipping_address: address_body(&payment.shipping_address),
+            basket_items: payment.basket.iter().map(basket_item_body).collect(),
+        };
+
+        let (response, raw) = self
+            .post::<_, wire::PaymentResultResponse>("/payment/auth", &body)
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message.clone(),
+            response.error_code.clone(),
+            "iyzico refused the payment",
+        ) {
+            return Err(error);
+        }
+        self.check_signature(
+            response.signature.as_deref(),
+            &[
+                response.payment_id.as_deref().unwrap_or_default(),
+                response.currency.as_deref().unwrap_or_default(),
+                response.basket_id.as_deref().unwrap_or_default(),
+                response.conversation_id.as_deref().unwrap_or_default(),
+                signature::signed_amount(response.paid_price.as_deref().unwrap_or_default()),
+                signature::signed_amount(response.price.as_deref().unwrap_or_default()),
+            ],
+        )?;
+        into_saved_card_charge(response, raw)
     }
 
     /// Refuses a response that is not signed, or is signed wrongly.
@@ -577,11 +626,17 @@ impl Client {
     /// Forgets a stored card.
     ///
     /// Both arguments come from [`Client::stored_cards`]; neither is card data.
-    pub async fn forget_card(&self, card_user_key: &str, card_token: &str) -> Result<(), Error> {
+    /// The token is an [`InstrumentId`](kasapay_core::InstrumentId), so a
+    /// payment id cannot be passed here by mistake.
+    pub async fn forget_card(
+        &self,
+        card_user_key: &str,
+        card_token: &InstrumentId,
+    ) -> Result<(), Error> {
         let body = wire::CardDeleteRequest {
             locale: "tr",
             card_user_key,
-            card_token,
+            card_token: card_token.as_str(),
         };
         let (response, _) = self
             .delete::<_, wire::BaseResponse>("/cardstorage/card", &body)
@@ -788,12 +843,74 @@ fn address_body(address: &crate::classic::checkout::Address) -> wire::AddressBod
     }
 }
 
+fn buyer_body(buyer: &crate::classic::checkout::Buyer) -> wire::BuyerBody<'_> {
+    wire::BuyerBody {
+        id: &buyer.id,
+        name: &buyer.name,
+        surname: &buyer.surname,
+        identity_number: &buyer.identity_number,
+        email: &buyer.email,
+        gsm_number: &buyer.phone,
+        registration_address: &buyer.registration_address,
+        city: &buyer.city,
+        country: &buyer.country,
+        zip_code: buyer.zip_code.as_deref(),
+        ip: buyer.ip.as_deref(),
+    }
+}
+
+fn basket_item_body(item: &crate::classic::checkout::BasketItem) -> wire::BasketItemBody<'_> {
+    wire::BasketItemBody {
+        id: &item.id,
+        name: &item.name,
+        category1: &item.category,
+        item_type: item.kind.as_str(),
+        price: item.price.to_decimal_string(),
+    }
+}
+
 /// Reads a finished checkout form as a [`Charge`].
 ///
 /// `paymentStatus` is the field that matters, and `status: "success"` only
 /// means the query worked — a refused card comes back as a successful query
 /// reporting a failure.
 fn into_payment_charge(response: wire::PaymentResultResponse, raw: Raw) -> Result<Charge, Error> {
+    let status = match response.payment_status.as_deref() {
+        Some("SUCCESS") => Status::Captured,
+        Some("FAILURE") => Status::Failed,
+        Some("INIT_THREEDS" | "CALLBACK_THREEDS" | "BKM_POS_SELECTED") => Status::RequiresAction,
+        // No paymentStatus at all means the payer has not finished.
+        _ => Status::Pending,
+    };
+    charge_from(response, raw, status)
+}
+
+/// Reads a stored-card charge, which reports itself differently.
+///
+/// `/payment/auth` answers no `paymentStatus`: a refusal is `status:
+/// "failure"`, which `refused` has already turned into an error by the time
+/// this runs, so what is left is a payment that went through. `fraudStatus` is
+/// the one thing that can still hold it up — iyzico documents 1 as approved, 0
+/// as under review and -1 as rejected, and a payment under review is money not
+/// yet taken rather than money taken.
+fn into_saved_card_charge(
+    response: wire::PaymentResultResponse,
+    raw: Raw,
+) -> Result<Charge, Error> {
+    let status = match response.fraud_status {
+        Some(0) => Status::Pending,
+        Some(-1) => Status::Failed,
+        _ => Status::Captured,
+    };
+    charge_from(response, raw, status)
+}
+
+/// The amounts, the order and the identifier, common to every payment answer.
+fn charge_from(
+    response: wire::PaymentResultResponse,
+    raw: Raw,
+    status: Status,
+) -> Result<Charge, Error> {
     let currency = response
         .currency
         .as_deref()
@@ -815,14 +932,6 @@ fn into_payment_charge(response: wire::PaymentResultResponse, raw: Raw) -> Resul
         .transpose()
         .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
         .filter(|basket| *basket != amount);
-
-    let status = match response.payment_status.as_deref() {
-        Some("SUCCESS") => Status::Captured,
-        Some("FAILURE") => Status::Failed,
-        Some("INIT_THREEDS" | "CALLBACK_THREEDS" | "BKM_POS_SELECTED") => Status::RequiresAction,
-        // No paymentStatus at all means the payer has not finished.
-        _ => Status::Pending,
-    };
 
     Ok(Charge {
         // A form the payer has not finished has no paymentId, and an empty one
@@ -955,10 +1064,15 @@ pub struct Reversal {
 }
 
 /// A card iyzico holds for a user, named by a token rather than a number.
+///
+/// Everything here is safe to show somebody so they can pick a card, and none
+/// of it is card data. [`StoredCard::token`] plus the `cardUserKey` this was
+/// listed under is what [`saved::Card`] takes, and what
+/// [`Client::pay_with_saved_card`] charges.
 #[derive(Debug, Clone)]
 pub struct StoredCard {
-    /// What a payment names this card by.
-    pub token: Box<str>,
+    /// What a payment names this card by — iyzico's `cardToken`.
+    pub token: InstrumentId,
     /// The name the cardholder gave it — "my Bonus card".
     pub alias: Option<Box<str>>,
     /// The leading digits, which name the issuer.
@@ -978,7 +1092,7 @@ pub struct StoredCard {
 impl From<wire::StoredCardItem> for StoredCard {
     fn from(item: wire::StoredCardItem) -> Self {
         Self {
-            token: item.card_token.unwrap_or_default().into_boxed_str(),
+            token: InstrumentId::issued(item.card_token.unwrap_or_default()),
             alias: item.card_alias.map(String::into_boxed_str),
             bin: item.bin_number.map(String::into_boxed_str),
             last_four: item.last_four_digits.map(String::into_boxed_str),
@@ -1153,7 +1267,8 @@ impl Provider for Client {
         ))
     }
 
-    /// No separate capture, and refunds the way iyzico documents them.
+    /// No separate capture, refunds the way iyzico documents them, and a card
+    /// iyzico holds can be charged.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: false,
@@ -1163,6 +1278,9 @@ impl Provider for Client {
             // amount still refundable, and "as long as that rule is followed,
             // more than one refund may be made in succession".
             repeated_refund: true,
+            // Client::stored_cards lists them and Client::pay_with_saved_card
+            // charges one.
+            saved_instruments: true,
         }
     }
 }

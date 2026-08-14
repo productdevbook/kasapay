@@ -75,6 +75,19 @@ pub struct Capabilities {
     pub partial_refund: bool,
     /// A payment can be refunded more than once, up to what was captured.
     pub repeated_refund: bool,
+    /// A card the provider already holds can be charged through this adapter,
+    /// named by an [`InstrumentId`](crate::InstrumentId), with the payer
+    /// entering nothing.
+    ///
+    /// What a checkout reads before it offers "use my saved card". False does
+    /// not always mean the provider has no vault — it means this adapter has
+    /// no call that charges one, which is the answer the checkout needs either
+    /// way.
+    ///
+    /// The call itself is the adapter's own: charging a saved card needs what
+    /// that provider demands around it, which is not the same list twice, and
+    /// [`Provider::charge`] carries none of it.
+    pub saved_instruments: bool,
 }
 
 /// Marks an implementation of [`Provider`] so its `async fn`s compile.

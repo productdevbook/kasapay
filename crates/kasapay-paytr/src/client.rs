@@ -545,12 +545,19 @@ impl Provider for PayTr {
     }
 
     /// No separate capture; refunds are partial and may be repeated.
+    ///
+    /// PayTR has a vault — its hosted form stores a card against a `utoken`
+    /// when asked to, and `ctoken` names one of them — but nothing here charges
+    /// one: the hash that signs those calls is documented only as "see the
+    /// sample code", and a signature guessed from a field table fails against
+    /// every real merchant. So [`Capabilities::saved_instruments`] is false.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: false,
             partial_capture: false,
             partial_refund: true,
             repeated_refund: true,
+            saved_instruments: false,
         }
     }
 }

@@ -84,7 +84,65 @@ all are the kind 0.0.x exists to make.
   The crate speaks two iyzico APIs now and one flat namespace could not name
   both.
 
+- **`Capabilities` gains `saved_instruments`.** Whether a card the provider
+  already holds can be charged through this adapter with the payer entering
+  nothing — what a checkout reads before it offers "use my saved card", for the
+  same reason `separate_capture` exists. A `Capabilities { .. }` written out in
+  full needs one more field; one built from `..Capabilities::default()` needs
+  nothing. True for `iyzico::classic` and false for the rest, and false means
+  this adapter has no call that charges one rather than that the provider has
+  no vault.
+
+- **`classic::StoredCard::token` is an `InstrumentId`, and
+  `classic::Client::forget_card` takes one.** iyzico's `cardToken` and its
+  `paymentId` are both iyzico's own strings, so nothing but the type separates
+  them; now the compiler does. `forget_card(&key, "tok-1")` becomes
+  `forget_card(&key, &InstrumentId::issued("tok-1"))`, and a token read off
+  `stored_cards` passes straight through. Reading the text back is
+  `card.token.as_str()`.
+
 ### Added
+
+- **`kasapay_core::InstrumentId`, and `iyzico::classic::Client::pay_with_saved_card`
+  — charging a card the provider holds, without a card number anywhere.**
+  `Id<kind::Instrument>`, the same shape as `PaymentId`: it names one saved
+  instrument, and `IdSource` still says whose uniqueness that rests on. It is
+  half the name at two of the three providers shipped here — iyzico's
+  `cardToken` needs the `cardUserKey` beside it, PayTR's `ctoken` its `utoken`
+  — and the other half is the payer, which `ChargeRequest::customer` already
+  carries. Stripe's `pm_…` stands alone.
+
+  The iyzico call is `POST /payment/auth` with `paymentCard` filled by
+  `classic::saved::Card`, a pair that has no field for a card number. That is
+  the endpoint an ordinary card payment uses, so **iyzico's most-used payment
+  operation turns out to be reachable without a pan** — for a card they already
+  hold. `classic::saved::Payment` carries what iyzico wants around it: the
+  buyer, both addresses, the itemised basket, and an optional instalment count.
+
+  `saved::Card::new` refuses a value that is a card number by shape — twelve to
+  nineteen digits and nothing else, passing the Luhn check — in either half, so
+  a field wired to the wrong source is a `CardError` rather than a pan on the
+  wire. It is a check against a mistake, not a security control.
+
+  **Nothing here stores a card, and that is iyzico's boundary rather than a
+  choice.** `POST /cardstorage/card` wants `cardNumber`, `expireMonth`,
+  `expireYear` and `cardHolderName`; `registerCard: 1` stores the card being
+  charged and exists only on the endpoints that take a number; the hosted
+  checkout form's request has no `cardUserKey` and its answer returns no
+  `cardToken`. iyzico documents no way to fill their vault without holding the
+  number, so the handles arrive from outside this library.
+
+  There is no 3-D Secure variant. iyzico documents the stored-card pair on
+  `/payment/auth` alone — `/payment/3dsecure/initialize` and `/payment/preauth`
+  both require `cardNumber` and `cvc` — so the chargeback liability for a
+  payment taken this way sits with the merchant.
+
+  The response is verified against the same six signed fields as any other
+  payment. Its status comes from `fraudStatus`, which is the one thing left
+  that can hold a payment up: iyzico documents 1 as approved, 0 as under review
+  and -1 as rejected, and a payment under review is `Status::Pending` rather
+  than `Status::Captured`. That mapping has not been checked against a live
+  account.
 
 - **`paytr::Notice`, the payment notice as a type — and the only place PayTR
   reports a refusal.** PayTR's status query answers a payment that succeeded or
