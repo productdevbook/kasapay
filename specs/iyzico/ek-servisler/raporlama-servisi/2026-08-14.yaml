@@ -1,0 +1,634 @@
+openapi: 3.0.3
+info:
+  title: iyzico — ek-servisler/raporlama-servisi
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: Reporting
+  description: Raporlama uçları
+paths:
+  /v2/reporting/payment/details:
+    get:
+      summary: İşlem Detayı Raporlama
+      description: Raporlama servisi, ödemelerin son durumuna, iade sonuçlarına ve fraud durumlarına ulaşmasını
+        sağlar. Raporlama servisi hem paymentConversationId hem de paymentId ile çalışır. İki bilgiden
+        birinin gönderilmesi zorunludur.
+      tags:
+      - Reporting
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/LocaleQuery'
+      - $ref: '#/components/parameters/ConversationIdQuery'
+      - name: paymentId
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Ödeme numarası. paymentConversationId gönderilmezse zorunlu bilgidir.
+
+          '
+      - name: paymentConversationId
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Ödeme işlemine ait conversationId. ConversationId ile sorgulama yapmak isteğinde
+          kullanılabilir. paymentId gönderilmezse zorunludur.
+
+          '
+      responses:
+        '200':
+          description: Başarılı yanıt — işlem detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingPaymentDetailsResponse'
+        '400':
+          description: Geçersiz istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/raporlama-servisi.md
+  /v2/reporting/payment/transactions:
+    get:
+      summary: Gün Bazında Raporlama
+      description: Belirli bir tarihte gerçekleşen ödeme/iptal/iade işlemlerinin listesini döner.
+      tags:
+      - Reporting
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/LocaleQuery'
+      - $ref: '#/components/parameters/ConversationIdQuery'
+      - name: page
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: Sayfa numarası (1’den başlar).
+      - name: transactionDate
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Sorgulanacak gün (YYYY-MM-DD). Örn: `2025-07-24`.
+
+          '
+      responses:
+        '200':
+          description: Başarılı yanıt — gün bazında işlemler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingDailyTransactionsResponse'
+        '400':
+          description: Geçersiz istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/raporlama-servisi.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Yapılan isteğin sonucunu bildirir.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Yanıt dili (tr/en).
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek ile eşleşen ID (varsa).
+    ErrorResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          errorCode:
+            type: string
+            description: İşlem hatasına dair kod.
+          errorMessage:
+            type: string
+            description: İşlem hatasına dair mesaj. Locale parametresine göre dil desteği sunar.
+          errorGroup:
+            type: string
+            description: Hata grubu.
+    ReportingCancel:
+      type: object
+      properties:
+        refundId:
+          description: İptale ilişkin refund/id bilgisi.
+          oneOf:
+          - type: string
+          - type: integer
+        cancelConversationId:
+          type: string
+          description: İptal işlemine ait conversationId.
+        refundPrice:
+          type: decimal
+          description: İptal/iade tutarı.
+        refundStatus:
+          type: integer
+          description: İptal/iade durum kodu.
+        createdDate:
+          type: string
+          description: ISO-8601 oluşturulma zamanı.
+        currencyCode:
+          type: string
+          description: Para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        authCode:
+          type: string
+          description: Bankadan dönen authCode değeri.
+        hostReference:
+          type: string
+          description: Sağlayıcı tarafından verilen hostReference değeri.
+    ReportingConvertedPayout:
+      type: object
+      properties:
+        paidPrice:
+          type: decimal
+          description: Tahsilat tutarının kırılım bazındaki dağılımı.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico komisyon tutarı (kırılım, dönüşüm sonrası).
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico işlem ücreti (kırılım, dönüşüm sonrası).
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Üye işyeri blokaj tutarı (dönüşüm sonrası, üye işyeri).
+        blockageRateAmountSubMerchant:
+          type: decimal
+          description: Alt üye işyeri blokaj tutarı (dönüşüm sonrası).
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Alt üye işyerine aktarılacak tutar (dönüşüm sonrası).
+        merchantPayoutAmount:
+          type: decimal
+          description: Üye işyerine gönderilecek tutar (dönüşüm sonrası).
+        iyziConversionRate:
+          type: decimal
+          description: Kur oranı.
+        iyziConversionRateAmount:
+          type: decimal
+          description: Kur oranı sonucu tutar.
+        currency:
+          type: string
+          description: Para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+    ReportingDailyTransactionItem:
+      type: object
+      properties:
+        transactionType:
+          type: string
+          description: İşlem Tipi.
+          enum:
+          - CANCEL
+          - PAYMENT
+          - REFUND
+        transactionDate:
+          type: string
+          description: İşlem zamanı (yyyy-MM-dd HH:mm:ss).
+        transactionId:
+          description: İşlem ID'si.
+          type: string
+        transactionStatus:
+          type: integer
+          description: 'Ödeme kırılımının durumu.
+
+            - 0: Fraud kontrolünde
+
+            - -1: Fraud kontrolünden sonra reddedildi
+
+            - 1: Onaylandı. (Pazaryerinde 1 değeri Üye İşyeri Onayı Bekliyor Anlamına Gelir)
+
+            - 2: Onaylandı (Pazaryeri Onay Verilmiş)
+
+            enum: [ 0, -1, 1, 2 ]
+
+            '
+        afterSettlement:
+          type: integer
+          description: Para gönderimi sonrası işlem mi? 0=Hayır, 1=Evet (REFUND işlemleri için).
+          enum:
+          - 0
+          - 1
+        paymentTxId:
+          description: Ödeme kırılım ID’si.
+          type: string
+        paymentId:
+          description: Ödeme ID’si.
+          type: string
+        conversationId:
+          type: string
+          description: İşleme ait conversationId (varsa).
+        paymentPhase:
+          type: string
+          description: Ödeme fazı.
+        price:
+          type: decimal
+          description: Ürün/işlem tutarı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilen tutar.
+        transactionCurrency:
+          type: string
+          description: İşlem para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        installment:
+          type: integer
+          description: Taksit sayısı.
+        threeDS:
+          type: integer
+          description: 3DS ile mi yapıldı? 0=Hayır, 1=Evet.
+          enum:
+          - 0
+          - 1
+        settlementCurrency:
+          type: string
+          description: Mutabakat para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        connectorType:
+          type: string
+          description: Bağlantı/pos sağlayıcı tipi.
+        posOrderId:
+          type: string
+          description: Pos sipariş numarası.
+        authCode:
+          type: string
+          description: Banka authCode değeri.
+        hostReference:
+          type: string
+          description: Sağlayıcı hostReference değeri.
+        basketId:
+          type: string
+          description: Sepet ID’si.
+        iyzicoCommission:
+          type: decimal
+          description: Komisyon (PAYMENT işlemleri için).
+        iyzicoFee:
+          type: decimal
+          description: İşlem ücreti (PAYMENT işlemleri için).
+        parity:
+          type: decimal
+          description: Kur paritesi (PAYMENT işlemleri için).
+        iyzicoConversionAmount:
+          type: decimal
+          description: Kur çevrim tutarı (PAYMENT işlemleri için).
+        merchantPayoutAmount:
+          type: decimal
+          description: Üye işyerine ödenecek tutar (PAYMENT işlemleri için).
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Alt üye işyerine ödenecek tutar (PAYMENT işlemleri için).
+    ReportingDailyTransactionsResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          transactions:
+            type: array
+            description: Gün içindeki işlemler.
+            items:
+              $ref: '#/components/schemas/ReportingDailyTransactionItem'
+          currentPage:
+            type: integer
+            description: Mevcut sayfa numarası.
+          totalPageCount:
+            type: integer
+            description: Toplam sayfa sayısı.
+    ReportingItemTransaction:
+      type: object
+      properties:
+        paymentTransactionId:
+          description: Kırılıma ait işlem ID’si.
+          type: string
+        transactionStatus:
+          type: integer
+          description: 'Ödeme kırılımının durumu.
+
+            - **0**: Fraud kontrolünde
+
+            - **-1**: Fraud kontrolünden sonra reddedildi
+
+            - **1**: Onaylandı (Pazaryerinde: Üye İşyeri Onayı Bekliyor)
+
+            - **2**: Onaylandı (Pazaryeri Onay Verilmiş)
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+          - 2
+        price:
+          type: decimal
+          description: Ürün tutarı.
+        paidPrice:
+          type: decimal
+          description: Tahsilat tutarının kırılım bazındaki dağılımı.
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyeri vade/komisyon oranı (kırılım).
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyeri vade/komisyon tutarı (kırılım).
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico komisyon tutarı (kırılım).
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico işlem ücreti (kırılım).
+        blockageRate:
+          type: decimal
+          description: Üye işyeri blokaj oranı (kırılım).
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Blokajın üye işyerine yansıyan tutarı.
+        blockageRateAmountSubMerchant:
+          type: decimal
+          description: Blokajın alt üye işyerine yansıyan tutarı.
+        blockageResolvedDate:
+          type: string
+          description: Blokaj çözülme tarihi (ISO-8601).
+        subMerchantPrice:
+          type: decimal
+          description: Alt üye işyeri ürün tutarı.
+        subMerchantPayoutRate:
+          type: decimal
+          description: Alt üye işyerine gönderilecek tutar oranı.
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Alt üye işyerine aktarılacak tutar.
+        merchantPayoutAmount:
+          type: decimal
+          description: Komisyon ve blokajlar sonrası üye işyerine gönderilecek tutar.
+        convertedPayout:
+          $ref: '#/components/schemas/ReportingConvertedPayout'
+        refunds:
+          type: array
+          description: Kırılım bazında iade işlemleri.
+          items:
+            $ref: '#/components/schemas/ReportingRefund'
+    ReportingPaymentDetailsItem:
+      type: object
+      properties:
+        paymentId:
+          description: Ödeme numarası.
+          type: string
+        paymentStatus:
+          type: integer
+          description: 'Ödeme durumu.
+
+
+            - **1** (Success)
+
+            - **2** (Failure / INIT_THREEDS )
+
+            - **3** (CALLBACK_THREEDS)
+
+            '
+          enum:
+          - 1
+          - 2
+          - 3
+        paymentRefundStatus:
+          type: string
+          description: 'İade Durumu.
+
+
+            - **NOT_REFUNDED** (İade Edilmedi)
+
+            - **PARTIALLY_REFUNDED** (Kısmi İade Edildi)
+
+            - **TOTALLY_REFUNDED** (Tamamı İade Edildi)
+
+            '
+        price:
+          type: decimal
+          description: Sepet toplam tutarı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilen toplam tutar.
+        installment:
+          type: integer
+          description: Taksit sayısı.
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon oranı (bilgi amaçlı).
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon tutarı (bilgi amaçlı).
+        iyziCommissionRateAmount:
+          type: decimal
+          description: Ödemeye ait iyzico işlem komisyon tutarı.
+        iyziCommissionFee:
+          type: decimal
+          description: Ödemeye ait iyzico işlem ücreti.
+        paymentConversationId:
+          type: string
+          description: Ödeme işlemine ait conversationId.
+        fraudStatus:
+          type: integer
+          description: 'Fraud filtrelerine göre ödeme durumu. Eğer ödemenin fraud risk skoru düşük ise
+            ödemeye anında onay verilir, eğer fraud risk skoru yüksek ise ödeme işlemi reddedilir. Üye
+            işyeri sadece 1 olan işlemlerde ürünü kargoya vermelidir, 0 olan işlemler için bilgilendirme
+            beklemelidir.
+
+            - **1**: Onaylandı
+
+            - **0**: İncelemede
+
+            - **-1**: Reddedildi
+
+            '
+          enum:
+          - -1
+          - 0
+          - 1
+        cardType:
+          type: string
+          description: Kart tipi.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Kart kuruluşu.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+        cardFamily:
+          type: string
+          description: Kart ailesi.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        binNumber:
+          type: string
+          description: BIN (ilk 8 hane).
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi.
+        basketId:
+          type: string
+          description: Sepet ID’si.
+        currency:
+          type: string
+          description: Para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        connectorName:
+          type: string
+          description: Bağlantı/pos sağlayıcı adı.
+        authCode:
+          type: string
+          description: Bankadan dönen authCode değeri.
+        threeDS:
+          type: boolean
+          description: İşlemin 3DS ile yapılıp yapılmadığı.
+        phase:
+          type: string
+          description: Ödeme fazı.
+        acquirerBankName:
+          type: string
+          description: Tahsilat yapan banka/kurum adı.
+        hostReference:
+          type: string
+          description: Banka/sağlayıcı tarafından verilen hostReference değeri.
+        createdDate:
+          type: string
+          description: ISO-8601 oluşturulma zamanı.
+        cancels:
+          type: array
+          description: İptal işlemleri listesi.
+          items:
+            $ref: '#/components/schemas/ReportingCancel'
+        itemTransactions:
+          type: array
+          description: Sepet öğelerine ait işlem kırılımları.
+          items:
+            $ref: '#/components/schemas/ReportingItemTransaction'
+    ReportingPaymentDetailsResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          payments:
+            type: array
+            description: Sorgu sonucunda dönen işlemler.
+            items:
+              $ref: '#/components/schemas/ReportingPaymentDetailsItem'
+    ReportingRefund:
+      type: object
+      properties:
+        refundTxId:
+          description: İade işlem ID’si.
+          oneOf:
+          - type: string
+          - type: integer
+        refundConversationId:
+          type: string
+          description: İade işlemine ait conversationId.
+        refundPrice:
+          type: decimal
+          description: İade tutarı.
+        refundStatus:
+          type: integer
+          description: İade durum kodu.
+        isAfterSettlement:
+          type: boolean
+          description: İade para gönderimi sonrası mı yapıldı?
+        createdDate:
+          type: string
+          description: ISO-8601 oluşturulma zamanı.
+        currencyCode:
+          type: string
+          description: Para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        authCode:
+          type: string
+          description: Bankadan dönen authCode değeri.
+        hostReference:
+          type: string
+          description: Sağlayıcı tarafından verilen hostReference değeri.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: İade işleminde komisyon tutarı (varsa).

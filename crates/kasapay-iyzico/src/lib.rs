@@ -19,10 +19,14 @@
 //!
 //! # Where the types come from
 //!
-//! iyzico publishes no OpenAPI document. The one in `specs/iyzico/` is
-//! reassembled from the per-endpoint schemas embedded in their documentation
-//! page, dated on the day it was taken. It is a record of what was documented,
-//! not a contract iyzico offers.
+//! iyzico publishes no OpenAPI document. The ones in `specs/iyzico/` are
+//! reassembled from the per-endpoint fragments embedded across their whole
+//! documentation site, one file per product area, dated on the day they were
+//! taken. They record what was documented, not a contract iyzico offers.
+//!
+//! This crate covers `urunler/ceppos-app2app` only. iyzico has fifteen other
+//! product areas documented the same way — subscriptions, marketplace, mass
+//! payout, card storage — and none of them are implemented here yet.
 //!
 //! # Example
 //!

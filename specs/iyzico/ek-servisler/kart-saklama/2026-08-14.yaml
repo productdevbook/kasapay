@@ -1,0 +1,842 @@
+openapi: 3.0.3
+info:
+  title: iyzico — ek-servisler/kart-saklama
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags: []
+paths:
+  /cardstorage/card:
+    post:
+      summary: Kullanıcı ve Kart Oluşturma
+      description: Ödeme oluşturmadan, iyzico'da bir **kullanıcı** ve bu kullanıcıya bağlı bir **kart**
+        kaydı oluşturabilirsiniz. Veya aynı endpoint üzerinden mevcut kullanıcıya **yeni bir kart** ekleyebilirsiniz.
+        Bu noktada, istek parametreleri değişir. Her iki isteğin, request body ve json verilerine ulaşabilirsiniz;
+      tags:
+      - Kart Saklama
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/CardCreateRequest'
+              - $ref: '#/components/schemas/CardCreateWithUserKeyRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCreateSuccessResponse'
+        '400':
+          description: Geçersiz istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/kart-saklama.md
+    delete:
+      summary: Saklı Kart Silme
+      description: iyzico'da oluşturulan bir kullanıcıya ait bir kartı siler.
+      tags:
+      - Kart Saklama
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardDeleteRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          description: Geçersiz istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/kart-saklama.md
+  /cardstorage/cards:
+    post:
+      summary: Saklı Kartları Sorgulama
+      description: iyzico'da bir kullanıcıya ait kartları sorgulayabilirsiniz.
+      tags:
+      - Kart Saklama
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardListRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt — Kart listesi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardListSuccessResponse'
+        '400':
+          description: Geçersiz istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/kart-saklama.md
+  /payment/auth:
+    post:
+      summary: Saklı Kart ile Ödeme Alma (NON3D)
+      description: Kart saklama işlemi sonrasında tarafınıza dönen cardUserKey ve cardToken bilgisini
+        kullanarak “NON3D veya 3DS” ödeme isteği gönderebilirsiniz. Standart ödeme isteğinden farklı olarak
+        kart bilgileri yine cardUserKey ve cardToken değeri gönderilmektedir. Tek tık ile ödeme kolaylığı
+        sağlamak isteyen veya abonelik döngüsü oluşturmak isteyen üye işyerleri tarafında kullanılabilir.
+        Aşağıda NON3D örneği paylaşılmaktadır.
+      tags:
+      - Kart Saklama
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentAuthSavedCardRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt — ödeme alındı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAuthSuccessResponse'
+        '400':
+          description: Geçersiz istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/kart-saklama.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    Address:
+      type: object
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Tam adres.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        contactName:
+          type: string
+          description: İlgili kişi.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+    BaseResponse:
+      type: object
+      description: Standart yanıt alanları.
+      properties:
+        status:
+          type: string
+          description: Yapılan isteğin sonucunu bildirir.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Yanıt dili (tr/en).
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek esnasında gönderilmişse, yanıtta aynen geri iletilir.
+        price:
+          type: decimal
+          description: Sepet toplam tutarı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilen toplam tutar.
+        installment:
+          type: integer
+          description: Taksit sayısı.
+        paymentId:
+          type: string
+          description: Ödeme ID’si.
+        fraudStatus:
+          type: integer
+          description: "Fraud filtrelerine göre ödeme durumu. Eğer ödemenin fraud risk skoru düşük ise\
+            \ ödemeye anında onay verilir, eğer fraud risk skoru yüksek ise ödeme işlemi reddedilir. Üye\
+            \ işyeri sadece 1 olan işlemlerde ürünü kargoya vermelidir, 0 olan işlemler için bilgilendirme\
+            \ beklemelidir.\n - 1: Onaylandı\n - 0: İncelemede\n - -1: Reddedildi\n"
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon oranı. Örneğin price=100, paidPrice=110
+            ise üye işyeri vade/komisyon oranı %10’dur. Bilgi amaçlıdır.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon tutarı. Örneğin price=100, paidPrice=110
+            ise üye işyeri vade/komisyon tutarı 10’dur. Bilgi amaçlıdır.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico komisyon oran tutarı.
+        iyziCommissionFee:
+          type: decimal
+          description: Ödemeye ait iyzico işlem ücreti.
+        cardType:
+          type: string
+          description: Kart tipi.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Kart kuruluşu.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+        cardFamily:
+          type: string
+          description: Kart ailesi.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        binNumber:
+          type: string
+          description: BIN (ilk 8 hane).
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi.
+        basketId:
+          type: string
+          description: Sepet ID.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - NOK
+          - CHF
+          - GBP
+        itemTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemTransaction'
+        authCode:
+          type: string
+          description: Ödeme Fazı.
+        phase:
+          type: string
+        hostReference:
+          type: string
+          description: Ödemeye ilişkin banka tarafından verilen hostReference değeri.
+        signature:
+          type: string
+          description: İmza doğrulaması için kullanılabilecek signature değeri.
+    BasketItem:
+      type: object
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      properties:
+        id:
+          type: string
+          description: Ürün ID.
+        price:
+          type: decimal
+          description: Ürün fiyatı.
+        name:
+          type: string
+          description: Ürün adı.
+        category1:
+          type: string
+          description: Ana kategori.
+        category2:
+          type: string
+          description: Alt kategori (opsiyonel).
+        itemType:
+          type: string
+          description: Ürün tipi.
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+        subMerchantKey:
+          type: string
+          description: Hizmeti veren alt üye işyerine ait, alt üye işyeri anahtarı bilgisi. Standart iş
+            modelinde gönderilmez. Sadece pazaryeri iş modelinde gönderilmesi gerekmektedir.
+        subMerchantPrice:
+          type: decimal
+          description: Alt üye işyerine aktarılacak tutar. Standart iş modelinde gönderilmez. Sadece pazaryeri
+            iş modelinde gönderilmesi gerekmektedir.
+    Buyer:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Müşteri ID’si.
+        name:
+          type: string
+          description: Adı.
+        surname:
+          type: string
+          description: Soyadı.
+        identityNumber:
+          type: string
+          description: TC Kimlik Numarası.
+        email:
+          type: string
+          description: E-posta.
+        gsmNumber:
+          type: string
+          description: Telefon numarası.
+        registrationDate:
+          type: string
+          description: Kayıt tarihi (yyyy-MM-dd HH:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Son giriş tarihi (yyyy-MM-dd HH:mm:ss).
+        registrationAddress:
+          type: string
+          description: Adres.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        ip:
+          type: string
+          description: IP adresi.
+    Card:
+      type: object
+      description: Kart bilgileri.
+      properties:
+        cardAlias:
+          type: string
+          description: Saklı karta verilen isim.
+        expireYear:
+          type: string
+          description: Kartın üzerindeki yıl.
+        expireMonth:
+          type: string
+          description: Kartın üzerindeki ay.
+        cardNumber:
+          type: string
+          description: Kartın numarası.
+        cardHolderName:
+          type: string
+          description: Kartın üzerindeki isim.
+      required:
+      - cardNumber
+      - expireYear
+      - expireMonth
+      - cardHolderName
+    CardCreateRequest:
+      type: object
+      description: Kullanıcı ve kart oluşturma isteği (yeni kullanıcı + ilk kart).
+      properties:
+        locale:
+          type: string
+          description: iyzico istek sonucunda dönen metinlerin dilini ayarlamak için kullanılır. Varsayılan
+            değeri `tr`’dir.
+        conversationId:
+          type: string
+          description: İstek esnasında gönderip, sonuçta alabileceğiniz bir değer; request/response eşleşmesi
+            yapmak için kullanılabilir.
+        externalId:
+          type: string
+          description: Saklanmak istenen karta üye iş yeri tarafından verilen id.
+        email:
+          type: string
+          description: Saklı kart sahibinin email adresi.
+        card:
+          $ref: '#/components/schemas/Card'
+      required:
+      - email
+      - card
+    CardCreateSuccessResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          externalId:
+            type: string
+            description: İstekle iletilen `externalId` değeri.
+          email:
+            type: string
+            description: Saklanan kart üzerindeki email (yalnızca ilk varyantta dönebilir).
+          cardUserKey:
+            type: string
+            description: Saklanan karta ait kullanıcı anahtarı. Tekrar ödeme tahsil etmek için kullanılır.
+          cardToken:
+            type: string
+            description: Saklı karta ait token. Tekrar ödeme tahsil etmek için kullanılır.
+          binNumber:
+            type: string
+            description: Kartın ilk 8 hanesidir.
+          lastFourDigits:
+            type: string
+            description: Kartın son 4 hanesi.
+          cardType:
+            type: string
+            description: Kart tipi.
+            enum:
+            - CREDIT_CARD
+            - DEBIT_CARD
+            - PREPAID_CARD
+          cardAssociation:
+            type: string
+            description: Kart kuruluşu.
+            enum:
+            - VISA
+            - MASTER_CARD
+            - AMERICAN_EXPRESS
+          cardFamily:
+            type: string
+            description: Kart ailesi (yerel kartlarda döner).
+            enum:
+            - Bonus
+            - Axess
+            - World
+            - Maximum
+            - Paraf
+            - CardFinans
+          cardAlias:
+            type: string
+            description: Karta verilen isim.
+          cardBankCode:
+            type: integer
+            description: Eğer ödeme yapılan kart yerel bir kart ise, kartın ait olduğu banka kodu.
+          cardBankName:
+            type: string
+            description: Eğer ödeme yapılan kart yerel bir kart ise, kartın ait olduğu banka adı.
+    CardCreateWithUserKeyRequest:
+      type: object
+      description: Mevcut kullanıcıya ikinci/ek kart ekleme isteği.
+      properties:
+        locale:
+          type: string
+          description: iyzico istek sonucunda dönen metinlerin dilini ayarlamak için kullanılır. Varsayılan
+            değeri `tr`’dir.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için uniq ID (opsiyonel).
+        cardUserKey:
+          type: string
+          description: Kartın ekleneceği mevcut kullanıcı anahtarı.
+        card:
+          $ref: '#/components/schemas/Card'
+      required:
+      - cardUserKey
+      - card
+    CardDeleteRequest:
+      type: object
+      description: Saklı kartı silme isteği.
+      properties:
+        locale:
+          type: string
+          description: Yanıt dilini belirler. Varsayılan `tr`.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleşmesi için gönderilen ID.
+        cardUserKey:
+          type: string
+          description: Kartın bağlı olduğu kullanıcı anahtarı.
+        cardToken:
+          type: string
+          description: Silinecek kartın token değeri.
+      required:
+      - cardUserKey
+      - cardToken
+    CardListItem:
+      type: object
+      description: Saklı kart bilgisi.
+      properties:
+        cardToken:
+          type: string
+          description: Saklı kart tokenı.
+        cardAlias:
+          type: string
+          description: Karta verilen isim.
+        binNumber:
+          type: string
+          description: Kartın ilk 6 veya 8 hanesi.
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi.
+        cardType:
+          type: string
+          description: Kart tipi.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Kart kuruluşu.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+        cardFamily:
+          type: string
+          description: Kart ailesi (yerel kartlarda).
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        cardBankCode:
+          type: integer
+          description: Banka kodu (yerel kartlar için).
+        cardBankName:
+          type: string
+          description: Banka adı (yerel kartlar için).
+        expireMonth:
+          type: string
+          description: Son kullanma ayı.
+        expireYear:
+          type: string
+          description: Son kullanma yılı.
+    CardListRequest:
+      type: object
+      description: Saklı kartları sorgulama isteği.
+      properties:
+        locale:
+          type: string
+          description: Yanıt dilini belirler. Varsayılan `tr`.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleşmesi için gönderilen ID.
+        cardUserKey:
+          type: string
+          description: Kartların listeleneceği kullanıcı anahtarı.
+      required:
+      - cardUserKey
+    CardListSuccessResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          cardUserKey:
+            type: string
+            description: Listelemesi yapılan kullanıcı anahtarı.
+          cardDetails:
+            type: array
+            description: Kullanıcıya ait saklı kartların listesi.
+            items:
+              $ref: '#/components/schemas/CardListItem'
+    ConvertedPayout:
+      type: object
+      description: Kırılım bazında, kur çevrimi sonrası hesaplamalar.
+      properties:
+        paidPrice:
+          type: decimal
+          description: Tahsilat tutarının kırılım bazındaki dağılımı. Üye işyeri tarafından mutlaka saklanmalıdır.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico işlem ücretinin kırılım bazında dağılmış tutarı.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico işlem komisyon tutarının kırılım bazında dağılmış tutarı.
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Kırılım bazında üye işyeri blokaj tutarının, üye işyerine yansıyan rakamı. Blokaj
+            tutarı mümkün olduğunca üye işyerine yansıtılır. Eğer blokaj tutarı, üye işyeri tutarından
+            daha büyükse bu durumda alt üye işyerine de yansıtılır.
+        blockageRateAmountSubMerchant:
+          type: string
+        subMerchantPayoutAmount:
+          type: string
+        merchantPayoutAmount:
+          type: decimal
+          description: Bu kırılım için, iyzico işlem ücreti, komisyon tutarı ve blokajlar düşüldükten
+            sonra üye işyerine gönderilecek tutar.
+        iyziConversationRate:
+          type: decimal
+          description: Kur oranı.
+        iyziConversationRateAmount:
+          type: decimal
+          description: Kur oranı sonucu tutar.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+    ErrorResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          errorCode:
+            type: string
+            description: İşlem hatasıysa, bu hataya dair belirtilen koddur.
+          errorMessage:
+            type: string
+            description: İşlem hatasıysa, bu hataya dair belirtilen mesajdır. Locale parametresine göre
+              dil desteği sunar.
+          errorGroup:
+            type: string
+            description: İşlem hatasıysa, bu hataya dair belirtilen gruptur.
+    ItemTransaction:
+      type: object
+      description: Sepet öğelerine ait işlem kalemleri.
+      properties:
+        itemId:
+          type: string
+          description: Üye işyeri tarafından iletilen, sepetteki ürüne ait id.
+        paymentTransactionId:
+          type: string
+          description: Ödeme kırılımına ait id, üye işyeri tarafından mutlaka saklanmalıdır. Ödeme kırılımının
+            iadesi, onayı, onay geri çekmesi ve iyzico ile iletişimde kullanılır. Tercihen itemId ile
+            ilişkili bir şekilde tutulmalıdır.
+        transactionStatus:
+          type: integer
+          description: 'Ödeme kırılımının durumu.
+
+            - 0: Fraud kontrolünde
+
+            - -1: Fraud kontrolünden sonra reddedildi
+
+            - 1: Onaylandı. (Pazaryerinde 1 değeri Üye İşyeri Onayı Bekliyor Anlamına Gelir)
+
+            - 2: Onaylandı (Pazaryeri Onay Verilmiş)
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+          - 2
+        price:
+          type: decimal
+          description: Üye işyeri tarafındaki sepetteki ürüne ait tutar.
+        paidPrice:
+          type: decimal
+          description: Tahsilat tutarının kırılım bazındaki dağılımı. Üye işyeri tarafından mutlaka saklanmalıdır.
+        installment:
+          type: integer
+          description: Taksit sayısı.
+        blockageRate:
+          type: decimal
+          description: Kırılım bazında üye işyeri blokaj oranı. iyzico – üye işyeri anlaşmasına göre,
+            üye işyerine işlem bazında blokaj uygulayabilir. Bu blokaj üye işyeri fraud riskini önlemek
+            içindir, blokaj süresi boyunca para iyzico’da tutulur, bu süre sonrasında üye işyerine gönderilir.
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Kırılım bazında üye işyeri blokaj tutarının, üye işyerine yansıyan rakamı. Blokaj
+            tutarı mümkün olduğunca üye işyerine yansıtılır. Eğer blokaj tutarı, üye işyeri tutarından
+            daha büyükse bu durumda alt üye işyerine de yansıtılır.
+        blockageRateAmountsubMerchant:
+          type: decimal
+          description: Kırılım bazında alt üye işyeri blokaj tutarı.
+        blockageResolvedDate:
+          type: string
+          description: İşlem bazında blokaj çözülme tarihi. yyyy-MM-dd HH:mm:ss formatındadır, örn. 2015-10-19
+            14:36:52.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico işlem ücretinin kırılım bazında dağılmış tutarı.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico işlem komisyon tutarının kırılım bazında dağılmış tutarı.
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon oranının kırılım bazında dağılmış oranı.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon tutarıın, kırılım bazında dağılmış tutarı.
+        merchantPayoutAmount:
+          type: decimal
+          description: Bu kırılım için, iyzico işlem ücreti, komisyon tutarı ve blokajlar düşüldükten
+            sonra üye işyerine gönderilecek tutar.
+        subMerchantPrice:
+          type: decimal
+          description: Alt üye işyeri hakedişi.
+        subMerchantPayoutRate:
+          type: string
+          description: Alt üye işyeri gönderilecek tutar oranı.
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Alt üye işyerine aktarılacak tutar.
+        convertedPayout:
+          $ref: '#/components/schemas/ConvertedPayout'
+    PaymentAuthSavedCardRequest:
+      type: object
+      description: Saklı kart kullanarak NON3D ödeme alma isteği.
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Alabileceği değerler; tr, en. Default; tr
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için benzersiz ID.
+        paidPrice:
+          type: decimal
+          description: Kullanıcıdan tahsil edilecek toplam tutar.
+        price:
+          type: decimal
+          description: Sepet toplam tutarı.
+        installment:
+          type: integer
+          description: Taksit sayısı. Gönderilmezse tek çekim (1) olarak işlem sağlanır.
+          enum:
+          - 1
+          - 2
+          - 3
+          - 6
+          - 9
+          - 12
+        paymentChannel:
+          type: string
+          description: Ödeme kanalı.
+          enum:
+          - WEB
+          - MOBILE
+          - MOBILE_WEB
+          - MOBILE_IOS
+          - MOBILE_ANDROID
+          - MOBILE_WINDOWS
+          - MOBILE_TABLET
+          - MOBILE_PHONE
+        basketId:
+          type: string
+          description: Sepet ID’si.
+        paymentGroup:
+          type: string
+          description: Ödeme grubu. Default; PRODUCT.
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+        currency:
+          type: string
+          description: Para birimi. Default; TRY.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        paymentCard:
+          $ref: '#/components/schemas/PaymentCardSaved'
+        buyer:
+          description: Alıcı Bilgileri.
+          $ref: '#/components/schemas/Buyer'
+        shippingAddress:
+          description: Teslimat Adresi. Sepetteki ürünlerden en az bir tanesi PHYSICAL ise zorunludur.
+            Tüm ürünler VIRTUAL ise gönderilmesi gerekmez.
+          $ref: '#/components/schemas/Address'
+        billingAddress:
+          description: Fatura Adresi.
+          $ref: '#/components/schemas/Address'
+        basketItems:
+          description: Sepetteki ürünler.
+          type: array
+          items:
+            $ref: '#/components/schemas/BasketItem'
+      required:
+      - price
+      - paidPrice
+      - paymentCard
+      - buyer
+      - shippingAddress
+      - billingAddress
+      - basketItems
+    PaymentAuthSuccessResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+    PaymentCardSaved:
+      type: object
+      description: Karta ait, token bilgileri.
+      properties:
+        cardUserKey:
+          type: string
+          description: Kart saklama sonrası, iyzico tarafından dönen cardUserKey değeri.
+        cardToken:
+          type: string
+          description: Saklanan karta ait, iyzico tarafından dönen cardToken değeri.
+      required:
+      - cardUserKey
+      - cardToken

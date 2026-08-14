@@ -54,6 +54,11 @@ adapter in someone else's repository has to be able to build one.
 generated from it. Refetch with `python3 scripts/merge_iyzico.py` and
 `python3 scripts/fetch_stripe.py`; the weekly job does the same and opens a PR.
 
+iyzico's side is a sweep of their entire documentation site — 155 operations
+across 16 product areas, one file per area. `kasapay-iyzico` implements one of
+them. Before adding an endpoint, read that area's `latest.yaml` and the
+`notes` for it in the dated index rather than the documentation page.
+
 ## Unverified against a live API
 
 iyzico's `/payment/query` status mapping. The documented response body has no

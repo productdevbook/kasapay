@@ -1,0 +1,396 @@
+{
+  "fetched": "2026-08-14",
+  "source": "https://docs.iyzico.com/llms.txt",
+  "pages_swept": 166,
+  "pages_with_fragments": 69,
+  "fragments": 165,
+  "upstream_sha256": "7d91e7d506da0e4694ee6f7e9499bbd83d52b901f392d8ea3b4b8bd119b6b6a3",
+  "areas": {
+    "ek-servisler/iptal-ve-iade": {
+      "operations": [
+        "POST /payment/cancel",
+        "POST /payment/refund",
+        "POST /v2/payment/refund"
+      ],
+      "schemas": 7,
+      "notes": []
+    },
+    "ek-servisler/kart-saklama": {
+      "operations": [
+        "DELETE /cardstorage/card",
+        "POST /cardstorage/card",
+        "POST /cardstorage/cards",
+        "POST /payment/auth"
+      ],
+      "schemas": 18,
+      "notes": []
+    },
+    "ek-servisler/raporlama-servisi": {
+      "operations": [
+        "GET /v2/reporting/payment/details",
+        "GET /v2/reporting/payment/transactions"
+      ],
+      "schemas": 10,
+      "notes": []
+    },
+    "ek-servisler/taksit-ve-bin-sorgulama": {
+      "operations": [
+        "POST /payment/bin/check",
+        "POST /payment/iyzipos/installment"
+      ],
+      "schemas": 7,
+      "notes": []
+    },
+    "odeme-metotlari/api": {
+      "operations": [
+        "POST /payment/3dsecure/auth",
+        "POST /payment/3dsecure/initialize",
+        "POST /payment/auth",
+        "POST /payment/detail",
+        "POST /payment/v2/3dsecure/auth"
+      ],
+      "schemas": 18,
+      "notes": [
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/api/3ds/3ds-entegrasyonu/3ds-tamamlama.md, kept as ErrorResponse2",
+        "schema Address redefined by https://docs.iyzico.com/odeme-metotlari/api/non-3ds/non-3ds-entegrasyonu/odeme-olusturma.md, kept as Address2",
+        "schema PaymentResponse redefined by https://docs.iyzico.com/odeme-metotlari/api/non-3ds/non-3ds-entegrasyonu/odeme-olusturma.md, kept as PaymentResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/api/non-3ds/non-3ds-entegrasyonu/odeme-olusturma.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/api/non-3ds/non-3ds-entegrasyonu/odeme-sorgulama.md, kept as ErrorResponse3"
+      ]
+    },
+    "odeme-metotlari/iyzico-ile-ode": {
+      "operations": [
+        "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+        "POST /payment/pay-with-iyzico/initialize"
+      ],
+      "schemas": 8,
+      "notes": []
+    },
+    "odeme-metotlari/odeme-formu": {
+      "operations": [
+        "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+        "POST /payment/iyzipos/checkoutform/initialize/auth/ecom"
+      ],
+      "schemas": 8,
+      "notes": []
+    },
+    "odeme-metotlari/on-provizyon": {
+      "operations": [
+        "POST /payment/3dsecure/auth",
+        "POST /payment/3dsecure/initialize/preauth",
+        "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+        "POST /payment/iyzipos/checkoutform/initialize/preauth/ecom",
+        "POST /payment/postauth",
+        "POST /payment/preauth",
+        "POST /payment/v2/3dsecure/auth"
+      ],
+      "schemas": 27,
+      "notes": [
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as ErrorResponse3",
+        "schema Address redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as Address2",
+        "schema PaymentResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as PaymentResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as ErrorResponse4"
+      ]
+    },
+    "on-hazirliklar/api-reference-beta": {
+      "operations": [
+        "DELETE /cardstorage/card",
+        "DELETE /v2/iyzilink/products/{token}",
+        "DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "DELETE /v2/subscription/products/{productReferenceCode}",
+        "GET /v2/iyzilink/products",
+        "GET /v2/iyzilink/products/{token}",
+        "GET /v2/reporting/payment/details",
+        "GET /v2/reporting/payment/transactions",
+        "GET /v2/subscription/checkoutform/{token}",
+        "GET /v2/subscription/customers",
+        "GET /v2/subscription/customers/{customerReferenceCode}",
+        "GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "GET /v2/subscription/products",
+        "GET /v2/subscription/products/{productReferenceCode}",
+        "GET /v2/subscription/products/{productReferenceCode}/pricing-plans",
+        "GET /v2/subscription/subscriptions/{subscriptionReferenceCode}",
+        "PATCH /v2/iyzilink/products/{token}/status/{status}",
+        "POST /cardstorage/card",
+        "POST /cardstorage/cards",
+        "POST /onboarding/submerchant",
+        "POST /onboarding/submerchant/detail",
+        "POST /payment/3dsecure/auth",
+        "POST /payment/3dsecure/initialize",
+        "POST /payment/auth",
+        "POST /payment/bin/check",
+        "POST /payment/cancel",
+        "POST /payment/detail",
+        "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+        "POST /payment/iyzipos/checkoutform/initialize/auth/ecom",
+        "POST /payment/iyzipos/installment",
+        "POST /payment/iyzipos/item/approve",
+        "POST /payment/iyzipos/item/disapprove",
+        "POST /payment/pay-with-iyzico/initialize",
+        "POST /payment/refund",
+        "POST /payment/v2/3dsecure/auth",
+        "POST /v2/iyzilink/fast-link/products",
+        "POST /v2/iyzilink/products",
+        "POST /v2/payment/refund",
+        "POST /v2/subscription/card-update/checkoutform/initialize",
+        "POST /v2/subscription/checkoutform/initialize",
+        "POST /v2/subscription/customers/{customerReferenceCode}",
+        "POST /v2/subscription/initialize",
+        "POST /v2/subscription/initialize/with-customer",
+        "POST /v2/subscription/operation/retry",
+        "POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "POST /v2/subscription/products",
+        "POST /v2/subscription/products/{productReferenceCode}",
+        "POST /v2/subscription/products/{productReferenceCode}/pricing-plans",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade",
+        "PUT /onboarding/submerchant",
+        "PUT /payment/item",
+        "PUT /v2/iyzilink/products/{token}"
+      ],
+      "schemas": 159,
+      "notes": [
+        "schema CustomerDetailResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abone-islemleri.md, kept as CustomerDetailResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-baslatma.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-baslatma.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-baslatma.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-baslatma.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/abonelik/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as ErrorResponse4",
+        "schema CreatePricingPlanResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as CreatePricingPlanResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as ErrorResponse4",
+        "schema CreatePricingPlanResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as CreatePricingPlanResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/odeme-plani.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/urun.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/urun.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/urun.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/urun.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/abonelik/urun.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/iptal-ve-iade.md, kept as ErrorResponse6",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/iptal-ve-iade.md, kept as ErrorResponse6",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/iptal-ve-iade.md, kept as ErrorResponse6",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/kart-saklama.md, kept as ErrorResponse7",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/kart-saklama.md, kept as ErrorResponse7",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/kart-saklama.md, kept as ErrorResponse7",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/kart-saklama.md, kept as ErrorResponse7",
+        "schema Address redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-3ds.md, kept as Address2",
+        "schema BasketItem redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-3ds.md, kept as BasketItem2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-3ds.md, kept as ErrorResponse8",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-3ds.md, kept as ErrorResponse8",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-3ds.md, kept as ErrorResponse9",
+        "schema PaymentCard redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-non3d.md, kept as PaymentCard2",
+        "schema BasketItem redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-non3d.md, kept as BasketItem2",
+        "schema PaymentResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-non3d.md, kept as PaymentResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-non3d.md, kept as ErrorResponse10",
+        "POST /payment/auth redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-non3d.md, kept the first",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/api-non3d.md, kept as ErrorResponse10",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-ile-ode.md, kept as ErrorResponse11",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-ile-ode.md, kept as ErrorResponse11",
+        "schema Address redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-odeme-formu-cf.md, kept as Address2",
+        "schema BasketItem redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-odeme-formu-cf.md, kept as BasketItem2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-odeme-formu-cf.md, kept as ErrorResponse12",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-odeme-formu-cf.md, kept as ErrorResponse12",
+        "POST /payment/iyzipos/checkoutform/auth/ecom/detail redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/odeme-metotlari/iyzico-odeme-formu-cf.md, kept the first",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/alt-uye-isyeri.md, kept as ErrorResponse13",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/alt-uye-isyeri.md, kept as ErrorResponse13",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/alt-uye-isyeri.md, kept as ErrorResponse13",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/alt-uye-isyeri.md, kept as ErrorResponse13",
+        "schema Address redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/odeme.md, kept as Address3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/odeme.md, kept as ErrorResponse14",
+        "POST /payment/auth redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/odeme.md, kept the first",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/onay.md, kept as ErrorResponse13",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/pazaryeri/onay.md, kept as ErrorResponse13",
+        "schema BaseResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/raporlama.md, kept as BaseResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/raporlama.md, kept as ErrorResponse15",
+        "schema BaseResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/raporlama.md, kept as BaseResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/raporlama.md, kept as ErrorResponse16",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/taksit-ve-bin-sorgulama.md, kept as ErrorResponse12",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/on-hazirliklar/api-reference-beta/taksit-ve-bin-sorgulama.md, kept as ErrorResponse12"
+      ]
+    },
+    "urunler/abonelik": {
+      "operations": [
+        "DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "DELETE /v2/subscription/products/{productReferenceCode}",
+        "GET /v2/subscription/checkoutform/{token}",
+        "GET /v2/subscription/customers",
+        "GET /v2/subscription/customers/{customerReferenceCode}",
+        "GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "GET /v2/subscription/products",
+        "GET /v2/subscription/products/{productReferenceCode}",
+        "GET /v2/subscription/products/{productReferenceCode}/pricing-plans",
+        "GET /v2/subscription/subscriptions",
+        "GET /v2/subscription/subscriptions/{subscriptionReferenceCode}",
+        "POST /v2/subscription/card-update/checkoutform/initialize",
+        "POST /v2/subscription/checkoutform/initialize",
+        "POST /v2/subscription/customers/{customerReferenceCode}",
+        "POST /v2/subscription/initialize",
+        "POST /v2/subscription/initialize/with-customer",
+        "POST /v2/subscription/operation/retry",
+        "POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "POST /v2/subscription/products",
+        "POST /v2/subscription/products/{productReferenceCode}",
+        "POST /v2/subscription/products/{productReferenceCode}/pricing-plans",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade"
+      ],
+      "schemas": 56,
+      "notes": [
+        "schema CustomerDetailResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abone-islemleri.md, kept as CustomerDetailResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md, kept as ErrorResponse3",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md, kept as ErrorResponse4",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as ErrorResponse5",
+        "schema CreatePricingPlanResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as CreatePricingPlanResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as ErrorResponse5",
+        "schema CreatePricingPlanResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as CreatePricingPlanResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as ErrorResponse5",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md, kept as ErrorResponse5"
+      ]
+    },
+    "urunler/ceppos-app2app": {
+      "operations": [
+        "DELETE /v3/in-store/user",
+        "GET /v3/in-store/payment/query",
+        "GET /v3/in-store/user/list",
+        "POST /v2/in-store/crypt/decrypt",
+        "POST /v3/in-store/crypt/decrypt",
+        "POST /v3/in-store/payment/init",
+        "POST /v3/in-store/payment/query",
+        "POST /v3/in-store/payment/refund",
+        "POST /v3/in-store/user"
+      ],
+      "schemas": 38,
+      "notes": [
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sifre-cozme.md, kept as ErrorResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sorgulama.md, kept as ErrorResponse3",
+        "schema UserDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as UserDetail2",
+        "schema Enrollment redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as Enrollment2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "POST /v3/in-store/user redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept the first",
+        "schema UserListResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as UserListResponse2",
+        "schema UserDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as UserDetail3",
+        "schema Enrollment redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as Enrollment2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "GET /v3/in-store/user/list redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept the first",
+        "schema DeleteUserRequest redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as DeleteUserRequest2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "DELETE /v3/in-store/user redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept the first",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "POST /v3/in-store/payment/init redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept the first",
+        "schema InStoreCompleteOperation redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as InStoreCompleteOperation2",
+        "schema Transaction redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as Transaction2",
+        "schema Receipt redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as Receipt2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "schema RefundRequest redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as RefundRequest2",
+        "schema RefundResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as RefundResponse2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "POST /v3/in-store/payment/refund redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept the first",
+        "schema QueryTransactionDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryTransactionDetail2",
+        "schema QueryReceiptDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryReceiptDetail2",
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2"
+      ]
+    },
+    "urunler/fiziki-pos": {
+      "operations": [
+        "POST /in-store/oauth2/authorize",
+        "POST /in-store/oauth2/token",
+        "POST /v2/terminal-host/eod",
+        "POST /v2/terminal-host/gmu/eod",
+        "POST /v2/terminal-host/gmu/partial-payment/add-payment",
+        "POST /v2/terminal-host/gmu/partial-payment/complete",
+        "POST /v2/terminal-host/gmu/partial-payment/start",
+        "POST /v2/terminal-host/gmu/payment",
+        "POST /v2/terminal-host/gmu/payment/query-transaction-status",
+        "POST /v2/terminal-host/gmu/payment/refund",
+        "POST /v2/terminal-host/gmu/payment/refundable-sale-info",
+        "POST /v2/terminal-host/gmu/payment/void",
+        "POST /v2/terminal-host/payment",
+        "POST /v2/terminal-host/payment/query-transaction-status",
+        "POST /v2/terminal-host/payment/refund",
+        "POST /v2/terminal-host/payment/void"
+      ],
+      "schemas": 37,
+      "notes": [
+        "POST /v2/terminal-host/payment/void redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/odeme-ve-islem-servisleri.md, kept the first",
+        "POST /v2/terminal-host/payment/refund redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/odeme-ve-islem-servisleri.md, kept the first"
+      ]
+    },
+    "urunler/iyzico-link": {
+      "operations": [
+        "DELETE /v2/iyzilink/products/{token}",
+        "GET /v2/iyzilink/products",
+        "GET /v2/iyzilink/products/{token}",
+        "PATCH /v2/iyzilink/products/{token}/status/{status}",
+        "POST /v2/iyzilink/fast-link/products",
+        "POST /v2/iyzilink/products",
+        "PUT /v2/iyzilink/products/{token}"
+      ],
+      "schemas": 9,
+      "notes": []
+    },
+    "urunler/mass-payout": {
+      "operations": [
+        "GET /v1/mass/payout/balance",
+        "GET /v1/mass/payout/retrieve/items/{referenceCode}",
+        "POST /v1/mass/payout/auth",
+        "POST /v1/mass/payout/cancel/{requestId}",
+        "POST /v1/mass/payout/init",
+        "POST /v1/mass/payout/retrieve"
+      ],
+      "schemas": 15,
+      "notes": []
+    },
+    "urunler/paypos-app2app": {
+      "operations": [
+        "POST /v1/agent/get_auth_key",
+        "POST /v1/agent/logout",
+        "POST /v1/softpos/check_transaction",
+        "POST /v1/softpos/init_reversal_transaction",
+        "POST /v1/softpos/init_sale_transaction"
+      ],
+      "schemas": 10,
+      "notes": []
+    },
+    "urunler/pazaryeri": {
+      "operations": [
+        "POST /onboarding/submerchant",
+        "POST /onboarding/submerchant/detail",
+        "POST /payment/auth",
+        "POST /payment/iyzipos/item/approve",
+        "POST /payment/iyzipos/item/disapprove",
+        "PUT /onboarding/submerchant",
+        "PUT /payment/item"
+      ],
+      "schemas": 24,
+      "notes": [
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/pazaryeri-odemesi.md, kept as ErrorResponse2"
+      ]
+    }
+  }
+}

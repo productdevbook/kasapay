@@ -1,0 +1,400 @@
+openapi: 3.0.3
+info:
+  title: iyzico — ek-servisler/iptal-ve-iade
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags: []
+paths:
+  /payment/cancel:
+    post:
+      summary: İptal
+      description: Ödeme işlemini iptal etmek için kullanılır.
+      tags:
+      - Ödeme
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelPaymentResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/iptal-ve-iade.md
+  /payment/refund:
+    post:
+      summary: İade
+      description: 'Ödeme işleminin iadesi için kullanılır. İade işlemi **paymentTransactionId** üzerinden,
+        ödeme kırılımı baz alınarak yapılır. Ödeme tutarı için **tamamen** ya da **kısmi** iade yapılabilir.
+
+        '
+      tags:
+      - Ödeme
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPaymentResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/iptal-ve-iade.md
+  /v2/payment/refund:
+    post:
+      summary: İade V2
+      description: '**paymentId** üzerinden iade yapılmasını sağlar. Ödeme kırılımı belirtilmez; iade
+        edilecek kırılım sistem tarafından otomatik belirlenir. Ödeme tutarı için **tamamen** ya da **kısmi**
+        iade yapılabilir.
+
+        '
+      tags:
+      - Ödeme
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentV2Request'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPaymentV2Response'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/ek-servisler/iptal-ve-iade.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    CancelPaymentRequest:
+      type: object
+      required:
+      - paymentId
+      properties:
+        paymentId:
+          type: string
+          description: İptal edilmek istenen ödeme işlemine ait iyzico tarafından verilen **uniq ödeme
+            numarası**.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için **uniq ID**. İstekte gönderilen değer yanıtta aynen
+            geri döner.
+        ip:
+          type: string
+          description: İşlemin gönderildiği IP adresi.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: iyzico istek sonucunda dönen metinlerin dilini ayarlamak için kullanılır.
+        reason:
+          type: string
+          description: İptal Nedeni. İptal açıklaması gönderilirse, gönderilmesi zorunlu bir bilgidir.
+          enum:
+          - OTHER
+          - FRAUD
+          - BUYER_REQUEST
+          - DOUBLE_PAYMENT
+        description:
+          type: string
+          description: İptal açıklaması.
+    CancelPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki **epoch ms** değeridir.
+        conversationId:
+          type: string
+          description: İstekte gönderilen conversationId değeri aynen geri döner.
+        paymentId:
+          type: string
+          description: İptal edilen ödeme numarası.
+        price:
+          type: decimal
+          description: İptal edilen ödeme tutarı.
+        currency:
+          type: string
+          description: Para birimi (ödemenin yapıldığı para birimi).
+        authCode:
+          type: string
+          description: Banka tarafından dönen yetkilendirme (auth) kodu.
+        hostReference:
+          type: string
+          description: İşlem referans değeri.
+        cancelHostReference:
+          type: string
+          description: İptal işlemine ait referans değeri.
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: İstek sonucunu ifade eder (başarısız).
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki **epoch ms** değeridir.
+        conversationId:
+          type: string
+          description: İstekte gönderilen conversationId.
+        paymentId:
+          type: string
+          description: İlgili ödeme numarası (varsa).
+        paymentTransactionId:
+          type: string
+          description: İlgili ödeme kırılımı numarası (varsa).
+        price:
+          type: decimal
+          description: İlgili tutar (varsa).
+        retryable:
+          type: boolean
+          description: İşlemin tekrar denenebilir olup olmadığı.
+    RefundPaymentRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      - price
+      properties:
+        paymentTransactionId:
+          type: string
+          description: İade edilecek **ödeme kırılımı** numarası (**paymentTransactionId**).
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için uniq ID.
+        ip:
+          type: string
+          description: İşlemin gönderildiği IP adresi.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        price:
+          type: decimal
+          description: İade edilmek istenen tutar. Kırılım tutarından **yüksek olmamalıdır**.
+        currency:
+          type: string
+          description: Ödemenin yapıldığı para birimi.
+        reason:
+          type: string
+          description: İade Nedeni. İade açıklaması gönderilirse, gönderilmesi zorunlu bir bilgidir.
+          enum:
+          - OTHER
+          - FRAUD
+          - BUYER_REQUEST
+          - DOUBLE_PAYMENT
+        description:
+          type: string
+          description: İade açıklaması.
+    RefundPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki **epoch ms** değeridir.
+        conversationId:
+          type: string
+          description: İstekte gönderilen conversationId değeri aynen geri döner.
+        paymentId:
+          type: string
+          description: Ödeme numarası.
+        paymentTransactionId:
+          type: string
+          description: İadesi yapılan ödeme kırılımı numarası.
+        price:
+          type: decimal
+          description: İade edilen tutar.
+        currency:
+          type: string
+          description: Para birimi.
+        authCode:
+          type: string
+          description: Banka tarafından dönen yetkilendirme (auth) kodu.
+        hostReference:
+          type: string
+          description: Ödemeye ilişkin banka tarafından verilen referans değeri.
+        refundHostReference:
+          type: string
+          description: null
+        retryable:
+          type: boolean
+          description: İşlemin tekrar denenebilir olup olmadığını belirtir.
+          enum:
+          - true
+          - false
+        signature:
+          type: string
+          description: İmza doğrulaması yapılabilecek signature değeri.
+    RefundPaymentV2Request:
+      type: object
+      required:
+      - paymentId
+      - price
+      properties:
+        paymentId:
+          type: string
+          description: İade edilecek **ödeme** numarası.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için uniq ID.
+        ip:
+          type: string
+          description: İşlemin gönderildiği IP adresi.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        price:
+          type: decimal
+          description: İade edilmek istenen tutar. Ödeme tutarından **büyük olmamalıdır**.
+        currency:
+          type: string
+          description: Ödemenin yapıldığı para birimi.
+    RefundPaymentV2Response:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki **epoch ms** değeridir.
+        conversationId:
+          type: string
+          description: İstekte gönderilen conversationId değeri aynen geri döner.
+        paymentId:
+          type: string
+          description: İadesi yapılan ödeme numarası.
+        price:
+          type: decimal
+          description: İade edilen tutar.
+        currency:
+          type: string
+          description: Para birimi.
+        authCode:
+          type: string
+          description: Banka tarafından dönen yetkilendirme (auth) kodu.
+        hostReference:
+          type: string
+          description: Ödemeye ilişkin banka tarafından verilen referans değeri.
+        refundHostReference:
+          type: string
+          description: null
+        retryable:
+          type: boolean
+          description: İşlemin tekrar denenebilir olup olmadığını belirtir.
+          enum:
+          - true
+          - false
+        signature:
+          type: string
+          description: İmza doğrulaması yapılabilecek signature değeri.

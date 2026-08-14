@@ -1,0 +1,608 @@
+openapi: 3.0.3
+info:
+  title: iyzico — urunler/iyzico-link
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: iyzilink
+  description: Link ile ödeme (iyzilink)
+paths:
+  /v2/iyzilink/fast-link/products:
+    post:
+      tags:
+      - iyzilink
+      summary: Fastlink Oluşturma
+      description: Fastlink Oluşturur. Fast Link, 750 TL ve altı ödemeler için hızlı ve kolay bir şekilde
+        ödeme alınmasını sağlayan çözümdür. Bir linkten yalnızca bir kere ödeme alınabilmektedir. Fastlink
+        oluşturmak için önce onaylı bi iyzico link olması gerekmektedir.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IyziLinkFastLinkRequest'
+      responses:
+        '200':
+          description: Başarılı oluşturma yanıtı.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkCreateOrUpdateResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+  /v2/iyzilink/products:
+    post:
+      tags:
+      - iyzilink
+      summary: iyzico Link Oluşturma
+      description: Yeni bir iyzico Link oluşturmak için kullanılır. Başarılı yanıtta link url'sini döner.
+        Dönen url parametresini müşterilerinize ileterek kullanabilirsiniz.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IyziLinkCreateRequest'
+      responses:
+        '200':
+          description: Başarılı oluşturma yanıtı.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkCreateOrUpdateResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+    get:
+      tags:
+      - iyzilink
+      summary: iyzico Linkleri Listeleme
+      description: Oluşturulan tüm iyzico Linkleri sayfalı olarak listeler.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Yanıt dili.
+        enum:
+        - tr
+        - en
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: Sayfa numarası.
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Sayfa başına ürün sayısı.
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: İstek/yanıt eşleştirme için serbest metin alanı.
+      responses:
+        '200':
+          description: Listeleme yanıtı.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkListResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+  /v2/iyzilink/products/{token}:
+    get:
+      tags:
+      - iyzilink
+      summary: iyzico Link Sorgulama
+      description: Token ile tek bir link sorgulayabilirsiniz. Sorgulanan token'a ait iyzico Link detayını
+        döner.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Sorgulanmak istenen iyzico Link'e ait token değeri.
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Yanıt dili (varsayılan **tr**).
+        enum:
+        - tr
+        - en
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: İstek/yanıt eşleştirme değeri.
+      responses:
+        '200':
+          description: Ürün detay yanıtı.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkDetailResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+    put:
+      tags:
+      - iyzilink
+      summary: iyzico Link Güncelleme
+      description: iyzico Link oluşturduğunuzda dönen token değeri ile varolan iyzico Linkinizi güncelleyebilirsiniz.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Güncellenecek iyzilink’in token değeri.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IyziLinkUpdateRequest'
+      responses:
+        '200':
+          description: Başarılı güncelleme yanıtı.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkCreateOrUpdateResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+    delete:
+      tags:
+      - iyzilink
+      summary: iyzico Link Silme
+      description: Bir iyzico Link'i silmek için kullanılır.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Silinecek iyzico link token’ı.
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Yanıt dili (varsayılan **tr**).
+        enum:
+        - tr
+        - en
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: İstek/yanıt eşleştirme değeri.
+      responses:
+        '200':
+          description: Silme sonucu.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkDeleteResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+  /v2/iyzilink/products/{token}/status/{status}:
+    patch:
+      tags:
+      - iyzilink
+      summary: iyzico Link Statü Güncelleme
+      description: Bir iyzico link’in durumunu **ACTIVE** veya **PASSIVE** yapar. iyzico Link'e ait token
+        değeri ve güncellenecek statü değerinin kullanılması gerekmektedir.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: iyzico link'e ait token değeri.
+      - name: status
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - PASSIVE
+        description: Güncellenecek yeni durum.
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Yanıt dili (varsayılan **tr**).
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: İstek/yanıt eşleştirme değeri.
+      responses:
+        '200':
+          description: Durum güncelleme sonucu.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasicStatusResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/iyzico-link/iyzico-link-api.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    BasicStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İstek sonucu (success/failure).
+        locale:
+          type: string
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: Unix zaman damgası (ms).
+        conversationId:
+          type: string
+          description: İstekle gönderildiyse aynen geri döner.
+    IyziLinkCreateOrUpdateResponse:
+      allOf:
+      - $ref: '#/components/schemas/BasicStatusResponse'
+      - type: object
+        properties:
+          data:
+            type: object
+            description: Oluşturulan/Güncellenen link bilgileri.
+            properties:
+              token:
+                type: string
+                description: iyzico tarafından üretilen token.
+              url:
+                type: string
+                description: Ürünün satın alma linki.
+              imageUrl:
+                type: string
+                description: Ürün görseli URL’si.
+    IyziLinkCreateRequest:
+      type: object
+      required:
+      - name
+      - description
+      - price
+      - currencyCode
+      - encodedImageFile
+      properties:
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme için gönderilen değer.
+        locale:
+          type: string
+          description: Yanıt dili (tr|en). Varsayılan **tr**.
+        name:
+          type: string
+          description: Ürünün adı (müşteriye görünür).
+        description:
+          type: string
+          description: Ürünün açıklaması (müşteriye görünür).
+        price:
+          type: string
+          format: decimal
+          description: Ürün fiyatı (decimal).
+        currencyCode:
+          type: string
+          description: Para birimi kodu.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        encodedImageFile:
+          type: string
+          description: Ürün resminin base64'e çevrilmiş hali.
+        addressIgnorable:
+          type: boolean
+          description: Satın alımda adres istenmesin (true) / istensin (false).
+        installmentRequested:
+          type: boolean
+          description: Taksitli satış aktif/pasif.
+          enum:
+          - true
+          - false
+        stockEnabled:
+          type: boolean
+          description: Stok kontrolü aktif/pasif.
+          enum:
+          - true
+          - false
+        stockCount:
+          type: integer
+          description: Stok sayısı.
+        flexibleLink:
+          type: boolean
+          description: Üye işyerinin belirlediği 3 farklı tutardan birinin seçilerek veya müşterinin kendi
+            girdiği tutar ile ödemenin tamamlamalarına olanak sağlamaktadır. Üye işyeri hesabında bu özelliğin
+            aktif olması gerekmektedir.
+          enum:
+          - true
+          - false
+        presetPriceValues:
+          type: integer
+          description: FlexibleLink'te gösterilecek tutarların bilgisi.
+          enum:
+          - 10
+          - 20
+          - 30
+        categoryType:
+          type: string
+          description: Ürün kategori tipi. Default; "UNKNOWN" değerini alır.
+          enum:
+          - GOLD
+          - FOOD
+          - PHONE
+          - UNKNOWN
+          - PC
+          - TABLET
+    IyziLinkDeleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+        systemTime:
+          type: integer
+          description: Unix zaman damgası (ms).
+        locale:
+          type: string
+          description: Yanıt dili.
+        conversationId:
+          type: string
+          description: İstekle gönderildiyse aynen geri döner.
+    IyziLinkDetailResponse:
+      allOf:
+      - $ref: '#/components/schemas/BasicStatusResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/IyziLinkProduct'
+    IyziLinkFastLinkRequest:
+      type: object
+      required:
+      - price
+      - currencyCode
+      properties:
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme için gönderilen değer.
+        locale:
+          type: string
+          description: Yanıt dili (tr|en). Varsayılan **tr**.
+          enum:
+          - tr
+          - en
+        description:
+          type: string
+          description: Müşteriye görünecek link açıklaması.
+        price:
+          type: string
+          format: decimal
+          description: Ürün fiyatı.
+        currencyCode:
+          type: string
+          description: Para birimi kodu.
+    IyziLinkListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BasicStatusResponse'
+      - type: object
+        properties:
+          data:
+            type: object
+            properties:
+              listingReviewed:
+                type: boolean
+                description: Listeleme işlemi durum bilgisi.
+              totalCount:
+                type: integer
+                description: Toplam ürün sayısı.
+              currentPage:
+                type: integer
+                description: Mevcut sayfa.
+              pageCount:
+                type: integer
+                description: Toplam sayfa sayısı.
+              items:
+                type: array
+                description: Ürün listesi.
+                items:
+                  $ref: '#/components/schemas/IyziLinkProduct'
+    IyziLinkProduct:
+      type: object
+      description: iyzico Link ürün detayı.
+      properties:
+        name:
+          type: string
+          description: Ürün ismi.
+        conversationId:
+          type: string
+          description: Üye işyeri tarafındaki referans.
+        description:
+          type: string
+          description: Ürün açıklaması.
+        price:
+          type: string
+          format: decimal
+          description: Ürün fiyatı (decimal).
+        currencyId:
+          type: integer
+          description: Para birimi ID’si.
+        currencyCode:
+          type: string
+          description: Para birimi kodu.
+        token:
+          type: string
+          description: iyzico tarafından üretilen token.
+        productType:
+          type: string
+          description: Ürün tipi.
+          enum:
+          - IYZILINK
+          - FASTLINK
+        productStatus:
+          type: string
+          description: Ürün durumu.
+          enum:
+          - ACTIVE
+          - PASSIVE
+        merchantId:
+          type: integer
+          description: Üye işyeri numarası.
+        url:
+          type: string
+          description: Satın alma linki.
+        imageUrl:
+          type: string
+          description: Ürün resmi.
+        addressIgnorable:
+          type: boolean
+          description: Adres istenmesin/istensin.
+        soldCount:
+          type: integer
+          description: Satılan ürün adedi.
+        installmentRequested:
+          type: boolean
+          description: Taksit durumu.
+        stockEnabled:
+          type: boolean
+          description: Stok kontrolü aktif/pasif.
+        stockCount:
+          type: integer
+          description: Stok adedi.
+        presetPriceValues:
+          type: array
+          description: Ön tanımlı fiyat seçenekleri.
+          items:
+            type: string
+            format: decimal
+        flexibleLink:
+          type: boolean
+          description: Esnek fiyatlı link.
+        categoryType:
+          type: string
+          description: Ürün kategori tipi. Default; "UNKNOWN" değerini alır.
+          enum:
+          - GOLD
+          - FOOD
+          - PHONE
+          - UNKNOWN
+          - PC
+          - TABLET
+    IyziLinkUpdateRequest:
+      type: object
+      required:
+      - name
+      - description
+      - price
+      - currencyCode
+      description: Link güncelleme için gönderilebilecek alanlar (**token** path’te gönderilir).
+      properties:
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için gönderilen değer.
+        locale:
+          type: string
+          description: Yanıt dili (tr|en).
+        name:
+          type: string
+          description: Ürün adı.
+        description:
+          type: string
+          description: Ürün açıklaması.
+        price:
+          type: string
+          format: decimal
+          description: Ürün fiyatı.
+        currencyCode:
+          type: string
+          description: Para birimi kodu.
+        encodedImageFile:
+          type: string
+          description: Ürün resminin base64’e çevrilmiş hali.
+        addressIgnorable:
+          type: boolean
+          description: Adres istenmesin/istensin.
+          enum:
+          - true
+          - false
+        installmentRequested:
+          type: boolean
+          description: Taksitli satış aktif/pasif.
+          enum:
+          - true
+          - false
+        stockEnabled:
+          type: boolean
+          description: Stok kontrolü aktif/pasif.
+          enum:
+          - true
+          - false
+        stockCount:
+          type: integer
+          description: Stok sayısı.
+        categoryType:
+          type: string
+          description: Ürün kategori tipi. Default; "UNKNOWN" değerini alır.
+          enum:
+          - GOLD
+          - FOOD
+          - PHONE
+          - UNKNOWN
+          - PC
+          - TABLET

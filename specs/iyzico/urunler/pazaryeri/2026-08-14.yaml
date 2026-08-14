@@ -1,0 +1,1404 @@
+openapi: 3.0.3
+info:
+  title: iyzico — urunler/pazaryeri
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags: []
+paths:
+  /onboarding/submerchant:
+    post:
+      summary: Alt Üye Oluşturma
+      description: 'Pazaryeri (marketplace) modelinde alt üye işyerini oluşturur. **Bireysel**, **Şahıs
+        Şirketi** ve **Limited/Anonim** tipleri desteklenir. Oluşturulacak alt üye işyeri tipi, **subMerchantType**
+        parametresine göre belirlenir.
+
+        '
+      tags:
+      - Pazaryeri
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmerchantCreateRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmerchantCreateResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/alt-uye-olusturma.md
+    put:
+      summary: Alt Üye Güncelleme
+      description: 'Mevcut alt üye işyerinin bilgilerinin güncellenmesi. Gövde şeması alt üye tipine göre
+        değişir; **üç varyanttan biri** gönderilmelidir. Güncelleme gövdesinde **subMerchantType alanı
+        bulunmaz**.
+
+        '
+      tags:
+      - Pazaryeri
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmerchantUpdateRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmerchantUpdateResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/alt-uye-olusturma/alt-uye-guncelleme.md
+  /onboarding/submerchant/detail:
+    post:
+      summary: Alt Üye Sorgulama
+      description: Dış ID (subMerchantExternalId) ile alt üye işyeri detaylarını döner.
+      tags:
+      - Pazaryeri
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmerchantDetailRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmerchantDetailResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/alt-uye-olusturma/alt-uye-sorgulama.md
+  /payment/auth:
+    post:
+      summary: Pazaryeri Ödemesi
+      description: 'Örnek olarak NON3D yöntemi paylaşılmıştır. Tüm ödeme yöntemlerinde pazaryeri için
+        her bir ödeme kırılımında alt üye alanlarını eklenmelidir.
+
+        '
+      tags:
+      - Ödeme Metotları
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Non3DMarketplaceRequest'
+      responses:
+        '200':
+          description: Başarılı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Non3DMarketplaceResponse'
+        '400':
+          description: Hata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/pazaryeri-odemesi.md
+  /payment/item:
+    put:
+      summary: Alt Üye / Hak Ediş Güncelleme
+      description: 'Bu servis, tekil bir paymentTransaction üzerinden alt üye işyerine ait hak ediş tutarını
+        değiştirmek veya alt üye işyerine ait bilgileri güncellemek için kullanılır.
+
+        '
+      tags:
+      - Pazaryeri
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemPayoutUpdateRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPayoutUpdateResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/alt-uye-olusturma/alt-uye-urun-guncelleme.md
+  /payment/iyzipos/item/approve:
+    post:
+      summary: Onay Verme
+      description: Ürüne onay vermek için ödeme kırılımına ait id (paymentTransactionId) iletilmesi gerekmektedir.
+        Onay verilen ödeme kırılımı id’si (paymentTransactionId), ödeme servisinden dönmektedir.
+      tags:
+      - Pazaryeri
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemApproveRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemActionResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/onay.md
+  /payment/iyzipos/item/disapprove:
+    post:
+      summary: Onay Kaldırma
+      description: Ürüne verilen onayı geri çekmek için ödeme kırılımına ait id (paymentTransactionId)
+        iletilmesi gerekmektedir. Onayı geri çekilen ödeme kırılımı id’si (paymentTransactionId) servisten
+        döner.
+      tags:
+      - Pazaryeri
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemDisapproveRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemActionResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/onay.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    Address:
+      type: object
+      description: 'Kargo Adresi. Sepetteki ürünlerden en az bir tanesinin, itemType "PHYSICAL" olması
+        durumunda gönderilmesi zorunludur. Tüm ürünler "VIRTUAL" olduğu takdirde gönderilmesi gerekmez.
+
+        '
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Tam adres.
+        zipCode:
+          type: string
+          description: Posta/ZIP kodu.
+        contactName:
+          type: string
+          description: İrtibat adı.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+    BasketItemMarketplace:
+      type: object
+      description: Sepetteki ürünlerin listesi.
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      - subMerchantKey
+      - subMerchantPrice
+      properties:
+        id:
+          type: string
+          description: Üye işyeri tarafındaki kırılım bazında ürün ID.
+        name:
+          type: string
+          description: Kırılım adı.
+        price:
+          type: decimal
+          description: Kırılım fiyatı; 0 olamaz ve tüm kırılımların toplamı `price` (sepet) ile eşit olmalıdır.
+        category1:
+          type: string
+          description: Birincil kategori.
+        category2:
+          type: string
+          description: İkincil kategori.
+        itemType:
+          type: string
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+          description: Ürün türü.
+        subMerchantKey:
+          type: string
+          description: Alt üye işyeri **anahtarı** (pazaryeri için zorunlu).
+        subMerchantPrice:
+          type: decimal
+          description: Alt üyenin hakedişi/aktarılacak tutar (pazaryeri için **zorunlu**).
+        withholdingTax:
+          type: decimal
+          description: "Stopaj tutarı. Pazaryeri, stopajı kendisi hesaplayıp alt satıcı hakedişinden düşebilir;\
+            \ bu tutarın ödeme sonucu ve **Para Gönderim Raporu**’nda görünmesi isteniyorsa `withholdingTax`\
+            \ **dolu** gönderilmelidir. (Bilgi amaçlı kaydedilir; iyzico hesaplama yapmaz.) \n"
+    BillingAddress:
+      type: object
+      description: Fatura Adresi.
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Tam adres.
+        zipCode:
+          type: string
+          description: Posta/ZIP Kodu.
+        contactName:
+          type: string
+          description: İrtibat adı.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+    ErrorResponse2:
+      type: object
+      description: Hata yanıtı.
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: İşlem sonucu.
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme ID’si.
+    ItemActionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+    ItemApproveRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+          description: Onaylanmak istenen ödeme kırılımına ait id.
+    ItemDisapproveRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+          description: İlgili ödeme kırılımına ait id değeri.
+    ItemPayoutUpdateRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      - subMerchantPrice
+      - subMerchantKey
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+          description: Ödeme kırılımına ait id.
+        subMerchantKey:
+          type: string
+          description: Alt üye işyeri anahtarı.
+        subMerchantPrice:
+          type: number
+          description: Alt üye işyerine aktarılacak tutar.
+    ItemPayoutUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+        itemId:
+          type: string
+        paymentTransactionId:
+          type: string
+        transactionStatus:
+          type: integer
+        price:
+          type: number
+        paidPrice:
+          type: number
+        merchantCommissionRate:
+          type: number
+        merchantCommissionRateAmount:
+          type: number
+        iyziCommissionRateAmount:
+          type: number
+        iyziCommissionFee:
+          type: number
+        blockageRate:
+          type: number
+        blockageRateAmountMerchant:
+          type: number
+        blockageRateAmountSubMerchant:
+          type: number
+        blockageResolvedDate:
+          type: string
+        subMerchantKey:
+          type: string
+        subMerchantPrice:
+          type: number
+        subMerchantPayoutRate:
+          type: number
+        subMerchantPayoutAmount:
+          type: number
+        merchantPayoutAmount:
+          type: number
+        convertedPayout:
+          type: object
+          properties:
+            paidPrice:
+              type: number
+            iyziCommissionRateAmount:
+              type: number
+            iyziCommissionFee:
+              type: number
+            blockageRateAmountMerchant:
+              type: number
+            blockageRateAmountSubMerchant:
+              type: number
+            subMerchantPayoutAmount:
+              type: number
+            merchantPayoutAmount:
+              type: number
+            iyziConversionRate:
+              type: number
+            iyziConversionRateAmount:
+              type: number
+            currency:
+              type: string
+    Non3DMarketplaceRequest:
+      type: object
+      required:
+      - price
+      - paidPrice
+      - shippingAddress
+      - billingAddress
+      - paymentCard
+      - basketItems
+      - buyer
+      description: Non3D ödeme isteği. Pazaryeri modelinde her bir ödeme kırılımında alt üye bilgilerinin
+        gönderilemsi gereklidir.
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için gönderilen değer; yanıtta aynen geri döner.
+        price:
+          type: decimal
+          description: Ödeme sepet tutarı. **Kırılım (basketItems) tutarları toplamı price’a eşit olmalıdır.**
+        paidPrice:
+          type: decimal
+          description: İndirim/vade farkı sonrası **POS’tan geçecek nihai tutar**; price’tan küçük, büyük
+            veya eşit olabilir.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          description: Ödeme para birimi (varsayılan TRY).
+        installment:
+          type: integer
+          description: Taksit sayısı. Varsayılan; 1
+          enum:
+          - 1
+          - 2
+          - 3
+          - 6
+          - 9
+          - 12
+        paymentChannel:
+          type: string
+          enum:
+          - WEB
+          - MOBILE
+          - MOBILE_WEB
+          - MOBILE_IOS
+          - MOBILE_ANDROID
+          - MOBILE_WINDOWS
+          - MOBILE_TABLET
+          - MOBILE_PHONE
+          description: Ödeme kanalı. Varsayılan; "WEB"
+        basketId:
+          type: string
+          description: Üye işyeri tarafındaki sepet/sipariş kimliği (sipariş numarası veya anlamlı başka
+            bir değer olabilir).
+        paymentGroup:
+          type: string
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+          - OTHER
+          description: Ödeme grubu.
+        paymentCard:
+          type: object
+          required:
+          - cardHolderName
+          - cardNumber
+          - expireMonth
+          - expireYear
+          - cvc
+          description: Kart bilgileri.
+          properties:
+            cardHolderName:
+              type: string
+              description: Kart üzerindeki ad/soyad.
+            cardNumber:
+              type: string
+              description: Kart numarası (PAN).
+            expireYear:
+              type: string
+              description: Son kullanma yılı (YYYY).
+            expireMonth:
+              type: string
+              description: Son kullanma ayı (MM).
+            cvc:
+              type: string
+              description: Güvenlik kodu.
+            registerCard:
+              type: integer
+              enum:
+              - 0
+              - 1
+              description: 1 gönderilirse kart saklanır. Kart saklama özelliği aktif olmalıdır.
+        buyer:
+          type: object
+          description: Alıcı bilgileri.
+          required:
+          - id
+          - name
+          - surname
+          - identityNumber
+          - email
+          - gsmNumber
+          - registrationAddress
+          - city
+          - country
+          properties:
+            id:
+              type: string
+              description: Üye işyeri tarafındaki kullanıcı ID.
+            name:
+              type: string
+              description: Ad.
+            surname:
+              type: string
+              description: Soyad.
+            identityNumber:
+              type: string
+              description: TCKN.
+            email:
+              type: string
+              description: E-posta.
+            gsmNumber:
+              type: string
+              description: GSM (+90...).
+            registrationDate:
+              type: string
+              description: Kayıt tarihi.
+            lastLoginDate:
+              type: string
+              description: Son giriş tarihi.
+            registrationAddress:
+              type: string
+              description: Kayıt adresi.
+            city:
+              type: string
+              description: Şehir.
+            country:
+              type: string
+              description: Ülke.
+            zipCode:
+              type: string
+              description: Posta kodu.
+            ip:
+              type: string
+              description: İşlem IP adresi.
+        shippingAddress:
+          $ref: '#/components/schemas/Address'
+        billingAddress:
+          $ref: '#/components/schemas/BillingAddress'
+        basketItems:
+          type: array
+          minItems: 1
+          description: Sepetteki ürünlerin listesi. **Marketplace** için alt üye alanları gereklidir.
+          items:
+            $ref: '#/components/schemas/BasketItemMarketplace'
+    Non3DMarketplaceResponse:
+      type: object
+      description: Non3D ödeme başarılı yanıtı.
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu (başarı/başarısız).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme ID’si.
+        price:
+          type: decimal
+          description: Talep edilen ana tutar (sepet).
+        paidPrice:
+          type: decimal
+          description: Çekilen toplam tutar (POS üzerinden).
+        installment:
+          type: integer
+          description: Taksit sayısı.
+        paymentId:
+          type: string
+          description: iyzico ödeme numarası.
+        fraudStatus:
+          type: integer
+          enum:
+          - 0
+          - -1
+          - 1
+          description: "Fraud filtrelerine göre ödeme durumu. Eğer ödemenin fraud risk skoru düşük ise\
+            \ ödemeye anında onay verilir, eğer fraud risk skoru yüksek ise ödeme işlemi reddedilir. Üye\
+            \ işyeri sadece 1 olan işlemlerde ürünü kargoya vermelidir, 0 olan işlemler için bilgilendirme\
+            \ beklemelidir.\n - 1: Onaylandı\n - 0: İncelemede\n - -1: Reddedildi\n"
+        merchantCommissionRate:
+          type: decimal
+          description: İş yeri komisyon oranı.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: İş yeri komisyon tutarı.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico komisyon oran tutarı.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico sabit ücret.
+        cardType:
+          type: string
+          description: Kart türü (CREDIT_CARD/DEBIT_CARD vb.).
+        cardAssociation:
+          type: string
+          description: Kart şeması (VISA/MASTER_CARD vb.).
+        cardFamily:
+          type: string
+          description: Kart ailesi/markası.
+        binNumber:
+          type: string
+          description: BIN numarası (ilk 6 hane).
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi.
+        basketId:
+          type: string
+          description: Sepet ID.
+        currency:
+          type: string
+          description: Para birimi.
+        itemTransactions:
+          type: array
+          description: Her bir ürün için ödeme kırılımı.
+          items:
+            type: object
+            properties:
+              itemId:
+                type: string
+                description: Kırılım ID.
+              paymentTransactionId:
+                type: string
+                description: Ödeme kırılım ID’si.
+              transactionStatus:
+                type: integer
+                enum:
+                - 0
+                - -1
+                - 1
+                - 2
+                description: 'Ödeme kırılımının durumu.
+
+                  - 0: Fraud kontrolünde
+
+                  - -1: Fraud kontrolünden sonra reddedildi
+
+                  - 1: Onaylandı. (Pazaryerinde 1 değeri Üye İşyeri Onayı Bekliyor Anlamına Gelir)
+
+                  - 2: Onaylandı (Pazaryeri Onay Verilmiş)
+
+                  '
+              price:
+                type: decimal
+                description: Ödeme kırılım tutarı.
+              paidPrice:
+                type: decimal
+                description: Ödeme kırılımı için tahsil edilen tutar.
+              merchantCommissionRate:
+                type: decimal
+                description: Ödeme kırılımında uygulanan iş yeri komisyon oranı.
+              merchantCommissionRateAmount:
+                type: decimal
+                description: Ödeme kırılımında uygulanan iş yeri komisyon tutarı.
+              iyziCommissionRateAmount:
+                type: decimal
+                description: Ödeme kırılımı için iyzico komisyon oran tutarı.
+              iyziCommissionFee:
+                type: decimal
+                description: Ödeme kırılımın için iyzico sabit ücret.
+              blockageRate:
+                type: integer
+                description: Blokaj oranı.
+              blockageRateAmountMerchant:
+                type: decimal
+                description: İş yeri blokaj tutarı.
+              blockageRateAmountSubMerchant:
+                type: decimal
+                description: Alt üye blokaj tutarı.
+              withholdingTax:
+                type: decimal
+                description: Stopaj tutarı.
+              blockageResolvedDate:
+                type: string
+                description: Blokaj çözülme tarihi (YYYY-MM-DD hh:mm:ss).
+              subMerchantKey:
+                type: string
+                description: Alt üye işyeri anahtarı.
+              externalSubMerchantId:
+                type: string
+                description: Üye işyerinin alt üye için kendi external ID’si.
+              subMerchantPrice:
+                type: decimal
+                description: Alt üye işyerine aktarılacak tutar
+              subMerchantPayoutRate:
+                type: decimal
+                description: Alt üye pay oranı.
+              subMerchantPayoutAmount:
+                type: decimal
+                description: Alt üye ödenecek tutar.
+              merchantPayoutAmount:
+                type: decimal
+                description: Üye işyerine ödenecek tutar.
+              convertedPayout:
+                type: object
+                description: Hesap özeti (dönüşüm sonrası para biriminde).
+                properties:
+                  paidPrice:
+                    type: decimal
+                    description: Tahsil edilen tutar (dönüşüm sonrası).
+                  iyziCommissionRateAmount:
+                    type: decimal
+                    description: Komisyon oran tutarı (dönüşüm sonrası).
+                  iyziCommissionFee:
+                    type: decimal
+                    description: Sabit komisyon (dönüşüm sonrası).
+                  blockageRateAmountMerchant:
+                    type: decimal
+                    description: İş yeri blokaj tutarı (dönüşüm sonrası).
+                  blockageRateAmountSubMerchant:
+                    type: decimal
+                    description: Alt üye blokaj tutarı (dönüşüm sonrası).
+                  subMerchantPayoutAmount:
+                    type: decimal
+                    description: Alt üyeye ödenecek tutar (dönüşüm sonrası).
+                  merchantPayoutAmount:
+                    type: decimal
+                    description: İş yerine ödenecek tutar (dönüşüm sonrası).
+                  iyziConversionRate:
+                    type: decimal
+                    description: Döviz dönüşüm oranı.
+                  iyziConversionRateAmount:
+                    type: decimal
+                    description: Döviz dönüşüm tutarı.
+                  currency:
+                    type: string
+                    description: Dönüşüm sonrası para birimi.
+        authCode:
+          type: string
+          description: Banka provizyon kodu.
+        phase:
+          type: string
+          description: İşlem fazı (AUTH/PREAUTH vb.).
+        hostReference:
+          type: string
+          description: Host referansı.
+        signature:
+          type: string
+          description: Yanıt imzası (doğrulama için).
+    SubmerchantCreateRequest:
+      oneOf:
+      - $ref: '#/components/schemas/SubmerchantPersonalRequest'
+      - $ref: '#/components/schemas/SubmerchantPrivateCompanyRequest'
+      - $ref: '#/components/schemas/SubmerchantLimitedJointRequest'
+      discriminator:
+        propertyName: subMerchantType
+        mapping:
+          PERSONAL: '#/components/schemas/SubmerchantPersonalRequest'
+          PRIVATE_COMPANY: '#/components/schemas/SubmerchantPrivateCompanyRequest'
+          LIMITED_OR_JOINT_STOCK_COMPANY: '#/components/schemas/SubmerchantLimitedJointRequest'
+      description: Oluşturulacak **subMerchantType**’a göre gövde alanları değişir.
+    SubmerchantCreateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek sırasında gönderilen ID.
+        subMerchantKey:
+          type: string
+          description: Oluşturulan alt üye anahtarı.
+    SubmerchantDetailRequest:
+      type: object
+      required:
+      - subMerchantExternalId
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        subMerchantExternalId:
+          type: string
+          description: Sorgulanacak alt üye işyerinin "ExternalId" bilgisi.
+    SubmerchantDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        bankCountry:
+          type: string
+        currency:
+          type: string
+        taxOffice:
+          type: string
+        legalCompanyTitle:
+          type: string
+        subMerchantExternalId:
+          type: string
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        subMerchantType:
+          type: string
+        subMerchantKey:
+          type: string
+    SubmerchantLimitedJointRequest:
+      description: Limited/Anonim Şirketi
+      type: object
+      required:
+      - subMerchantType
+      - email
+      - gsmNumber
+      - address
+      - taxOffice
+      - taxNumber
+      - legalCompanyTitle
+      - subMerchantExternalId
+      properties:
+        subMerchantType:
+          type: string
+          enum:
+          - PERSONAL
+          - PRIVATE_COMPANY
+          - LIMITED_OR_JOINT_STOCK_COMPANY
+          description: Alt üye tipi. Limited/Anonim şirket tipi için "LIMITED_OR_JOINT_STOCK_COMPANY"
+            olarak gönderilmelidir.
+        name:
+          type: string
+          description: Alt üye işyeri adı.
+        email:
+          type: string
+          description: Alt üye e-posta adresi.
+        gsmNumber:
+          type: string
+          description: Alt üye telefon numarası.
+        address:
+          type: string
+          description: Alt üye adresi.
+        iban:
+          type: string
+          description: 'Alt üye IBAN bilgisi. **legalCompanyTitle** ile uyumlu olmalıdır. Alt üye işyeri
+            oluşturulurken gönderilmezse, para gönderimi yapılabilmesi için ürün onayı öncesi mutlaka
+            doldurulmalıdır.
+
+            '
+        taxOffice:
+          type: string
+          description: Vergi dairesi.
+        taxNumber:
+          type: string
+          description: Vergi numarası.
+        legalCompanyTitle:
+          type: string
+          description: Yasal şirket unvanı.
+        subMerchantExternalId:
+          type: string
+          description: Alt üye işyeri tekil dış ID’si. Üye işyeri tarafından oluşturulan bir değerdir.
+            Sisteminizdeki alt üye ile eşleştirmek için bir değer belirleyebilirsiniz.
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+          description: Para birimi (varsayılan TL).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantLimitedJointUpdateRequest:
+      description: Limited/Anonim Şirket Alt Üye Güncelleme
+      type: object
+      required:
+      - email
+      - gsmNumber
+      - address
+      - iban
+      - legalCompanyTitle
+      - taxOffice
+      - identityNumber
+      - subMerchantKey
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        taxOffice:
+          type: string
+        legalCompanyTitle:
+          type: string
+        taxNumber:
+          type: string
+          description: Vergi numarası.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        subMerchantKey:
+          type: string
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantPersonalRequest:
+      description: Bireysel Alt Üye İşyeri
+      type: object
+      required:
+      - subMerchantType
+      - email
+      - gsmNumber
+      - address
+      - contactName
+      - contactSurname
+      - subMerchantExternalId
+      - identityNumber
+      properties:
+        subMerchantType:
+          type: string
+          enum:
+          - PERSONAL
+          - PRIVATE_COMPANY
+          - LIMITED_OR_JOINT_STOCK_COMPANY
+          description: Alt üye işyeri tipi. Bireysel için PERSONAL gönderilmelidir.
+        name:
+          type: string
+          description: Alt üye işyeri adı.
+        email:
+          type: string
+          description: Alt üye e-posta adresi.
+        gsmNumber:
+          type: string
+          description: Alt üye telefon numarası.
+        address:
+          type: string
+          description: Alt üye adresi.
+        iban:
+          type: string
+          description: 'Alt üye IBAN bilgisi. **contactName/contactSurname** ile uyumlu olmalıdır. Alt
+            üye işyeri oluşturulurken gönderilmezse, para gönderimi yapılabilmesi için ürün onayı öncesi
+            mutlaka doldurulmalıdır.
+
+            '
+        contactName:
+          type: string
+          description: Alt üye iletişim adı.
+        contactSurname:
+          type: string
+          description: Alt üye iletişim soyadı.
+        subMerchantExternalId:
+          type: string
+          description: Alt üye işyeri tekil dış ID’si. Üye işyeri tarafından oluşturulan bir değerdir.
+            Sisteminizdeki alt üye ile eşleştirmek için bir değer belirleyebilirsiniz.
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+          description: Para birimi (varsayılan TL).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için ID.
+    SubmerchantPersonalUpdateRequest:
+      description: Bireysel Alt Üye Güncelleme
+      type: object
+      required:
+      - email
+      - gsmNumber
+      - address
+      - iban
+      - contactName
+      - contactSurname
+      - identityNumber
+      - subMerchantKey
+      properties:
+        name:
+          type: string
+          description: Alt üye işyeri adı.
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        contactName:
+          type: string
+        contactSurname:
+          type: string
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        subMerchantKey:
+          type: string
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantPrivateCompanyRequest:
+      description: Şahıs Şirketi
+      type: object
+      required:
+      - subMerchantType
+      - email
+      - gsmNumber
+      - address
+      - taxOffice
+      - legalCompanyTitle
+      - subMerchantExternalId
+      properties:
+        subMerchantType:
+          type: string
+          enum:
+          - PERSONAL
+          - PRIVATE_COMPANY
+          - LIMITED_OR_JOINT_STOCK_COMPANY
+          description: Alt üye tipi. Şahıs şirketi için "PRIVATE_COMPANY" olarak gönderilmelidir.
+        name:
+          type: string
+          description: Alt üye işyeri adı.
+        email:
+          type: string
+          description: Alt üye e-posta adresi.
+        gsmNumber:
+          type: string
+          description: Alt üye telefon numarası.
+        address:
+          type: string
+          description: Alt üye adresi.
+        iban:
+          type: string
+          description: 'Alt üye IBAN bilgisi. **legalCompanyTitle** ile uyumlu olmalıdır. Alt üye işyeri
+            oluşturulurken gönderilmezse, para gönderimi yapılabilmesi için ürün onayı öncesi mutlaka
+            doldurulmalıdır.
+
+            '
+        taxOffice:
+          type: string
+          description: Vergi dairesi.
+        taxNumber:
+          type: string
+          description: Vergi numarası.
+        legalCompanyTitle:
+          type: string
+          description: Yasal şirket unvanı.
+        subMerchantExternalId:
+          type: string
+          description: Alt üye işyeri tekil dış ID’si. Üye işyeri tarafından oluşturulan bir değerdir.
+            Sisteminizdeki alt üye ile eşleştirmek için bir değer belirleyebilirsiniz.
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+          description: Para birimi (varsayılan TL).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantPrivateCompanyUpdateRequest:
+      description: Şahıs Şirketi Alt Üye Güncelleme
+      type: object
+      required:
+      - email
+      - gsmNumber
+      - address
+      - iban
+      - legalCompanyTitle
+      - taxOffice
+      - identityNumber
+      - subMerchantKey
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        taxOffice:
+          type: string
+        taxNumber:
+          type: string
+          description: Vergi numarası.
+        legalCompanyTitle:
+          type: string
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        subMerchantKey:
+          type: string
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantUpdateRequest:
+      oneOf:
+      - $ref: '#/components/schemas/SubmerchantPersonalUpdateRequest'
+      - $ref: '#/components/schemas/SubmerchantPrivateCompanyUpdateRequest'
+      - $ref: '#/components/schemas/SubmerchantLimitedJointUpdateRequest'
+      description: Seçilen alt üye tipine göre güncelleme alanları. **subMerchantType alanı gönderilmez.**
+    SubmerchantUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek sırasında gönderilen ID.

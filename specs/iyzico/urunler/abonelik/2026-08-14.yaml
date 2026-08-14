@@ -1,0 +1,2461 @@
+openapi: 3.0.3
+info:
+  title: iyzico — urunler/abonelik
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: Subscription Product
+  description: Abonelik ürün yönetimi servisleri.
+paths:
+  /v2/subscription/card-update/checkoutform/initialize:
+    post:
+      summary: Abonelik Kart Güncelleme (Checkout Form)
+      description: 'Bu istek ile bir abonelikte kullanılan kredi kartı güncellenebilir. Ödeme hatası,
+        kart son kullanma tarihinin geçmesi gibi durumlarda üye iş yerleri kart bilgisini kolayca güncelleyebilir.
+        **Güncelleme işlemi yalnızca iyzico ödeme formu üzerinden gerçekleştirilir.**
+
+        Güncellenen kredi kartının validasyonu için **1 TL**’lik ödeme alınır ve hemen iadesi gerçekleşir.
+
+        '
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitializeCardUpdateCheckoutFormRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeCardUpdateCheckoutFormResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/checkoutform/initialize:
+    post:
+      summary: Abonelik Başlatma (iyzico Ödeme Formu)
+      description: iyzico Ödeme formu (Checkout Form) ile abonelik başlatmak için kullanılır. Ödeme formuna
+        ait content ve token değeri döner.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSubscriptionCheckoutFormInitializeRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionCheckoutFormInitializeResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/checkoutform/{token}:
+    get:
+      summary: Ödeme Formu Sonucunu Alma
+      description: Checkout form akışı tamamlandıktan sonra ödeme formuna token ile abonelik başlatma
+        sonucunu sorgulanır.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Checkout form initialize ile dönen, ilgili işleme ait token.
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: İstek esnasında gönderip, sonuçta alabileceğiniz bir değer, request/response eşleşmesi
+          yapmak için kullanılabilir.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionCheckoutFormResultResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/customers:
+    get:
+      summary: Abone Listeleme
+      description: Tüm aboneleri ve temel detaylarını listeler.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Belirtilen sayfa için aboneleri getirir.
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Sayfa başına kaç abone listeleneceğini belirtir.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerListResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abone-islemleri.md
+  /v2/subscription/customers/{customerReferenceCode}:
+    post:
+      summary: Abone Güncelleme
+      description: 'Bir abonenin tüm detayları API isteği ile güncellenebilir. Bunun için aboneye ait
+        **customerReferenceCode** path parametresi ve güncellenecek alanlar request body içinde gönderilmelidir.
+        Gönderilen parametreler üzerinden güncelleme yapılır; **en az bir alan** gönderilmesi zorunludur.
+
+        '
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: customerReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Müşteri referans kodu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdateRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerUpdateResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abone-islemleri.md
+    get:
+      summary: Abone Detayı
+      description: Bir abonenin tüm detayları, aboneye ait referans kodu ile çağrılabilir.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: customerReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Müşteri referans kodu.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetailResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abone-islemleri.md
+  /v2/subscription/initialize:
+    post:
+      summary: Abonelik Başlatma (NON3D)
+      description: Hazır ödeme formu olmadan, Tarafınıza ait ödeme formu ile NON3D servisi üzerinden abonelik
+        başlatabilirsiniz.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSubscriptionNon3DRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionNon3DResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/initialize/with-customer:
+    post:
+      summary: Abonelik Başlatma (Existing Customer)
+      description: 'Abonelik başlatılmak istenen kullanıcının hali hazırda aktif bir aboneliği bulunuyorsa,
+        customerReferenceCode ile yeni bir abonelik başlatılabilir. Eğer kullanıcının aktif bir aboneliği
+        bulunmuyorsa custormerReferenceCode ile yeni bir abonelik başlatılmamaktadır.
+
+        '
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSubscriptionWithCustomerRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionWithCustomerResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/operation/retry:
+    post:
+      summary: Abonelik Ödeme Tekrarlama
+      description: 'Eğer bir abonelikte, tekrarlayan ödemeler sırasında bir ödeme başarısız olduysa, işlemi
+        tekrar denemek ve ödemeyi almak için retry servisi kullanılır.
+
+        '
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrySubscriptionPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrySubscriptionPaymentResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/pricing-plans/{pricingPlanReferenceCode}:
+    post:
+      summary: Ödeme Planı Güncelleme
+      description: 'Bu metod sadece **name** ve **trialPeriodDays** parametrelerinin güncellenmesine izin
+        verir. Güncelleme için planın referans kodu path parametresi olarak gönderilmelidir. Güncellemenin
+        hem API hem de iyzico merchant paneli üzerinden yapılması mümkündür. Aktif abonelikler ektilenmez.
+
+        '
+      tags:
+      - Ödeme Planı
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: pricingPlanReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Güncellenecek ödeme planının referans kodu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePricingPlanRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatePricingPlanResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md
+    get:
+      summary: Ödeme Planı Detayı Alma
+      description: Bir ödeme planının detaylarını getirir. Üye işyerleri bir planın tüm detaylarını hem
+        merchant panelinden hem de API istekleri üzerinden görebilir.
+      tags:
+      - Ödeme Planı
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: pricingPlanReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Ödeme planının referans kodu.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingPlanDetailResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md
+    delete:
+      summary: Ödeme Planı Silme
+      description: Ödeme planı referans kodu kullanılarak, belirtilen ödeme planını siler. Üzerinde aktif
+        abonelik bulunan veya güncelleme (update) kaydı olan ödeme planları silinemez.
+      tags:
+      - Ödeme Planı
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: pricingPlanReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Silinecek ödeme planının referans kodu.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletePricingPlanResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md
+  /v2/subscription/products:
+    post:
+      summary: Ürün Oluşturma
+      operationId: createSubscriptionProduct
+      description: Yeni bir abonelik ürünü oluşturur. Subscription API ödeme planlarına göre tekrarlı
+        ödeme alır ve her ödeme planı en az bir ürüne bağlıdır. Ürün sayısında herhangi bir sınırlama
+        yoktur ve sadece isim bilgisi gönderilerek bir ürün oluşturulabilir.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionProductCreateRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductCreateSuccess'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md
+    get:
+      summary: Ürün Listeleme
+      operationId: listSubscriptionProducts
+      description: Abonelik ürünlerini listeler. Ürün listeleme tüm ürünlere ve ürünlere bağlı planlara
+        ulaşmak için kullanılır. Cevap süresini kısaltmak ve cevap boyutunu kısaltmak için sayfalama metodu
+        kullanulmıştır. Bu sayede ürün listesini sayfa sayfa hızlıca alabilirsiniz.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionProductListRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductListSuccess'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md
+  /v2/subscription/products/{productReferenceCode}:
+    post:
+      summary: Ürün Güncelleme
+      operationId: updateSubscriptionProduct
+      description: Abonelik ürününü günceller. Bir ürünün isim ve açıklama bilgileri hem API hem de iyzico
+        merchant paneli üzerinden düzenlenebilir. API üzerinden bu işlemi yapabilmek için, ürüne ait eşsiz
+        referans kodu kullanılmalıdır.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Ürüne ait eşsiz referans kodu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionProductUpdateRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductGetSuccess'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md
+    delete:
+      summary: Ürün Silme
+      operationId: deleteSubscriptionProduct
+      description: Abonelik ürününü siler. Ürünler kendilerine bağlı herhangi bir plan olmadıkça hem API
+        hem de iyzico merchant panel üzerinden silinebilir.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Ürüne ait eşsiz referans kodu.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductDeleteSuccess'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md
+    get:
+      summary: Ürün Detayı
+      operationId: getSubscriptionProduct
+      description: Bir ürünün detaylarına API isteği ile ulaşılabilir. Bunun için gönderilen istekte ürün
+        refereans kodunu belirtmek yeterlidir.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Ürüne ait eşsiz referans kodu.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductGetSuccess'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-urunu.md
+  /v2/subscription/products/{productReferenceCode}/pricing-plans:
+    post:
+      summary: Ödeme Planı Oluşturma
+      description: Belirli bir ürün için yeni bir ödeme planı oluşturur.
+      tags:
+      - Ödeme Planı
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Planın ilişkilendirileceği ürünün referans kodu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePricingPlanRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePricingPlanResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md
+    get:
+      summary: Ödeme Planı Listeleme
+      description: Belirli bir ürüne ait tüm ödeme planlarını listeler. Cevap sayfalar halinde iletilir
+      tags:
+      - Ödeme Planı
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Ürün referans kodu.
+      - name: page
+        in: query
+        schema:
+          type: integer
+        description: Listelenecek sayfa numarası.
+      - name: count
+        in: query
+        schema:
+          type: integer
+        description: Sayfa başına kayıt sayısı.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPricingPlanResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/odeme-plani.md
+  /v2/subscription/subscriptions:
+    get:
+      summary: Abonelik Arama
+      description: 'Farklı parametrelerle filtreleme yaparak veya herhangi bir parametre kullanmadan sorgulama
+        yaparak abonelik ve ödeme bilgilerinin detaylarına ulaşmayı sağlar. Örneğin sadece **subscriptionStatus**
+        göndererek, belirtilen statüdeki abonelikleri listeleyebilirsiniz.
+
+        '
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: subscriptionReferenceCode
+        in: path
+        required: false
+        schema:
+          type: string
+        description: Sorgulanacak aboneliğe ait referans kodu.
+      - name: customerReferenceCode
+        in: path
+        required: false
+        schema:
+          type: string
+        description: Müşteri referans kodu.
+      - name: pricingPlanReferenceCode
+        in: path
+        required: false
+        schema:
+          type: string
+        description: Abonelikte kullanılan ödeme planına ait referans kodu.
+      - name: parent
+        in: path
+        required: false
+        schema:
+          type: string
+        description: Abonelik güncellemelerinde eşleştirme için kullanılan üst (parent) referans kodu.
+      - name: subscriptionStatus
+        in: path
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          - UNPAID
+          - UPGRADED
+          - CANCELED
+          - EXPIRED
+        description: 'Abonelik durumu filtresi.
+
+          '
+      - name: startDate
+        in: path
+        required: false
+        schema:
+          type: integer
+        description: Abonelik başlangıç tarihi.
+      - name: endDate
+        in: path
+        required: false
+        schema:
+          type: integer
+        description: Abonelik bitiş tarihi (epoch ms).
+      - name: page
+        in: path
+        required: false
+        schema:
+          type: integer
+        description: Sayfa numarası.
+      - name: count
+        in: path
+        required: false
+        schema:
+          type: integer
+        description: Sayfa başına kayıt adedi.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchSubscriptionsResponse'
+        '404':
+          description: Yanlış endpoint (ör. yazım hatası) durumda dönebilecek örnek.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}:
+    get:
+      summary: Abonelik Detayı
+      description: Aboneliğe ait referans kod ile sorgulama yapılarak bir aboneliğin tüm detayları bu
+        istek ile görülebilir.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: İlgili aboneliğe ait referans kodu.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetSubscriptionDetailOptionalRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSubscriptionDetailResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate:
+    post:
+      summary: Abonelik Aktifleştirme
+      description: Pending durumunda başlatılan bir abonelik, bu servis üzerinden aktif hale getirilir.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Pending olarak başlatılan aboneliğe ait referans kodu.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateSubscriptionRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivateSubscriptionResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel:
+    post:
+      summary: Abonelik İptali
+      description: Aktif bir aboneliği iptal etmek için kullanılır.
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: İptal edilmek istenen aboneliğe ait referans kodu.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelSubscriptionRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelSubscriptionResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade:
+    post:
+      summary: Abonelik Yükseltme
+      description: 'Abonelik süresince plan değiştirmek veya yükseltmek mümkündür. Bunun için **yeni planın
+        aynı ürüne ait olması** ve ödeme aralığının (**paymentInterval** ve **paymentIntervalCount**)
+        aynı olması gerekir. Fiyat güncellemeleri için abonelik yükseltme servisi kullanılır.
+
+        '
+      tags:
+      - Abonelik
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Yükseltilmek istenen aboneliğe ait referans kodu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpgradeSubscriptionRequest'
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpgradeSubscriptionResponse'
+        '400':
+          description: Başarısız yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/urunler/abonelik/abonelik-entegrasyonu/abonelik-islemleri.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    ActivateSubscriptionRequest:
+      type: object
+      properties:
+        subscriptionReferenceCode:
+          type: string
+          description: Pending oalrak başlatılan aboneliğe ait referans kodu.
+    ActivateSubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir. İşlem başarılı ise success değeri döner.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+    CancelSubscriptionRequest:
+      type: object
+      properties:
+        subscriptionReferenceCode:
+          type: string
+          description: Abonelik referans kodu. Opsiyonel olarak body de gönderilebilir.
+    CancelSubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir. İşlem başarılı ise success değeri döner.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+    CreatePricingPlanRequest:
+      type: object
+      required:
+      - name
+      - price
+      - currencyCode
+      - paymentInterval
+      - planPaymentType
+      properties:
+        name:
+          type: string
+          description: Plan adı.
+        price:
+          type: decimal
+          description: Ödeme periyotlarında karttan çekilecek tutar.
+        currencyCode:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          description: Para birimi. (Yabancı para biriminde sadece yabancı kart kullanılabilir.)
+        paymentInterval:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+          - MONTHLY
+          - YEARLY
+          description: Tekrarlı ödemenin alınacağı periyot.
+        planPaymentType:
+          type: string
+          enum:
+          - RECURRING
+          description: Abonelik tipi.
+        paymentIntervalCount:
+          type: integer
+          description: Ödeme periodunun hangi sıklıkta olacağını belirler. Örneğin haftalık bir ödeme
+            planı için 2 gönderilirse, ödemeler 2 haftada bir alınır.
+        recurrenceCount:
+          type: integer
+          description: Kaç kez tekrarlanacağını belirtir (ör. 12 => 12 ay). Gönderilmezse abonelik iptal
+            edilene kadar devam eder.
+        trialPeriodDays:
+          type: integer
+          description: Gün bazında deneme/ücretsiz kullanım süresi. Gönderilirse ilk ödeme bu sürenin
+            sonunda alınır.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt ve hata mesajlarının dili.
+        conversationId:
+          type: string
+          description: İsteğe özel takip değeri.
+    CreatePricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Oluşturulan plana ait referans kodu.
+            createdDate:
+              type: integer
+              description: Plan oluşturulma zamanı (epoch ms).
+            name:
+              type: string
+              description: Plan adı.
+            productReferenceCode:
+              type: string
+              description: Ürün referans kodu.
+            price:
+              type: decimal
+              description: Abonelik fiyatı.
+            currencyCode:
+              type: string
+              enum:
+              - TRY
+              - USD
+              - EUR
+              description: Para birimi.
+            paymentInterval:
+              type: string
+              enum:
+              - DAILY
+              - WEEKLY
+              - MONTHLY
+              - YEARLY
+              description: Ödeme aralığı.
+            paymentIntervalCount:
+              type: integer
+              description: Ödeme periyot sayısı.
+            planPaymentType:
+              type: string
+              enum:
+              - RECURRING
+              description: Abonelik tipi.
+            recurrenceCount:
+              type: integer
+              description: Tekrarlama sayısı.
+            trialPeriodDays:
+              type: integer
+              description: Deneme süresi (gün).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Plan durumu.
+    CreatePricingPlanResponse2:
+      properties:
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Oluşturulan plana ait referans kodu.
+            createdDate:
+              type: integer
+              description: Plan oluşturulma zamanı (epoch ms).
+            name:
+              type: string
+              description: Plan adı.
+            productReferenceCode:
+              type: string
+              description: Ürün referans kodu.
+            price:
+              type: decimal
+              description: Abonelik fiyatı.
+            currencyCode:
+              type: string
+              enum:
+              - TRY
+              - USD
+              - EUR
+              description: Para birimi.
+            paymentInterval:
+              type: string
+              enum:
+              - DAILY
+              - WEEKLY
+              - MONTHLY
+              - YEARLY
+              description: Ödeme aralığı.
+            paymentIntervalCount:
+              type: integer
+              description: Ödeme periyot sayısı.
+            planPaymentType:
+              type: string
+              enum:
+              - RECURRING
+              description: Abonelik tipi.
+            recurrenceCount:
+              type: integer
+              description: Tekrarlama sayısı.
+            trialPeriodDays:
+              type: integer
+              description: Deneme süresi (gün).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Plan durumu.
+    CustomerAddress:
+      type: object
+      description: Adres bilgileri.
+      properties:
+        address:
+          type: string
+          description: Adres metni.
+        zipCode:
+          type: string
+          description: Posta/Zip kodu.
+        contactName:
+          type: string
+          description: İrtibat kişisi adı.
+        city:
+          type: string
+          description: Şehir.
+        district:
+          type: string
+          description: Semt (varsa).
+        country:
+          type: string
+          description: Ülke.
+    CustomerDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki epoch ms değeridir.
+        data:
+          type: object
+          description: Abone (müşteri) detayları.
+          properties:
+            referenceCode:
+              type: string
+              description: Müşteriye ait referans kodu.
+            createdDate:
+              type: integer
+              description: Oluşturulma zamanı (epoch ms).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Kayıt durumu.
+            name:
+              type: string
+              description: Ad
+            surname:
+              type: string
+              description: Soyad
+            identityNumber:
+              type: string
+              description: TCKN
+            email:
+              type: string
+              description: Abone email bilgisi.
+            gsmNumber:
+              type: string
+              description: Abone gsmNumber bilgisi.
+            contactEmail:
+              type: string
+              description: İletişim email bilgisi
+            contactGsmNumber:
+              type: string
+              description: İletişim gsmNumber bilgisi.
+            billingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+            shippingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+    CustomerDetailResponse2:
+      properties:
+        data:
+          type: object
+          description: Abone (müşteri) detayları.
+          properties:
+            referenceCode:
+              type: string
+              description: Müşteriye ait referans kodu.
+            createdDate:
+              type: integer
+              description: Oluşturulma zamanı (epoch ms).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Kayıt durumu.
+            name:
+              type: string
+              description: Ad
+            surname:
+              type: string
+              description: Soyad
+            identityNumber:
+              type: string
+              description: TCKN
+            email:
+              type: string
+              description: Abone email bilgisi.
+            gsmNumber:
+              type: string
+              description: Abone gsmNumber bilgisi.
+            contactEmail:
+              type: string
+              description: İletişim email bilgisi
+            contactGsmNumber:
+              type: string
+              description: İletişim gsmNumber bilgisi.
+            billingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+            shippingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+    CustomerListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki epoch ms değeridir.
+        data:
+          type: object
+          description: Sayfalama bilgileri ve abone listesi.
+          properties:
+            totalCount:
+              type: integer
+              description: Toplam kayıt sayısı.
+            currentPage:
+              type: integer
+              description: Mevcut sayfa.
+            pageCount:
+              type: integer
+              description: Toplam sayfa sayısı.
+            items:
+              type: array
+              description: Abone kayıtları.
+              items:
+                type: object
+                allOf:
+                - $ref: '#/components/schemas/CustomerDetailResponse/properties/data'
+    CustomerUpdateRequest:
+      type: object
+      description: 'Güncellenecek alanlar. Tüm alanlar **opsiyoneldir** ancak gövde en az bir alan içermelidir.
+
+        '
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          description: Kullanıcı adı.
+        surname:
+          type: string
+          description: Kullanıcı soyadı.
+        email:
+          type: string
+          description: Kullanıcı e-posta adresi.
+        gsmNumber:
+          type: string
+          description: GSM numarası. **+90** formatında gönderilmesi önerilir.
+        identityNumber:
+          type: string
+          description: T.C. Kimlik Numarası.
+        billingAddress:
+          $ref: '#/components/schemas/CustomerAddress'
+        shippingAddress:
+          $ref: '#/components/schemas/CustomerAddress'
+    CustomerUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki epoch ms değeridir.
+        data:
+          type: object
+          description: Güncellenmiş müşteri bilgileri.
+          properties:
+            referenceCode:
+              type: string
+              description: Müşteriye ait referans kodu.
+            createdDate:
+              type: integer
+              description: Müşteri kaydının oluşturulma zamanı (epoch ms).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Kayıt durumu.
+            name:
+              type: string
+              description: Müşteri adı.
+            surname:
+              type: string
+              description: Müşteri soyadı.
+            identityNumber:
+              type: string
+              description: T.C. Kimlik Numarası.
+            email:
+              type: string
+              description: Müşteri e-posta adresi.
+            gsmNumber:
+              type: string
+              description: Müşteri GSM numarası.
+            contactEmail:
+              type: string
+              description: İletişim e-posta adresi.
+            contactGsmNumber:
+              type: string
+              description: İletişim GSM numarası.
+            billingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+            shippingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+    DeletePricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: İstek sonucunu ifade eder (başarısız).
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki epoch ms değeridir.
+    ErrorResponse2:
+      type: object
+      properties:
+        status:
+          description: İstek sonucunu ifade eder.
+          type: string
+          enum:
+          - failure
+        errorCode:
+          description: Error Kod
+          type: string
+        errorMessage:
+          description: Error Mesajı
+          type: string
+        systemTime:
+          description: Dönen sonucun o anki unix timestamp değeridir.
+          type: integer
+    ErrorResponse3:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: İstek sonucunu ifade eder (başarısız).
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+    ErrorResponse4:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+    ErrorResponse5:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        systemTime:
+          type: integer
+    GetSubscriptionDetailOptionalRequest:
+      type: object
+      properties:
+        subscriptionReferenceCode:
+          type: string
+          description: Abonelik referans kodu. Opsiyonel olarak body de gönderilebilir.
+    GetSubscriptionDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+        data:
+          type: object
+          description: Sayfalama bilgileri ve abonelik kayıtları.
+          properties:
+            totalCount:
+              type: integer
+              description: Toplam kayıt sayısı.
+            currentPage:
+              type: integer
+              description: Mevcut sayfa numarası.
+            pageCount:
+              type: integer
+              description: Toplam sayfa sayısı.
+            items:
+              type: array
+              description: Aboneliğe dair detay kayıtları.
+              items:
+                $ref: '#/components/schemas/SubscriptionDetailItem'
+    InitializeCardUpdateCheckoutFormRequest:
+      type: object
+      required:
+      - callbackUrl
+      - customerReferenceCode
+      properties:
+        callbackUrl:
+          type: string
+          description: Güncelleme sonucunun gönderileceği callback adresi.
+        customerReferenceCode:
+          type: string
+          description: Kartı güncellenecek müşteriye ait referans kodu.
+        subscriptionReferenceCode:
+          type: string
+          description: 'Bir abonelik üzerinde güncelleme sağlanacaksa, işlem yapılacak aboneliğe ait referans
+            kodu (opsiyonel).
+
+            '
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: İstek sonrası dönüş yapılacak yanıt dili.
+    InitializeCardUpdateCheckoutFormResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için gönderilen ID değeri. Gönderilen bilgi yanıtta aynen
+            geri döner.
+        token:
+          type: string
+          description: Kart güncelleme ödeme formuna ait token.
+        checkoutFormContent:
+          type: string
+          description: Kart bilgilerinin güncelleneceği ödeme formuna ait content değeri.
+        tokenExpireTime:
+          type: integer
+          description: Token geçerlilik süresi (saniye).
+    ListPricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+        data:
+          type: object
+          properties:
+            totalCount:
+              type: integer
+              description: Toplam kayıt sayısı.
+            currentPage:
+              type: integer
+            pageCount:
+              type: integer
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreatePricingPlanResponse/properties/data'
+    NotFoundErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          description: Sunucu zamanı (epoch ms).
+        status:
+          type: integer
+          description: HTTP durum kodu.
+        error:
+          type: string
+          description: Hata kısa açıklaması.
+        path:
+          type: string
+          description: İstenen path.
+    PaymentCard:
+      type: object
+      required:
+      - cardHolderName
+      - cardNumber
+      - expireMonth
+      - expireYear
+      - cvc
+      properties:
+        cardHolderName:
+          description: Kart Sahibi Adı.
+          type: string
+        cardNumber:
+          description: Kart Numarası
+          type: string
+        expireMonth:
+          description: Geçerlilik Tarihi (AY)
+          type: string
+        expireYear:
+          description: Geçerlilik Tarihi (YIL)
+          type: string
+        cvc:
+          description: CVC/CVV Bilgisi
+          type: string
+    PricingPlanBrief:
+      type: object
+      description: Ürüne bağlı plan bilgisinin özet görünümü.
+      properties:
+        referenceCode:
+          type: string
+          description: Planın eşsiz referans kodu.
+        createdDate:
+          type: string
+          description: Plan oluşturulma tarihi (`YYYY-MM-DD hh:mm:ss`).
+        name:
+          type: string
+          description: Plan adı.
+        price:
+          type: number
+          format: decimal
+          description: Plan ücreti (Decimal).
+        paymentInterval:
+          type: string
+          enum:
+          - WEEKLY
+          - MONTHLY
+          - DAILY
+          - YEARLY
+          description: Ödeme sıklığı.
+        paymentIntervalCount:
+          type: integer
+          description: Ödeme aralığının tekrar sayısı.
+        trialPeriodDays:
+          type: integer
+          description: Deneme süresi (gün).
+        currencyCode:
+          type: string
+          description: Para birimi (örn. TRY).
+        productReferenceCode:
+          type: string
+          description: Planın bağlı olduğu ürün referans kodu.
+        planPaymentType:
+          type: string
+          description: Plan ödeme tipi (RECURRING).
+        status:
+          type: string
+          description: Planın durumu (örn. ACTIVE).
+        recurrenceCount:
+          type: integer
+          description: Planın toplam tekrar sayısı (varsa).
+    PricingPlanDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+        data:
+          $ref: '#/components/schemas/CreatePricingPlanResponse/properties/data'
+    ProductResource:
+      type: object
+      description: Ürün detayları.
+      properties:
+        referenceCode:
+          type: string
+          description: Ürüne ait eşsiz referans kodu.
+        createdDate:
+          type: string
+          description: Ürün oluşturulma tarihi (`YYYY-MM-DD hh:mm:ss`).
+        name:
+          type: string
+          description: Ürün adı.
+        description:
+          type: string
+          description: Ürün açıklaması.
+        status:
+          type: string
+          description: Ürün durumu (varsayılan ACTIVE).
+        pricingPlans:
+          type: array
+          description: Ürüne bağlı planlar listesi.
+          items:
+            $ref: '#/components/schemas/PricingPlanBrief'
+    RetrySubscriptionPaymentRequest:
+      type: object
+      required:
+      - referenceCode
+      properties:
+        referenceCode:
+          type: string
+          description: 'Başarısız ödemenin referans kodu. Başarısız abonelik ödemesi için gönderilen webhook
+            bildiriminde yer alan **orderReferenceCode** değeridir.
+
+            '
+    RetrySubscriptionPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir. İşlem başarılı ise success değeri döner.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+    SearchSubscriptionsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+        data:
+          type: object
+          description: Sayfalama bilgileri ve abonelik kayıtları.
+          properties:
+            totalCount:
+              type: integer
+              description: Toplam kayıt sayısı.
+            currentPage:
+              type: integer
+              description: Mevcut sayfa numarası.
+            pageCount:
+              type: integer
+              description: Toplam sayfa sayısı.
+            items:
+              type: array
+              description: Aboneliğe dair detay kayıtları.
+              items:
+                $ref: '#/components/schemas/SubscriptionDetailItem'
+    StartSubscriptionCheckoutFormInitializeRequest:
+      type: object
+      required:
+      - callbackUrl
+      - pricingPlanReferenceCode
+      - subscriptionInitialStatus
+      - customer
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan; tr. Ödeme formunun İngilizce oluşturulması için "en" gönderilmelidir.
+          enum:
+          - tr
+          - en
+        callbackUrl:
+          type: string
+          description: Ödeme sonucunun gönderileceği callback adresi.
+        pricingPlanReferenceCode:
+          type: string
+          description: Aboneliğin başlatılacağı planın referans kodu.
+        subscriptionInitialStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          description: Abonelik başlangıç durumu. PENDING gönderilirse abonelik başlamaz ve tekrar aktif
+            edilmesi gerekir.
+        conversationId:
+          type: string
+          description: İstek esnasında gönderip, sonuçta alabileceğiniz bir değer, request/response eşleşmesi
+            yapmak için kullanılabilir.
+        customer:
+          $ref: '#/components/schemas/SubscriptionCustomer'
+    StartSubscriptionCheckoutFormInitializeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          description: İstek sırasında gönderilen değer aynen geri döner.
+          type: string
+        token:
+          type: string
+          description: Ödeme formuna ait token değeri.
+        checkoutFormContent:
+          type: string
+          description: Ödeme formuna ait htmlContent değeri.
+        tokenExpireTime:
+          type: integer
+          description: Token geçerlilik süresi (saniye).
+    StartSubscriptionCheckoutFormResultResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          description: Dönen sonucun o anki unix timestamp değeridir.
+          type: integer
+        conversationId:
+          type: string
+          description: İstek esnasında gönderilen veri aynen geri döner.
+        token:
+          type: string
+          description: Ödeme formuna ait token değeri.
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Oluşturulan aboneliğin referans kodu.
+            parentReferenceCode:
+              type: string
+              description: Abonelik güncellemelerinde üye işeyerinin eşleştirme yapılabileceği eşsiz referans
+                kodu.
+            customerReferenceCode:
+              type: string
+              description: Müşteri bilgilerine istinaden oluşturulmuş eşsiz müşteri kodu. Bu kod email
+                ve gsmNumber adresi baz alınarak oluşturulur ve müşteri işlemleri bu kod ile de yapılabilir.
+            subscriptionStatus:
+              type: string
+              description: Abonelik durumu
+              enum:
+              - ACTIVE
+              - PENDING
+            pricingPlanReferenceCode:
+              type: string
+            trialDays:
+              type: integer
+              description: Ödeme planında belirlenen deneme süresidir. Bu süreç boyunca karttan ödeme
+                alınmaz.
+            trialStartDate:
+              type: integer
+              description: Deneme süresinin başlangıç tarihini gösteren unix timestamp değeridir.
+            trialEndDate:
+              type: integer
+              description: Deneme süresinin bitiş tarihini gösteren unix timestamp değeridir.
+            createdDate:
+              type: integer
+              description: Abonelik oluşturulma tarihinin unix timestamp değeridir.
+            startDate:
+              type: integer
+              description: Abonelik başlangıç tarihinin unix timestamp değeridir.
+            endDate:
+              type: integer
+              description: Abonelik bitiş tarihinin unix timestamp değeridir.
+    StartSubscriptionNon3DRequest:
+      type: object
+      required:
+      - pricingPlanReferenceCode
+      - customer
+      - paymentCard
+      - subscriptionInitialStatus
+      properties:
+        pricingPlanReferenceCode:
+          type: string
+          description: Aboneliğin başlatılacağı planın referans kodu.
+        conversationId:
+          type: string
+          description: İstek esnasında gönderip, sonuçta alabileceğiniz bir değer, request/response eşleşmesi
+            yapmak için kullanılabilir.
+        subscriptionInitialStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          description: Abonelik başlangıç durumu. PENDING gönderilirse abonelik başlamaz ve tekrar aktif
+            edilmesi gerekir.
+        customer:
+          $ref: '#/components/schemas/SubscriptionCustomer'
+        paymentCard:
+          description: Kart bilgileri.
+          $ref: '#/components/schemas/PaymentCard'
+    StartSubscriptionNon3DResponse:
+      type: object
+      properties:
+        status:
+          description: Yapılan isteğin sonucunu belirtir. İşlem başarılı ise success değeri döner.
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          description: Dönen sonucun o anki unix timestamp değeridir.
+          type: integer
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Oluşturulan aboneliğin referans kodu.
+            parentReferenceCode:
+              type: string
+              description: Abonelik güncellemelerinde üye işeyerinin eşleştirme yapılabileceği eşsiz referans
+                kodu.
+            customerReferenceCode:
+              type: string
+              description: Müşteri bilgilerine istinaden oluşturulmuş eşsiz müşteri kodu. Bu kod email
+                ve gsmNumber adresi baz alınarak oluşturulur ve müşteri işlemleri bu kod ile de yapılabilir.
+            subscriptionStatus:
+              type: string
+              description: Abonelik durumu
+              enum:
+              - ACTIVE
+              - PENDING
+            pricingPlanReferenceCode:
+              type: string
+            trialDays:
+              type: integer
+              description: Ödeme planında belirlenen deneme süresidir. Bu süreç boyunca karttan ödeme
+                alınmaz.
+            trialStartDate:
+              type: integer
+              description: Deneme süresinin başlangıç tarihini gösteren unix timestamp değeridir.
+            trialEndDate:
+              type: integer
+              description: Deneme süresinin bitiş tarihini gösteren unix timestamp değeridir.
+            createdDate:
+              type: integer
+              description: Abonelik oluşturulma tarihinin unix timestamp değeridir.
+            startDate:
+              type: integer
+              description: Abonelik başlangıç tarihinin unix timestamp değeridir.
+            endDate:
+              type: integer
+              description: Abonelik bitiş tarihinin unix timestamp değeridir.
+    StartSubscriptionWithCustomerRequest:
+      type: object
+      required:
+      - subscriptionInitialStatus
+      - pricingPlanReferenceCode
+      - customerReferenceCode
+      properties:
+        subscriptionInitialStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          description: Abonelik başlangıç durumu. PENDING gönderilirse abonelik başlamaz ve tekrar aktif
+            edilmesi gerekir.
+        pricingPlanReferenceCode:
+          type: string
+          description: Aboneliğin başlatılacağı planın referans kodu.
+        customerReferenceCode:
+          type: string
+          description: Mevcut müşterinin referans kodu. Aktif bir aboneliği olmalıdır.
+    StartSubscriptionWithCustomerResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Oluşturulan aboneliğin referans kodu.
+            parentReferenceCode:
+              type: string
+              description: Abonelik güncellemelerinde üye işyerinin eşleştirme yapabileceği referans kodu.
+            pricingPlanReferenceCode:
+              type: string
+              description: Oluşturulan aboneliğe bağlı ödeme planının referans kodu.
+            customerReferenceCode:
+              type: string
+              description: İlgili kullanıcıya ait referans kodu.
+            subscriptionStatus:
+              type: string
+              enum:
+              - ACTIVE
+              - PENDING
+              description: Abonelik durumu.
+            trialDays:
+              type: integer
+              description: Planın deneme süresi (gün).
+            trialStartDate:
+              type: integer
+              description: Deneme başlangıç zamanı (epoch ms).
+            trialEndDate:
+              type: integer
+              description: Deneme bitiş zamanı (epoch ms).
+            createdDate:
+              type: integer
+              description: Abonelik oluşturulma zamanı (epoch ms).
+            startDate:
+              type: integer
+              description: Abonelik başlangıç zamanı (epoch ms).
+            endDate:
+              type: integer
+              description: Abonelik bitiş zamanı (epoch ms).
+    SubscriptionBillingAddress:
+      type: object
+      description: Fatura Bilgileri
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          description: Fatura Adresi
+          type: string
+        zipCode:
+          type: string
+          description: Zip Kodu.
+        contactName:
+          description: İletişim kuralacak isim.
+          type: string
+        city:
+          description: Şehir
+          type: string
+        country:
+          description: Ülke
+          type: string
+    SubscriptionCustomer:
+      description: Alıcı Bilgileri
+      type: object
+      required:
+      - name
+      - surname
+      - email
+      - gsmNumber
+      - identityNumber
+      - billingAddress
+      properties:
+        name:
+          type: string
+          description: Kullanıcı Adı.
+        surname:
+          type: string
+          description: Kullanıcı Soyadı.
+        email:
+          type: string
+          description: Kullanıcı Email Bilgisi.
+        gsmNumber:
+          type: string
+          description: GSM Numarası. +90'lı bir numara kullanılmalıdır.
+        identityNumber:
+          type: string
+          description: TCKN Bilgisi
+        billingAddress:
+          $ref: '#/components/schemas/SubscriptionBillingAddress'
+        shippingAddress:
+          $ref: '#/components/schemas/SubscriptionShippingAddress'
+    SubscriptionDetailItem:
+      type: object
+      properties:
+        referenceCode:
+          type: string
+          description: Aboneliğin referans kodu.
+        parentReferenceCode:
+          type: string
+          description: Abonelik güncellemelerinde üye işyerinin eşleştirme yapabileceği referans kodu.
+        pricingPlanName:
+          type: string
+          description: Aboneliğin bağlı olduğu ödeme planının adı.
+        pricingPlanReferenceCode:
+          type: string
+          description: Aboneliğin bağlı olduğu ödeme planının referans kodu.
+        productName:
+          type: string
+          description: Ürünün adı.
+        productReferenceCode:
+          type: string
+          description: Ürünün referans kodu.
+        customerEmail:
+          type: string
+          description: Müşterinin e-posta adresi.
+        customerGsmNumber:
+          type: string
+          description: Müşterinin GSM numarası.
+        customerReferenceCode:
+          type: string
+          description: Müşteriye ait referans kodu.
+        subscriptionStatus:
+          type: string
+          description: 'Abonelik durumu.
+
+
+            Değerler:
+
+            - **ACTIVE**: Abonelik aktiftir ve ödemeler düzenli olarak alınıyorsa.
+
+            - **PENDING**: Abonelik durdurulmuşsa.
+
+            - **UNPAID**: Abonelik sırasında ödeme alınamamışsa.
+
+            - **UPGRADED**: Abonelik başka bir plan ile güncellenmişse.
+
+            - **CANCELED**: Abonelik iptal edilmişse.
+
+            - **EXPIRED**: Abonelik periyodu bitmişse; karttan başka bir ödeme alınmaz.
+
+            '
+          enum:
+          - ACTIVE
+          - PENDING
+          - UNPAID
+          - UPGRADED
+          - CANCELED
+          - EXPIRED
+        trialDays:
+          type: integer
+          description: Ödeme planının deneme süresi (gün).
+        trialStartDate:
+          type: integer
+          description: Deneme süresinin başlangıç zamanı (epoch ms).
+        trialEndDate:
+          type: integer
+          description: Deneme süresinin bitiş zamanı (epoch ms).
+        createdDate:
+          type: integer
+          description: Aboneliğin oluşturulma zamanı (epoch ms).
+        startDate:
+          type: integer
+          description: Aboneliğin başlangıç zamanı (epoch ms).
+        endDate:
+          type: integer
+          description: Aboneliğin bitiş zamanı (epoch ms).
+        orders:
+          type: array
+          description: Abonelik kapsamındaki periyot (order) listesi.
+          items:
+            $ref: '#/components/schemas/SubscriptionOrder'
+    SubscriptionOrder:
+      type: object
+      properties:
+        referenceCode:
+          type: string
+          description: Abonelik periyodu (order) referans kodu.
+        price:
+          type: decimal
+          description: Periyot ücreti.
+        currencyCode:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          description: Para birimi.
+        startPeriod:
+          type: integer
+          description: Periyodun başlangıç zamanı (epoch ms).
+        endPeriod:
+          type: integer
+          description: Periyodun bitiş zamanı (epoch ms).
+        orderStatus:
+          type: string
+          description: Periyot durum bilgisi.
+          enum:
+          - WAITING
+          - SUCCESS
+          - FAILED
+        paymentAttempts:
+          type: array
+          description: Bu periyot için yapılan ödeme denemeleri listesi.
+          items:
+            $ref: '#/components/schemas/SubscriptionPaymentAttempt'
+    SubscriptionPaymentAttempt:
+      type: object
+      description: Abonelik periyodu için yapılan tekil ödeme denemesi.
+      properties:
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için gönderilen ID değeri. Gönderilen bilgi yanıtta aynen
+            geri döner.
+        createdDate:
+          type: integer
+          description: Denemenin oluşturulma zamanı (epoch ms).
+        paymentStatus:
+          type: string
+          description: Ödeme denemesi sonucu.
+          enum:
+          - SUCCESS
+          - FAILED
+        paymentId:
+          type: integer
+          description: Başarılı ödemede oluşan ödeme kimliği. Yalnızca **SUCCESS** durumunda bulunur.
+        errorCode:
+          type: string
+          description: Başarısız ödemede hata kodu. Yalnızca **FAILED** durumunda bulunur.
+        errorMessage:
+          type: string
+          description: Başarısız ödemede hata mesajı. Yalnızca **FAILED** durumunda bulunur.
+    SubscriptionProductCreateRequest:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: iyzico yanıt metinlerinin dili. Varsayılan **tr**; **en** desteklenir.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleşmesi için kullanılabilecek referans değeri.
+        name:
+          type: string
+          description: Ürün adı.
+        description:
+          type: string
+          description: Ürün açıklaması.
+      required:
+      - name
+    SubscriptionProductCreateSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        data:
+          $ref: '#/components/schemas/ProductResource'
+    SubscriptionProductDeleteSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+    SubscriptionProductGetSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        data:
+          $ref: '#/components/schemas/ProductResource'
+    SubscriptionProductListRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Belirtilen sayfa için tüm ürünleri getirir.
+        count:
+          type: integer
+          description: Sayfa başına kaç ürün listeleneceğini belirtir.
+    SubscriptionProductListSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        data:
+          type: object
+          description: Sayfalama sonuçları.
+          properties:
+            totalCount:
+              type: string
+              description: Toplam kaç tane sonuç geldiğini belirtir.
+            currentPage:
+              type: integer
+              description: Hangi sayfa için listeleme yapıldığını belirtir.
+            pageCount:
+              type: integer
+              description: Toplam kaç sayfa sonuç geldiğini belirtir.
+            items:
+              type: array
+              description: Ürün listesi.
+              items:
+                $ref: '#/components/schemas/ProductResource'
+    SubscriptionProductUpdateRequest:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: Yanıt dili (**tr**/**en**).
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme değeri.
+        name:
+          type: string
+          description: Ürüne verilecek yeni isim.
+        description:
+          type: string
+          description: Ürüne verilecek yeni açıklama.
+      required:
+      - name
+    SubscriptionShippingAddress:
+      type: object
+      description: Kargo Adres Bilgileri
+      required: false
+      properties:
+        address:
+          description: Fatura Adresi
+          type: string
+        zipCode:
+          type: string
+          description: Zip Kodu.
+        contactName:
+          description: İletişim kuralacak isim.
+          type: string
+        city:
+          description: Şehir
+          type: string
+        country:
+          description: Ülke
+          type: string
+    UpdatePricingPlanRequest:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          description: Güncellenmiş plan adı.
+        trialPeriodDays:
+          type: integer
+          description: Güncellenmiş deneme süresi (gün).
+    UpdatePricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: İşlem sonucu.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Güncellenen planın referans kodu.
+            createdDate:
+              type: integer
+              description: Plan oluşturulma zamanı (epoch ms).
+            name:
+              type: string
+              description: Güncellenmiş plan adı.
+            price:
+              type: decimal
+              description: Plan fiyatı.
+            paymentInterval:
+              type: string
+              enum:
+              - DAILY
+              - WEEKLY
+              - MONTHLY
+              - YEARLY
+              description: Ödeme aralığı.
+            paymentIntervalCount:
+              type: integer
+              description: Ödeme periyot sayısı.
+            trialPeriodDays:
+              type: integer
+              description: Güncellenmiş deneme süresi (gün).
+            currencyCode:
+              type: string
+              enum:
+              - TRY
+              - USD
+              - EUR
+              description: Para birimi.
+            productReferenceCode:
+              type: string
+              description: Ürün referans kodu.
+            planPaymentType:
+              type: string
+              enum:
+              - RECURRING
+              description: Abonelik tipi.
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Plan durumu.
+            recurrenceCount:
+              type: integer
+              description: Tekrarlama sayısı.
+    UpgradeSubscriptionRequest:
+      type: object
+      required:
+      - upgradePeriod
+      - newPricingPlanReferenceCode
+      properties:
+        upgradePeriod:
+          type: string
+          enum:
+          - NOW
+          - NEXT_PERIOD
+          description: 'Aboneliğin upgrade edileceği tarih.
+
+            Değerler:
+
+            - **NOW**: Değişiklik/işlem hemen uygulanır.
+
+            - **NEXT_PERIOD**: Değişiklik bir sonraki faturalama döneminde uygulanır.
+
+            '
+        newPricingPlanReferenceCode:
+          type: string
+          description: Yükseltilmek istenen ödeme planına ait referans kodu.
+        useTrial:
+          type: boolean
+          description: Eğer **true** gönderilirse upgrade edilen ödeme planının deneme süreci dahil edilir.
+        resetRecurrenceCount:
+          type: boolean
+          description: "- **true**: Yeni planın tekrar sayısına (**recurrenceCount**) göre abonelik bitiş\
+            \ tarihi yeniden hesaplanır.  \n- **false**: Mevcut planın bitiş tarihi korunur ve yeni plana\
+            \ aktarılır.\n"
+    UpgradeSubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Yapılan isteğin sonucunu belirtir. İşlem başarılı ise success değeri döner.
+        systemTime:
+          type: integer
+          description: Dönen sonucun o anki unix timestamp değeridir.
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Oluşturulan (yeni) aboneliğin referans kodu.
+            parentReferenceCode:
+              type: string
+              description: Abonelik güncellemelerinde üye işyerinin eşleştirme yapabileceği referans kodu.
+            pricingPlanReferenceCode:
+              type: string
+            customerReferenceCode:
+              type: string
+            subscriptionStatus:
+              type: string
+              enum:
+              - ACTIVE
+              - PENDING
+              description: Abonelik durumu.
+            trialDays:
+              type: integer
+              description: Planın deneme süresi (gün).
+            createdDate:
+              type: integer
+              description: Oluşturulma zamanı (epoch ms).
+            startDate:
+              type: date
+              description: Başlangıç zamanı (epoch ms).
+            endDate:
+              type: date
+              description: Bitiş zamanı (epoch ms).

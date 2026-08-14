@@ -1,0 +1,459 @@
+openapi: 3.0.3
+info:
+  title: iyzico — urunler/paypos-app2app
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: Agent
+- name: Authorize
+- name: SoftPOS
+paths:
+  /v1/agent/get_auth_key:
+    post:
+      summary: Authorize – get_auth_key
+      description: 'Mobil oturum anahtarı (session_key) üretir.
+
+        Sadece Paynet tarafından IP tanımı yapılmış sunucular bu servisi çağırabilir.
+
+        '
+      tags:
+      - Authorize
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - $ref: '#/components/parameters/PaynetMobileHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Başarılı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/paypos-app2app/app2app-entegrasyonu/session-olusturma.md
+  /v1/agent/logout:
+    post:
+      summary: Logout
+      tags:
+      - Agent
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - $ref: '#/components/parameters/PaynetMobileHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_key:
+                  type: string
+                  description: Oturum anahtarı.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object_name:
+                    type: string
+                    description: Obje türü.
+                  code:
+                    type: integer
+                    description: Sonuç kodu.
+                  message:
+                    type: string
+                    description: Sonuç mesajı.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/paypos-app2app/app2app-entegrasyonu/session-iptali.md
+  /v1/softpos/check_transaction:
+    post:
+      summary: Durum Sorgulama – check_transaction
+      tags:
+      - SoftPOS
+      parameters:
+      - name: Session-Key
+        in: header
+        required: true
+        description: Mobil oturum anahtarı
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckTransactionRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckTransactionResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/paypos-app2app/app2app-entegrasyonu/odeme-sorgulama.md
+  /v1/softpos/init_reversal_transaction:
+    post:
+      summary: İptal / İade Başlatma
+      tags:
+      - SoftPOS
+      parameters:
+      - name: Session-Key
+        in: header
+        required: true
+        description: Mobil oturum anahtarı.
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitReversalRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitReversalResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/paypos-app2app/app2app-entegrasyonu/iptal-iade.md
+  /v1/softpos/init_sale_transaction:
+    post:
+      summary: Satış Başlatma – init_sale_transaction
+      tags:
+      - SoftPOS
+      parameters:
+      - name: Session-Key
+        in: header
+        required: true
+        description: Mobil oturum anahtarı
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitSaleRequest'
+      responses:
+        '200':
+          description: Başarılı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitSaleResponse'
+        '400':
+          description: Hata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/paypos-app2app/app2app-entegrasyonu/odeme-baslatma.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    AuthRequest:
+      type: object
+      required:
+      - agent_id
+      - user_id
+      properties:
+        agent_id:
+          type: string
+          description: Bayi Id.
+        user_id:
+          type: string
+          description: Kullanıcı Id.
+    AuthResponse:
+      type: object
+      properties:
+        session_key:
+          type: string
+          description: Mobil oturum anahtarı.
+        expired_date:
+          type: string
+          description: Geçerlilik tarihi.
+        agent_id:
+          type: string
+          description: Bayi Id.
+        company_code:
+          type: string
+          description: Ana firma Id.
+        user_id:
+          type: string
+          description: Kullanıcı Id.
+        user_unique_id:
+          type: string
+          description: Kullanıcı unique Id.
+        is_okc_inquiry:
+          type: boolean
+          description: ÖKC muafiyet sonucu.
+        object_name:
+          type: string
+          description: Obje türü.
+        code:
+          type: integer
+          description: Sonuç kodu.
+        message:
+          type: string
+          description: Sonuç mesajı.
+    CheckTransactionRequest:
+      type: object
+      required:
+      - payment_session_id
+      properties:
+        payment_session_id:
+          type: string
+    CheckTransactionResponse:
+      type: object
+      properties:
+        Data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        object_name:
+          type: string
+        code:
+          type: integer
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        object_name:
+          type: string
+          description: Obje türü.
+        code:
+          type: integer
+          description: Sonuç kodu.
+        message:
+          type: string
+          description: Sonuç mesajı.
+    InitReversalRequest:
+      type: object
+      required:
+      - xact_id
+      properties:
+        xact_id:
+          type: string
+          description: İşlemin Id'sinin şifrelenmiş hali.
+        reference_no:
+          type: string
+          description: Referans numarası.
+        callback_url:
+          type: string
+          description: Deeplink ile mobil uygulamaya geri dönülecek adres.
+          nullable: true
+    InitReversalResponse:
+      type: object
+      properties:
+        payment_session_id:
+          type: string
+          description: Payment Session Id.
+        deeplink_url:
+          type: string
+          description: Deeplink adresi.
+        encryption_key:
+          type: string
+          description: Şifreleme anahtarı.
+        object_name:
+          type: string
+          description: Obje türü.
+        code:
+          type: integer
+          description: Sonuç kodu.
+        message:
+          type: string
+          description: Sonuç mesajı.
+    InitSaleRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Tutar.
+        add_commission:
+          type: boolean
+          description: Komisyon eklensin mi?
+        instalment:
+          type: integer
+          description: Taksit.
+        card_holder_phone:
+          type: string
+          description: Kart sahibinin telefon numarası.
+        card_holder_mail:
+          type: string
+          description: Kart sahibinin e-posta adresi.
+        description:
+          type: string
+          description: Açıklama.
+        reference_no:
+          type: string
+          description: Referans numarası.
+        selected_agent_id:
+          type: string
+          description: Seçilen Bayi Id'si
+        callback_url:
+          type: string
+          description: Deeplink ile mobil uygulamaya geri dönülecek adres.
+    InitSaleResponse:
+      type: object
+      properties:
+        payment_session_id:
+          type: string
+          description: Payment Session Id.
+        deeplink_url:
+          type: string
+          description: Deeplink adresi.
+        encryption_key:
+          type: string
+          description: Şifreleme anahtarı.
+        object_name:
+          type: string
+          description: Obje türü.
+        code:
+          type: integer
+          description: Sonuç kodu.
+        message:
+          type: string
+          description: Sonuç mesajı.
+    Transaction:
+      type: object
+      properties:
+        xact_id:
+          type: string
+          description: İşlemin Id'sinin şifrelenmiş hali.
+        xact_date:
+          type: string
+          description: İşlem tarihi.
+        transaction_type:
+          type: integer
+          description: İşlem tipi.
+        pos_type:
+          type: integer
+          description: POS tipi.
+        agent_id:
+          type: string
+          description: Bayi Id.
+        is_tds:
+          type: boolean
+          description: TDS uygulanıyor mu?
+        bank_id:
+          type: string
+          description: Banka kodu.
+        instalment:
+          type: integer
+          description: Taksit sayısı.
+        card_no:
+          type: string
+          description: Kart numarası.
+        card_holder:
+          type: string
+          description: Kart sahibi adı.
+        card_type:
+          type: string
+          description: Kart türü.
+        ratio:
+          type: number
+          description: Komisyon oranı.
+        amount:
+          type: number
+          description: İşlem tutarı.
+        netAmount:
+          type: number
+          description: Net tutar.
+        comission:
+          type: number
+          description: Komisyon tutarı.
+        comission_tax:
+          type: number
+          description: Komisyon vergisi.
+        currency:
+          type: string
+          description: Para birimi.
+        authorization_code:
+          type: string
+          description: Onay kodu.
+        reference_code:
+          type: string
+          description: Referans kodu.
+        order_id:
+          type: string
+          description: Sipariş numarası.
+        is_succeed:
+          type: boolean
+          description: İşlem başarılı mı?.
+        xact_transaction_id:
+          type: string
+          description: İşlem (transaction) ID’si.
+        email:
+          type: string
+          description: E-posta.
+        phone:
+          type: string
+          description: Telefon Numarası.
+        note:
+          type: string
+          description: Not.
+        agent_reference:
+          type: string
+          description: Bayi referans kodu.
+        object_name:
+          type: string
+          description: Obje türü.
+        code:
+          type: integer
+          description: Sonuç kodu.
+        message:
+          type: string
+          description: Sonuç mesajı.

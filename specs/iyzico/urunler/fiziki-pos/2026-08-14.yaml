@@ -1,0 +1,1803 @@
+openapi: 3.0.3
+info:
+  title: iyzico — urunler/fiziki-pos
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: GMU Payment
+  description: GMU satış ve işlem servisleri
+- name: OAuth
+- name: Terminal Host
+paths:
+  /in-store/oauth2/authorize:
+    post:
+      tags:
+      - OAuth
+      description: 'Bu servis authorization aşamasını başlatır ve "auth code" üretir.
+
+
+        Akış:
+
+        1) Bu servise form-urlencoded body ile istek atılır.
+
+        2) Yanıttaki "code" değeri alınır.
+
+        3) Alınan "code" değeri, token üretmek için "Get Token with Auth Code" servisinde kullanılır.
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthAuthorizeRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeResponse'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/login-islemleri.md
+  /in-store/oauth2/token:
+    post:
+      tags:
+      - OAuth
+      description: "Bu servis, auth code kullanarak access_token ve refresh_token üretir.\n\nAuthorization\
+        \ (Basic Auth):\n- Username: client_id\n- Password: client_secret\nHeader formatı:\nAuthorization:\
+        \ Basic base64(client_id:client_secret)\n\nAkış (Auth Code):\n1) /authorize çağrısından dönen\
+        \ \"code\" alınır.\n2) Bu servise form-urlencoded body ile gönderilir:\n   - grant_type=authorization_code\n\
+        \   - code={authCode}\n3) Response içinden:\n   - access_token: Terminal Host servislerinde Bearer\
+        \ Token olarak kullanılır.\n   - refresh_token: Token yenileme için saklanır.\n   - expires_in:\
+        \ access_token geçerlilik süresi (sn).\n"
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/OAuthTokenRequestAuthCode'
+              - $ref: '#/components/schemas/OAuthTokenRequestRefresh'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/login-islemleri.md
+  /v2/terminal-host/eod:
+    post:
+      tags:
+      - Terminal Host
+      description: "Bu servis, terminal için gün sonu (EOD) işlemini çalıştırır ve toplamları döner.\n\
+        Örnek: \"Gün sonu alınıp totals/batchNo/resultMessage alanları üzerinden özet raporlanır.\"\n\n\
+        Authorization (Bearer Token):\n- Token değeri OAuth token servisinden dönen access_token'dır.\n\
+        - Header formatı:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndOfDayRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalEodSuccessResponse'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/gun-sonu-alma-servisi.md
+  /v2/terminal-host/gmu/eod:
+    post:
+      tags:
+      - GMU Payment
+      description: 'GMU cihazı için gün sonu batch close işlemini gerçekleştirir. Cihazın mali günü kapatılır
+        ve acquirer bazında özet rapor döner.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuEodRequest'
+      responses:
+        '200':
+          description: Başarılı gün sonu sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuEodResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuEodResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/gun-sonu.md
+  /v2/terminal-host/gmu/partial-payment/add-payment:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Başlatılmış kısmi ödeme akışına yeni bir ödeme ekler. Kalan tutar sıfırlanana kadar
+        birden fazla kez çağrılabilir.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPartialPaymentAddRequest'
+      responses:
+        '200':
+          description: Başarılı kısmi ödeme ekleme sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md
+  /v2/terminal-host/gmu/partial-payment/complete:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Tüm kısmi ödemeler eklendikten sonra akışı kapatır ve satışı sonuçlandırır. Tam satış
+        yanıtı döner.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPartialPaymentCompleteRequest'
+      responses:
+        '200':
+          description: Başarılı kısmi ödeme tamamlama sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentCompleteResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentCompleteResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md
+  /v2/terminal-host/gmu/partial-payment/start:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Aynı satışın farklı ödeme araçlarıyla karşılanabileceği kısmi ödeme akışını başlatır.
+        Dönen saleNumber sonraki adımlarda kullanılır.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı kısmi ödeme başlatma sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md
+  /v2/terminal-host/gmu/payment:
+    post:
+      tags:
+      - GMU Payment
+      description: 'GMU cihazı üzerinden standart satış işlemi gerçekleştirir. E-Fatura için `saleDocumentType=1`,
+        Gider Pusulası için `saleDocumentType=9` kullanılabilir.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı işlem sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md
+  /v2/terminal-host/gmu/payment/query-transaction-status:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Bir ödeme, iade veya iptal işleminin güncel durumu sorgulanır. `paymentId` veya `transactionReferenceId`
+        ile sorgu yapılabilir, ikisi birlikte de gönderilebilir.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        description: paymentId veya transactionReferenceId alanlarından en az biri gönderilmelidir.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuQueryTransactionStatusRequest'
+      responses:
+        '200':
+          description: Başarılı işlem sorgulama sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuQueryTransactionStatusResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuQueryTransactionStatusResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md
+  /v2/terminal-host/gmu/payment/refund:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Tamamlanmış bir satış işlemi için kısmi veya tam iade gerçekleştirilir. İade yapılabilecek
+        kalemleri öğrenmek için önce İade Edilebilir Satış Bilgisi servisini çağırmanız önerilir.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuRefundRequest'
+      responses:
+        '200':
+          description: Başarılı iade sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md
+  /v2/terminal-host/gmu/payment/refundable-sale-info:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Belirtilen işlem referansına ait satışın iade edilebilir kalem ve tutar bilgisini
+        döndürür. İade işleminden önce çağrılması önerilir; dönen `saleUid` değeri iade isteğinde `relatedSaleId`
+        olarak kullanılır.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuRefundableSaleInfoRequest'
+      responses:
+        '200':
+          description: Başarılı iade edilebilir satış bilgisi sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundableSaleInfoResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundableSaleInfoResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md
+  /v2/terminal-host/gmu/payment/void:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Aynı gün içinde gerçekleştirilen bir ödeme işlemini iptal eder. Gün sonu yapılmış
+        işlemlerde iptal yerine iade kullanılmalıdır.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuVoidRequest'
+      responses:
+        '200':
+          description: Başarılı iptal sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuVoidResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuVoidResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md
+  /v2/terminal-host/payment:
+    post:
+      tags:
+      - Terminal Host
+      description: "Bu servis, terminal üzerinde ödeme işlemini başlatır. Pos cihazı üzerinde kart okutularak\
+        \ ödeme işlemi tamamlanır.\nÖrnek: \"Satış uygulamasının başlattığı işlemi complete ederek ödemeId/authCode\
+        \ vb. alanları alırsınız.\"\n\nAuthorization (Bearer Token):\n- Token değeri OAuth token servisinden\
+        \ dönen access_token'dır.\n- Header formatı:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePaymentRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/odeme-ve-islem-servisleri.md
+  /v2/terminal-host/payment/query-transaction-status:
+    post:
+      tags:
+      - Terminal Host
+      summary: null
+      description: "Bu servis, daha önce gerçekleşen bir işlemin durumunu sorgular.\nÖrnek: \"paymentId\
+        \ ile ödeme durumunu ve varsa hata bilgilerini öğrenirsiniz.\"\n\nAuthorization (Bearer Token):\n\
+        - Token değeri OAuth token servisinden dönen access_token'dır.\n- Header formatı:\n  Authorization:\
+        \ Bearer {access_token}\n\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryTransactionStatusRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/odeme-ve-islem-servisleri.md
+  /v2/terminal-host/payment/refund:
+    post:
+      tags:
+      - Terminal Host
+      description: "Bu servis, uygun durumdaki bir ödemeye iade işlemi uygular (partial/total).\nÖrnek:\
+        \ \"paymentId ve price ile iade işlemi başlatılır. Kart pos cihazı üzerinde okutularak iptal işlemi\
+        \ tamamlanır.\"\n\nAuthorization (Bearer Token):\n- Token değeri OAuth token servisinden dönen\
+        \ access_token'dır.\n- Header formatı:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/iptal-iade.md
+  /v2/terminal-host/payment/void:
+    post:
+      tags:
+      - Terminal Host
+      summary: null
+      description: "Bu servis, uygun durumdaki bir ödemeyi iptal eder.\nÖrnek: \"paymentId ve paymentDate\
+        \ ile iptal işlemi başlatılır. Kart pos cihazı üzerinde okutularak iptal işlemi tamamlanır.\"\n\
+        \nAuthorization (Bearer Token):\n- Token değeri OAuth token servisinden dönen access_token'dır.\n\
+        - Header formatı:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidPaymentRequest'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '422':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-509-servisleri/iptal-iade.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    AddedSaleItem:
+      type: object
+      properties:
+        name:
+          type: string
+          description: İşleme eklenen satış kalemi adı
+        generic:
+          type: boolean
+          description: Genel ürün bilgisi
+        unitCode:
+          type: string
+          description: Birim kodu
+        taxGroupCode:
+          type: string
+          description: KDV grubu kodu
+        itemQuantity:
+          type: integer
+          description: Ürün adedi
+        unitPriceAmount:
+          type: decimal
+          description: Birim fiyat
+        grossPriceAmount:
+          type: decimal
+          description: Brüt fiyat
+        totalPriceAmount:
+          type: decimal
+          description: Toplam fiyat
+      title: AddedSaleItem
+    BuyerInfo:
+      type: object
+      properties:
+        customerType:
+          type: integer
+          description: Müşteri tipi. 1 bireysel, 2 kurumsal
+          enum:
+          - 1
+          - 2
+        firstName:
+          type: string
+          description: Ad
+        middleName:
+          type: string
+          description: İkinci ad
+        familyName:
+          type: string
+          description: Soyad
+        companyName:
+          type: string
+          description: Şirket adı. Kurumsal müşteriler için kullanılır
+        taxOfficeCode:
+          type: string
+          description: Vergi dairesi kodu
+        taxNumber:
+          type: string
+          description: Vergi numarası veya TC kimlik numarası
+        country:
+          type: string
+          description: Ülke
+        city:
+          type: string
+          description: Şehir
+        district:
+          type: string
+          description: İlçe
+      title: BuyerInfo
+    CompletePaymentRequest:
+      type: object
+      required:
+      - conversationId
+      - locale
+      - deviceUniqueId
+      - transactionReferenceId
+      - price
+      - currency
+      - installment
+      - salesType
+      properties:
+        conversationId:
+          type: string
+          description: İstek ve yanıt eşleşmesi yapılacak ID değeri. Üye işyeri tarafından belirlenir,
+            istekte gönderilen bilgi yanıtta geri döner.
+        locale:
+          type: string
+          description: Yanıt dili.
+          enum:
+          - tr
+          - en
+        deviceUniqueId:
+          type: string
+          description: İşlemin gerçekleştirildiği terminal / cihaz için tanımlı benzersiz kimlik bilgisi.
+        transactionReferenceId:
+          type: string
+          description: Satış uygulaması tarafından üretilen, bu satış işlemine ait uniqueId değeri.
+        price:
+          type: number
+          format: double
+          description: Fiyat Değeri
+        currency:
+          type: string
+          description: Para birimi
+        salesType:
+          type: string
+          description: Satış Türü.
+          enum:
+          - SALE
+          - PRE_AUTH
+          - POST_AUTH
+        paymentId:
+          type: string
+          description: Ödeme Numarası. Provizyon kapama, (postAuth) işlemi yapılacağı zaman gönderilmesi
+            zorunlu bilgidir.
+        installment:
+          type: integer
+          format: int32
+          description: Taksit Sayısı
+          enum:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          - 9
+          - 10
+          - 11
+          - 12
+    EndOfDayRequest:
+      type: object
+      required:
+      - conversationId
+      - locale
+      - deviceUniqueId
+      properties:
+        conversationId:
+          type: string
+          description: İstek ve yanıt eşleşmesi yapılacak ID değeri. Üye işyeri tarafından belirlenir,
+            istekte gönderilen bilgi yanıtta geri döner.
+        locale:
+          type: string
+          description: İstek dili.
+          enum:
+          - tr
+          - en
+        deviceUniqueId:
+          type: string
+          description: İşlemin gerçekleştirildiği terminal / cihaz için tanımlı benzersiz kimlik bilgisi.
+        useSummary:
+          type: boolean
+          description: true gönderildiği taktirde, alınan slip üzerinde işlem detayları gösterilir. false
+            gönderilirse slip üzerinde tüm işlem detayları görüntülenmemektedir.
+          enum:
+          - tr
+          - en
+    GmuEodRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan TR
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID. Maksimum 64 karakter
+        useSummary:
+          type: boolean
+          description: Özet gün sonu kullanılsın mı
+      title: GmuEodRequest
+    GmuEodResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata bilgileri
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası
+        batchNo:
+          type: string
+          description: Kapanan batch numarası
+        resultMessage:
+          type: string
+          description: Gün sonu sonuç mesajı
+        tails:
+          type: array
+          description: Acquirer bazında gün sonu özet bilgileri
+          items:
+            $ref: '#/components/schemas/TailDto'
+      title: GmuEodResponse
+    GmuPartialPaymentAddRequest:
+      type: object
+      required:
+      - saleNumber
+      - price
+      properties:
+        locale:
+          type: string
+          description: Dil kodu
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID
+        transactionReferenceId:
+          type: string
+          description: Bu ekleme işleminin referans ID'si
+        saleNumber:
+          type: string
+          description: Start adımından dönen saleNumber
+        price:
+          type: decimal
+          description: Bu adımda ödenecek tutar. Kalan tutarı aşmamalıdır
+        installment:
+          type: integer
+          description: Taksit sayısı. Varsayılan 1
+        currency:
+          type: string
+          description: Para birimi
+      title: GmuPartialPaymentAddRequest
+    GmuPartialPaymentCompleteRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - transactionReferenceId
+      - saleNumber
+      properties:
+        locale:
+          type: string
+          description: Dil kodu
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID. Maksimum 64 karakter
+        transactionReferenceId:
+          type: string
+          description: Bu tamamlama işleminin referans ID'si
+        saleNumber:
+          type: string
+          description: Start partial payment adımından dönen saleNumber
+      title: GmuPartialPaymentCompleteRequest
+    GmuPartialPaymentCompleteResponse:
+      allOf:
+      - $ref: '#/components/schemas/GmuPaymentResponse'
+      - type: object
+        properties:
+          remainingPaymentAmount:
+            type: decimal
+            description: Kalan ödeme tutarı. Başarılı tamamlamada 0 olmalıdır
+      title: GmuPartialPaymentCompleteResponse
+    GmuPartialPaymentStartResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası epoch ms
+        saleNumber:
+          type: string
+          description: Kısmi ödeme akışını temsil eden ana ödeme ID'si. Add Partial Payment ve Complete
+            Partial Payment adımlarında kullanılır.
+        remainingPaymentAmount:
+          type: decimal
+          description: Henüz ödenmemiş kalan tutar
+      title: GmuPartialPaymentStartResponse
+    GmuPaymentRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - transactionReferenceId
+      - price
+      - paidPrice
+      - saleAppName
+      - saleAppVersion
+      - saleDocumentType
+      - saleItems
+      - paymentType
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan TR
+        conversationId:
+          type: string
+          description: İstek korelasyon ID’si. Boş bırakılırsa otomatik UUID atanır.
+        deviceUniqueId:
+          type: string
+          description: Cihazın benzersiz kimliği. Maksimum 64 karakter
+        transactionReferenceId:
+          type: string
+          description: Çağıran tarafın bu işleme atadığı benzersiz referans ID. İptal ve sorgulama işlemlerinde
+            kullanılabilir.
+        price:
+          type: decimal
+          description: Brüt tutar. Pozitif olmalıdır
+        paidPrice:
+          type: decimal
+          description: Ödenecek nihai tutar. Pozitif olmalıdır
+        paymentType:
+          type: string
+          description: Ödeme türü. (Kart, Nakit vb.)
+          enum:
+          - CARD
+          - CASH
+        currency:
+          type: string
+          description: Para birimi. Varsayılan TRY
+          enum:
+          - TRY
+          - USD
+          - EUR
+        installment:
+          type: integer
+          description: Taksit sayısı. Varsayılan 1
+        saleAppName:
+          type: string
+          description: Satış uygulamasının adı
+        saleAppVersion:
+          type: string
+          description: Satış uygulamasının versiyonu
+        saleDocumentType:
+          type: string
+          description: Belge tipi. E-Fatura için 1, Gider Pusulası için 9
+          enum:
+          - '1'
+          - '9'
+        notificationPhone:
+          type: string
+          description: SMS bildirimi istenilen telefon numarası
+        notificationEmail:
+          type: string
+          description: Bildirim istenilen E-posta adresi
+        saleItems:
+          type: array
+          description: Satış kalemleri. En az 1 adet olmalıdır.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaleItem'
+        buyerInfo:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/BuyerInfo'
+          description: Nihai tüketici değilse doldurulması zorunludur.
+      title: GmuPaymentRequest
+    GmuPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu. Başarılı işlemlerde 0 döner
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: İstek ile eşleşen korelasyon ID
+        systemTime:
+          type: integer
+          description: işlem zamanı (epoch ms)
+        deviceUniqueId:
+          type: string
+          description: İşlem yapılan cihazın ID'si
+        transactionReferenceId:
+          type: string
+          description: Çağıran tarafın referans ID'si
+        transactionDateTime:
+          type: string
+          description: İşlemin gerçekleştiği tarih ve saat
+        paymentId:
+          type: string
+          description: Oluşturulan ödeme ID. İade ve iptal işlemlerinde kullanılır.
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatındadır
+        price:
+          type: decimal
+          description: İşlem tutarı
+        installment:
+          type: integer
+          description: Taksit sayısı
+        acquirerId:
+          type: string
+          description: Acquirer banka ID
+        bankMerchantId:
+          type: string
+          description: Banka üye işyeri numarası
+        bankTerminalId:
+          type: string
+          description: Banka terminal ID
+        issuerId:
+          type: string
+          description: Kartı çıkaran kuruluş ID
+        currency:
+          type: string
+          description: Para birimi
+          enum:
+          - TRY
+          - USD
+          - EUR
+        authCode:
+          type: string
+          description: Onay kodu
+        binNumber:
+          type: string
+          description: Kartın BIN numarası. İlk 6 hanedir
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi
+        hostReference:
+          type: string
+          description: Host referans numarası
+        cardType:
+          type: string
+          description: Kart tipi. Örnek CREDIT veya DEBIT
+        batchNo:
+          type: string
+          description: Batch parti numarası
+        stanNo:
+          type: string
+          description: STAN numarası
+        posEntryModeCode:
+          type: string
+          description: POS giriş modu kodu
+        saleItems:
+          type: array
+          description: İşleme eklenen satış kalemleri detayı
+          items:
+            $ref: '#/components/schemas/AddedSaleItem'
+        saleNumber:
+          type: string
+          description: Satış numarası. Parçalı ödeme ekleme 7. madde ve tamamlama 8. madde servislerinde
+            kullanılır
+      title: GmuPaymentResponse
+    GmuQueryTransactionStatusRequest:
+      type: object
+      description: paymentId veya transactionReferenceId alanlarından en az biri gönderilmelidir.
+      properties:
+        locale:
+          type: string
+          description: Dil kodu
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        paymentId:
+          type: string
+          description: Sorgulanmak istenen işlem için ödeme ID bilgisi
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID
+        transactionReferenceId:
+          type: string
+          description: Sorgulanmak istenen işlemi başlatırken gönderilen transactionReferenceId
+      title: GmuQueryTransactionStatusRequest
+    GmuQueryTransactionStatusResponse:
+      allOf:
+      - $ref: '#/components/schemas/GmuPaymentResponse'
+      - type: object
+        properties:
+          cancelHostReference:
+            type: string
+            nullable: true
+            description: İptal yapılmışsa iptal işlemine ait host referansı
+          refundHostReference:
+            type: string
+            nullable: true
+            description: İade yapılmışsa iade işlemine ait host referansı
+      title: GmuQueryTransactionStatusResponse
+    GmuRefundRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - paymentId
+      - paymentDate
+      - transactionReferenceId
+      - saleAppName
+      - saleAppVersion
+      - saleItems
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan TR
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID. Maksimum 64 karakter
+        paymentId:
+          type: string
+          description: Satış servisinden dönen paymentId
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatında olmalıdır
+        transactionReferenceId:
+          type: string
+          description: Bu iade işlemine ait referans ID
+        saleAppName:
+          type: string
+          description: Satış uygulaması adı
+        saleAppVersion:
+          type: string
+          description: Satış uygulaması versiyonu
+        notificationPhone:
+          type: string
+          description: SMS bildirimi istenilen telefon numarası
+        notificationEmail:
+          type: string
+          description: Bildirim istenilen E-posta adresi
+        saleItems:
+          type: array
+          description: İade edilecek kalemler. En az 1 adet olmalıdır
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaleItem'
+      title: GmuRefundRequest
+    GmuRefundResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası epoch ms
+        deviceUniqueId:
+          type: string
+          description: İşlem yapılan cihaz ID
+        transactionReferenceId:
+          type: string
+          description: İade işlemine ait referans ID
+        price:
+          type: decimal
+          description: İade tutarı
+        vatAmount:
+          type: decimal
+          description: KDV tutarı
+        currency:
+          type: string
+          description: Para birimi
+        invoiceNo:
+          type: string
+          description: Fatura numarası
+        authCode:
+          type: string
+          description: Onay kodu
+        hostReference:
+          type: string
+          description: Host referans numarası
+        binNumber:
+          type: string
+          description: Kartın BIN numarası
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi
+        acquirerName:
+          type: string
+          description: Acquirer banka adı
+        acquirerId:
+          type: string
+          description: Acquirer banka ID
+        batchNo:
+          type: string
+          description: Batch numarası
+      title: GmuRefundResponse
+    GmuRefundableSaleInfoRequest:
+      type: object
+      required:
+      - transactionReferenceId
+      properties:
+        locale:
+          type: string
+          description: Dil kodu
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID
+        transactionReferenceId:
+          type: string
+          description: Orijinal satış işleminin referans ID'si
+      title: GmuRefundableSaleInfoRequest
+    GmuRefundableSaleInfoResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası epoch ms
+        saleNumber:
+          type: string
+          description: Satış numarası
+        saleUid:
+          type: string
+          description: Satışın benzersiz ID'si. İade isteğinde relatedSaleId olarak kullanılır.
+        totalReturnableAmount:
+          type: decimal
+          description: Toplam iade edilebilir tutar
+        currency:
+          type: string
+          description: Para birimi
+        saleItems:
+          type: array
+          description: İade edilebilir kalemler. Her kalem için returnableQuantity ve returnableAmount
+            alanlarını içerir.
+          items:
+            $ref: '#/components/schemas/RefundableAddedSaleItem'
+      title: GmuRefundableSaleInfoResponse
+    GmuVoidRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - paymentId
+      - paymentDate
+      - transactionReferenceId
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan TR
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID. Maksimum 64 karakter
+        paymentId:
+          type: string
+          description: İptal edilecek ödemenin paymentId’si
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatında olmalıdır
+        transactionReferenceId:
+          type: string
+          description: Bu iptal işlemine ait referans ID
+        reason:
+          type: string
+          description: İptal nedeni
+        description:
+          type: string
+          description: Açıklama
+      title: GmuVoidRequest
+    GmuVoidResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası epoch ms
+        deviceUniqueId:
+          type: string
+          description: Cihaz ID
+        transactionReferenceId:
+          type: string
+          description: İptal referans ID
+        paymentId:
+          type: string
+          description: İptal edilen ödeme ID
+        price:
+          type: decimal
+          description: İptal tutarı
+        currency:
+          type: string
+          description: Para birimi
+        authCode:
+          type: string
+          description: Onay kodu
+        hostReference:
+          type: string
+          description: Orijinal işlemin host referans numarası
+        cancelHostReference:
+          type: string
+          description: İptal işlemine ait host referans numarası
+        transactionDate:
+          type: string
+          description: İşlem tarihi
+        transactionTime:
+          type: string
+          description: İşlem saati
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatındadır
+        transactionDateTime:
+          type: string
+          description: İşlem tarih ve saat bilgisi
+        binNumber:
+          type: string
+          description: Kartın BIN numarası
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi
+      title: GmuVoidResponse
+    OAuthAuthorizeErrorResponse:
+      type: object
+      properties:
+        errorCode:
+          type: string
+          description: Hata Kodu
+        description:
+          type: string
+          description: Hata Açıklaması
+        uri:
+          type: string
+          description: Bazı durumlarda dönen
+    OAuthAuthorizeRequest:
+      type: object
+      required:
+      - scope
+      - client_id
+      - client_secret
+      - response_type
+      - username
+      - password
+      - request_timestamp
+      properties:
+        scope:
+          type: string
+          description: 'Default değer: iyzipayApiGateway'
+          enum:
+          - iyzipayApiGateway
+        client_id:
+          type: string
+          description: iyzico tarafından sağlanan merchant özelinde clientid değeri.
+        client_secret:
+          type: string
+          description: iyzico tarafından üretilen merchant özelinde client secret değeri.
+        response_type:
+          type: string
+          description: Default değer; code
+          enum:
+          - code
+        username:
+          type: string
+          description: Kullanıcı Adı
+        password:
+          type: string
+          description: Kullanıcı şifre
+        request_timestamp:
+          type: string
+          description: İlgili requestin gönderildiği unix timestamp değeri.
+    OAuthAuthorizeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Auth Code
+        issuedAt:
+          type: string
+          description: İşlem tarihi
+        expiredAt:
+          type: string
+          description: İşlem geçerlilik tarihi
+    OAuthSimpleError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: ''
+    OAuthTokenRequestAuthCode:
+      type: object
+      required:
+      - grant_type
+      - code
+      description: Authorization Code ile ile JWT token üretir. client_id ve client_secret ile Basic Auth
+        yapılır.
+      properties:
+        grant_type:
+          type: string
+          description: Token Üretilecek İşlem Türü
+          enum:
+          - authorization_code
+          - refresh_token
+        code:
+          type: string
+          description: Authorization aşamasında üretilen authCode değeri.
+    OAuthTokenRequestRefresh:
+      type: object
+      required:
+      - grant_type
+      - refresh_token
+      description: Refresh Token ile JWT token üretir. client_id ve client_secret ile Basic Auth yapılır.
+      properties:
+        grant_type:
+          type: string
+          description: Token Üretilecek İşlem Türü
+          enum:
+          - authorization_code
+          - refresh_token
+        refresh_token:
+          type: string
+          description: Token yenileme işlemi için kullanılacak refresh token değeri.
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: Access Token Değeri
+        refresh_token:
+          type: string
+          description: Refresh Token Değeri
+        scope:
+          type: string
+          description: Default Scope Değeri
+          enum:
+          - iyzipayApiGateway
+        token_type:
+          type: string
+          description: Authoraztion da kullanılan token tipi
+        expires_in:
+          type: integer
+          format: int32
+          description: Saniye bazında geçerlilik süresi.
+    QueryTransactionStatusRequest:
+      type: object
+      description: İşlemin Durumunu Sorgulayan Servis.
+      required:
+      - conversationId
+      - locale
+      - paymentId
+      - deviceUniqueId
+      - transactionReferenceId
+      properties:
+        conversationId:
+          type: string
+          description: İstek ve yanıt eşleşmesi yapılacak ID değeri. Üye işyeri tarafından belirlenir,
+            istekte gönderilen bilgi yanıtta geri döner.
+        locale:
+          type: string
+          description: Yanıt dili.
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: Sorgulanacak Ödeme Numarası
+        deviceUniqueId:
+          type: string
+          description: İşlemin gerçekleştirildiği terminal / cihaz için tanımlı benzersiz kimlik bilgisi.
+        transactionReferenceId:
+          nullable: true
+          oneOf:
+          - type: string
+          - type: 'null'
+          description: Sorgulanmak istenen payment/ void/refund işlemi için işlem sırasında üretilmiş
+            eşsiz referans numarasıdır.
+    RefundPaymentRequest:
+      type: object
+      required:
+      - conversationId
+      - locale
+      - paymentId
+      - deviceUniqueId
+      - price
+      - transactionReferenceId
+      - paymentDate
+      properties:
+        conversationId:
+          type: string
+          description: İstek ve yanıt eşleşmesi yapılacak ID değeri. Üye işyeri tarafından belirlenir,
+            istekte gönderilen bilgi yanıtta geri döner.
+        locale:
+          type: string
+          description: İstek dili.
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: İade yapılacak ödeme numarası
+        deviceUniqueId:
+          type: string
+          description: İşlemin gerçekleştirildiği terminal / cihaz için tanımlı benzersiz kimlik bilgisi.
+        price:
+          type: number
+          format: double
+          description: İşlem tutarı.
+        transactionReferenceId:
+          type: string
+          description: İade işlemi için satış uygulaması tarafından üretilen, benzersiz referans numarası.
+        paymentDate:
+          type: string
+          description: İşlemin muhasebeleştirildiği tarih (YYYYMMDD).
+        reason:
+          type: string
+          description: İade Nedeni
+        description:
+          type: string
+          description: İade Açıklaması
+    RefundableAddedSaleItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Kalem ID
+        name:
+          type: string
+          description: Kalem adı
+        itemQuantity:
+          type: integer
+          description: Ürün adedi
+        totalPriceAmount:
+          type: decimal
+          description: Toplam fiyat
+        vatAmount:
+          type: decimal
+          description: KDV tutarı
+        returnableQuantity:
+          type: integer
+          description: İade edilebilir adet
+        returnableAmount:
+          type: decimal
+          description: İade edilebilir tutar
+      title: RefundableAddedSaleItem
+    SaleItem:
+      type: object
+      required:
+      - name
+      - unitCode
+      - taxGroupCode
+      - itemQuantity
+      - unitPriceAmount
+      - grossPriceAmount
+      - totalPriceAmount
+      - relatedSaleItemId
+      - returnAmount
+      properties:
+        relatedSaleItemId:
+          type: string
+          description: İade edilecek satış kırılımının ID bilgisi.
+        name:
+          type: string
+          description: Ürün veya hizmet adı
+        generic:
+          type: boolean
+          description: Genel ürün bilgisi
+        unitCode:
+          type: string
+          description: Birim kodu. Örnek C62 adet anlamına gelir
+        taxGroupCode:
+          type: string
+          description: KDV grubu kodu
+        itemQuantity:
+          type: integer
+          description: Ürün adedi
+        unitPriceAmount:
+          type: decimal
+          description: Birim fiyat. Pozitif olmalıdır
+        grossPriceAmount:
+          type: decimal
+          description: Brüt fiyat. Pozitif olmalıdır
+        totalPriceAmount:
+          type: decimal
+          description: Toplam fiyat. Pozitif olmalıdır
+        returnAmount:
+          type: decimal
+          description: İade tutarı
+      title: SaleItem
+    TailDto:
+      type: object
+      properties:
+        acquirerId:
+          type: string
+          description: Acquirer banka ID
+        terminalId:
+          type: string
+          description: Terminal ID
+        bankMerchantId:
+          type: string
+          description: Banka üye işyeri numarası
+        totalTransactionAmount:
+          type: string
+          description: Toplam işlem tutarı
+        totalTransactionCount:
+          type: string
+          description: Toplam işlem adedi
+        acquirerName:
+          type: string
+          description: Banka adı
+        batchNo:
+          type: string
+          description: Batch numarası
+        responseCode:
+          type: string
+          description: Acquirer yanıt kodu
+        internalErrorCode:
+          type: string
+          nullable: true
+          description: İç hata kodu varsa
+      title: TailDto
+    TerminalEodSuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu. (SUCCESS, FAILURE vb.)
+        errorCode:
+          type: string
+          description: İşlem başarısız ise dönen hata kodu. Başarılı işlemlerde boş döner.
+        errorMessage:
+          type: string
+          description: Hata oluşması durumunda açıklayıcı hata mesajı.
+        errorGroup:
+          type: string
+          description: Hatanın ait olduğu grup / kategori bilgisi.
+        locale:
+          type: string
+          description: Yanıt dili
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          format: int64
+          description: İşlemin iyzico sistemlerinde işlendiği zamanın Unix timestamp değeri.
+        conversationId:
+          type: string
+          description: İstek–cevap eşleştirmesi ve işlem takibi için üye işyeri tarafından gönderilen
+            benzersiz değer.
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/TerminalEodTotalsItem'
+        batchNo:
+          type: string
+          description: İşlemin dahil olduğu batch (günsonu) numarası.
+        resultMessage:
+          type: string
+          description: Sonuç Mesajı
+    TerminalEodTotalsItem:
+      type: object
+      properties:
+        acquirerId:
+          type: string
+          description: İşlemi gerçekleştiren banka (acquirer) kurum kimliği.
+        terminalId:
+          type: string
+          description: Terminal Numarası
+        bankMerchantId:
+          type: string
+          description: Banka nezdinde terminal için tanımlı terminal numarası.
+        totalTransactionAmount:
+          type: string
+          description: İlgili batch kapsamında gerçekleşen başarılı işlemlerin toplam tutarı.
+        totalTransactionCount:
+          type: string
+          description: İlgili batch kapsamında gerçekleşen başarılı işlem adedi.
+        acquirerName:
+          type: string
+          description: İşlemi gerçekleştiren banka (acquirer) adı."
+        batchNo:
+          type: string
+          description: İşlemin dahil olduğu batch (günsonu) numarası.
+        responseCode:
+          type: string
+          description: Günsonu (EOD) işleminin banka/host tarafından dönen sonuç kodu. Genellikle 00 başarılı
+            anlamına gelir.
+        internalErrorCode:
+          type: string
+          description: Günsonu işlemi sırasında iyzico iç sistemlerinde oluşan hata kodu. Sadece hata
+            durumlarında dolu döner.
+    TerminalFailureResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu. (SUCCESS, FAILURE vb.)
+        errorCode:
+          type: string
+          description: İşlem başarısız ise dönen hata kodu. Başarılı işlemlerde boş döner.
+        errorMessage:
+          type: string
+          description: Hata oluşması durumunda açıklayıcı hata mesajı.
+        errorGroup:
+          type: string
+          description: Hatanın ait olduğu grup / kategori bilgisi.
+        systemTime:
+          type: integer
+          format: int64
+          description: İşlemin iyzico sistemlerinde işlendiği zamanın Unix timestamp değeri.
+        consumerErrorMessage:
+          type: string
+          description: Son kullanıcıya gösterilmek üzere üretilmiş, teknik detay içermeyen hata mesajı.
+    TerminalPaymentSuccessResponse:
+      type: object
+      properties:
+        conversationId:
+          type: string
+          description: İstek–cevap eşleştirmesi ve işlem takibi için üye işyeri tarafından gönderilen
+            benzersiz değer.
+        locale:
+          type: string
+          description: Yanıt dili
+          enum:
+          - tr
+          - en
+        deviceUniqueId:
+          type: string
+          description: İşlemin gerçekleştirildiği terminal / cihaz için tanımlı benzersiz kimlik bilgisi.
+        transactionReferenceId:
+          type: string
+          description: Satış uygulaması tarafından üretilen, işlem bazında benzersiz referans numarası.
+        status:
+          type: string
+          description: İşlem sonucu. (SUCCESS, FAILURE vb.)
+        errorCode:
+          type: string
+          description: İşlem başarısız ise dönen hata kodu. Başarılı işlemlerde boş döner.
+        errorMessage:
+          type: string
+          description: "\tHata oluşması durumunda açıklayıcı hata mesajı."
+        errorGroup:
+          type: string
+          description: Hatanın ait olduğu grup / kategori bilgisi.
+        systemTime:
+          type: integer
+          format: int64
+          description: İşlemin iyzico sistemlerinde işlendiği zamanın Unix timestamp değeri.
+        transactionDateTime:
+          type: string
+          description: İşlemin terminal/host üzerinde gerçekleştiği tarih ve saat bilgisi (ISO-8601).
+        authCode:
+          type: string
+          description: Banka/host tarafından üretilen onay (authorization) kodu.
+        paymentId:
+          type: string
+          description: iyzico tarafından üretilen, işlem bazında benzersiz ödeme kimliği.
+        paymentDate:
+          type: string
+          description: İşlemin muhasebeleştirildiği tarih (YYYYMMDD).
+        price:
+          type: number
+          format: double
+          description: İşlem tutarı.
+        installment:
+          type: integer
+          format: int32
+          description: Taksit sayısı. Tek çekim işlemlerde 0 veya 1 olarak döner.
+        currency:
+          type: string
+          description: İşlem para birimi (örn. TRY).
+        binNumber:
+          type: string
+          description: Kartın ilk 6 hanesi (BIN).
+        lastFourDigits:
+          type: string
+          description: Kart numarasının son 4 hanesi.
+        hostReference:
+          type: string
+          description: Banka/host sistemi tarafından üretilen işlem referans numarası.
+        cardType:
+          type: string
+          description: Kart tipi. (CREDIT_CARD, DEBIT_CARD vb.)
+        acquirerId:
+          type: string
+          description: İşlemi gerçekleştiren banka (acquirer) kurum kimliği.
+        issuerId:
+          type: string
+          description: Kartı çıkaran banka (issuer) kurum kimliği.
+        bankMerchantId:
+          type: string
+          description: Banka nezdinde üye işyerine tanımlı merchant numarası.
+        bankTerminalId:
+          type: string
+          description: Banka nezdinde terminal için tanımlı terminal numarası.
+        batchNo:
+          type: string
+          description: İşlemin dahil olduğu batch (günsonu) numarası.
+        stanNo:
+          type: string
+          description: Sistem Takip Numarası (STAN – System Trace Audit Number).
+        posEntryModeCode:
+          type: string
+          description: Kart bilgilerinin POS'a giriş yöntemini belirten kod (örn. chip, manyetik, contactless).
+        cancelHostReference:
+          type: string
+          description: İptal işlemi referans numarası
+        refundHostReference:
+          type: string
+          description: İade işlemi referans numarası
+    VoidPaymentRequest:
+      description: Ödeme İade Servisi.
+      type: object
+      required:
+      - conversationId
+      - locale
+      - paymentId
+      - paymentDate
+      - deviceUniqueId
+      - transactionReferenceId
+      properties:
+        conversationId:
+          type: string
+          description: İstek ve yanıt eşleşmesi yapılacak ID değeri. Üye işyeri tarafından belirlenir,
+            istekte gönderilen bilgi yanıtta geri döner.
+        locale:
+          type: string
+          description: Yanıt dili.
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: İptal Edilecek Ödeme Numarası
+        paymentDate:
+          type: string
+          description: İşlemin muhasebeleştirildiği tarih (YYYYMMDD).
+        deviceUniqueId:
+          type: string
+          description: İşlemin gerçekleştirildiği terminal / cihaz için tanımlı benzersiz kimlik bilgisi.
+        transactionReferenceId:
+          type: string
+          description: İptal işlemine ait üretilen benzersiz bir referans numarası
+        reason:
+          type: string
+          description: İptal nedi
+        description:
+          type: string
+          description: İptal açıklaması
