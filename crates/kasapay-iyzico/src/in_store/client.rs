@@ -643,7 +643,7 @@ fn session_into_charge(
         None => None,
     };
     Ok(Charge {
-        id: PaymentId::new(payment_id.to_string()),
+        id: Some(PaymentId::issued(payment_id.to_string())),
         order,
         amount: amount.unwrap_or_else(|| Money::from_minor_units(0, Currency::Try)),
         order_amount: None,
@@ -728,7 +728,7 @@ fn decrypted_into_charge(
     };
 
     Ok(Charge {
-        id: payment.clone(),
+        id: Some(payment.clone()),
         order: None,
         amount,
         // The In-Store API reports one amount; there is no basket beside it.
@@ -780,7 +780,7 @@ fn query_into_charge(response: wire::PaymentQueryResponse, raw: Raw) -> Result<C
     };
 
     Ok(Charge {
-        id: PaymentId::new(payment_id.to_string()),
+        id: Some(PaymentId::issued(payment_id.to_string())),
         order: response.order_id.map(OrderRef::new),
         amount,
         // The In-Store API reports one amount; there is no basket beside it.

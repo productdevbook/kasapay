@@ -5,8 +5,8 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
-use kasapay_paytr::{Config, Credentials, PayTr, payment};
+use kasapay_core::{Currency, ErrorKind, IdSource, Money, NextAction, OrderRef, Provider, Status};
+use kasapay_paytr::{Config, Credentials, PayTr, payment, payment_id};
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -73,8 +73,14 @@ async fn opening_a_payment_signs_the_documented_fields() {
 
     assert_eq!(charge.status, Status::RequiresAction);
     assert_eq!(charge.amount.minor_units(), 14_990);
-    // PayTR has no id of its own: the order reference is the payment.
-    assert_eq!(charge.id.as_str(), "ord-1");
+    // PayTR has no id of its own: the order reference is the payment, and the
+    // charge says as much rather than passing it off as PayTR's.
+    let id = charge.id.as_ref().expect("an opened payment is named");
+    assert_eq!(id.as_str(), "ord-1");
+    assert!(
+        matches!(id.source(), IdSource::Derived(_)),
+        "PayTR issues no identifier for a payment"
+    );
     match charge.next_action.expect("a form to send the payer to") {
         NextAction::Redirect { url, continuation } => {
             assert!(url.as_str().ends_with("/odeme/guvenli/form-token-1"));
@@ -134,7 +140,7 @@ async fn reading_a_payment_back_names_it_by_the_order_reference() {
         .await;
 
     let charge = client(&server)
-        .charge_status(&PaymentId::new("ord-1"))
+        .charge_status(&payment_id(&OrderRef::new("ord-1")))
         .await
         .expect("the payment reads back");
     assert_eq!(charge.status, Status::Captured);
@@ -223,7 +229,7 @@ async fn a_payment_paytr_does_not_know_is_not_found() {
         .await;
 
     let error = client(&server)
-        .charge_status(&PaymentId::new("ord-nope"))
+        .charge_status(&payment_id(&OrderRef::new("ord-nope")))
         .await
         .expect_err("no such payment");
     assert_eq!(error.kind(), ErrorKind::NotFound);

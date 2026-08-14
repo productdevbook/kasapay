@@ -69,7 +69,7 @@ async fn init_sends_the_documented_body_and_headers() {
         .await
         .expect("init succeeds");
 
-    assert_eq!(charge.id.as_str(), "4242424242");
+    assert_eq!(charge.id, Some(PaymentId::issued("4242424242")));
     assert_eq!(charge.status, Status::RequiresAction);
     assert_eq!(charge.amount.minor_units(), 14_990);
     match charge.next_action.expect("a deep link is required") {
@@ -148,7 +148,7 @@ async fn query_reads_an_approved_payment_as_captured() {
         .await;
 
     let charge = client(&server)
-        .charge_status(&PaymentId::new("4242424242"))
+        .charge_status(&PaymentId::issued("4242424242"))
         .await
         .expect("query succeeds");
 
@@ -285,7 +285,7 @@ async fn decrypt(
         .await;
 
     client(server)
-        .decrypt_callback(&PaymentId::new("4242424242"), "ZW5jcnlwdGVk", "tok-abc")
+        .decrypt_callback(&PaymentId::issued("4242424242"), "ZW5jcnlwdGVk", "tok-abc")
         .await
 }
 
@@ -298,7 +298,7 @@ async fn a_decrypted_callback_settles_the_payment_it_was_started_for() {
 
     // The decrypted body carries a recordId, not a paymentId, so the id has to
     // be the one the charge was started with.
-    assert_eq!(charge.id.as_str(), "4242424242");
+    assert_eq!(charge.id, Some(PaymentId::issued("4242424242")));
     assert_eq!(charge.status, Status::Captured);
     assert_eq!(charge.amount.minor_units(), 14_990);
     assert!(charge.next_action.is_none());
@@ -385,7 +385,7 @@ async fn a_payment_the_payer_did_not_complete_is_a_failed_charge() {
 
     assert_eq!(charge.status, Status::Failed);
     assert_eq!(charge.amount.minor_units(), 14_990);
-    assert_eq!(charge.id.as_str(), "4242424242");
+    assert_eq!(charge.id, Some(PaymentId::issued("4242424242")));
 }
 
 #[tokio::test]
@@ -462,7 +462,7 @@ async fn capture_is_refused_rather_than_answered_as_a_no_op() {
     let server = MockServer::start().await;
 
     let error = client(&server)
-        .capture(&PaymentId::new("1234567890"), None)
+        .capture(&PaymentId::issued("1234567890"), None)
         .await
         .expect_err("the In-Store API has no capture step");
 
@@ -474,7 +474,7 @@ async fn cancel_is_refused_because_there_is_no_authorisation_to_release() {
     let server = MockServer::start().await;
 
     let error = client(&server)
-        .cancel(&PaymentId::new("1234567890"))
+        .cancel(&PaymentId::issued("1234567890"))
         .await
         .expect_err("the In-Store API holds nothing to release");
 
@@ -494,7 +494,7 @@ async fn capabilities_match_what_the_methods_actually_do() {
     // The capability and the refusal have to agree, or the capability is a lie.
     assert_eq!(
         client
-            .capture(&PaymentId::new("1234567890"), None)
+            .capture(&PaymentId::issued("1234567890"), None)
             .await
             .expect_err("separate_capture is false")
             .kind(),
@@ -528,7 +528,7 @@ async fn a_partial_refund_carries_its_amount_under_both_documented_names() {
     let charge = client(&server)
         .refund(
             "kasiyer-7",
-            &PaymentId::new("4242424242"),
+            &PaymentId::issued("4242424242"),
             Some(Money::parse("50.00", Currency::Try).expect("valid amount")),
             &"https://merchant.test/callback".parse().expect("valid url"),
         )
@@ -560,7 +560,7 @@ async fn a_full_refund_names_no_amount_at_all() {
     client(&server)
         .refund(
             "kasiyer-7",
-            &PaymentId::new("4242424242"),
+            &PaymentId::issued("4242424242"),
             None,
             &"https://merchant.test/callback".parse().expect("valid url"),
         )

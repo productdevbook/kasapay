@@ -223,8 +223,9 @@ impl Client {
 
         Ok(Charge {
             // iyzico has no payment id until the payer is done; the form's
-            // token is what identifies it until then.
-            id: PaymentId::new(token.as_str()),
+            // token is what identifies it until then, and what
+            // `charge_status` takes.
+            id: Some(PaymentId::issued(token.as_str())),
             order: Some(form.order.clone()),
             amount: form.paid_price,
             order_amount: (form.price != form.paid_price).then_some(form.price),
@@ -479,7 +480,10 @@ impl Client {
         };
 
         Ok(Reversal {
-            payment: PaymentId::new(response.payment_id.unwrap_or_default()),
+            payment: response
+                .payment_id
+                .filter(|id| !id.is_empty())
+                .map(PaymentId::issued),
             amount,
             host_reference: response.host_reference.map(String::into_boxed_str),
             raw,
@@ -767,7 +771,12 @@ fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Res
     };
 
     Ok(Charge {
-        id: PaymentId::new(response.payment_id.unwrap_or_default()),
+        // A form the payer has not finished has no paymentId, and an empty one
+        // would be a handle to nothing.
+        id: response
+            .payment_id
+            .filter(|id| !id.is_empty())
+            .map(PaymentId::issued),
         order: response.basket_id.map(kasapay_core::OrderRef::new),
         amount,
         order_amount,
@@ -877,8 +886,12 @@ impl fmt::Display for ReasonCode {
 /// Money taken back off a payment, by a refund or a cancel.
 #[derive(Debug, Clone)]
 pub struct Reversal {
-    /// The payment it came off.
-    pub payment: PaymentId,
+    /// The payment it came off, as iyzico named it in the answer.
+    ///
+    /// iyzico documents a `paymentId` on all three reversals, so an answer
+    /// shaped the way they document it carries one. `None` is one that did
+    /// not, rather than an identifier with nothing in it.
+    pub payment: Option<PaymentId>,
     /// How much was taken back.
     pub amount: Money,
     /// The bank's own reference, for reconciling against a statement.

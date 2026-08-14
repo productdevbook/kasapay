@@ -12,7 +12,8 @@ use std::error::Error;
 
 use kasapay::stripe::Stripe;
 use kasapay::{
-    ChargeRequest, Currency, IdempotencyKey, Money, NextAction, OrderRef, Provider, Secret, Status,
+    ChargeRequest, Currency, IdempotencyKey, Money, NextAction, OrderRef, PaymentId, Provider,
+    Secret, Status,
 };
 
 #[tokio::main]
@@ -31,7 +32,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .build()?;
 
     let charge = stripe.charge(&request).await?;
-    println!("{} {} — {:?}", charge.provider, charge.id, charge.status);
+    let id = charge.id.as_ref().map_or("unnamed", PaymentId::as_str);
+    println!("{} {id} — {:?}", charge.provider, charge.status);
 
     // `Ok` is not a payment. Stripe stalls until the browser confirms.
     match &charge.next_action {
@@ -58,7 +60,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let half = Money::from_minor_units(charge.amount.minor_units() / 2, charge.amount.currency());
-    let refund = stripe.refund(&charge.id, Some(half)).await?;
+    let id = charge.id.ok_or("Stripe names every payment it takes")?;
+    let refund = stripe.refund(&id, Some(half)).await?;
     println!("refunded {} — {:?}", refund.amount, refund.status);
 
     Ok(())

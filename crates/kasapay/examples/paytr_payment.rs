@@ -8,7 +8,8 @@
 //!
 //! PayTR hosts the form, so no card data crosses this process. It also has no
 //! payment id: the merchant's own order reference names the payment on every
-//! later call, which is why one is never reused.
+//! later call, which is why one is never reused and why `paytr::payment_id`
+//! rather than a bare identifier is what reads it back.
 //!
 //! The half nobody gets right is the payment notice. PayTR does not wait for
 //! the payer to come back — it posts the outcome to the merchant and retries
@@ -17,8 +18,8 @@
 
 use std::error::Error;
 
-use kasapay::paytr::{Config, Credentials, PayTr, payment};
-use kasapay::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider};
+use kasapay::paytr::{Config, Credentials, PayTr, payment, payment_id};
+use kasapay::{Currency, ErrorKind, Money, NextAction, OrderRef, Provider};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -87,7 +88,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // PayTR's status query answers a payment that happened, or an error saying
     // it does not know one — a refusal is reported on the notice, not here.
-    match paytr.charge_status(&PaymentId::new(order.as_str())).await {
+    match paytr.charge_status(&payment_id(&order)).await {
         Ok(settled) => println!("paid {}", settled.amount),
         Err(e) if e.kind() == ErrorKind::NotFound => println!("PayTR knows no such payment"),
         Err(e) => return Err(e.into()),

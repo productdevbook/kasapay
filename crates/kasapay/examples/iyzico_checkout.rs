@@ -72,8 +72,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("keep this token: {token}");
 
     // Later, when the payer comes back. `charge_status` takes the token,
-    // because until the form is finished there is no payment id.
-    let settled = iyzipay.charge_status(&PaymentId::new(&*token)).await?;
+    // because until the form is finished there is no payment id — the finished
+    // charge is the first thing to carry one.
+    let settled = iyzipay.charge_status(&PaymentId::issued(&*token)).await?;
     match settled.status {
         Status::Captured => println!("paid {}", settled.amount),
         Status::Failed => println!("refused"),
