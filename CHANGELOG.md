@@ -93,6 +93,11 @@ all are the kind 0.0.x exists to make.
   this adapter has no call that charges one rather than that the provider has
   no vault.
 
+- **`classic::CheckoutForm` gains `card_user_key`.** A struct literal needs one
+  more field; `CheckoutForm::builder(..)` needs nothing, and
+  `CheckoutFormBuilder::card_user_key` is how it is set. `None` sends no field
+  and is what every existing form already did.
+
 - **`classic::StoredCard::token` is an `InstrumentId`, and
   `classic::Client::forget_card` takes one.** iyzico's `cardToken` and its
   `paymentId` are both iyzico's own strings, so nothing but the type separates
@@ -124,18 +129,24 @@ all are the kind 0.0.x exists to make.
   a field wired to the wrong source is a `CardError` rather than a pan on the
   wire. It is a check against a mistake, not a security control.
 
-  **Nothing here stores a card, and that is iyzico's boundary rather than a
-  choice.** `POST /cardstorage/card` wants `cardNumber`, `expireMonth`,
-  `expireYear` and `cardHolderName`; `registerCard: 1` stores the card being
-  charged and exists only on the endpoints that take a number; the hosted
-  checkout form's request has no `cardUserKey` and its answer returns no
-  `cardToken`. iyzico documents no way to fill their vault without holding the
-  number, so the handles arrive from outside this library.
+  **Nothing here stores a card through an API call**, because both ways of
+  doing that carry the number: `POST /cardstorage/card` wants `cardNumber`,
+  `expireMonth`, `expireYear` and `cardHolderName`, and `registerCard: 1`
+  stores the card a payment is already carrying. The hosted checkout form is
+  the pan-free way in, and it now closes the loop —
+  `checkout::CheckoutFormBuilder::card_user_key` sends the key so the form
+  offers a payer their saved cards and files a new one under the same key, and
+  `Charge::raw` at `/cardUserKey` and `/cardToken` is where the pair comes back
+  off `checkout_result`. **Neither field is in `specs/`**: iyzico's
+  documentation of that request and that response mentions neither, and their
+  own SDKs send and read both, so this follows the SDKs and says so.
 
-  There is no 3-D Secure variant. iyzico documents the stored-card pair on
-  `/payment/auth` alone — `/payment/3dsecure/initialize` and `/payment/preauth`
-  both require `cardNumber` and `cvc` — so the chargeback liability for a
-  payment taken this way sits with the merchant.
+  There is no 3-D Secure variant, because this crate implements neither 3-D
+  Secure call — not because a stored card could not go through one. iyzico's
+  own description of `/payment/auth` says a stored card can be charged "NON3D
+  or 3DS". What that means today is that a payment taken through
+  `pay_with_saved_card` is unauthenticated and the chargeback liability sits
+  with the merchant.
 
   The response is verified against the same six signed fields as any other
   payment. Its status comes from `fraudStatus`, which is the one thing left

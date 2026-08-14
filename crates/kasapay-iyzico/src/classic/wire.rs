@@ -114,6 +114,10 @@ pub(crate) struct CheckoutFormRequest<'a> {
     pub(crate) callback_url: String,
     #[serde(rename = "enabledInstallments", skip_serializing_if = "Vec::is_empty")]
     pub(crate) enabled_installments: Vec<u8>,
+    /// Not in iyzico's documentation of this request; in every one of their
+    /// SDKs, which is what this follows.
+    #[serde(rename = "cardUserKey", skip_serializing_if = "Option::is_none")]
+    pub(crate) card_user_key: Option<&'a str>,
     pub(crate) buyer: BuyerBody<'a>,
     #[serde(rename = "billingAddress")]
     pub(crate) billing_address: AddressBody<'a>,

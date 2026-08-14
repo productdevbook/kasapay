@@ -115,6 +115,8 @@ pub struct CheckoutForm {
     pub basket: Vec<BasketItem>,
     /// Which instalment counts to offer, or all of them if empty.
     pub instalments: Vec<u8>,
+    /// Whose saved cards to offer, and whose vault a new one joins.
+    pub card_user_key: Option<Box<str>>,
 }
 
 impl CheckoutForm {
@@ -140,6 +142,7 @@ impl CheckoutForm {
             shipping_address: None,
             basket: Vec::new(),
             instalments: Vec::new(),
+            card_user_key: None,
         }
     }
 }
@@ -156,6 +159,7 @@ pub struct CheckoutFormBuilder {
     shipping_address: Option<Address>,
     basket: Vec<BasketItem>,
     instalments: Vec<u8>,
+    card_user_key: Option<Box<str>>,
 }
 
 impl CheckoutFormBuilder {
@@ -191,6 +195,25 @@ impl CheckoutFormBuilder {
     #[must_use]
     pub fn instalments(mut self, counts: impl IntoIterator<Item = u8>) -> Self {
         self.instalments = counts.into_iter().collect();
+        self
+    }
+
+    /// Shows this payer the cards iyzico already holds for them.
+    ///
+    /// iyzico's `cardUserKey`. The form then lists their saved cards, and a
+    /// card they choose to save on this payment is filed under the same key.
+    ///
+    /// **Send it whenever the payer has one.** Left out, iyzico issues a fresh
+    /// key for any card saved here, and a payer's cards end up scattered across
+    /// keys with nothing tying them together —
+    /// [`Client::stored_cards`](crate::classic::Client::stored_cards) can only
+    /// ever answer for one.
+    ///
+    /// Not in `specs/`: iyzico's documentation of this request does not mention
+    /// the field, and their own SDKs send it.
+    #[must_use]
+    pub fn card_user_key(mut self, key: impl Into<Box<str>>) -> Self {
+        self.card_user_key = Some(key.into());
         self
     }
 
@@ -238,6 +261,7 @@ impl CheckoutFormBuilder {
             shipping_address,
             basket: self.basket,
             instalments: self.instalments,
+            card_user_key: self.card_user_key,
         })
     }
 }

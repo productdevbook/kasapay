@@ -12,20 +12,39 @@
 //!
 //! # Where the card came from
 //!
-//! Not from here. iyzico's vault is filled by `POST /cardstorage/card`, which
-//! wants the number, expiry and holder name — so the handles this module
-//! charges arrive from somewhere that was already in scope to collect a card,
-//! and kasapay is not it. What kasapay does is the other half: read the vault
-//! with [`Client::stored_cards`](crate::classic::Client::stored_cards), let
-//! somebody pick, charge it here, and drop it with
-//! [`Client::forget_card`](crate::classic::Client::forget_card).
+//! Not from here, and not from `POST /cardstorage/card` either — that one wants
+//! the number, expiry and holder name, and is not in this crate. The way a card
+//! gets into the vault without a number crossing this process is the hosted
+//! checkout form, which offers the payer a save-my-card box and answers the
+//! `cardUserKey` and `cardToken` on its result. So the loop is:
 //!
-//! # Not through 3-D Secure
+//! 1. [`Client::start_checkout_form`](crate::classic::Client::start_checkout_form),
+//!    with
+//!    [`card_user_key`](crate::classic::checkout::CheckoutFormBuilder::card_user_key)
+//!    set if the payer already has one
+//! 2. [`Client::checkout_result`](crate::classic::Client::checkout_result), and
+//!    read the pair off [`Charge::raw`](kasapay_core::Charge::raw)
+//! 3. [`Client::stored_cards`](crate::classic::Client::stored_cards) to show
+//!    them again, this module to charge one,
+//!    [`Client::forget_card`](crate::classic::Client::forget_card) to drop it
 //!
-//! iyzico documents `cardUserKey`/`cardToken` on `/payment/auth` and nowhere
-//! else: `/payment/3dsecure/initialize` and `/payment/preauth` both require
-//! `cardNumber` and `cvc`. So a stored-card payment here is the non-3DS one,
-//! and the liability that goes with that is the merchant's.
+//! # Both halves, or neither
+//!
+//! iyzico's error `5111` is *"CardUserKey must be sent with cardToken"*. A
+//! [`Card`] cannot be built with one and not the other, so that refusal happens
+//! here rather than after a round trip.
+//!
+//! # Without 3-D Secure
+//!
+//! `/payment/auth` takes no `callbackUrl` and runs no challenge, so a payment
+//! taken through this module is unauthenticated and the chargeback liability is
+//! the merchant's. iyzico's own description of the endpoint says a stored card
+//! can be charged *"NON3D or 3DS"*, and their legacy field tables mark
+//! `cardNumber` and `cvc` on `/payment/3dsecure/initialize` as required only
+//! *"if the payment is not being made with a stored card"* — so the pair very
+//! likely works there too. This crate implements neither 3-D Secure call, which
+//! is why there is no authenticated variant to offer rather than because there
+//! could not be one.
 
 use kasapay_core::{InstrumentId, Money, MoneyError, OrderRef};
 

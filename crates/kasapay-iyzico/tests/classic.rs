@@ -650,6 +650,88 @@ async fn opening_a_form_gives_a_page_to_send_the_payer_to() {
     }
 }
 
+/// The form is the pan-free way into iyzico's vault, and the key decides whose.
+///
+/// The test above pins the body exactly and carries no `cardUserKey`, so the
+/// pair of them says the field goes out when it is set and is absent when it is
+/// not — an empty one would file the payer's card under a key of iyzico's
+/// choosing.
+#[tokio::test]
+async fn a_form_offers_the_payer_the_cards_iyzico_already_holds_for_them() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let with_key = checkout::CheckoutForm::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "https://merchant.test/callback".parse().expect("valid url"),
+        buyer(),
+    )
+    .billing_address(address())
+    .item(item("149.90"))
+    .card_user_key("card-user-key-1")
+    .build()
+    .expect("valid form");
+
+    client(&server)
+        .start_checkout_form(&with_key)
+        .await
+        .expect("the form opens");
+
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body: serde_json::Value =
+        serde_json::from_slice(&sent.first().expect("one request").body).expect("valid json");
+    assert_eq!(body["cardUserKey"], json!("card-user-key-1"));
+}
+
+/// The pair iyzico answers when the payer saved a card, and where to read it.
+#[tokio::test]
+async fn a_form_the_payer_saved_a_card_on_answers_the_handles_for_it() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            "currency": "TRY",
+            "token": "cf-token-1",
+            "cardUserKey": "card-user-key-1",
+            "cardToken": "card-token-1",
+            "lastFourDigits": "0004",
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .checkout_result(&FormToken::issued("cf-token-1"))
+        .await
+        .expect("the form reads back");
+
+    // Not on the Charge: a saved card is one provider's idea, and the shared
+    // type has no field for it.
+    let key = charge.raw.text_at("/cardUserKey").expect("the vault's key");
+    let token = charge.raw.text_at("/cardToken").expect("the card's token");
+    let card = saved::Card::new(key, InstrumentId::issued(token)).expect("a card to charge again");
+    assert_eq!(card.user_key(), "card-user-key-1");
+    assert_eq!(card.token().as_str(), "card-token-1");
+}
+
 #[tokio::test]
 async fn a_finished_form_reports_the_payment() {
     let server = MockServer::start().await;

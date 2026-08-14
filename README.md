@@ -125,15 +125,17 @@ field for a number and refuses a value that is one by shape.
 `Capabilities::saved_instruments` says which providers can do this before there
 is a payment to ask about.
 
-**Storing a card is where the number is, and kasapay does not do it.** iyzico's
-vault is filled by `POST /cardstorage/card`, which wants `cardNumber`,
-`expireMonth`, `expireYear` and `cardHolderName`, or by `registerCard: 1` on a
-payment that already carries a number; their hosted form neither takes a
-`cardUserKey` nor answers a `cardToken`. So a caller with a stored card either
-was already in scope to collect one or got the handles from something that was,
-and kasapay charges what it is given. That is iyzico's boundary rather than a
-choice made here, and the same shape holds for Stripe, where the `pm_…` is made
-in the browser and never on the server.
+**The card gets into the vault through the hosted form, not through an API
+call.** `POST /cardstorage/card` wants `cardNumber`, `expireMonth`,
+`expireYear` and `cardHolderName`, and `registerCard: 1` stores the card a
+payment already carries — neither is in this crate. iyzico's checkout form
+offers the payer a save-my-card box instead, and answers the `cardUserKey` and
+`cardToken` on its result: `checkout::CheckoutFormBuilder::card_user_key` sends
+the key so a payer's cards stay under one, and `Charge::raw` at `/cardUserKey`
+and `/cardToken` is where the pair comes back. Neither field is in `specs/` —
+iyzico's documentation of that request and that response mentions neither, and
+their own SDKs send and read both. Stripe is the same shape from the other
+side: the `pm_…` is made by Stripe.js in the browser, never on the server.
 
 ## Amounts
 

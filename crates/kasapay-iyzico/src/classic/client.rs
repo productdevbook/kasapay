@@ -148,6 +148,11 @@ impl Client {
     /// [`Charge::id`] is `None` here: iyzico issues no `paymentId` until the
     /// payer finishes, and the token is a [`FormToken`] rather than a payment
     /// id. The first charge to carry one is the one `checkout_result` answers.
+    ///
+    /// This is also how a card gets into iyzico's vault without a number
+    /// crossing this process: the form offers the payer a save-my-card box, and
+    /// [`CheckoutFormBuilder::card_user_key`](crate::classic::checkout::CheckoutFormBuilder::card_user_key)
+    /// decides whose vault it joins.
     pub async fn start_checkout_form(&self, form: &CheckoutForm) -> Result<Charge, Error> {
         let currency = form.price.currency();
         let body = wire::CheckoutFormRequest {
@@ -159,6 +164,7 @@ impl Client {
             basket_id: form.order.as_str(),
             callback_url: form.callback_url.to_string(),
             enabled_installments: form.instalments.clone(),
+            card_user_key: form.card_user_key.as_deref(),
             buyer: buyer_body(&form.buyer),
             billing_address: address_body(&form.billing_address),
             shipping_address: address_body(&form.shipping_address),
@@ -239,6 +245,27 @@ impl Client {
     ///     iyzipay.checkout_result(payment).await.ok();
     /// }
     /// ```
+    ///
+    /// # A card the payer chose to save comes back here
+    ///
+    /// On [`Charge::raw`], at `/cardUserKey` and `/cardToken`, and not on the
+    /// [`Charge`] itself: a saved instrument is one provider's idea and the
+    /// shared type has no field for it.
+    ///
+    /// ```no_run
+    /// # use kasapay_core::{Charge, InstrumentId};
+    /// # use kasapay_iyzico::classic::saved;
+    /// # fn read(charge: &Charge) -> Option<saved::Card> {
+    /// let key = charge.raw.text_at("/cardUserKey")?;
+    /// let token = charge.raw.text_at("/cardToken")?;
+    /// saved::Card::new(key, InstrumentId::issued(token)).ok()
+    /// # }
+    /// ```
+    ///
+    /// Neither field is in `specs/` — iyzico's documentation of this response
+    /// lists neither — and both are in their own SDKs and in the sample result
+    /// on their documentation site. A form the payer did not save a card on
+    /// carries neither.
     pub async fn checkout_result(&self, token: &FormToken) -> Result<Charge, Error> {
         let body = wire::CheckoutResultRequest {
             locale: "tr",
@@ -330,10 +357,10 @@ impl Client {
     ///
     /// # This is a payment without 3-D Secure
     ///
-    /// iyzico documents the stored-card pair on this endpoint alone. The 3-D
-    /// Secure initialise requires `cardNumber` and `cvc`, so there is no
-    /// authenticated variant of this call to offer, and the chargeback
-    /// liability for a payment taken this way sits with the merchant.
+    /// `/payment/auth` runs no challenge, so the chargeback liability for a
+    /// payment taken this way sits with the merchant. There is no authenticated
+    /// variant here because this crate implements neither 3-D Secure call, not
+    /// because a stored card could not go through one — see [`saved`].
     ///
     /// # The status comes from `fraudStatus`
     ///

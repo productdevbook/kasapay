@@ -51,19 +51,30 @@
 //! `/payment/auth` endpoint an ordinary card payment uses, filled the other of
 //! the two ways iyzico documents for it.
 //!
-//! What is left out is storing a card, and that is iyzico's boundary rather
-//! than a decision here. `POST /cardstorage/card` wants `cardNumber`,
-//! `expireMonth`, `expireYear` and `cardHolderName`; `registerCard: 1` on a
-//! payment stores the card being charged, and is only available on the
-//! endpoints that take a number. **iyzico documents no way to put a card in
-//! their vault without holding the number** — not on the checkout form, whose
-//! request has no `cardUserKey` and whose answer returns no `cardToken`, and
-//! not anywhere else. A caller who wants a stored card either was already in
-//! scope to collect one, or gets the handles from something that was.
+//! What is left out is the API call that stores a card. `POST
+//! /cardstorage/card` wants `cardNumber`, `expireMonth`, `expireYear` and
+//! `cardHolderName`, and `registerCard: 1` stores the card being charged and
+//! exists only on the endpoints that take a number. Neither is here.
 //!
-//! So: read the vault, charge it, empty it. Filling it is somebody else's act,
-//! and the handles come in through
-//! [`InstrumentId`](kasapay_core::InstrumentId).
+//! **The hosted form fills the vault instead, and no card number goes near
+//! this process while it does.** iyzico's form offers the payer a save-my-card
+//! box of its own, and the `cardUserKey` and `cardToken` it produces come back
+//! on the form's result. Neither field is in `specs/`, whose record of the
+//! form's request and answer is silent on both — they are in iyzico's own SDKs
+//! and in the sample result on their documentation site, so this crate follows
+//! those rather than pretending the loop is open.
+//!
+//! [`CheckoutFormBuilder::card_user_key`](checkout::CheckoutFormBuilder::card_user_key)
+//! is the outbound half: send the key a payer already has and iyzico shows
+//! them their saved cards and files any new one under the same key. Without
+//! it, every card a payer saves lands under a key of its own and nothing ties
+//! them together. The inbound half is on
+//! [`Charge::raw`](kasapay_core::Charge::raw), because a saved card is not
+//! something the shared [`Charge`](kasapay_core::Charge) has a field for —
+//! [`Client::checkout_result`] says which two paths to read.
+//!
+//! So: fill the vault through the form, read it, charge it, empty it, and hold
+//! the handles as [`InstrumentId`](kasapay_core::InstrumentId).
 //!
 //! The other reason a payment cannot go through
 //! [`Provider::charge`](kasapay_core::Provider::charge) is unchanged: iyzico
