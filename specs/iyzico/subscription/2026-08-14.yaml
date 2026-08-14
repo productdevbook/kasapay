@@ -28,8 +28,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       requestBody:
         required: true
         content:
@@ -58,8 +58,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       requestBody:
         required: true
         content:
@@ -88,8 +88,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       - name: token
         in: path
         required: true
@@ -123,8 +123,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
       - name: page
         in: query
         required: false
@@ -162,8 +162,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
       - name: customerReferenceCode
         in: path
         required: true
@@ -196,8 +196,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
       - name: customerReferenceCode
         in: path
         required: true
@@ -226,8 +226,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       requestBody:
         required: true
         content:
@@ -258,8 +258,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       requestBody:
         required: true
         content:
@@ -290,8 +290,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       requestBody:
         required: true
         content:
@@ -419,8 +419,8 @@ paths:
       tags:
       - Subscription Product
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -450,8 +450,8 @@ paths:
       tags:
       - Subscription Product
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: false
         content:
@@ -481,8 +481,8 @@ paths:
       tags:
       - Subscription Product
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       - name: productReferenceCode
         in: path
         required: true
@@ -517,8 +517,8 @@ paths:
       tags:
       - Subscription Product
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       - name: productReferenceCode
         in: path
         required: true
@@ -546,8 +546,8 @@ paths:
       tags:
       - Subscription Product
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       - name: productReferenceCode
         in: path
         required: true
@@ -652,34 +652,34 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       - name: subscriptionReferenceCode
-        in: path
+        in: query
         required: false
         schema:
           type: string
         description: Reference code of the subscription to query.
       - name: customerReferenceCode
-        in: path
+        in: query
         required: false
         schema:
           type: string
         description: Customer reference code.
       - name: pricingPlanReferenceCode
-        in: path
+        in: query
         required: false
         schema:
           type: string
         description: Reference code of the pricing plan used in the subscription.
       - name: parent
-        in: path
+        in: query
         required: false
         schema:
           type: string
         description: Parent reference code used for matching in subscription updates.
       - name: subscriptionStatus
-        in: path
+        in: query
         required: false
         schema:
           type: string
@@ -692,25 +692,25 @@ paths:
           - EXPIRED
         description: Subscription status filter.
       - name: startDate
-        in: path
+        in: query
         required: false
         schema:
           type: integer
         description: Subscription start date.
       - name: endDate
-        in: path
+        in: query
         required: false
         schema:
           type: integer
         description: Subscription end date (epoch ms).
       - name: page
-        in: path
+        in: query
         required: false
         schema:
           type: integer
         description: Page number.
       - name: count
-        in: path
+        in: query
         required: false
         schema:
           type: integer
@@ -736,8 +736,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       - name: subscriptionReferenceCode
         in: path
         required: true
@@ -765,8 +765,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader5'
+      - $ref: '#/components/parameters/ContentTypeHeader5'
       - name: subscriptionReferenceCode
         in: path
         required: true
@@ -800,8 +800,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       - name: subscriptionReferenceCode
         in: path
         required: true
@@ -839,8 +839,8 @@ paths:
       tags:
       - Subscription
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       - name: subscriptionReferenceCode
         in: path
         required: true
@@ -868,6 +868,88 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse6'
       x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, IYZWSv2 ile başlayan ve base64 formatında üretilmiş imzalı hash
+        değeridir.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Format of the request payload.
+    AuthHeader2:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+      schema:
+        type: string
+    ContentTypeHeader2:
+      name: Content-Type
+      in: header
+      required: true
+      description: Content type of the request body.
+      schema:
+        type: string
+    AuthHeader3:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+    ContentTypeHeader3:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request content type.
+    AuthHeader4:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, a signed hash value that starts with **IYZWSv2** and is produced
+        in Base64 format.
+    ContentTypeHeader4:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: The request content type.
+    AuthHeader5:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header; a Base64-encoded signed hash value that begins with IYZWSv2.
+    ContentTypeHeader5:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request body content type.
+    ContentTypeHeader6:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content format of the request.
   schemas:
     ActivateSubscriptionRequest:
       type: object
@@ -918,8 +1000,9 @@ components:
           type: string
           description: Pricing plan name.
         price:
-          type: decimal
+          type: string
           description: Amount to charge on each billing period.
+          format: decimal
         currencyCode:
           type: string
           enum:
@@ -988,8 +1071,9 @@ components:
               type: string
               description: Product reference code.
             price:
-              type: decimal
+              type: string
               description: Subscription price.
+              format: decimal
             currencyCode:
               type: string
               enum:
@@ -1042,8 +1126,9 @@ components:
               type: string
               description: Product reference code.
             price:
-              type: decimal
+              type: string
               description: Subscription price.
+              format: decimal
             currencyCode:
               type: string
               enum:
@@ -1578,8 +1663,9 @@ components:
           type: string
           description: Plan name.
         price:
-          type: decimal
+          type: string
           description: Plan price (Decimal).
+          format: decimal
         paymentInterval:
           type: string
           enum:
@@ -2106,8 +2192,9 @@ components:
           type: string
           description: Reference code of the subscription period (order).
         price:
-          type: decimal
+          type: string
           description: Period price.
+          format: decimal
         currencyCode:
           type: string
           enum:
@@ -2326,8 +2413,9 @@ components:
               type: string
               description: Updated plan name.
             price:
-              type: decimal
+              type: string
               description: Plan price.
+              format: decimal
             paymentInterval:
               type: string
               enum:
@@ -2434,8 +2522,10 @@ components:
               type: integer
               description: Creation time (epoch ms).
             startDate:
-              type: date
+              type: string
               description: Start time (epoch ms).
+              format: date
             endDate:
-              type: date
+              type: string
               description: End time (epoch ms).
+              format: date

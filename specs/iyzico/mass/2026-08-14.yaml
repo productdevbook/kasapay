@@ -172,6 +172,32 @@ paths:
                 $ref: '#/components/schemas/MassPayoutItemRetrieveResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/mass-payout-reporting.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+      schema:
+        type: string
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      description: Content-Type value.
+      schema:
+        type: string
+    LocaleQuery:
+      name: locale
+      in: query
+      required: true
+      description: Response language.
+      schema:
+        type: string
+        enum:
+        - tr
+        - en
   schemas:
     Amount:
       type: object
@@ -181,8 +207,9 @@ components:
       - currency
       properties:
         value:
-          type: decimal
+          type: string
           description: Amount to send.
+          format: decimal
         currency:
           type: string
           description: Currency code.
@@ -233,8 +260,9 @@ components:
         systemTime:
           type: integer
         balance:
-          type: decimal
+          type: string
           description: Available balance amount for mass payout transactions.
+          format: decimal
     MassPayoutInitializeRequest:
       type: object
       description: Mass payout initialization request.
@@ -367,9 +395,11 @@ components:
           items:
             type: string
         totalAmount:
-          type: decimal
+          type: string
+          format: decimal
         commissionAmount:
-          type: decimal
+          type: string
+          format: decimal
         currencyCode:
           type: string
     MassPayoutItemRetrieveResponse:
@@ -452,9 +482,11 @@ components:
         merchantId:
           type: integer
         totalAmount:
-          type: decimal
+          type: string
+          format: decimal
         totalSuccessfulAmount:
-          type: decimal
+          type: string
+          format: decimal
         massPayoutStatus:
           type: string
           description: Mass payout lifecycle status (enum).
@@ -467,6 +499,7 @@ components:
           - INSUFFICIENT_BALANCE
           - CANCELED
         totalCommissionAmount:
-          type: decimal
+          type: string
+          format: decimal
         currency:
           type: string

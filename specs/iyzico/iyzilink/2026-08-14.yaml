@@ -75,10 +75,10 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+          - tr
+          - en
         description: Response language.
-        enum:
-        - tr
-        - en
       - name: page
         in: query
         required: false
@@ -128,10 +128,10 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+          - tr
+          - en
         description: Response language (default **en**).
-        enum:
-        - tr
-        - en
       - name: conversationId
         in: query
         required: false
@@ -193,10 +193,10 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+          - tr
+          - en
         description: Response language (default **en**).
-        enum:
-        - tr
-        - en
       - name: conversationId
         in: query
         required: false
@@ -241,10 +241,10 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+          - tr
+          - en
         description: Response language (default **en**).
-        enum:
-        - tr
-        - en
       - name: conversationId
         in: query
         required: false
@@ -260,6 +260,25 @@ paths:
                 $ref: '#/components/schemas/BasicStatusResponse'
       x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      description: 'Signature value starting with IYZWSv2 (Base64).
+
+        '
+      schema:
+        type: string
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      description: Request body content type.
+      schema:
+        type: string
+        enum:
+        - application/json
   schemas:
     BasicStatusResponse:
       type: object

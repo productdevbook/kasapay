@@ -21,12 +21,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: pip install pyyaml
+      - run: pip install pyyaml openapi-spec-validator
       - name: Refetch the specs under today's date
         run: |
           set -euo pipefail
           python3 scripts/merge_iyzico.py
           python3 scripts/fetch_stripe.py
+      - name: The refetched specs must still be valid
+        run: python3 scripts/validate_specs.py --strict
       - name: Open a pull request if anything moved
         uses: peter-evans/create-pull-request@v7
         with:

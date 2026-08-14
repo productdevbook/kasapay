@@ -463,6 +463,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Bearer Token authentication is performed using the access token.
+  parameters:
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content type
   schemas:
     AddedSaleItem:
       type: object
@@ -483,14 +491,17 @@ components:
           type: integer
           description: Item quantity
         unitPriceAmount:
-          type: decimal
+          type: string
           description: Unit price
+          format: decimal
         grossPriceAmount:
-          type: decimal
+          type: string
           description: Gross price
+          format: decimal
         totalPriceAmount:
-          type: decimal
+          type: string
           description: Total price
+          format: decimal
     BuyerInfo:
       type: object
       properties:
@@ -683,8 +694,9 @@ components:
           type: string
           description: saleNumber returned from the Start step
         price:
-          type: decimal
+          type: string
           description: Amount to be paid in this step. Must not exceed the remaining amount
+          format: decimal
         installment:
           type: integer
           description: Installment count. Default is 1
@@ -719,8 +731,9 @@ components:
       - type: object
         properties:
           remainingPaymentAmount:
-            type: decimal
+            type: string
             description: Remaining payment amount. It must be 0 when completion is successful
+            format: decimal
     GmuPartialPaymentStartResponse:
       type: object
       properties:
@@ -744,8 +757,9 @@ components:
           description: Main payment ID representing the partial payment flow. Used in Add Partial Payment
             and Complete Partial Payment steps.
         remainingPaymentAmount:
-          type: decimal
+          type: string
           description: Remaining unpaid amount
+          format: decimal
     GmuPaymentRequest:
       type: object
       required:
@@ -773,11 +787,13 @@ components:
           description: Unique reference ID assigned by the caller for this transaction. It can be used
             in void and query operations.
         price:
-          type: decimal
+          type: string
           description: Gross amount. Must be positive
+          format: decimal
         paidPrice:
-          type: decimal
+          type: string
           description: Final payable amount. Must be positive
+          format: decimal
         paymentType:
           type: string
           description: Payment type. Card, Cash, etc.
@@ -857,8 +873,9 @@ components:
           type: integer
           description: Payment date. In YYYYMMDD format
         price:
-          type: decimal
+          type: string
           description: Transaction amount
+          format: decimal
         installment:
           type: integer
           description: Installment count
@@ -1018,11 +1035,13 @@ components:
           type: string
           description: Reference ID of the refund transaction
         price:
-          type: decimal
+          type: string
           description: Refund amount
+          format: decimal
         vatAmount:
-          type: decimal
+          type: string
           description: VAT amount
+          format: decimal
         currency:
           type: string
           description: Currency
@@ -1092,8 +1111,9 @@ components:
           type: string
           description: Unique ID of the sale. Used as relatedSaleId in the refund request.
         totalReturnableAmount:
-          type: decimal
+          type: string
           description: Total refundable amount
+          format: decimal
         currency:
           type: string
           description: Currency
@@ -1162,8 +1182,9 @@ components:
           type: string
           description: Voided payment ID
         price:
-          type: decimal
+          type: string
           description: Void amount
+          format: decimal
         currency:
           type: string
           description: Currency
@@ -1222,11 +1243,9 @@ components:
           description: Unique identifier defined for the terminal/device where the transaction is performed.
         transactionReferenceId:
           nullable: true
-          oneOf:
-          - type: string
-          - type: 'null'
           description: Unique reference number generated during the transaction for the payment/void/refund
             operation to be queried.
+          type: string
     RefundPaymentRequest:
       type: object
       required:
@@ -1283,17 +1302,20 @@ components:
           type: integer
           description: Item quantity
         totalPriceAmount:
-          type: decimal
+          type: string
           description: Total price
+          format: decimal
         vatAmount:
-          type: decimal
+          type: string
           description: VAT amount
+          format: decimal
         returnableQuantity:
           type: integer
           description: Refundable quantity
         returnableAmount:
-          type: decimal
+          type: string
           description: Refundable amount
+          format: decimal
     SaleItem:
       type: object
       required:
@@ -1321,14 +1343,17 @@ components:
           type: integer
           description: Item quantity
         unitPriceAmount:
-          type: decimal
+          type: string
           description: Unit price. Must be positive
+          format: decimal
         grossPriceAmount:
-          type: decimal
+          type: string
           description: Gross price. Must be positive
+          format: decimal
         totalPriceAmount:
-          type: decimal
+          type: string
           description: Total price. Must be positive
+          format: decimal
     TailDto:
       type: object
       properties:
