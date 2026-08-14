@@ -122,17 +122,16 @@ paths:
     post:
       tags:
       - Mass Payout
-      summary: Retrieve Mass Payout and Items Detail
-      description: 'Retrieves the details of a **Mass Payout** and its contained payout items.
+      summary: Toplu Ödeme Detayı Getir
+      description: 'Toplu ödeme ve kırılım detaylarını döndürür.
 
-        You must provide **either** `requestId` **or** `externalMassPayoutId` (or both), along with pagination
-        parameters.
+        requestId veya externalMassPayoutId alanlarından en az biri gönderilmelidir.
 
         '
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
-      - $ref: '#/components/parameters/LocaleQuery'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      - $ref: '#/components/parameters/LocaleQuery2'
       requestBody:
         required: true
         content:
@@ -141,12 +140,12 @@ paths:
               $ref: '#/components/schemas/MassPayoutRetrieveRequest'
       responses:
         '200':
-          description: Successful
+          description: Başarılı
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MassPayoutRetrieveResponse'
-      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/retrieve-mass-payout.md
+      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-raporlama.md
   /v1/mass/payout/retrieve/items/{referenceCode}:
     get:
       tags:
@@ -193,6 +192,31 @@ components:
       in: query
       required: true
       description: Response language.
+      schema:
+        type: string
+        enum:
+        - tr
+        - en
+    AuthHeader2:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header, IYZWSv2 ile başlayan ve base64 formatında üretilmiş imzalı hash
+        değeridir.
+      schema:
+        type: string
+    ContentTypeHeader2:
+      name: Content-Type
+      in: header
+      required: true
+      description: İçerik tipi değeri.
+      schema:
+        type: string
+    LocaleQuery2:
+      name: locale
+      in: query
+      required: true
+      description: Yanıt dili.
       schema:
         type: string
         enum:
@@ -402,6 +426,52 @@ components:
           format: decimal
         currencyCode:
           type: string
+    MassPayoutItemDetail2:
+      type: object
+      description: Toplu ödeme kırılım detayı.
+      properties:
+        itemExternalId:
+          type: string
+        referenceCode:
+          type: string
+        recipientType:
+          type: string
+          enum:
+          - PHONE
+          - IBAN
+          - IDENTITY_NUMBER
+          - MEMBER_ID
+        recipientInfo:
+          type: string
+        recipientName:
+          type: string
+        description:
+          type: string
+        itemStatus:
+          type: string
+          description: Toplu ödeme kırılımı statü durumu.
+          enum:
+          - FAILED
+          - SUCCESS
+          - INIT
+          - INVALID
+          - PROCESSING
+          - MASS_PAYOUT_CANCELED
+          - QUEUED
+          - DEPOSIT_SUCCESS
+          - DEPOSIT_FAIL
+        errorMessages:
+          type: array
+          items:
+            type: string
+        totalAmount:
+          type: string
+          format: decimal
+        commissionAmount:
+          type: string
+          format: decimal
+        currencyCode:
+          type: string
     MassPayoutItemRetrieveResponse:
       type: object
       description: Mass payout single item detail response.
@@ -419,50 +489,52 @@ components:
           $ref: '#/components/schemas/MassPayoutItemDetail'
     MassPayoutItemsPage:
       type: object
-      description: Paged list of mass payout items.
+      description: Toplu ödeme kırılımlarının sayfalı listesi.
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/MassPayoutItemDetail'
+            $ref: '#/components/schemas/MassPayoutItemDetail2'
     MassPayoutRetrieveRequest:
       type: object
-      description: Retrieve mass payout and item details.
+      description: requestId veya externalMassPayoutId alanlarından en az biri gönderilmelidir.
       required:
+      - itemType
       - page
       - size
-      anyOf:
-      - required:
-        - requestId
-      - required:
-        - externalMassPayoutId
       properties:
         requestId:
           type: string
-          description: Correlation / tracking identifier for the mass payout.
+          description: Toplu ödeme için korelasyon/takip kimliği. Init işleminin response'u üzerinde dönmektedir.
         externalMassPayoutId:
           type: string
-          description: Unique id for the mass payout request (idempotency).
+          description: Toplu ödeme isteği için benzersiz kimlik (idempotency).
+        itemType:
+          type: string
+          description: Kırılım filtre tipi.
+          enum:
+          - VALID
+          - INVALID
         page:
           type: integer
-          description: Page number to retrieve.
+          description: Getirilecek sayfa numarası.
         size:
           type: integer
-          description: Number of results per page.
+          description: Sayfa başına sonuç adedi.
     MassPayoutRetrieveResponse:
       type: object
-      description: Mass payout and items detail response.
+      description: Toplu ödeme ve kırılım detayları yanıtı.
       properties:
         status:
           type: string
           enum:
           - success
           - failure
-        systemTime:
-          type: integer
-          description: System time (epoch ms).
         locale:
           type: string
+        systemTime:
+          type: integer
+          description: Sistem zamanı (epoch ms).
         massPayout:
           $ref: '#/components/schemas/MassPayoutSummary'
         massPayoutItems:
@@ -475,7 +547,7 @@ components:
           type: integer
     MassPayoutSummary:
       type: object
-      description: Summary information for a mass payout.
+      description: Toplu ödeme özet bilgileri.
       properties:
         externalId:
           type: string
@@ -489,7 +561,7 @@ components:
           format: decimal
         massPayoutStatus:
           type: string
-          description: Mass payout lifecycle status (enum).
+          description: Toplu ödemenin yaşam döngüsü durumu (enum).
           enum:
           - INIT
           - IN_PROGRESS
