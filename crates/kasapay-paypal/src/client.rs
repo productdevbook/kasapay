@@ -121,8 +121,9 @@ impl CachedToken {
 /// whether `create_order` or `capture_order` runs once.
 ///
 /// So this client refreshes **proactively**, before a stale token is ever
-/// sent: [`TOKEN_REFRESH_MARGIN`] is checked ahead of every call, not after
-/// one fails. What it does not do is retry automatically. If PayPal still
+/// sent: a margin against the cached token's own expiry is checked ahead of
+/// every call, not after one fails. What it does not do is retry
+/// automatically. If PayPal still
 /// answers `401` — a token revoked early, a clock skew this client's own
 /// check did not catch — that comes back as [`ErrorKind::Auth`], the same as
 /// Terminal's expired-token answer, and nothing here retries the call that
