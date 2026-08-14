@@ -1,0 +1,24 @@
+{
+  "source": "https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/checkout_orders_v2.json",
+  "fetched": "2026-08-15",
+  "api_version": "2.32",
+  "licence": "Apache-2.0",
+  "document_kept": true,
+  "upstream_sha256": "14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6",
+  "kept_paths": [
+    "/v2/checkout/orders",
+    "/v2/checkout/orders/{id}",
+    "/v2/checkout/orders/{id}/capture"
+  ],
+  "missing_paths": [],
+  "operations": [
+    "orders.capture",
+    "orders.create",
+    "orders.get"
+  ],
+  "component_counts": {
+    "parameters": 3,
+    "responses": 5,
+    "schemas": 197
+  }
+}

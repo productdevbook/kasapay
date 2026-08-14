@@ -53,10 +53,23 @@ impl ErrorKind {
     /// | iyzico | **not documented safe** — it refuses an idempotency key, and does not say what a reused `orderId` does |
     /// | PayTR | **not documented safe** — no idempotency mechanism is documented for opening a payment |
     /// | Mollie | safe — `ChargeRequest::idempotency_key` is sent as `Idempotency-Key`, and Mollie replays the first answer for an hour |
+    /// | PayPal | safe — `ChargeRequest::idempotency_key` is sent as `PayPal-Request-Id`, and PayPal returns the first answer for a repeated key |
     ///
     /// Where it is not safe, read the payment back with
     /// [`Provider::charge_status`](crate::Provider::charge_status) before
     /// sending it again. Reading is always safe.
+    ///
+    /// **Replaying a capture is a narrower question, and PayPal is the
+    /// provider that shows why this table cannot answer it.** PayPal takes
+    /// the same `PayPal-Request-Id` on its capture call that it does on
+    /// opening a charge, and replaying one without a key can capture the same
+    /// order twice — but [`Provider::capture`](crate::Provider::capture)'s
+    /// signature carries no idempotency key for an adapter to send, unlike
+    /// [`Provider::charge`](crate::Provider::charge). `kasapay_paypal::PayPal`
+    /// exposes its own `capture_order` with a `request_id` parameter for a
+    /// caller working directly against that crate; going through
+    /// [`Provider`](crate::Provider) alone, a capture whose outcome
+    /// `is_retryable` does not resolve is read back, never resent.
     #[must_use]
     pub const fn is_retryable(self) -> bool {
         matches!(self, Self::RateLimited | Self::Transport | Self::Provider)

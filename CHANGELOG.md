@@ -118,6 +118,69 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay-paypal`, a fifth provider — the first that is neither card-first
+  nor a redirect-and-forget checkout.** `kasapay = { features = ["paypal"] }`.
+  PayPal's Orders v2 API behind the same trait, deliberately scoped to its
+  spine: `charge` creates an order with `intent: CAPTURE` and answers a
+  `NextAction::Redirect` to PayPal's approval page, `charge_status` reads it
+  back by the order id PayPal issued, and `capture` takes the funds once the
+  payer has approved it. Tests run against `wiremock` with PayPal's own
+  documented example bodies from `paypal/paypal-rest-api-specifications`.
+
+  **`Provider::cancel` always refuses, and it is not a gap in this crate.**
+  PayPal's Orders v2 API has no cancel or void operation at all — no `DELETE`,
+  nothing that withdraws an order — so the trait method this workspace's other
+  four providers each answer for real has nothing to call here. An order the
+  payer never approves is simply left to age off PayPal's own side.
+
+  **Every PayPal order needs an explicit capture regardless of intent**, which
+  is not true of Mollie's automatic-capture payment or a succeeding Stripe
+  PaymentIntent. So `capabilities().separate_capture` is `true`
+  unconditionally, `partial_capture` is `false` — the Orders-level capture
+  takes no amount at all, so `Provider::capture` refuses `Some` before a
+  socket opens — and `Provider::charge` never creates an order with
+  `intent: AUTHORIZE`: that intent buys a longer hold through a separate
+  Authorizations resource this crate does not implement, not a way to skip the
+  capture call.
+
+  **OAuth2 client-credentials, and this client renews its own token** — a
+  deliberately different choice from `kasapay_iyzico::terminal`, whose caller
+  owns the token and which never renews automatically. Getting a bearer token
+  has no real-world action in it the way presenting a card at a terminal does,
+  so there is no replay ambiguity in refreshing one early; `PayPal` checks a
+  cached token's expiry before every call rather than after one fails, and
+  still does not retry a failed *business* call on its own. Replaying a
+  capture without care can capture twice — PayPal takes a `PayPal-Request-Id`
+  on that call the same as it does on opening a charge — and
+  `Provider::capture`'s signature carries no idempotency key for the trait to
+  send it with; `PayPal::capture_order` is the one place a caller working
+  directly against this crate can pass one.
+
+  **PayPal takes neither Turkish lira nor Kuwaiti dinar**, the same two Mollie
+  refuses, because both are simply absent from PayPal's twenty-five-currency
+  list. `ChargeRequest::customer` and `::metadata` are not read — Orders v2
+  names no payer identity outside its separate Vault API and has no free-form
+  key/value bag — and `::return_url`, when set, is sent as both PayPal's
+  `return_url` and `cancel_url`, the same simplification Mollie's one
+  `redirectUrl` makes, because `ChargeRequest` has no field for the second.
+
+  **PayPal's own documented examples never show a created, read or captured
+  order's top-level `status`**, despite the schema declaring one. This crate
+  reads a status instead from whichever of a capture's own status, an
+  authorization's own status, the top-level status when it is finally present,
+  or an `approve`/`payer-action` link actually carries one — unverified
+  against a live sandbox account; the crate documentation says which order and
+  why. Its capture status also folds `PARTIALLY_REFUNDED` and `REFUNDED` into
+  the same enum as `COMPLETED`, the first provider here to do that; both read
+  as `Status::Captured`, and `Status`'s own table now carries PayPal's row and
+  says so.
+
+  `specs/paypal/` records PayPal's OpenAPI document — Apache-2.0, permissive
+  like Stripe's, so the subset is kept rather than thrown away the way
+  Mollie's is. `scripts/fetch_paypal.py` cuts `checkout_orders_v2.json` to the
+  three operations this crate maps and rolls the subset forward in
+  `latest.yaml`, the same as `fetch_stripe.py`.
+
 - **`kasapay_iyzico::onboarding`, all three iyzico sub-merchant operations.**
   Creating, updating and reading back a marketplace sub-merchant — a different
   legal person taking money through the platform's own iyzico integration, so

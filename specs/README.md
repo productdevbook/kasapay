@@ -4,10 +4,11 @@ What each provider said its API was, on the day it was asked. A record, not a
 contract. Nothing in `crates/` is generated from these — they exist so a change
 upstream shows up as a diff here before it shows up as a failure in production.
 
-Three of the four keep the description itself. **Mollie's is recorded without a
+Four of the five keep the description itself. **Mollie's is recorded without a
 copy of it**, because theirs is licensed CC-BY-NC-SA and this repository is
 MIT; `specs/mollie/` holds a dated meta and two hashes instead, and the section
-below says what that buys and what it costs.
+below says what that buys and what it costs. PayPal's document is Apache-2.0,
+permissive like Stripe's MIT, so its subset is kept the same way Stripe's is.
 
 `.github/workflows/spec-drift.yml` refetches weekly and opens a PR when
 anything moved.
@@ -257,6 +258,52 @@ kasapay does not generate a Stripe client from this. `kasapay-stripe` wraps
 from the same document by people who do it full time. The subset here is for
 reading when a mapping looks wrong.
 
+## PayPal — `specs/paypal/`
+
+    <YYYY-MM-DD>.meta.json   the API version, and a hash of the full upstream document
+    latest.yaml              the subset kasapay-paypal maps, resolved to its schemas
+
+PayPal publishes one OpenAPI document per API, in
+[paypal/paypal-rest-api-specifications](https://github.com/paypal/paypal-rest-api-specifications),
+under **Apache-2.0** — checked against `LICENSE` in that repository, since the
+document's own `info` block carries no `license` field the way Mollie's does.
+Apache-2.0 is permissive the way Stripe's MIT is, so the subset itself is kept
+rather than thrown away: `scripts/fetch_paypal.py` fetches
+`openapi/checkout_orders_v2.json`, cuts it to the three operations
+`kasapay-paypal` maps — create an order, read it back, capture it — and rolls
+the subset forward into `latest.yaml` the same way `fetch_stripe.py` does,
+because Orders v2's `order` schema pulls in every `payment_source` PayPal
+documents and a dated copy per fetch would buy diffs nobody can read.
+
+### One path carries a fourth verb this crate does not implement
+
+`/v2/checkout/orders/{id}` documents both `GET` and `PATCH` — reading an order
+back, and editing one already created. `kasapay-paypal` implements only the
+read, so `KEEP` in the fetcher names `(path, verb)` pairs rather than bare
+paths: keeping the whole path item would have pulled `PATCH`'s JSON Patch
+request schema into the subset and into `compare_specs.py`'s count of what
+this crate maps, for an operation nothing here calls.
+
+### What the document does not say
+
+**Which currencies PayPal takes.** `currency_code` is described as "the
+three-character ISO-4217 currency code" and enumerates nothing — the same gap
+Mollie's document has. The list of twenty-five, and which have no minor unit,
+is on PayPal's [currency codes reference][paypal-currencies] and nowhere
+machine-readable in the OpenAPI document itself. `kasapay-paypal` maps seven of
+them and refuses Turkish lira and Kuwaiti dinar before a request is built —
+the same two Mollie refuses, because both are simply absent from PayPal's
+list too.
+
+**What a created or captured order's top-level `status` actually looks
+like.** The schema declares the field and the `Prefer` header's own prose says
+a minimal response includes it, but not one of the three documented example
+responses this crate's operations answer with — not create, not read, not
+capture — carries one. `kasapay-paypal`'s own documentation says what it reads
+instead.
+
+[paypal-currencies]: https://developer.paypal.com/api/rest/reference/currency-codes/
+
 ## Mollie — `specs/mollie/`
 
     <YYYY-MM-DD>.meta.json   the whole of what is kept
@@ -379,9 +426,10 @@ so will the next provider whose examples carry a field of that name.
     python3 scripts/merge_iyzico.py    # writes today's date
     python3 scripts/fetch_stripe.py
     python3 scripts/fetch_paytr.py
+    python3 scripts/fetch_paypal.py
     python3 scripts/fetch_mollie.py    # meta only; --write-document for the rest
 
-All four take an optional `YYYY-MM-DD` argument. `openapi-spec-validator` is
+All five take an optional `YYYY-MM-DD` argument. `openapi-spec-validator` is
 only needed by the Mollie one, which checks what it fetched rather than
 committing something nothing will check.
 

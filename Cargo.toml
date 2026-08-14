@@ -18,6 +18,7 @@ categories = ["api-bindings", "web-programming"]
 kasapay-core = { version = "0.0.1", path = "crates/kasapay-core" }
 kasapay-iyzico = { version = "0.0.1", path = "crates/kasapay-iyzico" }
 kasapay-mollie = { version = "0.0.1", path = "crates/kasapay-mollie" }
+kasapay-paypal = { version = "0.0.1", path = "crates/kasapay-paypal" }
 kasapay-paytr = { version = "0.0.1", path = "crates/kasapay-paytr" }
 kasapay-stripe = { version = "0.0.1", path = "crates/kasapay-stripe" }
 
