@@ -203,6 +203,42 @@ impl PayTr {
         })
     }
 
+    /// Every refund taken off a payment so far.
+    ///
+    /// PayTR reports these on the status query rather than as their own
+    /// objects, so this reads the same call [`charge_status`] does. Summing
+    /// them and comparing against the charge is how a caller answers "is this
+    /// fully refunded" — a payment's status cannot say it, and
+    /// deliberately so.
+    ///
+    /// [`charge_status`]: kasapay_core::Provider::charge_status
+    pub async fn refunds(&self, order: &OrderRef) -> Result<Vec<RefundRecord>, Error> {
+        let (response, _) = self.status(order.as_str()).await?;
+        let currency = response
+            .currency
+            .as_deref()
+            .map_or(Ok(Currency::Try), parse_currency)?;
+        response
+            .returns
+            .iter()
+            .map(|item| {
+                let amount = item
+                    .return_amount
+                    .as_deref()
+                    .map(|value| Money::parse(value, currency))
+                    .transpose()
+                    .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))?
+                    .unwrap_or_else(|| Money::from_minor_units(0, currency));
+                Ok(RefundRecord {
+                    amount,
+                    requested: item.return_date.clone().map(String::into_boxed_str),
+                    completed: item.date_completed.clone().map(String::into_boxed_str),
+                    reference: item.return_ref_num.clone().map(String::into_boxed_str),
+                })
+            })
+            .collect()
+    }
+
     /// Gives money back off a payment.
     ///
     /// Partial refunds are allowed; PayTR takes the amount to return rather
@@ -256,6 +292,38 @@ impl PayTr {
             Error::new(ErrorKind::InvalidRequest, PAYTR, "the basket is not JSON").with_source(e)
         })?;
         Ok(BASE64.encode(json))
+    }
+
+    /// The status query, which both `charge_status` and `refunds` read.
+    async fn status(&self, order: &str) -> Result<(crate::wire::StatusResponse, Raw), Error> {
+        let token = self
+            .inner
+            .config
+            .credentials
+            .token(&[self.inner.config.credentials.merchant_id(), order]);
+        let form = [
+            ("merchant_id", self.inner.config.credentials.merchant_id()),
+            ("merchant_oid", order),
+            ("paytr_token", token.as_str()),
+        ];
+        let (response, raw) = self
+            .post::<crate::wire::StatusResponse>("/odeme/durum-sorgu", &form)
+            .await?;
+        if response.status.as_deref() != Some("success") {
+            let error = Error::new(
+                ErrorKind::NotFound,
+                PAYTR,
+                response
+                    .reason
+                    .clone()
+                    .unwrap_or_else(|| "PayTR does not know this payment".to_owned()),
+            );
+            return Err(match response.err_no.clone() {
+                Some(code) => error.with_code(code),
+                None => error,
+            });
+        }
+        Ok((response, raw))
     }
 
     async fn post<T: serde::de::DeserializeOwned>(
@@ -357,9 +425,13 @@ impl Provider for PayTr {
             .currency
             .as_deref()
             .map_or(Ok(Currency::Try), parse_currency)?;
+        // payment_total is what the payer was charged; payment_amount is what
+        // the order came to. They differ under an instalment surcharge, and a
+        // Charge's amount is what moved.
         let amount = response
-            .payment_amount
+            .payment_total
             .as_deref()
+            .or(response.payment_amount.as_deref())
             .map(|value| Money::parse(value, currency))
             .transpose()
             .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))?
@@ -377,6 +449,19 @@ impl Provider for PayTr {
             raw,
         })
     }
+}
+
+/// A refund PayTR has recorded against a payment.
+#[derive(Debug, Clone)]
+pub struct RefundRecord {
+    /// How much went back.
+    pub amount: Money,
+    /// When it was asked for, in PayTR's own format.
+    pub requested: Option<Box<str>>,
+    /// When it settled, if it has.
+    pub completed: Option<Box<str>>,
+    /// The bank's reference, for reconciling against a statement.
+    pub reference: Option<Box<str>>,
 }
 
 /// PayTR's own spelling of a currency.

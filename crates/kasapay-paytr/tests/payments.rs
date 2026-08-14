@@ -124,7 +124,10 @@ async fn reading_a_payment_back_names_it_by_the_order_reference() {
         )))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "status": "success",
+            // The order came to 149.90 and the payer was charged 164.89 for
+            // taking it in instalments.
             "payment_amount": "149.90",
+            "payment_total": "164.89",
             "currency": "TL",
         })))
         .mount(&server)
@@ -135,8 +138,75 @@ async fn reading_a_payment_back_names_it_by_the_order_reference() {
         .await
         .expect("the payment reads back");
     assert_eq!(charge.status, Status::Captured);
-    assert_eq!(charge.amount.minor_units(), 14_990);
+    // What moved, not what the basket came to.
+    assert_eq!(charge.amount.minor_units(), 16_489);
     assert_eq!(charge.amount.currency(), Currency::Try);
+}
+
+#[tokio::test]
+async fn refunds_come_off_the_same_status_query() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payment_amount": "149.90",
+            "payment_total": "149.90",
+            "currency": "TL",
+            "returns": [
+                {
+                    "return_amount": "50.00",
+                    "return_date": "2026-08-14 10:00:00",
+                    "date_completed": "2026-08-14 10:01:00",
+                    "return_ref_num": "ref-1",
+                },
+                { "return_amount": "20.00", "return_date": "2026-08-14 11:00:00" },
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&OrderRef::new("ord-1"))
+        .await
+        .expect("the refunds read back");
+
+    assert_eq!(refunds.len(), 2);
+    assert_eq!(refunds[0].amount.minor_units(), 5000);
+    assert_eq!(refunds[0].reference.as_deref(), Some("ref-1"));
+    // A refund that has not settled yet has no completion time.
+    assert!(refunds[1].completed.is_none());
+
+    // "Is this fully refunded" is a sum, not a status — which is the whole
+    // argument on #41.
+    let total = refunds
+        .iter()
+        .try_fold(Money::from_minor_units(0, Currency::Try), |sum, refund| {
+            sum.checked_add(refund.amount)
+        });
+    assert_eq!(total.expect("same currency").minor_units(), 7000);
+}
+
+#[tokio::test]
+async fn a_payment_with_no_refunds_is_an_empty_list() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payment_amount": "149.90",
+            "payment_total": "149.90",
+            "currency": "TL",
+        })))
+        .mount(&server)
+        .await;
+
+    // The field is absent, not empty, on a payment nobody has refunded.
+    let refunds = client(&server)
+        .refunds(&OrderRef::new("ord-1"))
+        .await
+        .expect("no refunds is a valid answer");
+    assert!(refunds.is_empty());
 }
 
 #[tokio::test]

@@ -66,6 +66,6 @@ mod signing;
 mod wire;
 
 #[doc(inline)]
-pub use crate::client::{Config, PAYTR, PayTr};
+pub use crate::client::{Config, PAYTR, PayTr, RefundRecord};
 #[doc(inline)]
 pub use crate::signing::Credentials;
