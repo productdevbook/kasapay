@@ -24,6 +24,12 @@ the colon, no full stop.
 The body says why, not what — the diff already says what. Measurements, run
 ids and PR numbers belong here rather than in code comments.
 
+## Changelog
+
+`CHANGELOG.md` is kept by hand. A change that would make somebody's code stop
+compiling, or make it do something different, goes in under **Unreleased**
+before the PR merges — not at release time, when nobody remembers what it cost.
+
 ## Nothing is built or tested on this machine
 
 This machine serves live sites; a build taking every core has taken it off the
