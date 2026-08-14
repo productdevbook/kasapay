@@ -165,6 +165,11 @@ pub struct ChargeRequest {
     /// Where the provider should send the payer back to.
     pub return_url: Option<Url>,
     /// A key that makes replaying this request safe.
+    ///
+    /// A provider either sends it or refuses the request with
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported). Accepting a
+    /// key and dropping it would read as a guarantee against double charges
+    /// where there is none.
     pub idempotency_key: Option<IdempotencyKey>,
     /// Key/value pairs handed to the provider and given back unchanged.
     pub metadata: BTreeMap<String, String>,

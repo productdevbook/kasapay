@@ -195,6 +195,13 @@ impl Provider for Iyzico {
                 "ChargeRequest::customer carries iyzico's userId and is required",
             )
         })?;
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "the In-Store API documents no idempotency mechanism;                  orderId is the closest thing it has and it is not one",
+            ));
+        }
         let callback_url = request.return_url.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidRequest,
