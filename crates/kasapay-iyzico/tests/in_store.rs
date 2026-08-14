@@ -300,8 +300,11 @@ async fn a_decrypted_callback_settles_the_payment_it_was_started_for() {
     assert_eq!(charge.amount.minor_units(), 14_990);
     assert!(charge.next_action.is_none());
     assert_eq!(
-        charge.raw["inStoreCompleteOperation"]["transaction"]["rrn"],
-        "622812345678"
+        charge
+            .raw
+            .text_at("/inStoreCompleteOperation/transaction/rrn")
+            .as_deref(),
+        Some("622812345678")
     );
 }
 
