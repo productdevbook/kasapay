@@ -2,8 +2,9 @@
 
 use std::fmt;
 
-use crate::charge::{Charge, ChargeRequest, PaymentId};
+use crate::charge::{Charge, ChargeRequest};
 use crate::error::Error;
+use crate::id::PaymentId;
 use crate::money::Money;
 
 /// Names a provider.
