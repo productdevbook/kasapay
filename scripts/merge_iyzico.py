@@ -353,16 +353,6 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
                 elif existing != operation:
                     notes.append(f"{verb.upper()} {full} redefined by {source}, kept the first")
 
-    undeclared = sorted(
-        f"{verb.upper()} {path}"
-        for path, ops in spec["paths"].items()
-        for verb, op in ops.items()
-        if "security" not in op
-    )
-    if undeclared:
-        notes.append(
-            "no authentication documented by iyzico for: " + ", ".join(undeclared)
-        )
     for section in [k for k, v in spec["components"].items() if not v]:
         del spec["components"][section]
 
@@ -370,6 +360,43 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
     spec["paths"] = dict(sorted(spec["paths"].items()))
     spec["components"]["schemas"] = dict(sorted(spec["components"]["schemas"].items()))
     return spec, notes
+
+
+def authentication(spec: dict) -> dict:
+    """How each operation says it is authenticated.
+
+    Most of them do not use a `securityScheme`: they declare the `Authorization`
+    header as an ordinary parameter instead, which is why an earlier version of
+    this script reported them as documenting no authentication at all.
+    """
+    named = {
+        name
+        for name, parameter in spec["components"].get("parameters", {}).items()
+        if isinstance(parameter, dict) and parameter.get("name", "").lower() == "authorization"
+    }
+    by_scheme, by_parameter, neither = [], [], []
+    for path, operations in spec["paths"].items():
+        for verb, operation in operations.items():
+            label = f"{verb.upper()} {path}"
+            parameters = operation.get("parameters") or []
+            refs = {
+                p.get("$ref", "").rsplit("/", 1)[-1] for p in parameters if isinstance(p, dict)
+            }
+            inline = any(
+                isinstance(p, dict) and p.get("name", "").lower() == "authorization"
+                for p in parameters
+            )
+            if "security" in operation:
+                by_scheme.append(label)
+            elif refs & named or inline:
+                by_parameter.append(label)
+            else:
+                neither.append(label)
+    return {
+        "by_security_scheme": sorted(by_scheme),
+        "by_authorization_parameter": sorted(by_parameter),
+        "undeclared": sorted(neither),
+    }
 
 
 def main() -> None:
@@ -418,6 +445,7 @@ def main() -> None:
         latest.unlink(missing_ok=True)
         latest.symlink_to(f"{day}.yaml")
         index["areas"][area_name] = {
+            "authentication": authentication(spec),
             "operations": sorted(
                 f"{verb.upper()} {path}"
                 for path, ops in spec["paths"].items()
