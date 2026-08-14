@@ -257,7 +257,8 @@ impl Provider for Client {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 PROVIDER,
-                "the In-Store API documents no idempotency mechanism;                  orderId is the closest thing it has and it is not one",
+                "the In-Store API documents no idempotency mechanism; \
+                 orderId is the closest thing it has and it is not one",
             ));
         }
         let callback_url = request.return_url.as_ref().ok_or_else(|| {
