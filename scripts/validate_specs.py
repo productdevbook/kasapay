@@ -2,9 +2,13 @@
 
 These files are assembled from fragments by merge_iyzico.py, which means every
 bug in that script lands here as a document that looks plausible and is wrong.
-Two have already: Java type names left where OpenAPI types belong, and a global
-security scheme invented for operations iyzico documents no authentication for.
+Three have already: Java type names left where OpenAPI types belong, a global
+security scheme invented for operations iyzico documents no authentication for,
+and a null description carried over from a fragment whose author left the field
+blank.
 
+The checks that need no dependency run always, so that somebody who cannot
+install openapi-spec-validator still catches the mistakes that script makes.
 Run by CI on every push. Exits non-zero on the first document that fails.
 """
 
@@ -26,6 +30,13 @@ SPECS = ROOT / "specs"
 # repairs the ones it knows; anything left is a name it has not met yet.
 OPENAPI_TYPES = {"array", "boolean", "integer", "null", "number", "object", "string"}
 
+# Keys OpenAPI defines as strings. A null one is what a fragment carries when
+# its author left the field blank, and it is not something YAML or a reader can
+# make sense of.
+STRING_KEYS = frozenset(
+    "description format operationId pattern summary title".split()
+)
+
 
 def declared_types(node, found: set[str], in_security: bool = False) -> set[str]:
     """Every `type` in the document, skipping `securitySchemes`.
@@ -42,6 +53,20 @@ def declared_types(node, found: set[str], in_security: bool = False) -> set[str]
     elif isinstance(node, list):
         for value in node:
             declared_types(value, found, in_security)
+    return found
+
+
+def blank_strings(node, found: list[str], trail: str = "") -> list[str]:
+    """Every key OpenAPI wants a string for that carries a null instead."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            where = f"{trail}/{key}"
+            if value is None and key in STRING_KEYS:
+                found.append(where)
+            blank_strings(value, found, where)
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            blank_strings(value, found, f"{trail}[{index}]")
     return found
 
 
@@ -80,6 +105,13 @@ def main() -> int:
                 f"FAIL {relative}\n  not OpenAPI types: {', '.join(sorted(foreign))}",
                 file=sys.stderr,
             )
+            failures += 1
+            continue
+
+        blank = blank_strings(loaded, [])
+        if blank:
+            shown = ", ".join(blank[:5]) + (f" and {len(blank) - 5} more" if len(blank) > 5 else "")
+            print(f"FAIL {relative}\n  null where a string belongs: {shown}", file=sys.stderr)
             failures += 1
             continue
 
