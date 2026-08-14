@@ -99,6 +99,20 @@ from, so a repair is never silent.
 Where two pages document the same operation differently, the first wins and the
 index says so. Read `notes` in the index before trusting a contested operation.
 
+### `/v2/in-store/crypt/decrypt` is not a second version to choose from
+
+`in-store/latest.yaml` carries both `/v3/in-store/crypt/decrypt` and
+`/v2/in-store/crypt/decrypt`. The v2 one comes from a single fragment on the
+page titled *In-Store API V3*, whose six sibling fragments all declare a
+`/v3/in-store` server while that one declares `/v2/in-store`; all seven say
+`version: 3.0`. Since a path is prefixed with its own fragment's server, that
+one stale URL produced a second path.
+
+v2 does exist — as a separate, older integration, documented in prose with no
+fragments, at `/v2/in-store/user-info/list`, `/v2/in-store/payment` and
+`/v2/in-store/payment/refund`. None of those are in `specs/` for want of a
+fragment to sweep. `kasapay-iyzico` speaks v3.
+
 ## Stripe — `specs/stripe/`
 
     <YYYY-MM-DD>.meta.json   the API version, and a hash of the full upstream spec
