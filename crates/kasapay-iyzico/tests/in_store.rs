@@ -10,7 +10,7 @@ use serde_json::json;
 use wiremock::matchers::{body_json, header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-async fn client(server: &MockServer) -> Iyzico {
+fn client(server: &MockServer) -> Iyzico {
     let base = format!("{}/v3/in-store/", server.uri());
     let config = Config::new(&base, "api-key", "secret-key", "merchant-id").expect("valid base");
     Iyzico::new(config).expect("client builds")
@@ -54,7 +54,6 @@ async fn init_sends_the_documented_body_and_headers() {
         .await;
 
     let charge = client(&server)
-        .await
         .charge(&charge_request())
         .await
         .expect("init succeeds");
@@ -85,7 +84,6 @@ async fn a_failure_status_becomes_a_decline_carrying_iyzicos_code() {
         .await;
 
     let error = client(&server)
-        .await
         .charge(&charge_request())
         .await
         .expect_err("a failure status is not a charge");
@@ -109,7 +107,6 @@ async fn an_unauthorized_response_is_an_auth_error() {
         .await;
 
     let error = client(&server)
-        .await
         .charge(&charge_request())
         .await
         .expect_err("401 is not a charge");
@@ -140,7 +137,6 @@ async fn query_reads_an_approved_payment_as_captured() {
         .await;
 
     let charge = client(&server)
-        .await
         .charge_status(&PaymentId::new("4242424242"))
         .await
         .expect("query succeeds");
@@ -168,7 +164,6 @@ async fn a_currency_the_in_store_api_cannot_settle_never_reaches_the_network() {
     .expect("valid request");
 
     let error = client(&server)
-        .await
         .charge(&request)
         .await
         .expect_err("USD is not settleable in-store");
@@ -187,7 +182,6 @@ async fn a_charge_without_a_callback_url_is_refused_before_sending() {
     .expect("valid request");
 
     let error = client(&server)
-        .await
         .charge(&request)
         .await
         .expect_err("the callback URL is required");

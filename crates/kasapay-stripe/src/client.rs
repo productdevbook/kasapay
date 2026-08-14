@@ -77,7 +77,7 @@ impl Provider for Stripe {
             .send(self.inner.as_ref())
             .await
             .map_err(|e| convert::error(&e).with_source(e))?;
-        into_charge(intent)
+        into_charge(&intent)
     }
 
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
@@ -85,7 +85,7 @@ impl Provider for Stripe {
             .send(self.inner.as_ref())
             .await
             .map_err(|e| convert::error(&e).with_source(e))?;
-        into_charge(intent)
+        into_charge(&intent)
     }
 }
 
@@ -102,7 +102,7 @@ fn metadata(request: &ChargeRequest) -> std::collections::HashMap<String, String
     pairs
 }
 
-fn into_charge(intent: stripe_shared::PaymentIntent) -> Result<Charge, Error> {
+fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
     let amount = convert::amount(intent.amount, &intent.currency)?;
     let status = convert::status(&intent.status);
     let order = intent
@@ -119,7 +119,7 @@ fn into_charge(intent: stripe_shared::PaymentIntent) -> Result<Charge, Error> {
     } else {
         None
     };
-    let raw = serde_json::to_value(RawIntent::from(&intent)).map_err(|e| {
+    let raw = serde_json::to_value(RawIntent::from(intent)).map_err(|e| {
         Error::new(
             ErrorKind::Malformed,
             convert::PROVIDER,
