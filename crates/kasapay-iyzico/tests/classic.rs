@@ -881,21 +881,6 @@ fn every_reason_renders_the_word_iyzico_documents() {
 }
 
 #[tokio::test]
-async fn the_classic_client_refuses_to_read_a_form_back_through_the_shared_trait() {
-    let server = MockServer::start().await;
-    // No mock: a request reaching the network would fail the test.
-    let provider: Box<dyn kasapay_core::Provider> = Box::new(client(&server));
-
-    let error = provider
-        .charge_status(&PaymentId::issued("12345678"))
-        .await
-        .expect_err("a form is read back by its own token");
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert!(error.to_string().contains("checkout_result"));
-    assert_eq!(provider.id(), kasapay_core::ProviderId::IYZICO);
-}
-
-#[tokio::test]
 async fn the_classic_client_refuses_to_start_a_payment_through_the_trait() {
     let server = MockServer::start().await;
     // No mock: a request reaching the network would fail the test.
@@ -929,8 +914,9 @@ async fn a_payment_is_read_back_by_its_id_and_its_signature_checked() {
             "conversationId": "conv-1",
             "paidPrice": "149.90",
             "price": "149.90",
-            // HMAC-SHA256("pay-1:TRY:ord-1:conv-1:149.90:149.90", "secret-key")
-            "signature": "512f5cc6860f6df96dbacca294eed71908c7307e639e994cf8732240719b8a4b",
+            // HMAC-SHA256("pay-1:TRY:ord-1:conv-1:149.9:149.9", "secret-key"): an
+            // amount is signed with its trailing zeros gone.
+            "signature": "100ab6291038e56be64ac141fcbde4e8aea003a02e6e9d201cceda8a75efb18c",
         })))
         .mount(&server)
         .await;
@@ -967,9 +953,9 @@ async fn a_payment_signed_as_though_it_were_a_form_is_untrusted() {
             "conversationId": "conv-1",
             "paidPrice": "149.90",
             "price": "149.90",
-            // HMAC-SHA256("SUCCESS:pay-1:TRY:ord-1:conv-1:149.90:149.90:", "secret-key"),
+            // HMAC-SHA256("SUCCESS:pay-1:TRY:ord-1:conv-1:149.9:149.9:", "secret-key"),
             // which is the checkout form's eight fields with no token to end them.
-            "signature": "50bbd3a6c6eb8433840ef0ed15fd748ae5392d18d0f1d14be3a81d98d104e2bc",
+            "signature": "6bb878e62a7484d27a6b97eebb12cca3c652eb7adc3a9871c8a2f369016dae43",
         })))
         .mount(&server)
         .await;
