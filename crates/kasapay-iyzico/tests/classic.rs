@@ -462,12 +462,69 @@ async fn a_form_the_payer_has_not_finished_is_still_pending() {
         .mount(&server)
         .await;
 
-    let charge = client(&server)
+    // Nothing is signed yet either, so this is the one case that needs the
+    // opt-out. The test below is what happens without it.
+    let config = Config::new(&server.uri(), Credentials::new("api-key", "secret-key"))
+        .expect("valid base")
+        .allow_unsigned();
+    let charge = Client::new(config)
+        .expect("client builds")
         .checkout_result("cf-token-1")
         .await
         .expect("the query worked");
     assert_eq!(charge.status, Status::Pending);
     assert!(charge.status.is_open());
+}
+
+#[tokio::test]
+async fn an_unsigned_response_is_refused_by_default() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "paidPrice": "149.90",
+            "currency": "TRY",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .checkout_result("cf-token-1")
+        .await
+        .expect_err("an unsigned payment must not become a Charge");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+    assert!(!error.is_retryable());
+}
+
+#[tokio::test]
+async fn a_forged_result_is_refused() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            // The amount raised tenfold, the signature left as it was.
+            "paidPrice": "1499.00",
+            "price": "1499.00",
+            "currency": "TRY",
+            "token": "cf-token-1",
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .checkout_result("cf-token-1")
+        .await
+        .expect_err("a tampered amount must not become a Charge");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
 }
 
 #[test]
