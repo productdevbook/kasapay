@@ -8,7 +8,7 @@ are the same shape, and a provider outside this repository is a first-class one:
 implement `Provider`, name it with `ProviderId::new`.
 
 ```toml
-kasapay = { version = "0.1", features = ["stripe", "iyzico"] }
+kasapay = { version = "0.0.1", features = ["stripe", "iyzico"] }
 ```
 
 ```rust
