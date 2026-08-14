@@ -103,6 +103,22 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/advanced/card-storage.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Media type of the request body.
   schemas:
     BaseResponse:
       type: object

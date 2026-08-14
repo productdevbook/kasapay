@@ -106,6 +106,22 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request body content type.
   schemas:
     ErrorResponse:
       type: object

@@ -586,28 +586,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse2'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
 components:
-  securitySchemes:
-    BasicAuth:
-      type: http
-      scheme: basic
-      description: 'Authorization with Basic Auth.
-
-        Postman Basic Auth fields:
-
-        - Username: client_id
-
-        - Password: client_secret
-
-
-        HTTP header equivalent:
-
-        Authorization: Basic base64(client_id:client_secret)
-
-        '
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
   schemas:
     CreateUserRequest:
       type: object
@@ -1444,3 +1422,25 @@ components:
             ve terminal bilgilerini içerir.
           items:
             $ref: '#/components/schemas/UserDetail'
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: 'Authorization with Basic Auth.
+
+        Postman Basic Auth fields:
+
+        - Username: client_id
+
+        - Password: client_secret
+
+
+        HTTP header equivalent:
+
+        Authorization: Basic base64(client_id:client_secret)
+
+        '
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key

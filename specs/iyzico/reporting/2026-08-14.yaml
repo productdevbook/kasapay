@@ -98,6 +98,39 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/advanced/reporting-service.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, IYZWSv2 ile başlayan ve base64 formatında üretilmiş imzalı hash
+        değeridir.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content type of the request body.
+    LocaleQuery:
+      name: locale
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - tr
+        - en
+      description: Language code.
+    ConversationIdQuery:
+      name: conversationId
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Can be used to correlate request/response. Echoed back in the response as-is.
   schemas:
     BaseResponse:
       type: object

@@ -20,8 +20,8 @@ paths:
       tags:
       - 3DS Payment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -49,8 +49,8 @@ paths:
       tags:
       - 3DS Payment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -78,8 +78,8 @@ paths:
       tags:
       - 3DS Payment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader7'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       requestBody:
         required: true
         content:
@@ -140,8 +140,8 @@ paths:
       tags:
       - BIN
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -170,7 +170,7 @@ paths:
       - Payment
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
       requestBody:
         required: true
         content:
@@ -198,8 +198,8 @@ paths:
       tags:
       - Non3D Payment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -247,7 +247,7 @@ paths:
       - Marketplace
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       requestBody:
         required: true
         content:
@@ -275,8 +275,8 @@ paths:
       tags:
       - CheckoutForm
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader5'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -305,8 +305,8 @@ paths:
       tags:
       - CheckoutForm
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader5'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -335,8 +335,8 @@ paths:
       tags:
       - CheckoutForm
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader7'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       requestBody:
         required: true
         content:
@@ -366,8 +366,8 @@ paths:
       tags:
       - Installment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -397,7 +397,7 @@ paths:
       - Marketplace
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       requestBody:
         required: true
         content:
@@ -427,7 +427,7 @@ paths:
       - Marketplace
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
       requestBody:
         required: true
         content:
@@ -455,8 +455,8 @@ paths:
       tags:
       - Pay with iyzico
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader6'
+      - $ref: '#/components/parameters/ContentTypeHeader5'
       requestBody:
         required: true
         content:
@@ -486,8 +486,8 @@ paths:
 
         '
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader7'
+      - $ref: '#/components/parameters/ContentTypeHeader7'
       requestBody:
         required: true
         content:
@@ -509,8 +509,8 @@ paths:
       tags:
       - Non3D Payment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader7'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
       requestBody:
         required: true
         content:
@@ -635,7 +635,7 @@ paths:
       - Payment
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
       requestBody:
         required: true
         content:
@@ -665,8 +665,8 @@ paths:
       tags:
       - 3DS Payment
       parameters:
-      - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -698,7 +698,7 @@ paths:
       - Payment
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
       requestBody:
         required: true
         content:
@@ -720,6 +720,108 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse3'
       x-iyzico-source: https://docs.iyzico.com/en/advanced/refund-and-cancel.md
 components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Media type of the request body.
+    AuthHeader2:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header that starts with IYZWSv2 and contains a Base64-encoded signed
+        hash.
+      schema:
+        type: string
+    ContentTypeHeader2:
+      name: Content-Type
+      in: header
+      required: true
+      description: Content-Type value.
+      schema:
+        type: string
+    ContentTypeHeader3:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content type of the request body.
+    AuthHeader3:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header starting with IYZWSv2 and a signed hash value encoded in base64.
+      schema:
+        type: string
+    ContentTypeHeader4:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request body content type.
+    AuthHeader4:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header; a signed Base64-encoded hash that starts with IYZWSv2.
+      schema:
+        type: string
+    AuthHeader5:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header that starts with **IYZWSv2** and is a signed hash generated in
+        Base64 format.
+      schema:
+        type: string
+    AuthHeader6:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header; starts with IYZWSv2 and is a signed hash in Base64.
+      schema:
+        type: string
+    ContentTypeHeader5:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+    AuthHeader7:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header, IYZWSv2 ile başlayan ve base64 formatında üretilmiş imzalı hash
+        değeridir.
+      schema:
+        type: string
+    ContentTypeHeader6:
+      name: Content-Type
+      in: header
+      required: true
+      description: Content-Type değeri.
+      schema:
+        type: string
+    ContentTypeHeader7:
+      name: Content-Type
+      in: header
+      required: true
+      description: İçerik tipi.
+      schema:
+        type: string
   schemas:
     Address:
       type: object

@@ -68,6 +68,9 @@ is wrong. Three have already.
   An amount becomes `string`/`decimal` so no reader is tempted to put it
   through a float.
 - A stray `detail` key sitting among an operation's `responses`.
+- A response with no `description`, which OpenAPI requires. Filled in by status
+  class — "Successful, per iyzico's example response" — so it is obvious the
+  text is ours rather than theirs.
 - Paths are prefixed with the base path from the fragment's own `servers`, so
   `/payment/init` under a `/v3/in-store` server becomes
   `/v3/in-store/payment/init` and does not collide with another product's.

@@ -463,6 +463,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Bearer Token authentication is performed using the access token.
+  parameters:
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content type
   schemas:
     AddedSaleItem:
       type: object

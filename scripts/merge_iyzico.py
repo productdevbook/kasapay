@@ -39,6 +39,16 @@ JAVA_TYPES = {
 }
 
 
+# iyzico's fragments routinely give a response only a `content` block, and
+# OpenAPI requires a description. Filled in by status class rather than left
+# blank, so it is obvious the text is ours.
+DESCRIPTIONS = {
+    "2": "Successful, per iyzico's example response",
+    "4": "Rejected, per iyzico's example response",
+    "5": "Server error, per iyzico's example response",
+}
+
+
 def fetch(url: str) -> str:
     return subprocess.run(
         ["curl", "-sSL", "--max-time", "30", url],
@@ -105,13 +115,14 @@ def repair(node, in_security: bool = False):
     return node
 
 
-def rename_refs(node, renames: dict[str, str]):
+def rename_refs(node, renames: dict[tuple[str, str], str]):
+    """Rewrites `$ref`s a merge had to rename, keyed by (section, name)."""
     if isinstance(node, dict):
         ref = node.get("$ref")
-        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
-            name = ref.rsplit("/", 1)[1]
-            if name in renames:
-                node["$ref"] = f"#/components/schemas/{renames[name]}"
+        if isinstance(ref, str) and ref.startswith("#/components/"):
+            _, _, section, name = ref.split("/", 3)
+            if (section, name) in renames:
+                node["$ref"] = f"#/components/{section}/{renames[(section, name)]}"
         for value in node.values():
             rename_refs(value, renames)
     elif isinstance(node, list):
@@ -187,7 +198,7 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
         ],
         "tags": [],
         "paths": {},
-        "components": {"securitySchemes": {}, "schemas": {}},
+        "components": {},
     }
     notes: list[str] = []
     seen_tags: set[str] = set()
@@ -196,34 +207,35 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
         repair(fragment)
         prefix = base_path(fragment)
 
-        renames: dict[str, str] = {}
-        for name, schema in fragment.get("components", {}).get("schemas", {}).items():
-            existing = spec["components"]["schemas"].get(name)
-            if existing is None or existing == schema:
-                spec["components"]["schemas"][name] = schema
+        # Every component section, not just schemas: a fragment that keeps its
+        # auth header in components/parameters leaves a dangling $ref if only
+        # schemas are carried over.
+        renames: dict[tuple[str, str], str] = {}
+        for section, items in fragment.get("components", {}).items():
+            if not isinstance(items, dict):
                 continue
-            # Two pages describe different shapes under one name. Both are kept;
-            # dropping either would silently lose an endpoint's request body.
-            suffix = 2
-            while f"{name}{suffix}" in spec["components"]["schemas"]:
-                if spec["components"]["schemas"][f"{name}{suffix}"] == schema:
-                    break
-                suffix += 1
-            renames[name] = f"{name}{suffix}"
-            spec["components"]["schemas"][f"{name}{suffix}"] = schema
-            notes.append(f"schema {name} redefined by {source}, kept as {name}{suffix}")
+            held = spec["components"].setdefault(section, {})
+            for name, item in items.items():
+                existing = held.get(name)
+                if existing is None or existing == item:
+                    held[name] = item
+                    continue
+                if section == "securitySchemes":
+                    notes.append(f"security scheme {name} redefined by {source}, kept the first")
+                    continue
+                # Two pages describe different shapes under one name. Both are
+                # kept; dropping either loses an endpoint's request body.
+                suffix = 2
+                while f"{name}{suffix}" in held:
+                    if held[f"{name}{suffix}"] == item:
+                        break
+                    suffix += 1
+                renames[(section, name)] = f"{name}{suffix}"
+                held[f"{name}{suffix}"] = item
+                notes.append(f"{section} {name} redefined by {source}, kept as {name}{suffix}")
 
         if renames:
             rename_refs(fragment, renames)
-
-        # Security is per fragment. Only 16 of the 96 declare a scheme at all,
-        # so anything global here would be invented rather than documented.
-        for name, scheme in fragment.get("components", {}).get("securitySchemes", {}).items():
-            held = spec["components"]["securitySchemes"].get(name)
-            if held is not None and held != scheme:
-                notes.append(f"security scheme {name} redefined by {source}, kept the first")
-                continue
-            spec["components"]["securitySchemes"][name] = scheme
 
         for tag in fragment.get("tags", []):
             if tag["name"] not in seen_tags:
@@ -237,6 +249,13 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
                     continue
                 # A stray `detail` key sits among `responses` on some operations.
                 operation.pop("detail", None)
+                # A Response Object must carry a description; the fragments
+                # routinely give only `content`.
+                for code, response in (operation.get("responses") or {}).items():
+                    if isinstance(response, dict) and "description" not in response:
+                        response["description"] = DESCRIPTIONS.get(
+                            str(code)[0], "Undocumented by iyzico"
+                        )
                 operation.setdefault("x-iyzico-source", source)
                 if "security" not in operation and fragment.get("security"):
                     operation["security"] = fragment["security"]
@@ -256,8 +275,8 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
         notes.append(
             "no authentication documented by iyzico for: " + ", ".join(undeclared)
         )
-    if not spec["components"]["securitySchemes"]:
-        del spec["components"]["securitySchemes"]
+    for section in [k for k, v in spec["components"].items() if not v]:
+        del spec["components"][section]
 
     spec["tags"].sort(key=lambda t: t["name"])
     spec["paths"] = dict(sorted(spec["paths"].items()))
