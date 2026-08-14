@@ -12,4 +12,5 @@ doc-valid-idents = [
     "OAuth2",
     "IYZWSv2",
     "HMACSHA256",
+    "PayTR",
 ]
