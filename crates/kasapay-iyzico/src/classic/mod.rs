@@ -6,13 +6,18 @@
 //!
 //! # What is here
 //!
-//! [`Client::bin_check`], and no more yet. It is the smallest operation the
-//! API has, which makes it the one that proves the signing works end to end —
-//! it is also the example iyzico's own authentication page is written around.
+//! Three operations, chosen because none of them touches a card number:
 //!
-//! Taking a payment through this API needs card details on the request, which
-//! `ChargeRequest` has nowhere to put and which drag PCI scope in with them.
-//! That is a decision about the core rather than about this module.
+//! - [`Client::bin_check`] — what kind of card a BIN belongs to
+//! - [`Client::stored_cards`] — the cards iyzico holds for a user
+//! - [`Client::forget_card`] — drop one of them
+//!
+//! Taking a payment through this API needs the card on the request, which
+//! `ChargeRequest` has nowhere to put and which drags PCI scope in with it.
+//! **So does storing a card**: `POST /cardstorage/card` wants the number too.
+//! The way to store a card without one reaching the caller's server is the
+//! hosted checkout form, which collects it directly. That is a decision about
+//! the core rather than about this module.
 //!
 //! # Example
 //!
@@ -35,4 +40,4 @@ mod client;
 mod wire;
 
 #[doc(inline)]
-pub use crate::classic::client::{Association, BinDetails, CardType, Client, Config};
+pub use crate::classic::client::{Association, BinDetails, CardType, Client, Config, StoredCard};

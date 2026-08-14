@@ -115,6 +115,59 @@ impl Client {
         into_bin_details(response, raw)
     }
 
+    /// Lists the cards stored against a user key.
+    ///
+    /// No card number goes either way: the request carries the user key and
+    /// the answer carries tokens, a BIN and the last four digits. Everything
+    /// needed to let somebody pick a saved card, and nothing that puts the
+    /// caller in PCI scope.
+    pub async fn stored_cards(&self, card_user_key: &str) -> Result<Vec<StoredCard>, Error> {
+        let body = wire::CardListRequest {
+            locale: "tr",
+            card_user_key,
+        };
+        let (response, _) = self
+            .post::<_, wire::CardListResponse>("/cardstorage/cards", &body)
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused the card list",
+        ) {
+            return Err(error);
+        }
+        Ok(response
+            .card_details
+            .unwrap_or_default()
+            .into_iter()
+            .map(StoredCard::from)
+            .collect())
+    }
+
+    /// Forgets a stored card.
+    ///
+    /// Both arguments come from [`Client::stored_cards`]; neither is card data.
+    pub async fn forget_card(&self, card_user_key: &str, card_token: &str) -> Result<(), Error> {
+        let body = wire::CardDeleteRequest {
+            locale: "tr",
+            card_user_key,
+            card_token,
+        };
+        let (response, _) = self
+            .delete::<_, wire::BaseResponse>("/cardstorage/card", &body)
+            .await?;
+        match refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to forget the card",
+        ) {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
     /// Signs and sends one request.
     ///
     /// The body is serialised once and both signed and sent as those exact
@@ -122,6 +175,27 @@ impl Client {
     /// receive, and the failure looks like bad credentials.
     async fn post<B: serde::Serialize, T: serde::de::DeserializeOwned>(
         &self,
+        path: &str,
+        body: &B,
+    ) -> Result<(T, Raw), Error> {
+        self.send(reqwest::Method::POST, path, body).await
+    }
+
+    /// Signs and sends one request that carries a body on a DELETE.
+    ///
+    /// iyzico deletes with a JSON body rather than a path parameter, which is
+    /// unusual and is why this cannot go through [`Client::post`].
+    async fn delete<B: serde::Serialize, T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<(T, Raw), Error> {
+        self.send(reqwest::Method::DELETE, path, body).await
+    }
+
+    async fn send<B: serde::Serialize, T: serde::de::DeserializeOwned>(
+        &self,
+        method: reqwest::Method,
         path: &str,
         body: &B,
     ) -> Result<(T, Raw), Error> {
@@ -139,7 +213,7 @@ impl Client {
         let response = self
             .inner
             .http
-            .post(&url)
+            .request(method, &url)
             .header("Authorization", authorization)
             .header("x-iyzi-rnd", &random_key)
             .header("Content-Type", "application/json")
@@ -245,6 +319,42 @@ impl From<&str> for Association {
     }
 }
 
+/// A card iyzico holds for a user, named by a token rather than a number.
+#[derive(Debug, Clone)]
+pub struct StoredCard {
+    /// What a payment names this card by.
+    pub token: Box<str>,
+    /// The name the cardholder gave it — "my Bonus card".
+    pub alias: Option<Box<str>>,
+    /// The leading digits, which name the issuer.
+    pub bin: Option<Box<str>>,
+    /// The last four digits, for showing somebody which card this is.
+    pub last_four: Option<Box<str>>,
+    /// Credit, debit or prepaid.
+    pub card_type: Option<CardType>,
+    /// The scheme the card runs on.
+    pub association: Option<Association>,
+    /// The issuer's own name for the product.
+    pub family: Option<Box<str>>,
+    /// The issuing bank.
+    pub bank_name: Option<Box<str>>,
+}
+
+impl From<wire::StoredCardItem> for StoredCard {
+    fn from(item: wire::StoredCardItem) -> Self {
+        Self {
+            token: item.card_token.unwrap_or_default().into_boxed_str(),
+            alias: item.card_alias.map(String::into_boxed_str),
+            bin: item.bin_number.map(String::into_boxed_str),
+            last_four: item.last_four_digits.map(String::into_boxed_str),
+            card_type: item.card_type.as_deref().map(CardType::from),
+            association: item.card_association.as_deref().map(Association::from),
+            family: item.card_family.map(String::into_boxed_str),
+            bank_name: item.card_bank_name.map(String::into_boxed_str),
+        }
+    }
+}
+
 /// What iyzico knows about a BIN.
 #[derive(Debug, Clone)]
 pub struct BinDetails {
@@ -266,16 +376,38 @@ pub struct BinDetails {
     pub raw: Raw,
 }
 
+/// Turns a `status: "failure"` envelope into an error, and anything else into `None`.
+///
+/// The classic API answers 200 for a refusal and puts the verdict in the body,
+/// so the HTTP status is not the thing to read.
+fn refused(
+    status: Option<&str>,
+    message: Option<String>,
+    code: Option<String>,
+    fallback: &str,
+) -> Option<Error> {
+    if matches!(status, Some(s) if s.eq_ignore_ascii_case("success")) || status.is_none() {
+        return None;
+    }
+    let error = Error::new(
+        ErrorKind::InvalidRequest,
+        PROVIDER,
+        message.unwrap_or_else(|| fallback.to_owned()),
+    );
+    Some(match code {
+        Some(code) => error.with_code(code),
+        None => error,
+    })
+}
+
 fn into_bin_details(response: wire::BinCheckResponse, raw: Raw) -> Result<BinDetails, Error> {
-    if matches!(response.status.as_deref(), Some(s) if !s.eq_ignore_ascii_case("success")) {
-        let message = response
-            .error_message
-            .unwrap_or_else(|| "iyzico refused the BIN query".to_owned());
-        let error = Error::new(ErrorKind::InvalidRequest, PROVIDER, message);
-        return Err(match response.error_code {
-            Some(code) => error.with_code(code),
-            None => error,
-        });
+    if let Some(error) = refused(
+        response.status.as_deref(),
+        response.error_message,
+        response.error_code,
+        "iyzico refused the BIN query",
+    ) {
+        return Err(error);
     }
     Ok(BinDetails {
         bin: response.bin_number.unwrap_or_default().into_boxed_str(),
