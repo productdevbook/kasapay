@@ -2,4 +2,14 @@ allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 # ".." keeps clippy's own list. The rest are prose here — provider vocabulary
 # and API concepts, not items this workspace can link to.
-doc-valid-idents = ["..", "OpenAPI", "PaymentIntent", "PaymentIntents", "Stripe.js", "BigDecimal"]
+doc-valid-idents = [
+    "..",
+    "OpenAPI",
+    "PaymentIntent",
+    "PaymentIntents",
+    "Stripe.js",
+    "BigDecimal",
+    "OAuth2",
+    "IYZWSv2",
+    "HMACSHA256",
+]
