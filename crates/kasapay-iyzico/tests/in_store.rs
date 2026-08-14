@@ -4,6 +4,8 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
+use std::time::Duration;
+
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId, Provider,
 };
@@ -13,8 +15,14 @@ use wiremock::matchers::{body_json, header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn client(server: &MockServer) -> Iyzico {
+    configured(server, Config::DEFAULT_TIMEOUT)
+}
+
+fn configured(server: &MockServer, timeout: Duration) -> Iyzico {
     let base = format!("{}/v3/in-store/", server.uri());
-    let config = Config::new(&base, "api-key", "secret-key", "merchant-id").expect("valid base");
+    let config = Config::new(&base, "api-key", "secret-key", "merchant-id")
+        .expect("valid base")
+        .timeout(timeout);
     Iyzico::new(config).expect("client builds")
 }
 
@@ -209,4 +217,22 @@ async fn an_idempotency_key_is_refused_rather_than_dropped() {
         .await
         .expect_err("a key this API cannot honour is not silently dropped");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+#[tokio::test]
+async fn a_provider_that_never_answers_gives_up_rather_than_hanging() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/payment/init"))
+        .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+        .mount(&server)
+        .await;
+
+    let error = configured(&server, Duration::from_millis(150))
+        .charge(&charge_request())
+        .await
+        .expect_err("a request past its timeout is not a charge");
+
+    assert_eq!(error.kind(), ErrorKind::Transport);
+    assert!(error.is_retryable());
 }

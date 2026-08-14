@@ -43,4 +43,4 @@ mod client;
 mod convert;
 
 #[doc(inline)]
-pub use crate::client::{ORDER_METADATA_KEY, Stripe};
+pub use crate::client::{DEFAULT_TIMEOUT, ORDER_METADATA_KEY, Stripe};

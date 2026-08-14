@@ -1,6 +1,7 @@
 //! The Stripe client and its [`Provider`] implementation.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use kasapay_core::{
     Charge, ChargeRequest, Error, ErrorKind, NextAction, OrderRef, PaymentId, Provider, ProviderId,
@@ -16,6 +17,13 @@ use crate::convert;
 /// Stripe has no field of its own for the merchant's order number, so it goes
 /// in metadata and comes back out here.
 pub const ORDER_METADATA_KEY: &str = "kasapay_order";
+
+/// How long a request waits before it is given up on.
+///
+/// A checkout typically holds a database transaction open across this call, so
+/// a provider that never answers is a locked cart rather than a slow one. Pass
+/// a configured client to [`Stripe::with_client`] to change it.
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Takes payments through Stripe.
 ///
@@ -79,10 +87,17 @@ impl Provider for Stripe {
                 create
                     .customize()
                     .request_strategy(RequestStrategy::Idempotent(idempotency_key(key)?))
+                    .timeout(DEFAULT_TIMEOUT)
                     .send(self.inner.as_ref())
                     .await
             }
-            None => create.send(self.inner.as_ref()).await,
+            None => {
+                create
+                    .customize()
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
         }
         .map_err(|e| convert::error(&e).with_source(e))?;
         into_charge(&intent)
@@ -90,6 +105,8 @@ impl Provider for Stripe {
 
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         let intent = RetrievePaymentIntent::new(id.as_str().to_owned())
+            .customize()
+            .timeout(DEFAULT_TIMEOUT)
             .send(self.inner.as_ref())
             .await
             .map_err(|e| convert::error(&e).with_source(e))?;
