@@ -28,6 +28,7 @@ jobs:
           python3 scripts/merge_iyzico.py
           python3 scripts/fetch_stripe.py
           python3 scripts/fetch_paytr.py
+          python3 scripts/fetch_paypal.py
       # Its own step, and allowed to fail on its own. Nothing of Mollie's is
       # committed, so this script is the only thing that validates their
       # document — and a document that does not validate must not become a meta

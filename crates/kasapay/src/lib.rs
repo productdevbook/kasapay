@@ -53,6 +53,9 @@ pub use kasapay_iyzico as iyzico;
 #[cfg(feature = "mollie")]
 #[doc(inline)]
 pub use kasapay_mollie as mollie;
+#[cfg(feature = "paypal")]
+#[doc(inline)]
+pub use kasapay_paypal as paypal;
 #[cfg(feature = "paytr")]
 #[doc(inline)]
 pub use kasapay_paytr as paytr;

@@ -65,8 +65,9 @@ impl IdempotencyKey {
 /// | iyzico `classic` | yes | yes | no | yes | yes | no |
 /// | PayTR | no | yes | no | yes | notice only | no |
 /// | Mollie | yes | yes | yes | yes | yes | yes |
+/// | PayPal | yes | yes | yes | yes | yes | read-only |
 ///
-/// Three of those cells are worth knowing about.
+/// Four of those cells are worth knowing about.
 ///
 /// **Stripe never reports `Failed`.** A PaymentIntent whose card was declined
 /// goes back to `requires_payment_method`, which arrives here as
@@ -87,6 +88,13 @@ impl IdempotencyKey {
 /// [`Charge::raw`]. A caller counting declines separately from abandoned
 /// checkouts reads it there.
 ///
+/// **PayPal's `Canceled` is read-only.** `VOIDED` is a real value of its
+/// `order_status` enum, but nothing `kasapay-paypal` calls ever produces one:
+/// its `Provider::cancel` always refuses, because PayPal's Orders v2 API has
+/// no operation that withdraws an order. The only way this crate ever answers
+/// `Canceled` for PayPal is `Provider::charge_status` reading an order some
+/// other integration voided.
+///
 /// Each adapter's own documentation says the same thing where a reader will
 /// meet it.
 ///
@@ -103,6 +111,15 @@ impl IdempotencyKey {
 /// compared against [`Charge::amount`]. Mollie is the one that answers the
 /// figure outright, as `amountRefunded` on a payment that still reads `paid`,
 /// and it is read off [`Charge::raw`] rather than off a status.
+///
+/// PayPal is the odd one out here rather than the usual shape: its capture
+/// carries `PARTIALLY_REFUNDED` and `REFUNDED` as two of the values of its
+/// *own* status field, the one thing this workspace reads to decide
+/// [`Status::Captured`] in the first place, rather than as a separate figure
+/// beside it. `kasapay-paypal` maps both to [`Status::Captured`] for the same
+/// reason every other refund fact is off [`Status`] — the money was taken,
+/// which is what that variant says — and the more specific answer is on
+/// [`Charge::raw`] there too.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Status {

@@ -14,6 +14,7 @@ categories.workspace = true
 kasapay-core.workspace = true
 kasapay-iyzico = { workspace = true, optional = true }
 kasapay-mollie = { workspace = true, optional = true }
+kasapay-paypal = { workspace = true, optional = true }
 kasapay-paytr = { workspace = true, optional = true }
 kasapay-stripe = { workspace = true, optional = true }
 
@@ -25,6 +26,7 @@ default = []
 # Every feature adds a provider and nothing else; enabling all of them is valid.
 iyzico = ["dep:kasapay-iyzico"]
 mollie = ["dep:kasapay-mollie"]
+paypal = ["dep:kasapay-paypal"]
 paytr = ["dep:kasapay-paytr"]
 stripe = ["dep:kasapay-stripe"]
 
@@ -47,6 +49,10 @@ required-features = ["iyzico"]
 [[example]]
 name = "paytr_payment"
 required-features = ["paytr"]
+
+[[example]]
+name = "paypal_order"
+required-features = ["paypal"]
 
 [package.metadata.docs.rs]
 all-features = true
