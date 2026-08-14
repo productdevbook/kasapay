@@ -63,6 +63,10 @@ both are the kind 0.0.x exists to make.
 
 ### Fixed
 
+- Stripe errors carry the decline code now — `insufficient_funds` rather than
+  nothing — and the message is Stripe's own sentence rather than a Debug dump
+  of their error struct.
+
 - iyzico reported every refusal as a bad request. A declined card is now
   `Declined` and a bank timeout is `Provider` and retryable, from iyzico's own
   code list. Their `Retry` column is deliberately not used: it says `true` for
