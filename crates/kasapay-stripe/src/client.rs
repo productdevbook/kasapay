@@ -6,6 +6,7 @@ use kasapay_core::{
     Charge, ChargeRequest, Error, ErrorKind, NextAction, OrderRef, PaymentId, Provider, ProviderId,
     Secret,
 };
+use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_core::payment_intent::{CreatePaymentIntent, RetrievePaymentIntent};
 
 use crate::convert;
@@ -73,10 +74,17 @@ impl Provider for Stripe {
             create = create.return_url(return_url.to_string());
         }
 
-        let intent = create
-            .send(self.inner.as_ref())
-            .await
-            .map_err(|e| convert::error(&e).with_source(e))?;
+        let intent = match &request.idempotency_key {
+            Some(key) => {
+                create
+                    .customize()
+                    .request_strategy(RequestStrategy::Idempotent(idempotency_key(key)?))
+                    .send(self.inner.as_ref())
+                    .await
+            }
+            None => create.send(self.inner.as_ref()).await,
+        }
+        .map_err(|e| convert::error(&e).with_source(e))?;
         into_charge(&intent)
     }
 
@@ -87,6 +95,18 @@ impl Provider for Stripe {
             .map_err(|e| convert::error(&e).with_source(e))?;
         into_charge(&intent)
     }
+}
+
+/// Stripe bounds the key it will accept; a longer one is refused before sending.
+fn idempotency_key(key: &kasapay_core::IdempotencyKey) -> Result<IdempotencyKey, Error> {
+    IdempotencyKey::new(key.as_str()).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidRequest,
+            convert::PROVIDER,
+            "Stripe will not accept this idempotency key",
+        )
+        .with_source(e)
+    })
 }
 
 fn metadata(request: &ChargeRequest) -> std::collections::HashMap<String, String> {

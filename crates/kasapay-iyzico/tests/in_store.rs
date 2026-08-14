@@ -4,7 +4,9 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{ChargeRequest, Currency, ErrorKind, Money, OrderRef, PaymentId, Provider};
+use kasapay_core::{
+    ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId, Provider,
+};
 use kasapay_iyzico::{Config, Iyzico};
 use serde_json::json;
 use wiremock::matchers::{body_json, header, method, path, query_param};
@@ -186,4 +188,25 @@ async fn a_charge_without_a_callback_url_is_refused_before_sending() {
         .await
         .expect_err("the callback URL is required");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+#[tokio::test]
+async fn an_idempotency_key_is_refused_rather_than_dropped() {
+    let server = MockServer::start().await;
+    // No mock is mounted: a request reaching the network would fail the test.
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("10.00", Currency::Try).expect("valid amount"),
+    )
+    .customer("kasiyer-7")
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .idempotency_key(IdempotencyKey::new("retry-1"))
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("a key this API cannot honour is not silently dropped");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
