@@ -64,6 +64,30 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay_iyzico::subscription`, the subscription catalogue: ten of iyzico's
+  twenty-four subscription operations.** Create, read, list, replace and delete
+  a product, and the same five for the pricing plans that hang off it — the
+  half a merchant sets up once, before anybody subscribes. Built over
+  `classic::Client` like `iyzilink`, so `subscription::Client::new(classic)` is
+  the whole setup.
+
+  The other fourteen are not here and are not guessed at: starting a
+  subscription over the API takes a card number on the request, the hosted-form
+  way to start one needs a subscriber shape this crate does not have yet, and
+  the rest — the subscriber calls, activate, cancel, upgrade, retry, search —
+  all follow from a subscription existing. `subscription`'s module
+  documentation lists them one by one with the reason for each.
+
+  **iyzico documents no response signature for any of the twenty-four**, in
+  either language, so nothing here is verified. The request signature covers
+  the path without the query string, as in `iyzilink`; here iyzico's PHP SDK
+  names this API in the code that decides it.
+
+  A plan priced in anything but `TRY`, `USD` or `EUR` cannot be built —
+  narrower than the rest of iyzico takes, and what both documentation languages
+  say. One read back in a currency `Currency` cannot name has `price: None` and
+  the amount still in `raw`.
+
 - **`kasapay_iyzico::iyzilink`, all seven iyzico Link operations.** Create a
   link or a one-off fast link, read one back, list them, replace one, turn one
   on or off, delete one. It is built over `classic::Client` — same host, same
