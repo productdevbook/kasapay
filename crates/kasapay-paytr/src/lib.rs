@@ -40,6 +40,19 @@
 //! ignored. Anything else makes PayTR retry it for days, and acting on it is
 //! how a shop ships against a payment nobody made.
 //!
+//! # Retrying a payment is not documented as safe
+//!
+//! PayTR documents no idempotency mechanism for opening a payment, and does
+//! not say what happens if a `merchant_oid` is reused. It documents duplicate
+//! rejection for the transfer service's `trans_id` and for nothing else, so
+//! there is no basis for assuming an order reference behaves the same way.
+//!
+//! [`Error::is_retryable`](kasapay_core::Error::is_retryable) can therefore be
+//! true for a failure whose retry might take the money twice. Read the payment
+//! back with [`charge_status`](kasapay_core::Provider::charge_status) before
+//! sending it again — that call is always safe, and PayTR answers an error for
+//! a payment it does not know.
+//!
 //! # Example
 //!
 //! ```no_run

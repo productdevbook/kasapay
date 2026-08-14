@@ -38,8 +38,24 @@ pub enum ErrorKind {
 impl ErrorKind {
     /// Whether replaying the same request unchanged could plausibly succeed.
     ///
-    /// A retry still needs an idempotency key: this says the error is not a
-    /// verdict, not that the first attempt did nothing.
+    /// # This does not mean the retry is safe
+    ///
+    /// It says the failure was not a verdict. It says nothing about whether
+    /// the first attempt took the money — a timeout is exactly the case where
+    /// nobody knows.
+    ///
+    /// Replaying a **charge** is safe only where the provider offers
+    /// idempotency, and not every one does:
+    ///
+    /// | | replaying a charge |
+    /// |---|---|
+    /// | Stripe | safe — `ChargeRequest::idempotency_key` is sent as `Idempotency-Key` |
+    /// | iyzico | **not documented safe** — it refuses an idempotency key, and does not say what a reused `orderId` does |
+    /// | PayTR | **not documented safe** — no idempotency mechanism is documented for opening a payment |
+    ///
+    /// Where it is not safe, read the payment back with
+    /// [`Provider::charge_status`](crate::Provider::charge_status) before
+    /// sending it again. Reading is always safe.
     #[must_use]
     pub const fn is_retryable(self) -> bool {
         matches!(self, Self::RateLimited | Self::Transport | Self::Provider)
