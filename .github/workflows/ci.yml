@@ -65,11 +65,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
       - run: pip install pyyaml openapi-spec-validator
       - run: python3 scripts/validate_specs.py --strict
+      # A field this branch stopped documenting, said out loud. Not a failure:
+      # upstream is allowed to withdraw a field, and only a person can tell that
+      # from the script having dropped one.
+      - name: What this branch changed about the fields the specs carry
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python3 scripts/compare_specs.py --against-git "origin/${{ github.base_ref }}" \
+            | tee -a "$GITHUB_STEP_SUMMARY" || true
 
   dependencies:
     name: dependencies are sound and permissively licensed
