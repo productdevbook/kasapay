@@ -46,13 +46,14 @@ pub(crate) fn status(status: &stripe_shared::PaymentIntentStatus) -> Status {
     use stripe_shared::PaymentIntentStatus as S;
     match status {
         S::Canceled => Status::Canceled,
-        S::Processing => Status::Pending,
         S::RequiresCapture => Status::Authorized,
         S::Succeeded => Status::Captured,
         S::RequiresAction | S::RequiresConfirmation | S::RequiresPaymentMethod => {
             Status::RequiresAction
         }
-        _ => Status::Pending,
+        // Unknown is a status Stripe added since this build of async-stripe;
+        // pending is the only safe reading of one we cannot name.
+        S::Processing | S::Unknown(_) => Status::Pending,
     }
 }
 
