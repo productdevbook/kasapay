@@ -92,10 +92,18 @@
 //! # Currencies
 //!
 //! Plans are documented in `TRY`, `USD` and `EUR`, in both languages, and in
-//! no others — narrower than the rest of iyzico takes. So a plan priced in
-//! sterling, yen or dinars cannot be built here, and one read back in a
-//! currency [`Currency`](kasapay_core::Currency) has no name for has
-//! [`PricingPlan::price`] `None` with the amount still in `raw`.
+//! no others — narrower than the rest of iyzico takes, and narrower than
+//! [`iyzilink`](crate::iyzilink), which documents seven. So a plan priced in
+//! roubles, francs, kroner, sterling, yen or dinars is refused before a socket
+//! opens, even though [`Currency`](kasapay_core::Currency) names every one of
+//! them: what this crate can name and what iyzico will take a subscription in
+//! are two different lists.
+//!
+//! Reading is the permissive direction. A plan that comes back in a currency
+//! iyzico does not document for a plan still reads — the amount is a
+//! [`Money`](kasapay_core::Money) if `Currency` can name the code, and
+//! [`PricingPlan::price`] is `None` with the amount still in `raw` if it
+//! cannot. One such plan does not fail a whole listing.
 //!
 //! # Example
 //!

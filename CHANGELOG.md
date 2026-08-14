@@ -83,10 +83,14 @@ all are the kind 0.0.x exists to make.
   the path without the query string, as in `iyzilink`; here iyzico's PHP SDK
   names this API in the code that decides it.
 
-  A plan priced in anything but `TRY`, `USD` or `EUR` cannot be built —
-  narrower than the rest of iyzico takes, and what both documentation languages
-  say. One read back in a currency `Currency` cannot name has `price: None` and
-  the amount still in `raw`.
+  A plan priced in anything but `TRY`, `USD` or `EUR` cannot be built. That is
+  what both documentation languages say, and it is narrower than the rest of
+  iyzico — narrower than an iyzico Link, which is documented in seven. Being a
+  currency `Currency` names is not the same as being one iyzico will take a
+  subscription in, and roubles, francs and kroner are now exactly that case.
+  Reading stays permissive: a plan that comes back in one of them still reads
+  as money, and one in a code `Currency` cannot name at all has `price: None`
+  with the amount still in `raw`.
 
 - **`kasapay_iyzico::iyzilink`, all seven iyzico Link operations.** Create a
   link or a one-off fast link, read one back, list them, replace one, turn one

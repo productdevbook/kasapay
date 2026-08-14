@@ -489,6 +489,28 @@ async fn reading_a_plan_takes_the_price_iyzico_sent_as_a_number() {
 async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
     let server = MockServer::start().await;
     let mut body = plan();
+    // Not a currency iyzico documents a plan in, and not one `Currency` names.
+    body["currencyCode"] = json!("SEK");
+    Mock::given(method("GET"))
+        .and(path(format!("/v2/subscription/pricing-plans/{PLAN}")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&body)))
+        .mount(&server)
+        .await;
+
+    let read = client(&server).plan(PLAN).await.expect("the plan");
+
+    // The plan still reads, and the amount stays where iyzico put it.
+    assert_eq!(read.price, None);
+    assert_eq!(read.raw.text_at("/currencyCode").as_deref(), Some("SEK"));
+}
+
+#[tokio::test]
+async fn a_currency_kasapay_names_and_iyzico_does_not_document_still_reads() {
+    let server = MockServer::start().await;
+    let mut body = plan();
+    // Roubles: a currency `Currency` names since #86 and iyzico documents for
+    // a link but not for a plan. Reading is the permissive direction — this
+    // comes back as money, and only the builder refuses it.
     body["currencyCode"] = json!("RUB");
     Mock::given(method("GET"))
         .and(path(format!("/v2/subscription/pricing-plans/{PLAN}")))
@@ -498,10 +520,20 @@ async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
 
     let read = client(&server).plan(PLAN).await.expect("the plan");
 
-    // Not a currency iyzico documents a plan in, and not one kasapay names.
-    // The plan still reads.
-    assert_eq!(read.price, None);
-    assert_eq!(read.raw.text_at("/currencyCode").as_deref(), Some("RUB"));
+    assert_eq!(
+        read.price,
+        Some(Money::parse("50.00", Currency::Rub).expect("valid"))
+    );
+    assert_eq!(
+        NewPlan::builder(
+            "Aylık",
+            read.price.expect("a price"),
+            PaymentInterval::Monthly
+        )
+        .build()
+        .expect_err("iyzico documents no plan priced in roubles"),
+        PlanError::UnsupportedCurrency(Currency::Rub)
+    );
 }
 
 #[tokio::test]
@@ -579,14 +611,35 @@ async fn a_page_iyzico_would_not_be_asked_for_is_refused_before_a_socket_opens()
 }
 
 #[test]
-fn a_currency_iyzico_does_not_document_a_plan_in_is_refused_by_the_builder() {
-    // Sterling is a currency iyzico takes elsewhere and does not document a
-    // subscription plan in, in either language.
-    let pounds = Money::parse("9.99", Currency::Gbp).expect("valid");
-    let error = NewPlan::builder("Monthly", pounds, PaymentInterval::Monthly)
-        .build()
-        .expect_err("iyzico documents no plan priced in sterling");
-    assert_eq!(error, PlanError::UnsupportedCurrency(Currency::Gbp));
+fn every_currency_iyzico_does_not_document_a_plan_in_is_refused_by_the_builder() {
+    // Six of the nine `Currency` names. Sterling, roubles, francs and kroner
+    // are ones iyzico takes elsewhere — a link is documented in all four — and
+    // documents no subscription plan in, in either language.
+    for currency in [
+        Currency::Gbp,
+        Currency::Jpy,
+        Currency::Kwd,
+        Currency::Rub,
+        Currency::Chf,
+        Currency::Nok,
+    ] {
+        let price = Money::from_minor_units(999, currency);
+        let error = NewPlan::builder("Monthly", price, PaymentInterval::Monthly)
+            .build()
+            .expect_err("iyzico documents no plan priced in this");
+        assert_eq!(error, PlanError::UnsupportedCurrency(currency));
+    }
+
+    // And the three it does document all build.
+    for currency in [Currency::Try, Currency::Usd, Currency::Eur] {
+        let price = Money::from_minor_units(999, currency);
+        assert!(
+            NewPlan::builder("Monthly", price, PaymentInterval::Monthly)
+                .build()
+                .is_ok(),
+            "{currency} is a currency iyzico documents a plan in"
+        );
+    }
 }
 
 #[test]

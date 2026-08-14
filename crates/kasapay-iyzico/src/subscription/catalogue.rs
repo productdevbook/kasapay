@@ -403,16 +403,26 @@ impl From<&str> for PlanPaymentType {
 
 /// The currencies iyzico documents a subscription plan in.
 ///
-/// Three — `TRY`, `USD` and `EUR` — and no more, in both documentation
-/// languages, which is narrower than the rest of iyzico takes. The others are
-/// refused here rather than sent: a plan priced in sterling cannot be built in
-/// the first place.
+/// Three — `TRY`, `USD` and `EUR` — and no more. Every `currencyCode` in the
+/// subscription pages that carries an enum at all carries exactly those three,
+/// in both documentation languages, on the plan endpoints and on the
+/// subscription's own periods.
+///
+/// That is narrower than the rest of iyzico, and narrower than one part of it
+/// this crate already speaks: an [iyzico Link](crate::iyzilink) is documented
+/// in seven currencies, roubles, francs and kroner among them, and a plan in
+/// three. So the other six are refused here rather than sent — being a
+/// currency [`Currency`] can name is not the same as being one iyzico will
+/// take a subscription in.
 fn plan_currency(currency: Currency) -> Result<(), PlanError> {
     match currency {
         Currency::Try | Currency::Usd | Currency::Eur => Ok(()),
-        Currency::Gbp | Currency::Jpy | Currency::Kwd => {
-            Err(PlanError::UnsupportedCurrency(currency))
-        }
+        Currency::Gbp
+        | Currency::Jpy
+        | Currency::Kwd
+        | Currency::Rub
+        | Currency::Chf
+        | Currency::Nok => Err(PlanError::UnsupportedCurrency(currency)),
     }
 }
 
