@@ -1,23 +1,30 @@
 //! iyzico, behind kasapay's [`Provider`](kasapay_core::Provider) trait.
 //!
-//! # Three APIs, not one
+//! # Four APIs, not one
 //!
-//! iyzico runs three that barely resemble each other, and which one a merchant
+//! iyzico runs four that barely resemble each other, and which one a merchant
 //! uses decides everything about how their code looks — including how it
 //! authenticates, because no two of them do it the same way.
 //!
-//! | | [`in_store`] | [`terminal`] | the rest |
-//! |---|---|---|---|
-//! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | a cash register driving a physical POS device over the counter | ordinary card payments, subscriptions, marketplace, card storage, pay-by-link, mass payout |
-//! | Where | [`in_store`] | [`terminal`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
-//! | Authentication | three plain headers | an OAuth2 bearer token that expires | [`IYZWSv2`](Credentials) request signing |
-//! | Currency | Turkish lira only | lira, dollars, euro | several |
-//! | Implemented here | seven of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | thirty-six of seventy |
+//! | | [`in_store`] | [`terminal`] | [`agent`] and [`softpos`] | the rest |
+//! |---|---|---|---|---|
+//! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | a cash register driving a physical POS device over the counter | a sale on the payer's own phone, over NFC | ordinary card payments, subscriptions, marketplace, card storage, pay-by-link, mass payout |
+//! | Where | [`in_store`] | [`terminal`] | [`agent`], [`softpos`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
+//! | Authentication | three plain headers | an OAuth2 bearer token that expires | a dealer secret key, then a session key — **not iyzico's own scheme, and not iyzico's own host** | [`IYZWSv2`](Credentials) request signing |
+//! | Currency | Turkish lira only | lira, dollars, euro | Turkish lira only, by inference — see [`softpos`] | several |
+//! | Implemented here | seven of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | all five | thirty-six of seventy |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
 //! likely reason [`in_store`] does not. Whether its plain headers are the
 //! current mechanism or a legacy one iyzico has not said, and this crate does
 //! not guess.
+//!
+//! [`agent`] and [`softpos`] are not iyzico's own API at all: every one of
+//! their five fragments titles itself `"PayPOS (Paynet) API"` and points at
+//! `api.paynet.com.tr`, a Paynet host, not `api.iyzipay.com`. iyzico
+//! documents it because it resells it. [`agent`]'s module documentation has
+//! the full evidence, including why `specs/iyzico/agent/latest.yaml` and
+//! `specs/iyzico/softpos/latest.yaml` show the wrong host at their top level.
 //!
 //! # Retrying a charge is not documented as safe
 //!
@@ -42,7 +49,7 @@
 //! security scheme means the fragment was silent, not that the endpoint is
 //! open.
 //!
-//! Ninety-six operations across eleven groups. Fifty are implemented,
+//! Ninety-six operations across eleven groups. Fifty-five are implemented,
 //! which `python3 scripts/coverage.py` counts rather than anybody remembering.
 //!
 //! Grouping is by path, which is why three of [`terminal`]'s belong to a group
@@ -57,11 +64,16 @@
 //! signature, [`iyzilink`] documents none on any of its seven,
 //! [`subscription`] documents none on any of its twenty-four, [`mass`] none on
 //! any of its six — including the ones that report where money that has
-//! already left got to — [`onboarding`] none on any of its three, and
-//! [`terminal`] none on any of its fourteen. Each module says which of its
-//! calls are checked and which are only as trustworthy as the connection they
-//! arrived over.
+//! already left got to — [`onboarding`] none on any of its three, [`terminal`]
+//! none on any of its fourteen, and neither does [`agent`] nor [`softpos`] —
+//! Paynet's own [Response Signature Validation]-equivalent page, if one
+//! exists, was not found; PayPOS's pages name no signature field at all. Each
+//! module says which of its calls are checked and which are only as
+//! trustworthy as the connection they arrived over.
+//!
+//! [Response Signature Validation]: https://docs.iyzico.com/en/advanced/response-signature-validation
 
+pub mod agent;
 pub mod classic;
 mod errors;
 pub mod in_store;
@@ -69,6 +81,7 @@ pub mod iyzilink;
 pub mod mass;
 pub mod onboarding;
 mod signing;
+pub mod softpos;
 pub mod subscription;
 pub mod terminal;
 

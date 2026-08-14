@@ -97,6 +97,20 @@ plain headers described in prose on its overview page, 3 are softpos, and one
 is `/in-store/oauth2/authorize`, which is the Terminal API's rather than
 In-Store's — see below.
 
+softpos's 3, and `agent`'s 2 next to them (counted above as classic-shaped
+`Authorization` parameters, because that is the field's name — see
+`kasapay_iyzico::agent`'s module documentation for why the name is where the
+resemblance to the classic API ends), are also where the merged documents
+mislead about *where* a request goes, not only how it authenticates. Every
+one of the five fragments declares its own `servers` block, and it is not
+iyzico's: `https://api.paynet.com.tr` / `https://pts-api.paynet.com.tr`,
+titled `"PayPOS (Paynet) API"`. `scripts/merge_iyzico.py`'s `merge()` does not
+carry a fragment's own `servers` into the document it assembles — it always
+writes the constant iyzico pair — so `specs/iyzico/agent/latest.yaml` and
+`specs/iyzico/softpos/latest.yaml` both show `api.iyzipay.com` at the top
+level regardless. Read `x-iyzico-source` for these two groups rather than the
+merged `servers` block.
+
 These counts move when the fragments do. They read 18 / 67 / 11 until grafting
 what each language alone documents brought a `security` block onto
 `/v3/in-store/payment/init` and `/v3/in-store/payment/refund`, which had none.
