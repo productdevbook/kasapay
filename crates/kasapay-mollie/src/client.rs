@@ -915,9 +915,17 @@ impl Mandate {
 /// Mollie's own enum has three values and no fourth for "revoked": revoking a
 /// mandate — not a call this crate makes — leaves it reading `invalid`
 /// exactly like one that never signed, and there is nothing in the status
-/// alone that tells the two apart. `mandateReference` and `signatureDate`
-/// stay on the object either way, for a caller that keeps its own record of
-/// which happened.
+/// alone that tells the two apart.
+///
+/// **Nothing else on the mandate recovers it either.** There is no
+/// `revokedAt` or `updatedAt` anywhere in Mollie's schema. `signatureDate`
+/// looks like a candidate and is not one: it is not `readOnly` in their
+/// document, and their own `create-mandate` example sets it — to a date of
+/// the caller's choosing — in the same request that answers `status: valid`
+/// immediately, with no first payment involved at all. So its presence
+/// proves a date was supplied, not that Mollie ever validated anything. A
+/// caller that needs the distinction has to keep its own record of having
+/// seen this mandate `Valid` before, since Mollie will not hand it back.
 ///
 /// [`Mollie::charge_with_mandate`] does not read this before sending a
 /// charge — see its own documentation for why.
