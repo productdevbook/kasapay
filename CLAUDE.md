@@ -53,6 +53,27 @@ time does not stay clean.
 compiling, or make it do something different, goes in under **Unreleased**
 before the PR merges — not at release time, when nobody remembers what it cost.
 
+## More than one person, or agent, at a time
+
+One git checkout, several hands, is a way to lose work. It has happened here:
+four agents shared `/home/mkpc/github/kasapay`, and within minutes one had
+checked out a branch on top of another's uncommitted changes, a `git add -A`
+had swept a third's file into the wrong commit, and a fourth's commit had
+landed on somebody else's branch. Nothing was lost, but only because it was
+caught quickly and unpicked by hand.
+
+So: **one worktree each.**
+
+    git worktree add ../kasapay-<what-you-are-doing> -b <branch> origin/main
+
+Work only in your own. Do not `git checkout` another branch in a tree somebody
+else is using, and prefer `git add <paths>` over `git add -A` when you are not
+alone — the wildcard cannot tell your changes from theirs.
+
+Branches are cheap and merges are serial: open the pull request, let CI say
+whether it is right, and let one person merge. Two agents merging to `main`
+concurrently is the same problem one layer up.
+
 ## Nothing is built or tested on this machine
 
 This machine serves live sites; a build taking every core has taken it off the
