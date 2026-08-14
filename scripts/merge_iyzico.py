@@ -107,6 +107,10 @@ def repair(node, in_security: bool = False):
             node["type"] = openapi_type
             if fmt:
                 node["format"] = fmt
+        # A field the fragment's author left blank arrives as a null description,
+        # which OpenAPI refuses. It is an absent description, not an empty one.
+        if node.get("description", "") is None:
+            del node["description"]
         for key, value in node.items():
             repair(value, in_security or key == "securitySchemes")
     elif isinstance(node, list):
