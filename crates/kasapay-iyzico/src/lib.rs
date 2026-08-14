@@ -17,6 +17,20 @@
 //! - The In-Store API settles in Turkish lira only; any other currency is
 //!   [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported).
 //!
+//! # Finishing a payment
+//!
+//! The redirect is not the end. When the payer is done, iyzico posts an
+//! encrypted `data` blob to the `x-callback-url` the charge carried, and
+//! [`Iyzico::decrypt_callback`] is what opens it — the `continuation` on the
+//! returned [`NextAction::Redirect`](kasapay_core::NextAction::Redirect) is the
+//! `paymentSessionToken` that call needs. Polling
+//! [`charge_status`](kasapay_core::Provider::charge_status) works, but the
+//! callback is what the flow is built around.
+//!
+//! iyzico documents `/crypt/decrypt` under both `/v3/in-store` and
+//! `/v2/in-store` with identical bodies, and does not say which is current.
+//! This crate calls whichever the configured base points at.
+//!
 //! # Where the types come from
 //!
 //! iyzico publishes no OpenAPI document. The ones in `specs/iyzico/` are

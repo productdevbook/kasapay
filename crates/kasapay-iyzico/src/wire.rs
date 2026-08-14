@@ -47,6 +47,53 @@ pub(crate) struct SessionResponse {
     pub(crate) payment_id: Option<i64>,
 }
 
+/// `POST /crypt/decrypt`.
+#[derive(Debug, Serialize)]
+pub(crate) struct DecryptRequest<'a> {
+    pub(crate) data: &'a str,
+    #[serde(rename = "paymentSessionToken")]
+    pub(crate) payment_session_token: &'a str,
+}
+
+/// The answer to `POST /crypt/decrypt`.
+#[derive(Debug, Deserialize)]
+pub(crate) struct DecryptResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "inStoreCompleteOperation")]
+    pub(crate) operation: Option<CompleteOperation>,
+}
+
+/// The settled operation hanging off a decrypted callback.
+#[derive(Debug, Deserialize)]
+pub(crate) struct CompleteOperation {
+    pub(crate) transaction: Option<SettledTransaction>,
+}
+
+/// What the bank did, as the callback reports it.
+#[derive(Debug, Deserialize)]
+pub(crate) struct SettledTransaction {
+    /// The amount, typed `BigDecimal` by the spec and sent as a JSON number.
+    pub(crate) amount: Option<serde_json::Number>,
+    #[serde(rename = "currencyCode")]
+    pub(crate) currency_code: Option<String>,
+    pub(crate) receipt: Option<SettledReceipt>,
+}
+
+/// The receipt, whose three approval flags are the only thing that says which
+/// operation the callback is reporting on.
+#[derive(Debug, Deserialize)]
+pub(crate) struct SettledReceipt {
+    pub(crate) approved: Option<bool>,
+    #[serde(rename = "refundApproved")]
+    pub(crate) refund_approved: Option<bool>,
+    #[serde(rename = "voidApproved")]
+    pub(crate) void_approved: Option<bool>,
+}
+
 /// The answer to `GET /payment/query`.
 #[derive(Debug, Deserialize)]
 pub(crate) struct PaymentQueryResponse {

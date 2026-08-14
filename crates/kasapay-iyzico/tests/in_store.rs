@@ -7,7 +7,8 @@
 use std::time::Duration;
 
 use kasapay_core::{
-    ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId, Provider,
+    Charge, ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId,
+    Provider, Status,
 };
 use kasapay_iyzico::{Config, Iyzico};
 use serde_json::json;
@@ -69,7 +70,7 @@ async fn init_sends_the_documented_body_and_headers() {
         .expect("init succeeds");
 
     assert_eq!(charge.id.as_str(), "4242424242");
-    assert_eq!(charge.status, kasapay_core::Status::RequiresAction);
+    assert_eq!(charge.status, Status::RequiresAction);
     assert_eq!(charge.amount.minor_units(), 14_990);
     match charge.next_action.expect("a deep link is required") {
         kasapay_core::NextAction::Redirect { url, continuation } => {
@@ -151,7 +152,7 @@ async fn query_reads_an_approved_payment_as_captured() {
         .await
         .expect("query succeeds");
 
-    assert_eq!(charge.status, kasapay_core::Status::Captured);
+    assert_eq!(charge.status, Status::Captured);
     assert_eq!(charge.amount.minor_units(), 14_990);
     assert_eq!(
         charge.order.map(|o| o.to_string()),
@@ -235,4 +236,102 @@ async fn a_provider_that_never_answers_gives_up_rather_than_hanging() {
 
     assert_eq!(error.kind(), ErrorKind::Transport);
     assert!(error.is_retryable());
+}
+
+fn decrypted(approved: bool, refund_approved: bool, void_approved: bool) -> serde_json::Value {
+    json!({
+        "status": "success",
+        "systemTime": 1_770_000_000_i64,
+        "inStoreCompleteOperation": {
+            "transaction": {
+                "transactionDate": "2026-08-14 12:00:00",
+                "rrn": "622812345678",
+                "amount": 149.90,
+                "currencyCode": "TRY",
+                "maskedPan": "552879******0004",
+                "receipt": {
+                    "approved": approved,
+                    "refundApproved": refund_approved,
+                    "voidApproved": void_approved,
+                    "schemaName": "MASTERCARD",
+                },
+            }
+        }
+    })
+}
+
+async fn decrypt(
+    server: &MockServer,
+    body: serde_json::Value,
+) -> Result<Charge, kasapay_core::Error> {
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/crypt/decrypt"))
+        .and(header("x-api-key", "api-key"))
+        .and(body_json(json!({
+            "data": "ZW5jcnlwdGVk",
+            "paymentSessionToken": "tok-abc",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(server)
+        .await;
+
+    client(server)
+        .decrypt_callback(&PaymentId::new("4242424242"), "ZW5jcnlwdGVk", "tok-abc")
+        .await
+}
+
+#[tokio::test]
+async fn a_decrypted_callback_settles_the_payment_it_was_started_for() {
+    let server = MockServer::start().await;
+    let charge = decrypt(&server, decrypted(true, false, false))
+        .await
+        .expect("the callback decrypts");
+
+    // The decrypted body carries a recordId, not a paymentId, so the id has to
+    // be the one the charge was started with.
+    assert_eq!(charge.id.as_str(), "4242424242");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+    assert!(charge.next_action.is_none());
+    assert_eq!(
+        charge.raw["inStoreCompleteOperation"]["transaction"]["rrn"],
+        "622812345678"
+    );
+}
+
+#[tokio::test]
+async fn an_approved_void_reads_as_cancelled() {
+    let server = MockServer::start().await;
+    let charge = decrypt(&server, decrypted(false, false, true))
+        .await
+        .expect("the callback decrypts");
+    assert_eq!(charge.status, Status::Canceled);
+    assert!(!charge.status.is_open());
+}
+
+#[tokio::test]
+async fn a_callback_approving_nothing_is_a_failure() {
+    let server = MockServer::start().await;
+    let charge = decrypt(&server, decrypted(false, false, false))
+        .await
+        .expect("the callback decrypts");
+    assert_eq!(charge.status, Status::Failed);
+}
+
+#[tokio::test]
+async fn a_failure_status_on_decrypt_is_an_error_not_a_charge() {
+    let server = MockServer::start().await;
+    let error = decrypt(
+        &server,
+        json!({
+            "status": "failure",
+            "errorCode": "6001",
+            "errorMessage": "gecersiz paymentSessionToken",
+        }),
+    )
+    .await
+    .expect_err("a refused decrypt is not a settled payment");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.code(), Some("6001"));
 }
