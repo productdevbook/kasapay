@@ -240,13 +240,17 @@ impl Client {
     /// `recordId`, which is a different identifier and not the one
     /// `charge_status` or `refund` accept.
     ///
+    /// `data` arrives as a query parameter on the callback URL and is
+    /// therefore percent-encoded. **Decode it before passing it here**; this
+    /// call sends what it is given, and iyzico's own documentation says an
+    /// encoded value fails to decrypt.
+    ///
     /// # Which version
     ///
-    /// This calls `/crypt/decrypt` under the configured base, so `/v3` for the
-    /// default configuration. iyzico also documents the same operation under
-    /// `/v2/in-store` with identical request and response bodies; whether that
-    /// is the deprecated one or the live one is not settled — see the crate
-    /// docs. Point [`Config::new`] at the v2 base to reach it.
+    /// `/v3/in-store/crypt/decrypt`, under the configured base. iyzico
+    /// documents this operation at both versions and v3 is the current one;
+    /// v2 is a separate, older integration rather than another base for this
+    /// client, so do not point [`Config::new`] at it. See the module docs.
     pub async fn decrypt_callback(
         &self,
         payment: &PaymentId,
@@ -574,6 +578,33 @@ fn failed(response_status: Option<&str>) -> bool {
     matches!(response_status, Some(s) if !s.eq_ignore_ascii_case("success"))
 }
 
+/// Reads a `currencyCode` off an In-Store response.
+///
+/// The schema types it a string and calls it a currency code, and the only
+/// value iyzico publishes is `"0949"` — ISO 4217's **numeric** code for lira,
+/// zero-padded — where every other API of theirs writes `TRY`. Both are read;
+/// no other numeric code is guessed at, because this API settles in lira only.
+fn currency_code(code: Option<&str>) -> Result<Currency, Error> {
+    let Some(code) = code else {
+        return Ok(Currency::Try);
+    };
+    if code.trim_start_matches('0') == "949" {
+        return Ok(Currency::Try);
+    }
+    code.parse().map_err(|e: kasapay_core::UnknownCurrency| {
+        Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
+    })
+}
+
+/// Reads a `BigDecimal` amount sent as a JSON number.
+fn amount_in(amount: Option<&serde_json::Number>, currency: Currency) -> Result<Money, Error> {
+    amount
+        .map(|n| Money::parse(&n.to_string(), currency))
+        .transpose()
+        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))
+        .map(|parsed| parsed.unwrap_or_else(|| Money::from_minor_units(0, currency)))
+}
+
 fn session_into_charge(
     response: wire::SessionResponse,
     raw: Raw,
@@ -633,6 +664,10 @@ fn session_into_charge(
 /// the callback reports on. A refund's outcome has nowhere to go in [`Status`],
 /// which has no refunded variant, so a refunded payment stays [`Status::Captured`]
 /// and the flags are left on [`Charge::raw`].
+///
+/// A payment that did not go through carries `paymentFailedResult` in place of
+/// the transaction, and is [`Status::Failed`] with the amount that was
+/// attempted.
 fn decrypted_into_charge(
     payment: &PaymentId,
     response: wire::DecryptResponse,
@@ -652,41 +687,44 @@ fn decrypted_into_charge(
             None => error,
         });
     }
-    let transaction = response
-        .operation
-        .as_ref()
-        .and_then(|o| o.transaction.as_ref())
-        .ok_or_else(|| {
-            Error::new(
+    let operation = response.operation.as_ref().ok_or_else(|| {
+        Error::new(
+            ErrorKind::Malformed,
+            PROVIDER,
+            "a decrypted callback carried no operation",
+        )
+    })?;
+
+    let (amount, status) = match (
+        operation.transaction.as_ref(),
+        operation.payment_failed_result.as_ref(),
+    ) {
+        (Some(transaction), _) => {
+            let currency = currency_code(transaction.currency_code.as_deref())?;
+            let receipt = transaction.receipt.as_ref();
+            let flag =
+                |f: fn(&wire::SettledReceipt) -> Option<bool>| receipt.and_then(f).unwrap_or(false);
+            let status = if flag(|r| r.void_approved) {
+                Status::Canceled
+            } else if flag(|r| r.approved) || flag(|r| r.refund_approved) {
+                Status::Captured
+            } else {
+                Status::Failed
+            };
+            (amount_in(transaction.amount.as_ref(), currency)?, status)
+        }
+        // A failed payment reports no currency; this API settles in lira only.
+        (None, Some(refused)) => (
+            amount_in(refused.transaction_amount.as_ref(), Currency::Try)?,
+            Status::Failed,
+        ),
+        (None, None) => {
+            return Err(Error::new(
                 ErrorKind::Malformed,
                 PROVIDER,
-                "a decrypted callback carried no transaction",
-            )
-        })?;
-
-    let currency = transaction
-        .currency_code
-        .as_deref()
-        .map_or(Ok(Currency::Try), str::parse)
-        .map_err(|e: kasapay_core::UnknownCurrency| {
-            Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
-        })?;
-    let amount = transaction
-        .amount
-        .as_ref()
-        .map(|n| Money::parse(&n.to_string(), currency))
-        .transpose()
-        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
-        .unwrap_or_else(|| Money::from_minor_units(0, currency));
-
-    let receipt = transaction.receipt.as_ref();
-    let flag = |f: fn(&wire::SettledReceipt) -> Option<bool>| receipt.and_then(f).unwrap_or(false);
-    let status = if flag(|r| r.void_approved) {
-        Status::Canceled
-    } else if flag(|r| r.approved) || flag(|r| r.refund_approved) {
-        Status::Captured
-    } else {
-        Status::Failed
+                "a decrypted callback carried neither a transaction nor a failed payment",
+            ));
+        }
     };
 
     Ok(Charge {
@@ -725,18 +763,8 @@ fn query_into_charge(response: wire::PaymentQueryResponse, raw: Raw) -> Result<C
         )
     })?;
     let detail = response.transaction_detail.as_ref();
-    let currency = detail
-        .and_then(|d| d.currency_code.as_deref())
-        .map_or(Ok(Currency::Try), str::parse)
-        .map_err(|e: kasapay_core::UnknownCurrency| {
-            Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
-        })?;
-    let amount = detail
-        .and_then(|d| d.amount.as_ref())
-        .map(|n| Money::parse(&n.to_string(), currency))
-        .transpose()
-        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
-        .unwrap_or_else(|| Money::from_minor_units(0, currency));
+    let currency = currency_code(detail.and_then(|d| d.currency_code.as_deref()))?;
+    let amount = amount_in(detail.and_then(|d| d.amount.as_ref()), currency)?;
 
     // The query endpoint reports no status field of its own. `receipt.approved`
     // is the only settled/unsettled signal the documented body carries.

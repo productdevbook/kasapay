@@ -4,18 +4,6 @@ What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
 ## Unreleased
-### Fixed
-
-- **`specs/iyzico/` was missing fields iyzico documents.** The merge script kept
-  one fragment per operation and preferred the English one, on the belief that
-  the two languages differed only in prose. They differ in substance: the
-  cancel-and-refund page carries `reason` and `description` only in Turkish,
-  and the In-Store refund field is `refundAmount` in one language and
-  `refundPrice` in the other — the two names issue #60 is about. The script now
-  grafts every field one fragment documents and the chosen one does not, per
-  operation rather than per page, and records each graft in the dated index.
-  Twenty-seven fields returned; no operation or field was lost.
-
 
 These changes break code written against 0.0.1. All are cheap to follow and
 all are the kind 0.0.x exists to make.
@@ -47,6 +35,23 @@ all are the kind 0.0.x exists to make.
   both.
 
 ### Added
+
+- **`kasapay_iyzico::iyzilink`, all seven iyzico Link operations.** Create a
+  link or a one-off fast link, read one back, list them, replace one, turn one
+  on or off, delete one. It is built over `classic::Client` — same host, same
+  `IYZWSv2` signing, same connection pool — so `iyzilink::Client::new(classic)`
+  is the whole setup.
+
+  Two things a caller has to know. **iyzico documents no response signature for
+  any of these**: their signature page lists no iyzilink endpoint and no
+  iyzilink schema carries the field, so nothing here is verified and a link's
+  details are only as trustworthy as the connection. And the request signature
+  covers the path without the query string — undocumented, but what iyzico's
+  own PHP and Python SDKs both do.
+
+  A link priced in `RUB`, `CHF` or `NOK` cannot be built: iyzico takes those and
+  `Currency` has no name for them. One read back in them has `price: None` and
+  the amount still in `raw`.
 
 - **`PayTr::bin_details`**, PayTR's BIN service: the bank, network, company-card
   flag, non-3-D permission and instalment programme behind the first 6 or 8
@@ -116,6 +121,35 @@ all are the kind 0.0.x exists to make.
   so a provider that stopped answering hung the caller forever.
 
 ### Fixed
+
+- **`specs/iyzico/` was missing fields iyzico documents.** The merge script kept
+  one fragment per operation and preferred the English one, on the belief that
+  the two languages differed only in prose. They differ in substance: the
+  cancel-and-refund page carries `reason` and `description` only in Turkish,
+  and the In-Store refund field is `refundAmount` in one language and
+  `refundPrice` in the other — the two names issue #60 is about. The script now
+  grafts every field one fragment documents and the chosen one does not, per
+  operation rather than per page, and records each graft in the dated index.
+  Twenty-seven fields returned; no operation or field was lost.
+
+- **An In-Store callback said `"currencyCode": "0949"` and the crate called it
+  malformed.** That is ISO 4217's numeric code for lira, and it is the only
+  value iyzico publishes in a full example response — so every real decrypted
+  callback and every status query was rejected where the amount should have
+  been read. Both `0949` and `TRY` are read now; no other numeric code is
+  guessed at, since this API settles in lira only.
+
+- **A payment the payer did not complete came back as an error rather than a
+  failed charge.** Such a callback carries `paymentFailedResult` where a
+  settled one carries `transaction`, and `decrypt_callback` demanded the
+  transaction. It now answers a `Failed` charge with the amount that was
+  attempted.
+
+- The In-Store module documentation said it was unsettled which version of
+  `/crypt/decrypt` is current, and suggested pointing `Config` at the v2 base
+  to reach the other one. It is v3, and that suggestion was wrong: v2 is a
+  separate older integration whose other paths differ, so a client reconfigured
+  that way would 404 on everything else.
 
 - Stripe errors carry the decline code now — `insufficient_funds` rather than
   nothing — and the message is Stripe's own sentence rather than a Debug dump
