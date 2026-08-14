@@ -1,6 +1,6 @@
 //! Charging a card Stripe already holds, and what a listing says about one.
 //!
-//! Stripe names a saved instrument by a `pm_…` PaymentMethod id, made by
+//! Stripe names a saved instrument by a `pm_…` `PaymentMethod` id, made by
 //! Stripe.js or Elements in the payer's own browser — never by a server-side
 //! call, and never by this crate. That is also why there is no equivalent here
 //! of iyzico's `cardUserKey`/`cardToken` pair: a `pm_…` stands alone rather
@@ -68,7 +68,7 @@ pub struct StoredCard {
 impl TryFrom<stripe_shared::PaymentMethod> for StoredCard {
     type Error = Error;
 
-    /// Reads a PaymentMethod Stripe listed for a customer.
+    /// Reads a `PaymentMethod` Stripe listed for a customer.
     ///
     /// Fails only if `card` is missing, which should not happen: the listing
     /// this is built from is filtered to `type=card`. Kept as a checked
@@ -94,9 +94,9 @@ impl TryFrom<stripe_shared::PaymentMethod> for StoredCard {
     }
 }
 
-/// The scheme a card runs on, as Stripe's PaymentMethod documents `card.brand`:
-/// "amex, cartes_bancaires, diners, discover, eftpos_au, jcb, link,
-/// mastercard, unionpay, visa or unknown".
+/// The scheme a card runs on, as Stripe's `PaymentMethod` documents
+/// `card.brand`: `amex`, `cartes_bancaires`, `diners`, `discover`,
+/// `eftpos_au`, `jcb`, `link`, `mastercard`, `unionpay`, `visa` or `unknown`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Brand {
@@ -116,7 +116,7 @@ pub enum Brand {
     Link,
     /// Mastercard.
     Mastercard,
-    /// UnionPay.
+    /// `UnionPay`.
     UnionPay,
     /// Visa.
     Visa,
@@ -164,8 +164,8 @@ impl From<&str> for Brand {
     }
 }
 
-/// How a card is funded, as Stripe's PaymentMethod documents `card.funding`:
-/// "credit, debit, prepaid, or unknown".
+/// How a card is funded, as Stripe's `PaymentMethod` documents
+/// `card.funding`: `credit`, `debit`, `prepaid`, or `unknown`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Funding {

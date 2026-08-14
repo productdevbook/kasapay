@@ -262,7 +262,7 @@ impl Stripe {
     /// Forgets a saved card.
     ///
     /// `POST /v1/payment_methods/{id}/detach`. Stripe hands back the detached
-    /// PaymentMethod; this discards it; a caller wanting it can confirm the
+    /// `PaymentMethod`; this discards it; a caller wanting it can confirm the
     /// card is gone by reading [`Stripe::stored_cards`] again.
     ///
     /// # Not generated
