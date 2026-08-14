@@ -13,12 +13,14 @@ categories.workspace = true
 [dependencies]
 kasapay-core.workspace = true
 async-stripe.workspace = true
+async-stripe-client-core.workspace = true
 async-stripe-core.workspace = true
 async-stripe-shared.workspace = true
 async-stripe-types.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 url.workspace = true
 
 [dev-dependencies]

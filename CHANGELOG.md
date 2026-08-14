@@ -108,6 +108,34 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay_stripe::saved`, and `Stripe::capabilities().saved_instruments` becomes
+  `true`.** The second provider written against #97's `InstrumentId`, and the
+  one #97 said would be the case that is not half a name: Stripe's `pm_…`
+  stands alone, made by Stripe.js or Elements in the payer's own browser, so
+  `saved::Payment` carries the customer beside it rather than needing a second
+  handle the way iyzico's `cardUserKey`/`cardToken` pair does.
+
+  `Stripe::stored_cards` is `GET /v1/customers/{customer}/payment_methods`,
+  filtered to `type=card` and paged the way `Stripe::refunds` already is.
+  `Stripe::charge_saved_card` confirms a PaymentIntent with `customer` and
+  `payment_method` set — Stripe's own documented shape for charging a saved
+  card. Left on session, a card that needs 3-D Secure comes back as an
+  ordinary stalled `Charge` for the payer to complete; `saved::PaymentBuilder::off_session`
+  marks the payer absent instead, and Stripe skips the challenge where the
+  card's rules allow it — where they do not, it answers an error carrying
+  `authentication_required` rather than a `Charge`, because there is nobody
+  present to complete one, and a caller has to handle that. `Stripe::forget_card`
+  detaches one.
+
+  `detach` has no generated form in `stripe_core` — it lives in
+  `async-stripe-payment`, a resource crate this workspace does not otherwise
+  need. Rather than pull in every other payment-method type for one call,
+  `Stripe::forget_card` is a `StripeRequest` written by hand against
+  `async-stripe-client-core`, the request-builder plumbing every generated
+  request already sits on and which this crate already carried transitively
+  through `async-stripe`. `async-stripe-core` gains the `customer` feature,
+  already-generated and just switched on, for `Stripe::stored_cards`.
+
 - **`kasapay_core::InstrumentId`, and `iyzico::classic::Client::pay_with_saved_card`
   — charging a card the provider holds, without a card number anywhere.**
   `Id<kind::Instrument>`, the same shape as `PaymentId`: it names one saved

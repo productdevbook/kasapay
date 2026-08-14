@@ -4,16 +4,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Secret,
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, InstrumentId, Money, NextAction,
+    OrderRef, PaymentId, Provider, ProviderId, Raw, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
+use stripe_client_core::{RequestBuilder, StripeMethod};
+use stripe_core::customer::{ListPaymentMethodsCustomer, ListPaymentMethodsCustomerType};
 use stripe_core::payment_intent::{
-    CancelPaymentIntent, CapturePaymentIntent, CreatePaymentIntent, RetrievePaymentIntent,
+    CancelPaymentIntent, CapturePaymentIntent, CreatePaymentIntent, CreatePaymentIntentOffSession,
+    RetrievePaymentIntent,
 };
 use stripe_core::refund::{CreateRefund, ListRefund};
 
 use crate::convert;
+use crate::saved;
 
 /// The order reference travels as PaymentIntent metadata under this key.
 ///
@@ -30,6 +34,9 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Stripe's largest page. Its default is ten, which most payments fit in.
 const REFUND_PAGE_SIZE: i64 = 100;
+
+/// Stripe's largest page, for [`Stripe::stored_cards`].
+const STORED_CARDS_PAGE_SIZE: i64 = 100;
 
 /// Takes payments through Stripe.
 ///
@@ -163,10 +170,148 @@ impl Stripe {
         into_charge(&intent)
     }
 
+    /// Lists a customer's saved cards.
+    ///
+    /// `GET /v1/customers/{customer}/payment_methods`, filtered to
+    /// `type=card`: this crate charges cards, so a customer's bank-debit or
+    /// wallet payment methods are left out rather than answered as something
+    /// [`saved::StoredCard`] cannot represent. No card number goes either way
+    /// — the request carries the customer's id and the answer carries a
+    /// `pm_…`, the scheme, and the last four digits.
+    ///
+    /// # It is more than one request
+    ///
+    /// Stripe pages this endpoint the same way it pages refunds — see
+    /// [`Stripe::refunds`] for why this walks the cursor rather than
+    /// answering one page.
+    pub async fn stored_cards(&self, customer: &str) -> Result<Vec<saved::StoredCard>, Error> {
+        let mut cards = Vec::new();
+        let mut cursor: Option<String> = None;
+        loop {
+            let mut list = ListPaymentMethodsCustomer::new(customer.to_owned())
+                .type_(ListPaymentMethodsCustomerType::Card)
+                .limit(STORED_CARDS_PAGE_SIZE);
+            if let Some(after) = cursor.take() {
+                list = list.starting_after(after);
+            }
+            let page = list
+                .customize()
+                .timeout(DEFAULT_TIMEOUT)
+                .send(self.inner.as_ref())
+                .await
+                .map_err(|e| convert::error(&e).with_source(e))?;
+
+            cursor = page.data.last().map(|last| last.id.as_str().to_owned());
+            for method in page.data {
+                cards.push(saved::StoredCard::try_from(method)?);
+            }
+            // An empty page with `has_more` set would otherwise loop forever.
+            if !page.has_more || cursor.is_none() {
+                return Ok(cards);
+            }
+        }
+    }
+
+    /// Charges a card Stripe already holds, sending no card number.
+    ///
+    /// A PaymentIntent with `customer` and `payment_method` set and
+    /// `confirm: true`, so this both creates and confirms in the one call —
+    /// see [`saved::Payment`] and the module's own doc for what
+    /// [`saved::PaymentBuilder::off_session`] changes about authentication and
+    /// who is liable if none happens.
+    ///
+    /// A currency Stripe cannot settle in is refused before a socket opens,
+    /// the same way [`Provider::charge`] refuses one.
+    pub async fn charge_saved_card(&self, payment: &saved::Payment) -> Result<Charge, Error> {
+        let mut create = CreatePaymentIntent::new(
+            payment.amount.minor_units(),
+            convert::currency(payment.amount.currency())?,
+        )
+        .customer(payment.customer.to_string())
+        .payment_method(payment.instrument.as_str().to_owned())
+        .confirm(true)
+        .metadata(saved_metadata(payment));
+        if payment.off_session {
+            create = create.off_session(CreatePaymentIntentOffSession::Bool(true));
+        }
+        if let Some(description) = &payment.description {
+            create = create.description(description.to_string());
+        }
+
+        let intent = match &payment.idempotency_key {
+            Some(key) => {
+                create
+                    .customize()
+                    .request_strategy(RequestStrategy::Idempotent(idempotency_key(key)?))
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
+            None => {
+                create
+                    .customize()
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
+        }
+        .map_err(|e| convert::error(&e).with_source(e))?;
+        into_charge(&intent)
+    }
+
+    /// Forgets a saved card.
+    ///
+    /// `POST /v1/payment_methods/{id}/detach`. Stripe hands back the detached
+    /// `PaymentMethod`; this discards it; a caller wanting it can confirm the
+    /// card is gone by reading [`Stripe::stored_cards`] again.
+    ///
+    /// # Not generated
+    ///
+    /// `detach` lives in `async-stripe-payment`, a resource crate this
+    /// workspace does not otherwise need — everything else here comes from
+    /// `stripe_core`. Pulling it in for one call would add thousands of lines
+    /// of every other payment-method type this crate never touches, so this
+    /// is instead a `StripeRequest` written by hand against
+    /// `async-stripe-client-core`, which every one of those generated
+    /// requests is built on and which this crate already carries
+    /// transitively through `async-stripe`. The wire shape — `POST
+    /// /payment_methods/{id}/detach`, no body, a `PaymentMethod` back — is
+    /// [documented by Stripe](https://docs.stripe.com/api/payment_methods/detach)
+    /// and matches what `async-stripe-payment` itself sends.
+    pub async fn forget_card(&self, instrument: &InstrumentId) -> Result<(), Error> {
+        let request = DetachPaymentMethod {
+            payment_method: instrument.as_str().into(),
+        };
+        request
+            .customize()
+            .timeout(DEFAULT_TIMEOUT)
+            .send(self.inner.as_ref())
+            .await
+            .map_err(|e| convert::error(&e).with_source(e))?;
+        Ok(())
+    }
+
     /// The underlying `async-stripe` client, for calls kasapay does not model.
     #[must_use]
     pub fn client(&self) -> &stripe::Client {
         &self.inner
+    }
+}
+
+/// `POST /payment_methods/{id}/detach`, written by hand — see
+/// [`Stripe::forget_card`] for why.
+struct DetachPaymentMethod {
+    payment_method: Box<str>,
+}
+
+impl StripeRequest for DetachPaymentMethod {
+    type Output = stripe_shared::PaymentMethod;
+
+    fn build(&self) -> RequestBuilder {
+        RequestBuilder::new(
+            StripeMethod::Post,
+            format!("/payment_methods/{}/detach", self.payment_method),
+        )
     }
 }
 
@@ -249,20 +394,17 @@ impl Provider for Stripe {
         Stripe::cancel(self, id).await
     }
 
-    /// Everything but a saved instrument, which this crate does not yet charge.
-    ///
-    /// Stripe has the vault — a `pm_…` made in the payer's browser, listed
-    /// under a customer — but nothing here sends one, so
-    /// [`Capabilities::saved_instruments`] is false rather than a yes over a
-    /// call that would then ignore the instrument. Confirming a PaymentIntent
-    /// against a `pm_…` today goes through [`Stripe::client`].
+    /// Separate capture, partial capture and repeated partial refunds, all as
+    /// Stripe documents them for a PaymentIntent — and a card Stripe holds can
+    /// be charged: [`Stripe::stored_cards`] lists them and
+    /// [`Stripe::charge_saved_card`] charges one.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: true,
             partial_capture: true,
             partial_refund: true,
             repeated_refund: true,
-            saved_instruments: false,
+            saved_instruments: true,
         }
     }
 }
@@ -290,6 +432,13 @@ fn metadata(request: &ChargeRequest) -> std::collections::HashMap<String, String
         request.order.as_str().to_owned(),
     );
     pairs
+}
+
+fn saved_metadata(payment: &saved::Payment) -> std::collections::HashMap<String, String> {
+    std::collections::HashMap::from([(
+        ORDER_METADATA_KEY.to_owned(),
+        payment.order.as_str().to_owned(),
+    )])
 }
 
 fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
