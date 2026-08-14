@@ -108,10 +108,12 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// payment by nothing at all — no identifier of its own and nothing to
     /// compose one from — answers
     /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
-    /// accepting an identifier it cannot honour. So does one whose flow is read
-    /// back by a handle that is not a payment id at all: iyzico's classic
-    /// checkout form has only its own token until the payer finishes, and that
-    /// token is a different [`IdKind`](crate::IdKind).
+    /// accepting an identifier it cannot honour.
+    ///
+    /// A flow that is not yet a payment is not read here at all. iyzico's
+    /// classic checkout form has only its own token until the payer finishes,
+    /// and that token is a different [`IdKind`](crate::IdKind), so it has its
+    /// own call rather than a signature this one cannot honestly take.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error>;
 
     /// Takes funds an authorisation is only holding.
