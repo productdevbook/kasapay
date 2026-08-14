@@ -36,6 +36,22 @@ Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
 in English — grouping by page filed everything twice under two names.
 
+### Authentication is mostly undocumented
+
+Only 16 of the 96 operations declare a security scheme at all: Bearer JWT for
+Terminal Host and the In-Store OAuth flow, `x-api-key` for In-Store, and Basic
+auth for the OAuth token endpoint itself. The other 80 — including every
+ordinary card payment — say nothing about how a request is authenticated.
+
+So `specs/` says nothing either. An earlier version of this script applied
+In-Store's headers (`x-api-key`, `x-secret-key`, `x-merchant-id`) to all 96 as
+a global scheme; those came from prose on one overview page, not from any
+fragment, and stating them as fact for the whole API was an invention. Each
+group's index now lists the operations iyzico documents no authentication for.
+
+Where an adapter needs to know, read iyzico's own integration guide or ask
+them. Do not read it out of these files.
+
 ### What the script repairs
 
 - Java type names that are not OpenAPI types: `BigDecimal`, `Long`, `Integer`,

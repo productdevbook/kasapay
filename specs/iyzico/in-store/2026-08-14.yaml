@@ -9,10 +9,6 @@ servers:
   description: Production
 - url: https://sandbox-api.iyzipay.com
   description: Sandbox
-security:
-- ApiKeyAuth: []
-  SecretKeyAuth: []
-  MerchantIdAuth: []
 tags:
 - name: OAuth
 - name: Payment
@@ -93,6 +89,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthSimpleError'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+      security:
+      - BasicAuth: []
   /in-store/oauth2/token/refresh:
     post:
       tags:
@@ -124,6 +122,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthSimpleError'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+      security:
+      - BasicAuth: []
   /v2/in-store/crypt/decrypt:
     post:
       tags:
@@ -161,6 +161,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse2'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
   /v3/in-store/crypt/decrypt:
     post:
       summary: Ödeme Sonucu Şifre Çözme
@@ -348,6 +352,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse2'
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
   /v3/in-store/payment/refund:
     post:
       summary: Ödeme İade İşlemi
@@ -579,18 +587,27 @@ paths:
       x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
 components:
   securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: 'Authorization with Basic Auth.
+
+        Postman Basic Auth fields:
+
+        - Username: client_id
+
+        - Password: client_secret
+
+
+        HTTP header equivalent:
+
+        Authorization: Basic base64(client_id:client_secret)
+
+        '
     ApiKeyAuth:
       type: apiKey
       in: header
       name: x-api-key
-    SecretKeyAuth:
-      type: apiKey
-      in: header
-      name: x-secret-key
-    MerchantIdAuth:
-      type: apiKey
-      in: header
-      name: x-merchant-id
   schemas:
     CreateUserRequest:
       type: object

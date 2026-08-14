@@ -9,10 +9,6 @@ servers:
   description: Production
 - url: https://sandbox-api.iyzipay.com
   description: Sandbox
-security:
-- ApiKeyAuth: []
-  SecretKeyAuth: []
-  MerchantIdAuth: []
 tags:
 - name: Reporting
   description: Reporting endpoints
@@ -102,19 +98,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/advanced/reporting-service.md
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-    SecretKeyAuth:
-      type: apiKey
-      in: header
-      name: x-secret-key
-    MerchantIdAuth:
-      type: apiKey
-      in: header
-      name: x-merchant-id
   schemas:
     BaseResponse:
       type: object

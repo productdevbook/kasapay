@@ -61,6 +61,11 @@ endpoint, read that group's `latest.yaml` and the `notes` for it in the dated
 index rather than the documentation page: neither language documents everything,
 and where they overlap they sometimes disagree.
 
+The specs carry only what iyzico states. Most operations document no
+authentication at all, and that absence is recorded rather than filled in — if
+an adapter needs to know how a request is signed, that comes from iyzico, not
+from `specs/`.
+
 ## Unverified against a live API
 
 iyzico's `/payment/query` status mapping. The documented response body has no

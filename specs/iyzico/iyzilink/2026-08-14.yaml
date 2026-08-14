@@ -9,10 +9,6 @@ servers:
   description: Production
 - url: https://sandbox-api.iyzipay.com
   description: Sandbox
-security:
-- ApiKeyAuth: []
-  SecretKeyAuth: []
-  MerchantIdAuth: []
 tags:
 - name: iyzico Link
   description: Pay by link (iyzico Link)
@@ -264,19 +260,6 @@ paths:
                 $ref: '#/components/schemas/BasicStatusResponse'
       x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-    SecretKeyAuth:
-      type: apiKey
-      in: header
-      name: x-secret-key
-    MerchantIdAuth:
-      type: apiKey
-      in: header
-      name: x-merchant-id
   schemas:
     BasicStatusResponse:
       type: object

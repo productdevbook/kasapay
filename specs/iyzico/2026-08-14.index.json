@@ -16,7 +16,9 @@
         "POST /v1/agent/logout"
       ],
       "schemas": 3,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: POST /v1/agent/get_auth_key, POST /v1/agent/logout"
+      ]
     },
     "cardstorage": {
       "operations": [
@@ -25,7 +27,9 @@
         "POST /cardstorage/cards"
       ],
       "schemas": 12,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: DELETE /cardstorage/card, POST /cardstorage/card, POST /cardstorage/cards"
+      ]
     },
     "in-store": {
       "operations": [
@@ -55,7 +59,8 @@
         "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
         "schema QueryTransactionDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryTransactionDetail2",
         "schema QueryReceiptDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryReceiptDetail2",
-        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2"
+        "schema ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "no authentication documented by iyzico for: DELETE /v3/in-store/user, GET /v3/in-store/user/list, POST /in-store/oauth2/authorize, POST /v3/in-store/crypt/decrypt, POST /v3/in-store/payment/init, POST /v3/in-store/payment/query, POST /v3/in-store/payment/refund, POST /v3/in-store/user"
       ]
     },
     "iyzilink": {
@@ -69,7 +74,9 @@
         "PUT /v2/iyzilink/products/{token}"
       ],
       "schemas": 9,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: DELETE /v2/iyzilink/products/{token}, GET /v2/iyzilink/products, GET /v2/iyzilink/products/{token}, PATCH /v2/iyzilink/products/{token}/status/{status}, POST /v2/iyzilink/fast-link/products, POST /v2/iyzilink/products, PUT /v2/iyzilink/products/{token}"
+      ]
     },
     "mass": {
       "operations": [
@@ -81,7 +88,9 @@
         "POST /v1/mass/payout/retrieve"
       ],
       "schemas": 14,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: GET /v1/mass/payout/balance, GET /v1/mass/payout/retrieve/items/{referenceCode}, POST /v1/mass/payout/auth, POST /v1/mass/payout/cancel/{requestId}, POST /v1/mass/payout/init, POST /v1/mass/payout/retrieve"
+      ]
     },
     "onboarding": {
       "operations": [
@@ -90,7 +99,9 @@
         "PUT /onboarding/submerchant"
       ],
       "schemas": 13,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: POST /onboarding/submerchant, POST /onboarding/submerchant/detail, PUT /onboarding/submerchant"
+      ]
     },
     "payment": {
       "operations": [
@@ -155,7 +166,8 @@
         "schema PaymentResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as PaymentResponse2",
         "schema ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as ErrorResponse12",
         "schema ItemTransaction redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ItemTransaction2",
-        "schema ConvertedPayout redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ConvertedPayout2"
+        "schema ConvertedPayout redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ConvertedPayout2",
+        "no authentication documented by iyzico for: POST /payment/3dsecure/auth, POST /payment/3dsecure/initialize, POST /payment/3dsecure/initialize/preauth, POST /payment/auth, POST /payment/bin/check, POST /payment/cancel, POST /payment/detail, POST /payment/iyzipos/checkoutform/auth/ecom/detail, POST /payment/iyzipos/checkoutform/initialize/auth/ecom, POST /payment/iyzipos/checkoutform/initialize/preauth/ecom, POST /payment/iyzipos/installment, POST /payment/iyzipos/item/approve, POST /payment/iyzipos/item/disapprove, POST /payment/pay-with-iyzico/initialize, POST /payment/postauth, POST /payment/preauth, POST /payment/refund, POST /payment/v2/3dsecure/auth, POST /v2/payment/refund, PUT /payment/item"
       ]
     },
     "reporting": {
@@ -164,7 +176,9 @@
         "GET /v2/reporting/payment/transactions"
       ],
       "schemas": 10,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: GET /v2/reporting/payment/details, GET /v2/reporting/payment/transactions"
+      ]
     },
     "softpos": {
       "operations": [
@@ -173,7 +187,9 @@
         "POST /v1/softpos/init_sale_transaction"
       ],
       "schemas": 8,
-      "notes": []
+      "notes": [
+        "no authentication documented by iyzico for: POST /v1/softpos/check_transaction, POST /v1/softpos/init_reversal_transaction, POST /v1/softpos/init_sale_transaction"
+      ]
     },
     "subscription": {
       "operations": [
@@ -223,7 +239,8 @@
         "schema ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
         "schema ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
         "schema ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
-        "schema ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6"
+        "schema ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
+        "no authentication documented by iyzico for: DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}, DELETE /v2/subscription/products/{productReferenceCode}, GET /v2/subscription/checkoutform/{token}, GET /v2/subscription/customers, GET /v2/subscription/customers/{customerReferenceCode}, GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}, GET /v2/subscription/products, GET /v2/subscription/products/{productReferenceCode}, GET /v2/subscription/products/{productReferenceCode}/pricing-plans, GET /v2/subscription/subscriptions, GET /v2/subscription/subscriptions/{subscriptionReferenceCode}, POST /v2/subscription/card-update/checkoutform/initialize, POST /v2/subscription/checkoutform/initialize, POST /v2/subscription/customers/{customerReferenceCode}, POST /v2/subscription/initialize, POST /v2/subscription/initialize/with-customer, POST /v2/subscription/operation/retry, POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}, POST /v2/subscription/products, POST /v2/subscription/products/{productReferenceCode}, POST /v2/subscription/products/{productReferenceCode}/pricing-plans, POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate, POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel, POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade"
       ]
     },
     "terminal-host": {
@@ -244,7 +261,13 @@
         "POST /v2/terminal-host/payment/void"
       ],
       "schemas": 30,
-      "notes": []
+      "notes": [
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/end-of-day.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first"
+      ]
     }
   }
 }
