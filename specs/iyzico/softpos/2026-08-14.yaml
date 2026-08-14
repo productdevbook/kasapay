@@ -45,6 +45,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Rejected, per iyzico's example response
       x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/retrieve-payment.md
+      servers:
+      - url: https://api.paynet.com.tr
+        description: Production
+      - url: https://pts-api.paynet.com.tr
+        description: Sandbox
   /v1/softpos/init_reversal_transaction:
     post:
       summary: Initiate Cancel / Refund
@@ -78,6 +83,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Rejected, per iyzico's example response
       x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/refund-cancel.md
+      servers:
+      - url: https://api.paynet.com.tr
+        description: Production
+      - url: https://pts-api.paynet.com.tr
+        description: Sandbox
   /v1/softpos/init_sale_transaction:
     post:
       summary: Start Sale – init_sale_transaction
@@ -111,6 +121,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/initialize-payment.md
+      servers:
+      - url: https://api.paynet.com.tr
+        description: Production
+      - url: https://pts-api.paynet.com.tr
+        description: Sandbox
 components:
   parameters:
     ContentTypeHeader:
