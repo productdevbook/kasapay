@@ -41,6 +41,17 @@
 //!
 //! This mapping has not been checked against a live account.
 //!
+//! # A partial refund carries its amount twice
+//!
+//! iyzico documents the field two ways and contradicts itself on one page: the
+//! prose says `refundAmount`, the OpenAPI fragment beside it says
+//! `refundPrice`. The field is optional, so sending only the wrong name is not
+//! an error — it is a **full refund where a partial one was asked for**.
+//!
+//! [`Client::refund`] therefore sends both. Whichever name is real carries the
+//! amount, and a server strict enough to reject the other says so instead of
+//! giving the money back.
+//!
 //! # Authentication
 //!
 //! Three plain headers — `x-api-key`, `x-secret-key`, `x-merchant-id` — rather

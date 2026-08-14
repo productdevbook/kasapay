@@ -440,3 +440,69 @@ async fn capabilities_match_what_the_methods_actually_do() {
         ErrorKind::Unsupported
     );
 }
+
+#[tokio::test]
+async fn a_partial_refund_carries_its_amount_under_both_documented_names() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/payment/refund"))
+        // iyzico's prose says refundAmount and the schema beside it says
+        // refundPrice. The field is optional, so the wrong name alone is not
+        // an error — it is a full refund where a part was asked for.
+        .and(body_json(json!({
+            "userId": "kasiyer-7",
+            "paymentId": 4_242_424_242_i64,
+            "refundAmount": 50.00,
+            "refundPrice": 50.00,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "deepLinkUrl": "https://iyzi.link/refund-abc",
+            "paymentSessionToken": "tok-refund",
+            "paymentId": 4_242_424_242_i64,
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .refund(
+            "kasiyer-7",
+            &PaymentId::new("4242424242"),
+            Some(Money::parse("50.00", Currency::Try).expect("valid amount")),
+            &"https://merchant.test/callback".parse().expect("valid url"),
+        )
+        .await
+        .expect("the refund starts");
+    assert_eq!(charge.status, Status::RequiresAction);
+}
+
+#[tokio::test]
+async fn a_full_refund_names_no_amount_at_all() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/payment/refund"))
+        // Neither name appears: iyzico reads an absent amount as "all of it",
+        // and sending a zero would mean something else entirely.
+        .and(body_json(json!({
+            "userId": "kasiyer-7",
+            "paymentId": 4_242_424_242_i64,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "deepLinkUrl": "https://iyzi.link/refund-abc",
+            "paymentSessionToken": "tok-refund",
+            "paymentId": 4_242_424_242_i64,
+        })))
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .refund(
+            "kasiyer-7",
+            &PaymentId::new("4242424242"),
+            None,
+            &"https://merchant.test/callback".parse().expect("valid url"),
+        )
+        .await
+        .expect("the refund starts");
+}

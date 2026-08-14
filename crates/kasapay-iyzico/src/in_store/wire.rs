@@ -27,8 +27,26 @@ pub(crate) struct RefundRequest<'a> {
     pub(crate) user_id: &'a str,
     #[serde(rename = "paymentId")]
     pub(crate) payment_id: i64,
+    /// The partial amount, under the name the prose gives it.
+    ///
+    /// iyzico contradicts itself about what this field is called, so it goes
+    /// out under both names — see [`refund_price`](Self::refund_price).
     #[serde(rename = "refundAmount", skip_serializing_if = "Option::is_none")]
     pub(crate) refund_amount: Option<Box<serde_json::value::RawValue>>,
+    /// The same amount, under the name the schema gives it.
+    ///
+    /// Two of iyzico's own sources disagree, and they disagree **on the same
+    /// page**: the prose on the cancel-and-refund page says `refundAmount`,
+    /// and the OpenAPI fragment embedded in that page says `refundPrice`. The
+    /// In-Store overview page's fragment says `refundAmount` as well.
+    ///
+    /// Sending only the wrong one is not a validation error: the field is
+    /// optional, so an unrecognised name is ignored and iyzico refunds **the
+    /// whole payment** where a part was asked for. Sending both means whichever
+    /// name is real carries the amount, and a server strict enough to reject
+    /// the other answers with an error rather than over-refunding.
+    #[serde(rename = "refundPrice", skip_serializing_if = "Option::is_none")]
+    pub(crate) refund_price: Option<Box<serde_json::value::RawValue>>,
 }
 
 /// The answer to `/payment/init` and `/payment/refund`.
