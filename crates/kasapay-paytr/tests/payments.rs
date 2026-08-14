@@ -45,6 +45,43 @@ fn payment() -> payment::Payment {
     .expect("valid payment")
 }
 
+/// A currency PayTR does not take is refused before anything is sent.
+///
+/// It used to be signed into the token as an empty string and posted: PayTR
+/// takes TL, EUR, USD, GBP and RUB, and a payment in yen went out with no
+/// currency on it at all. The mock server here answers nothing, so a request
+/// reaching it fails the test rather than passing quietly.
+#[tokio::test]
+async fn a_currency_paytr_does_not_take_never_reaches_the_wire() {
+    let server = MockServer::start().await;
+    let payment = payment::Payment::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("1200", Currency::Jpy).expect("valid amount"),
+        payment::Payer {
+            email: "ayse@example.test".into(),
+            ip: "203.0.113.7".into(),
+            name: "Ayse Yilmaz".into(),
+            address: "Bagdat Cad. 1".into(),
+            phone: "+905350000000".into(),
+            success_url: "https://merchant.test/ok".parse().expect("valid url"),
+            failure_url: "https://merchant.test/no".parse().expect("valid url"),
+        },
+    )
+    .item(payment::BasketItem {
+        name: "Kahve".into(),
+        price: Money::parse("1200", Currency::Jpy).expect("valid amount"),
+        quantity: 1,
+    })
+    .build()
+    .expect("valid payment");
+
+    let error = client(&server)
+        .start_payment(&payment)
+        .await
+        .expect_err("PayTR does not settle in yen");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
 #[tokio::test]
 async fn opening_a_payment_signs_the_documented_fields() {
     let server = MockServer::start().await;

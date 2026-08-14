@@ -16,6 +16,9 @@ pub(crate) fn currency(currency: Currency) -> Result<stripe_types::Currency, Err
         Currency::Eur => Ok(stripe_types::Currency::EUR),
         Currency::Gbp => Ok(stripe_types::Currency::GBP),
         Currency::Jpy => Ok(stripe_types::Currency::JPY),
+        Currency::Rub => Ok(stripe_types::Currency::RUB),
+        Currency::Chf => Ok(stripe_types::Currency::CHF),
+        Currency::Nok => Ok(stripe_types::Currency::NOK),
         Currency::Kwd => Err(Error::new(
             ErrorKind::Unsupported,
             PROVIDER,
@@ -32,6 +35,9 @@ pub(crate) fn currency_back(currency: &stripe_types::Currency) -> Option<Currenc
         stripe_types::Currency::EUR => Some(Currency::Eur),
         stripe_types::Currency::GBP => Some(Currency::Gbp),
         stripe_types::Currency::JPY => Some(Currency::Jpy),
+        stripe_types::Currency::RUB => Some(Currency::Rub),
+        stripe_types::Currency::CHF => Some(Currency::Chf),
+        stripe_types::Currency::NOK => Some(Currency::Nok),
         _ => None,
     }
 }
