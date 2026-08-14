@@ -471,6 +471,24 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
                             str(code)[0], "Undocumented by iyzico"
                         )
                 operation.setdefault("x-iyzico-source", source)
+                # A fragment that names a host of its own. iyzico's docs carry
+                # somebody else's API as well as their own — the PayPOS
+                # operations are Paynet's, at api.paynet.com.tr — and writing
+                # iyzico's servers over the whole document said every one of
+                # them lives at api.iyzipay.com. Carried onto the operation,
+                # which is what OpenAPI's per-operation `servers` is for.
+                foreign = [
+                    server
+                    for server in fragment.get("servers", [])
+                    if isinstance(server, dict)
+                    and not server.get("url", "").startswith((PRODUCTION, SANDBOX))
+                ]
+                if foreign:
+                    operation.setdefault("servers", foreign)
+                    hosts = ", ".join(sorted({s.get("url", "") for s in foreign}))
+                    notes.append(
+                        f"{verb.upper()} {full} is served from {hosts}, not iyzico's own host"
+                    )
                 # iyzico reuses one operationId across two operations — the
                 # In-Store payment query is documented as both a GET and a POST.
                 op_id = operation.get("operationId")

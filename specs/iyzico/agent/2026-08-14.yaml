@@ -47,6 +47,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/create-session.md
+      servers:
+      - url: https://api.paynet.com.tr
+        description: Production
+      - url: https://pts-api.paynet.com.tr
+        description: Sandbox
   /v1/agent/logout:
     post:
       summary: Logout
@@ -90,6 +95,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Rejected, per iyzico's example response
       x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/end-session.md
+      servers:
+      - url: https://api.paynet.com.tr
+        description: Production
+      - url: https://pts-api.paynet.com.tr
+        description: Sandbox
 components:
   parameters:
     AuthorizationHeader:

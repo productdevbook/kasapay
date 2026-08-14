@@ -208,7 +208,15 @@ impl NewPayoutItemBuilder {
 /// paid.** No IBAN checksum is computed — iyzico documents no format for the
 /// field — and no name is matched against an account holder. A well-formed
 /// identifier for the wrong person is paid, not refused.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// # It does not print the number
+///
+/// `Debug` shows which kind of recipient this is and the last four characters
+/// of the identifier — enough to tell two lines of a payout apart, and not
+/// enough to send money anywhere. An IBAN and a national identity number are
+/// the fields that move money, and a payout is exactly the thing somebody
+/// debugs by printing it.
+#[derive(Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Recipient {
     /// A mobile number, in the `+90…` form iyzico's example uses.
@@ -225,6 +233,42 @@ pub enum Recipient {
     IdentityNumber(Box<str>),
     /// An iyzico member id, for money staying inside iyzico.
     MemberId(Box<str>),
+}
+
+/// The last four characters, behind an ellipsis, or `…` for anything shorter.
+fn tail(value: &str) -> String {
+    let kept: String = value
+        .chars()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    if value.chars().count() > 4 {
+        format!("…{kept}")
+    } else {
+        "…".to_owned()
+    }
+}
+
+impl fmt::Debug for Recipient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Phone(number) => f.debug_tuple("Phone").field(&tail(number)).finish(),
+            Self::Iban { iban, holder } => f
+                .debug_struct("Iban")
+                .field("iban", &tail(iban))
+                .field("holder", holder)
+                .finish(),
+            Self::IdentityNumber(number) => f
+                .debug_tuple("IdentityNumber")
+                .field(&tail(number))
+                .finish(),
+            // Not personal: it names an account inside iyzico, not a person.
+            Self::MemberId(id) => f.debug_tuple("MemberId").field(id).finish(),
+        }
+    }
 }
 
 impl Recipient {

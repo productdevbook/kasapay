@@ -181,6 +181,52 @@ all are the kind 0.0.x exists to make.
   three operations this crate maps and rolls the subset forward in
   `latest.yaml`, the same as `fetch_stripe.py`.
 
+- **`kasapay_iyzico::agent` and `kasapay_iyzico::softpos`, all five PayPOS
+  operations from #8.** `specs/` records these five as declaring neither a
+  `securityScheme` nor a classic-shaped `Authorization` parameter — one of
+  only two ways that happens in the whole of iyzico's documentation, the
+  other being In-Store's plain headers. Establishing which of three things
+  that meant — an omitted classic signature, a different scheme the
+  fragments still carry, or truly nothing — turned out to matter twice over:
+  both languages' prose (not just the parameter list) describe a dealer
+  secret key trading for a mobile session key, and every one of the five
+  fragments, in both languages, declares its own `servers` block pointing at
+  `api.paynet.com.tr` / `pts-api.paynet.com.tr` — Paynet's own hosts, not
+  `api.iyzipay.com`. `scripts/merge_iyzico.py` drops a fragment's own
+  `servers` and always writes iyzico's pair instead, so
+  `specs/iyzico/agent/latest.yaml` and `specs/iyzico/softpos/latest.yaml`
+  both show the wrong host at the top level; `kasapay_iyzico::agent`'s module
+  documentation carries the full evidence, including the integration
+  overview page's own prose `BaseUrl` section confirming it outside any
+  OpenAPI fragment.
+
+  `agent::Client::get_auth_key` and `agent::Client::logout` speak that
+  scheme: `Authorization: Basic {secret_key}` and a fixed `PaynetMobile: 2`
+  header, neither of which is `IYZWSv2` signing. The `Session` it answers is
+  what `softpos::Client::new` authenticates with, over `Client::init_sale_transaction`,
+  `Client::init_reversal_transaction` and `Client::check_transaction`.
+  `softpos::InitSale::new` takes only `Currency::Try`: PayPOS's schema types
+  its amount as a bare `number` with no `currency` field anywhere beside it,
+  and `specs/README.md`'s per-product currency table names no enum for
+  `softpos` at all, so the restriction is inference from context rather than
+  a documented enum, and is said as such. Reading is the permissive
+  direction this crate uses everywhere else: `Client::check_transaction`
+  reads a `Transaction`'s amount in whatever `Currency` its `currency` names,
+  not only lira, and only falls back to `Transaction::raw` for a code
+  `Currency` cannot name at all.
+
+  `PayPOS` and `PayPos` join `clippy.toml`'s `doc-valid-idents` — vendor
+  proper nouns next to `PayTR`, not identifiers this crate can link to.
+
+  Neither language's page for any of the five operations carries a worked
+  example, so `tests/agent.rs` and `tests/softpos.rs` are stand-ins built
+  from PayPOS's own field names, the same position `mass`'s undemonstrated
+  operations are in — no live PayPOS account was available to check any of
+  it against. What a success answer means is unverified too: both `agent`
+  operations answer the identical shape whether iyzico calls it a success or
+  a failure, with no documented meaning for `code`, so both modules read
+  HTTP status alone and carry the body's `code` on `Error::code` unread.
+
 - **`kasapay_iyzico::onboarding`, all three iyzico sub-merchant operations.**
   Creating, updating and reading back a marketplace sub-merchant — a different
   legal person taking money through the platform's own iyzico integration, so
@@ -704,6 +750,13 @@ all are the kind 0.0.x exists to make.
   reach it are different facts.
 
 ### Fixed
+
+- **A payout line printed the account it was paying.** `mass::Recipient`
+  derived `Debug`, so an IBAN and a national identity number went wherever a
+  `NewPayout` was printed — and a payout is exactly the thing somebody debugs
+  by printing it. It shows which kind of recipient it is and the last four
+  characters now: enough to tell two lines apart, not enough to send money.
+  Same defect as `Raw`'s, in a module that landed before that was found.
 
 - **A PayTR payment settled in roubles could not be read back.** The adapter
   sends `RUB` when it opens one, and the reverse mapping had no arm for it, so

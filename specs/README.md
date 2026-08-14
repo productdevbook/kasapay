@@ -54,6 +54,23 @@ Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
 in English — grouping by page filed everything twice under two names.
 
+### Not all of it is iyzico's API
+
+Five of the ninety-six operations are somebody else's. The `agent` and
+`softpos` groups are **Paynet's** PayPOS API, documented on iyzico's site as
+part of their offering, and their fragments say so: their own `servers` block
+names `api.paynet.com.tr` and `pts-api.paynet.com.tr`, and their `info.title`
+is `PayPOS (Paynet) API`.
+
+The merge used to write iyzico's two hosts over the whole document, so those
+five said they were served from `api.iyzipay.com` — a caller building from the
+spec would have called the wrong company. A fragment that names a host of its
+own now keeps it, carried onto the operation where OpenAPI's per-operation
+`servers` belongs, and the dated index names each one.
+
+So: read the operation's own `servers` before its group's. Nine of the eleven
+groups have none, which means iyzico's, and two do.
+
 ### The currency list is per product, not per company
 
 There is no one list of currencies iyzico takes. Counting every `currency*`
@@ -97,6 +114,20 @@ Of the 9 that declare neither, 5 are In-Store, which authenticates with three
 plain headers described in prose on its overview page, 3 are softpos, and one
 is `/in-store/oauth2/authorize`, which is the Terminal API's rather than
 In-Store's — see below.
+
+softpos's 3, and `agent`'s 2 next to them (counted above as classic-shaped
+`Authorization` parameters, because that is the field's name — see
+`kasapay_iyzico::agent`'s module documentation for why the name is where the
+resemblance to the classic API ends), are also where the merged documents
+mislead about *where* a request goes, not only how it authenticates. Every
+one of the five fragments declares its own `servers` block, and it is not
+iyzico's: `https://api.paynet.com.tr` / `https://pts-api.paynet.com.tr`,
+titled `"PayPOS (Paynet) API"`. `scripts/merge_iyzico.py`'s `merge()` does not
+carry a fragment's own `servers` into the document it assembles — it always
+writes the constant iyzico pair — so `specs/iyzico/agent/latest.yaml` and
+`specs/iyzico/softpos/latest.yaml` both show `api.iyzipay.com` at the top
+level regardless. Read `x-iyzico-source` for these two groups rather than the
+merged `servers` block.
 
 These counts move when the fragments do. They read 18 / 67 / 11 until grafting
 what each language alone documents brought a `security` block onto
