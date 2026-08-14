@@ -7,7 +7,7 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Status};
+use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{Association, CardType, Client, Config, checkout};
 use serde_json::json;
