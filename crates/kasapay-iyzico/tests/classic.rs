@@ -609,7 +609,7 @@ async fn a_refund_takes_an_amount_back_and_is_verified() {
         .await;
 
     let reversal = client(&server)
-        .refund(
+        .refund_payment(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
         )
@@ -639,7 +639,7 @@ async fn a_forged_refund_is_refused() {
         .await;
 
     let error = client(&server)
-        .refund(
+        .refund_payment(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
         )
@@ -663,7 +663,7 @@ async fn iyzicos_own_retryable_flag_decides_whether_a_failure_is_worth_repeating
         .await;
 
     let error = client(&server)
-        .refund(
+        .refund_payment(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
         )
@@ -689,7 +689,7 @@ async fn a_refund_iyzico_will_never_accept_is_not_retryable() {
         .await;
 
     let error = client(&server)
-        .refund(
+        .refund_payment(
             &PaymentId::new("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
         )

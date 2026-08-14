@@ -89,16 +89,9 @@ impl Stripe {
             })?;
             create = create.amount(amount.minor_units());
         }
-        if let Some(reason) = &request.reason {
-            create = create.metadata(reason_metadata(reason, request));
-        } else if !request.metadata.is_empty() {
-            create = create.metadata(
-                request
-                    .metadata
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect(),
-            );
+        let metadata = refund_metadata(request);
+        if !metadata.is_empty() {
+            create = create.metadata(metadata);
         }
 
         let customized = create.customize();
@@ -363,16 +356,15 @@ fn refund_status(value: &str) -> RefundStatus {
 
 /// A refund's reason travels as metadata: Stripe's own `reason` is a closed
 /// set of three values and free text is not one of them.
-fn reason_metadata(
-    reason: &str,
-    request: &RefundRequest,
-) -> std::collections::HashMap<String, String> {
+fn refund_metadata(request: &RefundRequest) -> std::collections::HashMap<String, String> {
     let mut pairs: std::collections::HashMap<String, String> = request
         .metadata
         .iter()
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
-    pairs.insert(REASON_METADATA_KEY.to_owned(), reason.to_owned());
+    if let Some(reason) = &request.reason {
+        pairs.insert(REASON_METADATA_KEY.to_owned(), reason.to_string());
+    }
     pairs
 }
 

@@ -242,11 +242,16 @@ impl PayTr {
             .collect()
     }
 
-    /// Gives money back off a payment.
+    /// Gives money back off a payment, answering PayTR's bare response.
     ///
     /// Partial refunds are allowed; PayTR takes the amount to return rather
     /// than the amount to keep.
-    pub async fn refund(&self, order: &OrderRef, amount: Money) -> Result<Raw, Error> {
+    ///
+    /// Named `refund_order` rather than `refund` because an inherent method
+    /// wins over a trait method of the same name: `paytr.refund(…)` would
+    /// silently reach this one and never [`Provider::refund`], which is a trap
+    /// for a caller who has both in scope.
+    pub async fn refund_order(&self, order: &OrderRef, amount: Money) -> Result<Raw, Error> {
         let value = amount.to_decimal_string();
         let token = self.inner.config.credentials.token(&[
             self.inner.config.credentials.merchant_id(),
@@ -504,13 +509,13 @@ impl Provider for PayTr {
 
     /// Always [`ErrorKind::Unsupported`]: there is no authorisation to release.
     ///
-    /// Giving the money back is [`PayTr::refund`], which takes an order
+    /// Giving the money back is [`PayTr::refund_order`], which takes an order
     /// reference and an amount.
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PAYTR,
-            "PayTR holds no authorisation to release; giving the money back is PayTr::refund",
+            "PayTR holds no authorisation to release; giving the money back is PayTr::refund_order",
         ))
     }
 
@@ -557,7 +562,7 @@ impl Provider for PayTr {
             }
             None => self.charged_total(request.payment.as_str()).await?,
         };
-        let raw = PayTr::refund(self, &order, amount).await?;
+        let raw = PayTr::refund_order(self, &order, amount).await?;
         Ok(Refund {
             id: RefundId::new(format!("{}:{}", order, amount.to_decimal_string())),
             payment: request.payment.clone(),

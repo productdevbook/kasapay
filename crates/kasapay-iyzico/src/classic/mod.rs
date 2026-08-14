@@ -14,10 +14,10 @@
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
 //! - [`Client::forget_card`] — drop one of them
-//! - [`Client::refund`] and [`Client::refund_transaction`] — take money back.
-//!   The second is the one for a basket with more than one line: iyzico says
-//!   in so many words not to use the first there, because which line the
-//!   refund comes off is then their choice rather than the shop's
+//! - [`Client::refund_payment`] and [`Client::refund_transaction`] — take
+//!   money back. The second is the one for a basket with more than one line:
+//!   iyzico says in so many words not to use the first there, because which
+//!   line the refund comes off is then their choice rather than the shop's
 //! - [`Client::cancel`] — void a payment before it settles
 //!
 //! [`Client`] implements [`Provider`](kasapay_core::Provider), but only half

@@ -48,7 +48,7 @@
 //! `refundPrice`. The field is optional, so sending only the wrong name is not
 //! an error — it is a **full refund where a partial one was asked for**.
 //!
-//! [`Client::refund`] therefore sends both. Whichever name is real carries the
+//! [`Client::start_refund`] therefore sends both. Whichever name is real carries the
 //! amount, and a server strict enough to reject the other says so instead of
 //! giving the money back.
 //!

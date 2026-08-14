@@ -207,8 +207,13 @@ impl Client {
     /// Like [`Provider::charge`], this only starts the flow: the payer
     /// approves it through the returned deep link. [`Provider::refund`] is the
     /// same call in the shared shape, reading `user_id` and `callback_url` off
-    /// the [`RefundRequest`].
-    pub async fn refund(
+    /// the [`RefundRequest`], and it is what most callers want.
+    ///
+    /// Named `start_refund` rather than `refund` because an inherent method
+    /// wins over a trait method of the same name: `client.refund(…)` would
+    /// silently reach this one and never the trait's, which is a trap for a
+    /// caller who has both in scope.
+    pub async fn start_refund(
         &self,
         user_id: &str,
         payment_id: &PaymentId,
@@ -331,14 +336,14 @@ impl Provider for Client {
     /// Always [`ErrorKind::Unsupported`]: there is no authorisation to release.
     ///
     /// Giving back money the payer has already handed over is a refund, and
-    /// that is [`Client::refund`] — which needs a callback address, because
+    /// that is [`Client::start_refund`] — which needs a callback address, because
     /// iyzico makes the payer approve it too.
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PROVIDER,
             "the In-Store API holds no authorisation to release; \
-             giving the money back is Client::refund",
+             giving the money back is Client::start_refund",
         ))
     }
 
@@ -399,7 +404,7 @@ impl Provider for Client {
             )
         })?;
 
-        let charge = Client::refund(
+        let charge = Client::start_refund(
             self,
             user_id,
             &request.payment,

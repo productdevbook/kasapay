@@ -318,7 +318,7 @@ async fn a_refund_paytr_says_to_retry_is_retryable() {
             .await;
 
         let error = client(&server)
-            .refund(
+            .refund_order(
                 &OrderRef::new("ord-1"),
                 Money::parse("50.00", Currency::Try).expect("valid amount"),
             )
@@ -365,7 +365,7 @@ async fn a_refund_paytr_will_never_accept_is_not_retryable() {
             .await;
 
         let error = client(&server)
-            .refund(
+            .refund_order(
                 &OrderRef::new("ord-1"),
                 Money::parse("50.00", Currency::Try).expect("valid amount"),
             )

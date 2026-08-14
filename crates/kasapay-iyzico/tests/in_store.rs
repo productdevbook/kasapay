@@ -465,7 +465,7 @@ async fn a_partial_refund_carries_its_amount_under_both_documented_names() {
         .await;
 
     let charge = client(&server)
-        .refund(
+        .start_refund(
             "kasiyer-7",
             &PaymentId::new("4242424242"),
             Some(Money::parse("50.00", Currency::Try).expect("valid amount")),
@@ -497,7 +497,7 @@ async fn a_full_refund_names_no_amount_at_all() {
         .await;
 
     client(&server)
-        .refund(
+        .start_refund(
             "kasiyer-7",
             &PaymentId::new("4242424242"),
             None,

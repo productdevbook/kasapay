@@ -309,7 +309,7 @@ impl Client {
         }
     }
 
-    /// Takes an amount back off a payment.
+    /// Takes an amount back off a payment, answering iyzico's own `Reversal`.
     ///
     /// `/v2/payment/refund`, which refunds against the payment as a whole and
     /// lets iyzico decide which basket line it comes off.
@@ -332,7 +332,16 @@ impl Client {
     /// refund may be made in succession"*. That is what
     /// [`Capabilities::repeated_refund`](kasapay_core::Capabilities::repeated_refund)
     /// reports for this provider.
-    pub async fn refund(&self, payment: &PaymentId, amount: Money) -> Result<Reversal, Error> {
+    ///
+    /// Named `refund_payment` rather than `refund` because an inherent method
+    /// wins over a trait method of the same name: `client.refund(…)` would
+    /// silently reach this one and never [`Provider::refund`], which is a trap
+    /// for a caller who has both in scope.
+    pub async fn refund_payment(
+        &self,
+        payment: &PaymentId,
+        amount: Money,
+    ) -> Result<Reversal, Error> {
         let body = wire::RefundRequest {
             locale: "tr",
             conversation_id: payment.as_str(),
@@ -969,7 +978,7 @@ impl Provider for Client {
                  whole-payment shorthand; read the payment and pass what it says",
             )
         })?;
-        let reversal = Client::refund(self, &request.payment, amount).await?;
+        let reversal = Client::refund_payment(self, &request.payment, amount).await?;
         let key = reversal.host_reference.as_deref().map_or_else(
             || format!("{}:{}", request.payment, amount.to_decimal_string()),
             |reference| format!("{}:{reference}", request.payment),
