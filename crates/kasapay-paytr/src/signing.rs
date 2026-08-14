@@ -12,6 +12,7 @@
 //! | opening a payment | the request fields, then the salt |
 //! | reading one back | `merchant_id + merchant_oid` then the salt |
 //! | a refund | `merchant_id + merchant_oid + amount` then the salt |
+//! | a BIN query | `bin_number + merchant_id` then the salt — the BIN first |
 //! | **a callback** | `merchant_oid` **then the salt** then `status + total_amount` |
 //!
 //! The callback is the odd one out, and it is the one where getting it wrong

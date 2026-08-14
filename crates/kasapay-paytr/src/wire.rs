@@ -1,7 +1,8 @@
 //! PayTR's response bodies.
 //!
-//! All three answer the same envelope: a `status`, and on a refusal an
-//! `err_no` and a `reason`.
+//! The payment calls answer the same envelope: a `status`, and on a refusal an
+//! `err_no` and a `reason`. The BIN service is the exception — it puts its
+//! refusal in `err_msg` — and that is why it has its own type.
 
 use serde::Deserialize;
 
@@ -46,4 +47,42 @@ pub(crate) struct PlainResponse {
     pub(crate) status: Option<String>,
     pub(crate) reason: Option<String>,
     pub(crate) err_no: Option<String>,
+}
+
+/// The answer to `/odeme/api/bin-detail`.
+///
+/// This one names its refusal `err_msg` rather than `reason`, and documents no
+/// `err_no` at all.
+#[derive(Debug, Deserialize)]
+pub(crate) struct BinResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "cardType")]
+    pub(crate) card_type: Option<String>,
+    #[serde(rename = "businessCard")]
+    pub(crate) business_card: Option<String>,
+    pub(crate) bank: Option<String>,
+    pub(crate) brand: Option<String>,
+    pub(crate) schema: Option<String>,
+    #[serde(rename = "bankCode")]
+    pub(crate) bank_code: Option<NumberOrText>,
+    pub(crate) allow_non3d: Option<String>,
+    pub(crate) err_msg: Option<String>,
+}
+
+/// PayTR documents `bankCode` as an int and gives `0010` as the example, which
+/// no int keeps. Both readings are accepted rather than one guessed at.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum NumberOrText {
+    Text(String),
+    Number(i64),
+}
+
+impl NumberOrText {
+    pub(crate) fn into_string(self) -> String {
+        match self {
+            Self::Text(text) => text,
+            Self::Number(number) => number.to_string(),
+        }
+    }
 }

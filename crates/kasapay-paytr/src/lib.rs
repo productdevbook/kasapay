@@ -40,6 +40,29 @@
 //! ignored. Anything else makes PayTR retry it for days, and acting on it is
 //! how a shop ships against a payment nobody made.
 //!
+//! # Looking a card up before charging it
+//!
+//! [`PayTr::bin_details`] answers what PayTR knows about the first 6 or 8
+//! digits of a card number: its bank, its network, whether it is a company
+//! card, whether it may go without 3-D Secure, and which instalment programme
+//! it belongs to. A BIN PayTR has no record of — a card issued outside Turkey,
+//! usually — is `Ok(None)` rather than an error.
+//!
+//! [`CardDetails::programme`] is the field worth reading twice. `None` means
+//! the card is in no programme, and **a card in no programme cannot be paid in
+//! instalments through PayTR** — so it is the answer to "may I offer this payer
+//! instalments" as well as the value a Direkt API payment sends as `card_type`.
+//!
+//! # Instalment rates are not here
+//!
+//! PayTR's `/odeme/taksit-oranlari` is not wrapped, and deliberately: the
+//! service exists to return the `oranlar` field, and PayTR documents that field
+//! only as "the rates, by card family, in array format". It never says what one
+//! entry looks like — not in the field table, not in the PDF, not in any of the
+//! four sample programs, all of which print it and stop. There is nothing to
+//! model that would not be a guess, and a guess here fails at parse time
+//! against every real merchant.
+//!
 //! # Retrying a payment is not documented as safe
 //!
 //! PayTR documents no idempotency mechanism for opening a payment, and does
@@ -86,11 +109,14 @@
 //! # }
 //! ```
 
+pub mod card;
 mod client;
 pub mod payment;
 mod signing;
 mod wire;
 
+#[doc(inline)]
+pub use crate::card::{CardDetails, CardKind, CardScheme};
 #[doc(inline)]
 pub use crate::client::{Config, PAYTR, PayTr, RefundRecord};
 #[doc(inline)]

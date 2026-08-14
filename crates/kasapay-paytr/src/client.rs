@@ -11,6 +11,7 @@ use kasapay_core::{
 };
 use url::Url;
 
+use crate::card::{CardDetails, CardKind, CardScheme};
 use crate::payment::Payment;
 use crate::signing::Credentials;
 
@@ -278,6 +279,53 @@ impl PayTr {
         Ok(raw)
     }
 
+    /// What PayTR knows about a card, from the first 6 or 8 digits of its
+    /// number.
+    ///
+    /// `bin` must be exactly 6 or 8 digits — PayTR takes no other length, and
+    /// says to prefer 8 because 6 no longer identifies an issuer on its own.
+    ///
+    /// `Ok(None)` means PayTR has no record of this BIN. That is a documented
+    /// answer rather than a failure: a card issued outside Turkey is the usual
+    /// reason, and PayTR answers `status=failed` for it.
+    ///
+    /// The token here hashes **the BIN before the merchant id**, which is the
+    /// opposite of every other call in this crate.
+    ///
+    /// <https://dev.paytr.com/direkt-api/bin-sorgulama-servisi>
+    pub async fn bin_details(&self, bin: &str) -> Result<Option<CardDetails>, Error> {
+        if !matches!(bin.len(), 6 | 8) || !bin.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                PAYTR,
+                "a BIN is 6 or 8 digits",
+            ));
+        }
+        let merchant_id = self.inner.config.credentials.merchant_id();
+        let token = self.inner.config.credentials.token(&[bin, merchant_id]);
+        let form = [
+            ("merchant_id", merchant_id),
+            ("bin_number", bin),
+            ("paytr_token", token.as_str()),
+        ];
+
+        let (response, _) = self
+            .post::<crate::wire::BinResponse>("/odeme/api/bin-detail", &form)
+            .await?;
+        match response.status.as_deref() {
+            Some("success") => card_details(response).map(Some),
+            // Documented, and not an error: PayTR does not have this BIN.
+            Some("failed") => Ok(None),
+            _ => Err(Error::new(
+                ErrorKind::InvalidRequest,
+                PAYTR,
+                response
+                    .err_msg
+                    .unwrap_or_else(|| "PayTR refused the BIN query".to_owned()),
+            )),
+        }
+    }
+
     /// The basket, as PayTR wants it: base64 of `[[name, price, quantity], …]`.
     fn basket(payment: &Payment) -> Result<String, Error> {
         let lines: Vec<_> = payment
@@ -524,6 +572,70 @@ const fn paytr_currency(currency: Currency) -> &'static str {
         Currency::Gbp => "GBP",
         // PayTR takes TL, EUR, USD, GBP and RUB and nothing else.
         Currency::Jpy | Currency::Kwd => "",
+    }
+}
+
+/// The card behind a BIN PayTR does know.
+///
+/// Every field the BIN service documents under `status=success` is required
+/// here, and a value outside the documented set is [`ErrorKind::Malformed`]
+/// rather than a silent default: this answer decides whether a payer is offered
+/// instalments and whether a card may go without 3-D Secure.
+fn card_details(response: crate::wire::BinResponse) -> Result<CardDetails, Error> {
+    let missing = |field: &str| {
+        Error::new(
+            ErrorKind::Malformed,
+            PAYTR,
+            format!("a known BIN carried no {field}"),
+        )
+    };
+    let unreadable = |field: &str, value: &str| {
+        Error::new(
+            ErrorKind::Malformed,
+            PAYTR,
+            format!("PayTR answered {value} for {field}, which it does not document"),
+        )
+    };
+
+    let card_type = response.card_type.ok_or_else(|| missing("cardType"))?;
+    let schema = response.schema.ok_or_else(|| missing("schema"))?;
+    let business_card = response
+        .business_card
+        .ok_or_else(|| missing("businessCard"))?;
+    let allow_non3d = response.allow_non3d.ok_or_else(|| missing("allow_non3d"))?;
+
+    Ok(CardDetails {
+        kind: CardKind::parse(&card_type).ok_or_else(|| unreadable("cardType", &card_type))?,
+        business: parse_yes_no(&business_card)
+            .ok_or_else(|| unreadable("businessCard", &business_card))?,
+        bank: response
+            .bank
+            .ok_or_else(|| missing("bank"))?
+            .into_boxed_str(),
+        bank_code: response
+            .bank_code
+            .ok_or_else(|| missing("bankCode"))?
+            .into_string()
+            .into_boxed_str(),
+        // "none" is PayTR saying the card is in no instalment programme, not a
+        // field it left out.
+        programme: response
+            .brand
+            .filter(|brand| brand != "none")
+            .map(String::into_boxed_str),
+        scheme: CardScheme::parse(&schema).ok_or_else(|| unreadable("schema", &schema))?,
+        non_3d_allowed: parse_yes_no(&allow_non3d)
+            .ok_or_else(|| unreadable("allow_non3d", &allow_non3d))?,
+    })
+}
+
+/// PayTR's booleans on the BIN service: `y`/`n` for a company card, `Y`/`N`
+/// for the non-3-D permission.
+fn parse_yes_no(value: &str) -> Option<bool> {
+    match value {
+        "y" | "Y" => Some(true),
+        "n" | "N" => Some(false),
+        _ => None,
     }
 }
 
