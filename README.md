@@ -27,8 +27,8 @@ match charge.next_action {
 }
 ```
 
-`provider` is a `Stripe`, an `Iyzico`, or an `Arc<dyn Provider>` picked at
-runtime. The calling code is the same.
+`provider` is a `Stripe`, an `in_store::Client`, or an `Arc<dyn Provider>`
+picked at runtime. The calling code is the same.
 
 ## `charge()` returning `Ok` is not a payment
 
@@ -101,9 +101,15 @@ and a panic mid-checkout is worse than a `Result` somebody has to read.
 
 ## Specs
 
-`specs/` records what each provider said its API was, dated. iyzico publishes
-no OpenAPI file; theirs is reassembled from their documentation page. A weekly
-job refetches and opens a PR when anything moved — [`specs/README.md`](specs/README.md).
+`specs/` records what each provider said its API was, dated. Neither iyzico nor
+PayTR publishes an OpenAPI file: iyzico's is reassembled from the fragments
+embedded in their documentation, and PayTR's is a record of their field tables —
+including which fields enter the token hash, which is what signs a request.
+
+A weekly job refetches all three and opens a PR when anything moved. A lost
+field is the line to read first: a provider withdrawing one and the script
+dropping one look identical in a diff, and only one of those is fine —
+[`specs/README.md`](specs/README.md).
 
 ## Adding a provider
 
