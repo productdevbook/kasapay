@@ -786,7 +786,7 @@ fn refused(
         return None;
     }
     let error = Error::new(
-        ErrorKind::InvalidRequest,
+        crate::errors::kind_for(code.as_deref(), ErrorKind::InvalidRequest),
         PROVIDER,
         message.unwrap_or_else(|| fallback.to_owned()),
     );

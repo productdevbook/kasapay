@@ -368,7 +368,11 @@ fn session_into_charge(
         let message = response
             .error_message
             .unwrap_or_else(|| "iyzico refused the request".to_owned());
-        let error = Error::new(ErrorKind::Declined, PROVIDER, message);
+        let error = Error::new(
+            crate::errors::kind_for(response.error_code.as_deref(), ErrorKind::Declined),
+            PROVIDER,
+            message,
+        );
         return Err(match response.error_code {
             Some(code) => error.with_code(code),
             None => error,
@@ -422,7 +426,11 @@ fn decrypted_into_charge(
         let message = response
             .error_message
             .unwrap_or_else(|| "iyzico refused to decrypt the callback".to_owned());
-        let error = Error::new(ErrorKind::InvalidRequest, PROVIDER, message);
+        let error = Error::new(
+            crate::errors::kind_for(response.error_code.as_deref(), ErrorKind::InvalidRequest),
+            PROVIDER,
+            message,
+        );
         return Err(match response.error_code {
             Some(code) => error.with_code(code),
             None => error,
@@ -483,7 +491,11 @@ fn query_into_charge(response: wire::PaymentQueryResponse, raw: Raw) -> Result<C
         let message = response
             .error_message
             .unwrap_or_else(|| "iyzico refused the query".to_owned());
-        let error = Error::new(ErrorKind::Provider, PROVIDER, message);
+        let error = Error::new(
+            crate::errors::kind_for(response.error_code.as_deref(), ErrorKind::Provider),
+            PROVIDER,
+            message,
+        );
         return Err(match response.error_code {
             Some(code) => error.with_code(code),
             None => error,
