@@ -6,14 +6,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Money, NextAction,
-    OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, InstrumentId, Money,
+    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
 };
 use url::Url;
 
 use crate::MOLLIE;
 use crate::convert;
-use crate::id::{CaptureId, RefundId};
+use crate::id::{CaptureId, CustomerId, RefundId};
 use crate::wire;
 
 /// The order reference travels as payment metadata under this key.
@@ -111,7 +111,176 @@ impl Mollie {
     /// another one on the checkout page is why this can answer a payment that
     /// ends up captured outright.
     pub async fn authorize(&self, request: &ChargeRequest) -> Result<Charge, Error> {
-        self.create(request, Some("manual")).await
+        self.create(request, Some("manual"), None, None).await
+    }
+
+    /// Opens a payment that also establishes a mandate on
+    /// [`ChargeRequest::customer`], for a later [`Mollie::charge_with_mandate`].
+    ///
+    /// Sent with `sequenceType: first`. Mollie's own documented example for
+    /// this — a card payment linked to a customer — carries the new
+    /// mandate's `mdt_…` on the payment already, while the payment itself is
+    /// still `open`: the mandate exists in [`MandateStatus::Pending`] before
+    /// the payer has done anything, and becomes
+    /// [`MandateStatus::Valid`] once they finish. [`Mollie::mandate`] is what
+    /// reads it back to find out which.
+    ///
+    /// This still redirects the payer, the same as [`Provider::charge`]. It
+    /// is [`Mollie::charge_with_mandate`] whose answer carries no
+    /// [`NextAction`].
+    pub async fn charge_first(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        if request.customer.is_none() {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                MOLLIE,
+                "a first payment establishes a mandate on a customer; set ChargeRequest::customer",
+            ));
+        }
+        self.create(request, None, Some("first"), None).await
+    }
+
+    /// Charges a mandate Mollie already holds — this crate's saved
+    /// instrument.
+    ///
+    /// `mandate` is the `mdt_…` [`Mollie::mandates`] or [`Mollie::mandate`]
+    /// answered, as an [`InstrumentId`]. [`ChargeRequest::customer`] is the
+    /// other half of the name — the same `cst_…` the mandate is listed
+    /// under — and this refuses the request before a socket opens if it is
+    /// missing, the same as a missing `description` or `return_url` does.
+    ///
+    /// Sent with `sequenceType: recurring` and `mandateId`. Mollie's schema
+    /// describes `mandateId` as optional on a recurring payment — "the ID of
+    /// a specific mandate can be supplied" — without saying what is charged
+    /// when it is left off a customer with more than one. This call always
+    /// sends the one the caller named rather than leaving that unstated
+    /// choice to Mollie.
+    ///
+    /// **Answers no redirect.** Mollie's own documented example for a
+    /// recurring payment carries `redirectUrl: null` and no `checkout` link
+    /// in `_links` — only `changePaymentState`, which this crate does not
+    /// read — so [`Charge::next_action`] is `None` here, where
+    /// [`Provider::charge`] would carry a [`NextAction::Redirect`]. The
+    /// payment can still be `pending`; it is just not waiting on the payer.
+    ///
+    /// **A mandate that is not [`MandateStatus::Valid`] is not checked for
+    /// here.** Status read moments ago can be stale by the time this call
+    /// reaches Mollie — a payer can revoke a mandate between the two — so
+    /// Mollie's own answer is the one that has not gone stale. Charging a
+    /// pending or invalid mandate is Mollie's ordinary refusal, not a fault
+    /// in this call, and it arrives as [`ErrorKind::InvalidRequest`] like any
+    /// other refused payment.
+    ///
+    /// [`ChargeRequest::return_url`] is still required, the same as every
+    /// other call this crate opens a payment with. Mollie's own document
+    /// says `redirectUrl` "can be omitted for recurring payments" — not that
+    /// it is refused if sent — so this keeps the one validation `create`
+    /// already does rather than carving out an exception for a field Mollie
+    /// accepts either way.
+    pub async fn charge_with_mandate(
+        &self,
+        request: &ChargeRequest,
+        mandate: &InstrumentId,
+    ) -> Result<Charge, Error> {
+        if request.customer.is_none() {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                MOLLIE,
+                "a recurring payment is charged against a customer's mandate; set ChargeRequest::customer",
+            ));
+        }
+        self.create(request, None, Some("recurring"), Some(mandate.as_str()))
+            .await
+    }
+
+    /// Registers a customer, so a mandate has somewhere to be hung.
+    ///
+    /// Both `name` and `email` are optional on Mollie's own schema; neither
+    /// is checked here beyond that.
+    pub async fn create_customer(
+        &self,
+        name: Option<&str>,
+        email: Option<&str>,
+    ) -> Result<Customer, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                "/v2/customers",
+                Some(&wire::CreateCustomer { name, email }),
+                None,
+            )
+            .await?;
+        let customer: wire::Customer = parse(&raw, "a customer")?;
+        Customer::read(&customer, raw)
+    }
+
+    /// Every mandate on a customer.
+    ///
+    /// Mollie paginates this and this call does not: it answers the one page
+    /// Mollie sends back, the same choice this crate makes for refunds. Each
+    /// [`Mandate::raw`] is that mandate's own object out of the list, not the
+    /// list body it arrived in.
+    pub async fn mandates(&self, customer: &CustomerId) -> Result<Vec<Mandate>, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                &format!("/v2/customers/{}/mandates", customer.as_str()),
+                None::<&()>,
+                None,
+            )
+            .await?;
+        let value = raw.json().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                MOLLIE,
+                "a list of mandates was not the JSON Mollie documents",
+            )
+        })?;
+        let items = value
+            .pointer("/_embedded/mandates")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Malformed,
+                    MOLLIE,
+                    "a list of mandates carried no _embedded.mandates",
+                )
+            })?;
+        items
+            .iter()
+            .map(|item| {
+                let mandate: wire::Mandate = serde_json::from_value(item.clone()).map_err(|e| {
+                    Error::new(
+                        ErrorKind::Malformed,
+                        MOLLIE,
+                        "one mandate in the list was not the JSON Mollie documents",
+                    )
+                    .with_source(e)
+                })?;
+                Mandate::read(&mandate, Raw::from_json(item))
+            })
+            .collect()
+    }
+
+    /// Reads one mandate back by id.
+    pub async fn mandate(
+        &self,
+        customer: &CustomerId,
+        mandate: &InstrumentId,
+    ) -> Result<Mandate, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                &format!(
+                    "/v2/customers/{}/mandates/{}",
+                    customer.as_str(),
+                    mandate.as_str()
+                ),
+                None::<&()>,
+                None,
+            )
+            .await?;
+        let mandate: wire::Mandate = parse(&raw, "a mandate")?;
+        Mandate::read(&mandate, raw)
     }
 
     /// Takes funds an authorisation is holding, and answers Mollie's own
@@ -226,6 +395,8 @@ impl Mollie {
         &self,
         request: &ChargeRequest,
         capture_mode: Option<&'static str>,
+        sequence_type: Option<&'static str>,
+        mandate_id: Option<&str>,
     ) -> Result<Charge, Error> {
         // Before a socket opens: a currency Mollie does not take, sent, is a
         // payment in a currency nobody chose.
@@ -261,6 +432,8 @@ impl Mollie {
             redirect_url: redirect_url.as_str(),
             capture_mode,
             customer_id: request.customer.as_deref(),
+            sequence_type,
+            mandate_id,
             metadata,
         };
         let raw = self
@@ -653,6 +826,140 @@ impl fmt::Display for RefundState {
     }
 }
 
+/// A customer at Mollie — enough to hang a mandate on.
+///
+/// [`Mollie::create_customer`] answers one. Nothing else in this crate reads
+/// a customer back by id: [`ChargeRequest::customer`] carries the `cst_…`
+/// wherever it is needed again, as it does for any other provider.
+#[derive(Debug, Clone)]
+pub struct Customer {
+    /// Mollie's identifier for this customer — `cst_…`.
+    pub id: CustomerId,
+    /// The name it was given, if any.
+    pub name: Option<Box<str>>,
+    /// The email address it was given, if any.
+    pub email: Option<Box<str>>,
+    /// Mollie's own answer, kept whole.
+    pub raw: Raw,
+}
+
+impl Customer {
+    fn read(customer: &wire::Customer, raw: Raw) -> Result<Self, Error> {
+        let id = customer
+            .id
+            .as_deref()
+            .ok_or_else(|| Error::new(ErrorKind::Malformed, MOLLIE, "a customer carried no id"))?;
+        Ok(Self {
+            id: CustomerId::issued(id),
+            name: customer.name.clone().map(String::into_boxed_str),
+            email: customer.email.clone().map(String::into_boxed_str),
+            raw,
+        })
+    }
+}
+
+/// Mollie's saved instrument: a mandate, held against a [`Customer`] and
+/// charged with [`Mollie::charge_with_mandate`].
+///
+/// [`Mandate::id`] is an [`InstrumentId`] — the same kind Stripe's `pm_…` and
+/// iyzico's `cardToken` are — and [`Mandate::customer`] is the other half of
+/// the name: charging one sends the id here and the customer as
+/// [`ChargeRequest::customer`], the same split iyzico's `cardToken` and
+/// `cardUserKey` make.
+#[derive(Debug, Clone)]
+pub struct Mandate {
+    /// Mollie's identifier for this mandate — `mdt_…`.
+    pub id: InstrumentId,
+    /// Which customer it is hung on.
+    pub customer: CustomerId,
+    /// Whether it can be charged.
+    pub status: MandateStatus,
+    /// `directdebit`, `creditcard` or `paypal` — Mollie's own spelling, kept
+    /// as sent rather than modelled as an enum this crate has no other use
+    /// for.
+    pub method: Option<Box<str>>,
+    /// Mollie's own answer, kept whole — this mandate's own object, whether
+    /// it came from [`Mollie::mandate`] or out of the list
+    /// [`Mollie::mandates`] answers.
+    pub raw: Raw,
+}
+
+impl Mandate {
+    fn read(mandate: &wire::Mandate, raw: Raw) -> Result<Self, Error> {
+        let missing = |field: &str| {
+            Error::new(
+                ErrorKind::Malformed,
+                MOLLIE,
+                format!("a mandate carried no {field}"),
+            )
+        };
+        Ok(Self {
+            id: InstrumentId::issued(mandate.id.as_deref().ok_or_else(|| missing("id"))?),
+            customer: CustomerId::issued(
+                mandate
+                    .customer_id
+                    .as_deref()
+                    .ok_or_else(|| missing("customerId"))?,
+            ),
+            status: MandateStatus::from(
+                mandate.status.as_deref().ok_or_else(|| missing("status"))?,
+            ),
+            method: mandate.method.clone().map(String::into_boxed_str),
+            raw,
+        })
+    }
+}
+
+/// Whether a mandate can be charged.
+///
+/// Mollie's own enum has three values and no fourth for "revoked": revoking a
+/// mandate — not a call this crate makes — leaves it reading `invalid`
+/// exactly like one that never signed, and there is nothing in the status
+/// alone that tells the two apart. `mandateReference` and `signatureDate`
+/// stay on the object either way, for a caller that keeps its own record of
+/// which happened.
+///
+/// [`Mollie::charge_with_mandate`] does not read this before sending a
+/// charge — see its own documentation for why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MandateStatus {
+    /// Signed, and can be charged.
+    Valid,
+    /// The first payment establishing it has not yet finished.
+    Pending,
+    /// Cannot be charged — revoked, or never became valid. Mollie's own enum
+    /// does not say which.
+    Invalid,
+    /// A status Mollie has started returning since this was written. Their
+    /// `mandate-status` schema marks the response `x-speakeasy-unknown-values:
+    /// allow`, which is their own way of saying the three documented values
+    /// are not a promise never to add a fourth.
+    Other(Box<str>),
+}
+
+impl From<&str> for MandateStatus {
+    fn from(value: &str) -> Self {
+        match value {
+            "valid" => Self::Valid,
+            "pending" => Self::Pending,
+            "invalid" => Self::Invalid,
+            other => Self::Other(other.into()),
+        }
+    }
+}
+
+impl fmt::Display for MandateStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Valid => f.write_str("valid"),
+            Self::Pending => f.write_str("pending"),
+            Self::Invalid => f.write_str("invalid"),
+            Self::Other(state) => f.write_str(state),
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl Provider for Mollie {
     fn id(&self) -> ProviderId {
@@ -677,7 +984,7 @@ impl Provider for Mollie {
     /// The payment is captured automatically. [`Mollie::authorize`] is the one
     /// that holds the funds instead.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
-        self.create(request, None).await
+        self.create(request, None, None, None).await
     }
 
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
@@ -742,23 +1049,21 @@ impl Provider for Mollie {
     /// fails — the same way it does for a Stripe intent that already
     /// succeeded.
     ///
-    /// **`saved_instruments` is false, and Mollie does have a vault.** Their
-    /// version of a saved instrument is a mandate — `mdt_…`, held against a
-    /// customer, charged with `sequenceType: recurring` — and this crate
-    /// implements no call that sends one. So the answer a checkout needs is
-    /// "do not offer use-my-saved-card here", which is what false says.
-    /// Nothing about the mandate itself stands in the way if it is added
-    /// later: like iyzico's `cardToken` it is half a name, and the other half
-    /// is the payer that
+    /// **`saved_instruments` is true.** Mollie's version of a saved
+    /// instrument is a mandate — `mdt_…`, held against a customer — and
+    /// [`Mollie::charge_with_mandate`] sends `sequenceType: recurring` and
+    /// the `mandateId` to charge one, with
     /// [`ChargeRequest::customer`](kasapay_core::ChargeRequest::customer)
-    /// already carries.
+    /// carrying the other half of the name the same way iyzico's
+    /// `cardUserKey` does beside its `cardToken`. [`Mollie::charge_first`]
+    /// is how one comes to exist in the first place.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: true,
             partial_capture: true,
             partial_refund: true,
             repeated_refund: true,
-            saved_instruments: false,
+            saved_instruments: true,
         }
     }
 }

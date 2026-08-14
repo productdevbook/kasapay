@@ -80,7 +80,40 @@ pub(crate) struct CreatePayment<'a> {
     pub capture_mode: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub customer_id: Option<&'a str>,
+    /// `first` establishes a mandate, `recurring` charges one. `None` sends
+    /// nothing, which is Mollie's own `oneoff`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sequence_type: Option<&'static str>,
+    /// Only meaningful with `sequence_type: recurring` — which of the
+    /// customer's mandates to charge.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mandate_id: Option<&'a str>,
     pub metadata: BTreeMap<&'a str, &'a str>,
+}
+
+/// `POST /v2/customers`'s body. Both fields are optional per Mollie's schema.
+#[derive(Debug, serde::Serialize)]
+pub(crate) struct CreateCustomer<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<&'a str>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct Customer {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub email: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Mandate {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    pub method: Option<String>,
+    pub customer_id: Option<String>,
 }
 
 #[derive(Debug, serde::Serialize)]

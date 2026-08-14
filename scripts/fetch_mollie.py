@@ -71,6 +71,9 @@ KEEP = [
     "/v2/payments/{paymentId}/captures",
     "/v2/payments/{paymentId}/refunds",
     "/v2/payments/{paymentId}/release-authorization",
+    "/v2/customers",
+    "/v2/customers/{customerId}/mandates",
+    "/v2/customers/{customerId}/mandates/{mandateId}",
 ]
 
 

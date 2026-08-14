@@ -507,8 +507,8 @@ async fn what_the_client_says_it_will_do() {
     assert!(capabilities.partial_capture);
     assert!(capabilities.partial_refund);
     assert!(capabilities.repeated_refund);
-    // Mollie has a vault — mandates — and this crate charges nothing out of
-    // it, which is the answer a checkout needs before it offers a saved card.
-    assert!(!capabilities.saved_instruments);
+    // `saved_instruments` is asserted alongside the call that honours it,
+    // `charge_with_mandate`, in tests/mandates.rs.
+    assert!(capabilities.saved_instruments);
     assert_eq!(client(&server).id().as_str(), "mollie");
 }
