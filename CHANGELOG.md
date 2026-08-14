@@ -32,6 +32,8 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- Every GitHub action is pinned to a commit rather than a tag. A tag can be
+  moved, and one workflow holds the crates.io publish token.
 - A dependency audit. `deny.toml` refuses a known vulnerability, a non-permissive
   licence, a wildcard version or a source outside crates.io, checked on every
   push and again daily — an advisory lands against a tree that has not changed.
