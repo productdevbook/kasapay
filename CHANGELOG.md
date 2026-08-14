@@ -10,6 +10,11 @@ both are the kind 0.0.x exists to make.
 
 ### Breaking
 
+- **`Charge` carries `order_amount`.** `Charge::amount` now means what the
+  payer is charged, and `order_amount` what the goods came to — they differ
+  under an instalment surcharge, and two adapters were dropping one of the
+  pair. `None` means the provider does not say, not that the two are equal.
+
 - **`Charge::raw` is a `Raw`, not a `serde_json::Value`.** Its old type put
   serde_json in the public API of every provider adapter, including ones
   written outside this workspace, and left a provider that answers XML nowhere
