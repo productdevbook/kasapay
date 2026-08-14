@@ -6,7 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Charge, Currency, Error, ErrorKind, Money, NextAction, PaymentId, ProviderId, Raw, Status,
+    Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, PaymentId, Provider,
+    ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -838,6 +839,41 @@ fn http_error(status: reqwest::StatusCode, body: &str) -> Error {
         _ => ErrorKind::Provider,
     };
     Error::new(kind, PROVIDER, format!("HTTP {status}: {body}"))
+}
+
+/// The classic API answers for a payment that already exists, and refuses to
+/// start one.
+///
+/// This is the line the shared trait sits on. `charge_status` reads back a
+/// payment the hosted form took, which is the same question every provider can
+/// answer. `charge` cannot be honoured here: the form needs a buyer's identity
+/// number, two addresses and an itemised basket, none of which
+/// [`ChargeRequest`] carries and none of which belongs in it. Call
+/// [`Client::start_checkout_form`] instead.
+#[async_trait::async_trait]
+impl Provider for Client {
+    fn id(&self) -> ProviderId {
+        PROVIDER
+    }
+
+    async fn charge(&self, _request: &ChargeRequest) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the classic API takes a payment through a hosted form, which needs a buyer, \
+             two addresses and a basket; call Client::start_checkout_form",
+        ))
+    }
+
+    /// Reads a payment back by the checkout form token it was started with.
+    ///
+    /// The token, not a payment id: until the payer finishes the form iyzico
+    /// has no payment id to give, so the token is what identifies it — and
+    /// [`Client::start_checkout_form`] puts the token in the returned charge's
+    /// `id` for exactly this call.
+    async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
+        self.checkout_result(id.as_str()).await
+    }
 }
 
 #[cfg(test)]
