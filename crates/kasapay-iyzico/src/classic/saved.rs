@@ -30,7 +30,7 @@
 //!
 //! # Both halves, or neither
 //!
-//! iyzico's error `5111` is *"CardUserKey must be sent with cardToken"*. A
+//! iyzico's error `5111` is *"`cardUserKey` must be sent with `cardToken`"*. A
 //! [`Card`] cannot be built with one and not the other, so that refusal happens
 //! here rather than after a round trip.
 //!
