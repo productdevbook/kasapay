@@ -10,7 +10,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{
-    Association, CardType, Client, Config, Reason, ReasonCode, checkout,
+    Association, CardType, Client, Config, FormToken, Reason, ReasonCode, checkout,
 };
 use serde_json::json;
 use wiremock::matchers::{body_json, header, header_exists, method, path};
@@ -378,6 +378,9 @@ async fn opening_a_form_gives_a_page_to_send_the_payer_to() {
 
     assert_eq!(charge.status, Status::RequiresAction);
     assert_eq!(charge.amount.minor_units(), 14_990);
+    // iyzico names no payment until the payer finishes, and the form's token is
+    // not a payment id.
+    assert_eq!(charge.id, None);
     match charge.next_action.expect("a form to send the payer to") {
         NextAction::Redirect { url, continuation } => {
             assert_eq!(
@@ -414,7 +417,7 @@ async fn a_finished_form_reports_the_payment() {
         .await;
 
     let charge = client(&server)
-        .checkout_result("cf-token-1")
+        .checkout_result(&FormToken::issued("cf-token-1"))
         .await
         .expect("the form reads back");
 
@@ -448,7 +451,7 @@ async fn a_query_that_worked_can_still_report_a_refused_card() {
         .await;
 
     let charge = client(&server)
-        .checkout_result("cf-token-1")
+        .checkout_result(&FormToken::issued("cf-token-1"))
         .await
         .expect("the query itself worked");
     // status: success means the query worked, not that the payment did.
@@ -471,7 +474,7 @@ async fn a_form_the_payer_has_not_finished_is_still_pending() {
         .allow_unsigned();
     let charge = Client::new(config)
         .expect("client builds")
-        .checkout_result("cf-token-1")
+        .checkout_result(&FormToken::issued("cf-token-1"))
         .await
         .expect("the query worked");
     assert_eq!(charge.status, Status::Pending);
@@ -497,7 +500,7 @@ async fn an_unsigned_response_is_refused_by_default() {
         .await;
 
     let error = client(&server)
-        .checkout_result("cf-token-1")
+        .checkout_result(&FormToken::issued("cf-token-1"))
         .await
         .expect_err("an unsigned payment must not become a Charge");
     assert_eq!(error.kind(), ErrorKind::Untrusted);
@@ -526,7 +529,7 @@ async fn a_forged_result_is_refused() {
         .await;
 
     let error = client(&server)
-        .checkout_result("cf-token-1")
+        .checkout_result(&FormToken::issued("cf-token-1"))
         .await
         .expect_err("a tampered amount must not become a Charge");
     assert_eq!(error.kind(), ErrorKind::Untrusted);
@@ -878,34 +881,17 @@ fn every_reason_renders_the_word_iyzico_documents() {
 }
 
 #[tokio::test]
-async fn the_classic_client_answers_charge_status_through_the_shared_trait() {
+async fn the_classic_client_refuses_to_read_a_form_back_through_the_shared_trait() {
     let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
-        .and(body_json(json!({ "locale": "tr", "token": "cf-token-1" })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "status": "success",
-            "paymentStatus": "SUCCESS",
-            "paymentId": "12345678",
-            "basketId": "ord-1",
-            "conversationId": "ord-1",
-            "paidPrice": "149.90",
-            "price": "149.90",
-            "currency": "TRY",
-            "token": "cf-token-1",
-            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
-        })))
-        .mount(&server)
-        .await;
-
-    // A caller holding Arc<dyn Provider> can read a classic payment back.
+    // No mock: a request reaching the network would fail the test.
     let provider: Box<dyn kasapay_core::Provider> = Box::new(client(&server));
-    // The id is the form's token, which is what start_checkout_form put there.
-    let charge = provider
-        .charge_status(&PaymentId::issued("cf-token-1"))
+
+    let error = provider
+        .charge_status(&PaymentId::issued("12345678"))
         .await
-        .expect("the payment reads back");
-    assert_eq!(charge.status, Status::Captured);
+        .expect_err("a form is read back by its own token");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert!(error.to_string().contains("checkout_result"));
     assert_eq!(provider.id(), kasapay_core::ProviderId::IYZICO);
 }
 

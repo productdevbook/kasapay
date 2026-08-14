@@ -12,7 +12,7 @@ use kasapay_core::{
 use url::Url;
 
 use crate::classic::checkout::CheckoutForm;
-use crate::classic::{signature, wire};
+use crate::classic::{FormToken, signature, wire};
 use crate::signing::Credentials;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
@@ -144,6 +144,10 @@ impl Client {
     /// [`NextAction::Redirect`] whose `continuation` is the form's token —
     /// keep it, because [`Client::checkout_result`] needs it and the callback
     /// carries nothing else that identifies the payment.
+    ///
+    /// [`Charge::id`] is `None` here: iyzico issues no `paymentId` until the
+    /// payer finishes, and the token is a [`FormToken`] rather than a payment
+    /// id. The first charge to carry one is the one `checkout_result` answers.
     pub async fn start_checkout_form(&self, form: &CheckoutForm) -> Result<Charge, Error> {
         let currency = form.price.currency();
         let body = wire::CheckoutFormRequest {
@@ -222,10 +226,7 @@ impl Client {
         )?;
 
         Ok(Charge {
-            // iyzico has no payment id until the payer is done; the form's
-            // token is what identifies it until then, and what
-            // `charge_status` takes.
-            id: Some(PaymentId::issued(token.as_str())),
+            id: None,
             order: Some(form.order.clone()),
             amount: form.paid_price,
             order_amount: (form.price != form.paid_price).then_some(form.price),
@@ -247,10 +248,23 @@ impl Client {
     }
 
     /// Reads what became of a checkout form, by the token it was opened with.
-    pub async fn checkout_result(&self, token: &str) -> Result<Charge, Error> {
+    ///
+    /// A [`FormToken`], not a [`PaymentId`]: this endpoint answers for the
+    /// form, and the payment id iyzico issues once the payer finishes is not
+    /// one it will accept. Passing one does not compile.
+    ///
+    /// ```compile_fail
+    /// use kasapay_core::PaymentId;
+    /// use kasapay_iyzico::classic::Client;
+    ///
+    /// async fn read_back(iyzipay: &Client, payment: &PaymentId) {
+    ///     iyzipay.checkout_result(payment).await.ok();
+    /// }
+    /// ```
+    pub async fn checkout_result(&self, token: &FormToken) -> Result<Charge, Error> {
         let body = wire::CheckoutResultRequest {
             locale: "tr",
-            token,
+            token: token.as_str(),
         };
         let (response, raw) = self
             .post::<_, wire::CheckoutResultResponse>(
@@ -401,9 +415,8 @@ impl Client {
     ///
     /// iyzico's cancel response carries no `signature`, so unlike a refund it
     /// cannot be shown to have come from them. A forged one would say a
-    /// payment was voided when it was not. Read
-    /// [`Client::charge_status`](Client::checkout_result) afterwards if that
-    /// matters to the caller's ledger.
+    /// payment was voided when it was not. Read [`Client::checkout_result`]
+    /// afterwards if that matters to the caller's ledger.
     ///
     /// `reason` is the same as on [`Client::refund`].
     pub async fn cancel(
@@ -1035,15 +1048,17 @@ fn http_error(status: reqwest::StatusCode, body: &str) -> Error {
     Error::new(kind, PROVIDER, format!("HTTP {status}: {body}"))
 }
 
-/// The classic API answers for a payment that already exists, and refuses to
-/// start one.
+/// The hosted checkout form is not a flow the shared trait can drive.
 ///
-/// This is the line the shared trait sits on. `charge_status` reads back a
-/// payment the hosted form took, which is the same question every provider can
-/// answer. `charge` cannot be honoured here: the form needs a buyer's identity
-/// number, two addresses and an itemised basket, none of which
-/// [`ChargeRequest`] carries and none of which belongs in it. Call
-/// [`Client::start_checkout_form`] instead.
+/// Every operation on it answers [`ErrorKind::Unsupported`], for two different
+/// reasons. `charge` cannot be honoured because the form needs a buyer's
+/// identity number, two addresses and an itemised basket, none of which
+/// [`ChargeRequest`] carries and none of which belongs in it. `charge_status`
+/// cannot, because what identifies an unfinished form is a [`FormToken`] and
+/// this trait names a payment by a [`PaymentId`]. The calls are
+/// [`Client::start_checkout_form`] and [`Client::checkout_result`], and what is
+/// left of the trait here is [`Provider::id`] and [`Provider::capabilities`],
+/// which a caller can still ask of this client alongside any other.
 #[async_trait::async_trait]
 impl Provider for Client {
     fn id(&self) -> ProviderId {
@@ -1059,14 +1074,19 @@ impl Provider for Client {
         ))
     }
 
-    /// Reads a payment back by the checkout form token it was started with.
+    /// Always [`ErrorKind::Unsupported`]: a form is not read back by a payment id.
     ///
-    /// The token, not a payment id: until the payer finishes the form iyzico
-    /// has no payment id to give, so the token is what identifies it — and
-    /// [`Client::start_checkout_form`] puts the token in the returned charge's
-    /// `id` for exactly this call.
-    async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
-        self.checkout_result(id.as_str()).await
+    /// What identifies a hosted checkout form is the [`FormToken`] it was
+    /// opened with, and iyzico issues no payment id until the payer finishes.
+    /// The two are different kinds of identifier and this signature only takes
+    /// one of them, so the call is [`Client::checkout_result`].
+    async fn charge_status(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "a classic checkout form is read back by the token it was opened with rather \
+             than by a payment id; call Client::checkout_result",
+        ))
     }
 
     /// Always [`ErrorKind::Unsupported`]: the hosted form captures as it takes.

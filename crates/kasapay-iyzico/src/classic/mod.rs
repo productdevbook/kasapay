@@ -10,7 +10,8 @@
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
-//! - [`Client::checkout_result`] — read what became of it
+//! - [`Client::checkout_result`] — read what became of it, by the
+//!   [`FormToken`] the form was opened with
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
 //! - [`Client::forget_card`] — drop one of them
@@ -28,12 +29,14 @@
 //! they live in [`crate::iyzilink`], [`crate::subscription`] and
 //! [`crate::mass`], over this same [`Client`].
 //!
-//! [`Client`] implements [`Provider`](kasapay_core::Provider), but only half
-//! of it: `charge_status` reads a payment back, and `charge` answers
-//! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) because
-//! the hosted form needs more than `ChargeRequest` carries. That is the line
-//! the shared trait sits on — it can say what happened to a payment, and not
-//! how to start one.
+//! [`Client`] implements [`Provider`](kasapay_core::Provider), and every
+//! payment operation on it answers
+//! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported): the hosted
+//! form needs more than `ChargeRequest` carries to start, and what identifies
+//! one before the payer finishes is a [`FormToken`] rather than a
+//! [`PaymentId`](kasapay_core::PaymentId). This flow is driven by the calls
+//! above; what the trait still answers here is which provider this is and what
+//! it can do.
 //!
 //! The checkout form is how most integrations should take a payment here:
 //! iyzico hosts the form and collects the card, so nothing sensitive crosses
@@ -68,9 +71,33 @@ mod client;
 pub mod signature;
 mod wire;
 
+use kasapay_core::Id;
+
 #[doc(inline)]
 pub use crate::classic::client::{
     Association, BinDetails, CardType, Client, Config, Reason, ReasonCode, Reversal, StoredCard,
 };
+
+/// What a classic identifier names, where iyzico names something core has no
+/// kind for.
+pub mod kind {
+    /// One hosted checkout form, which is not the payment it may become.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct Checkout;
+
+    impl kasapay_core::IdKind for Checkout {
+        const NAMES: &'static str = "iyzico checkout form";
+    }
+}
+
+/// iyzico's token for one hosted checkout form.
+///
+/// Not a [`PaymentId`](kasapay_core::PaymentId), and the compiler now says so:
+/// until the payer finishes the form iyzico has issued no payment id, and this
+/// token is all there is to read the form back by. It arrives as the
+/// `continuation` of the [`NextAction::Redirect`](kasapay_core::NextAction)
+/// that [`Client::start_checkout_form`] answers, and goes into
+/// [`Client::checkout_result`].
+pub type FormToken = Id<kind::Checkout>;
 
 pub(crate) use crate::classic::client::refused;
