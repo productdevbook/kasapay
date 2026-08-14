@@ -323,7 +323,7 @@ paths:
       - Payment
       summary: Ödeme Sorgula
       description: Belirtilen `paymentId` ile bir ödemenin güncel durumunu sorgular.
-      operationId: queryPayment
+      operationId: queryPayment2
       parameters:
       - name: paymentId
         in: query

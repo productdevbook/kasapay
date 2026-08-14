@@ -1243,11 +1243,9 @@ components:
           description: Unique identifier defined for the terminal/device where the transaction is performed.
         transactionReferenceId:
           nullable: true
-          oneOf:
-          - type: string
-          - type: 'null'
           description: Unique reference number generated during the transaction for the payment/void/refund
             operation to be queried.
+          type: string
     RefundPaymentRequest:
       type: object
       required:

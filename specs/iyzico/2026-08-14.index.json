@@ -60,6 +60,7 @@
         "schemas QueryTransactionDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryTransactionDetail2",
         "schemas QueryReceiptDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryReceiptDetail2",
         "schemas ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
+        "operationId queryPayment reused by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, renamed queryPayment2",
         "no authentication documented by iyzico for: DELETE /v3/in-store/user, GET /v3/in-store/user/list, POST /in-store/oauth2/authorize, POST /v3/in-store/crypt/decrypt, POST /v3/in-store/payment/init, POST /v3/in-store/payment/query, POST /v3/in-store/payment/refund, POST /v3/in-store/user"
       ]
     },

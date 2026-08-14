@@ -115,6 +115,40 @@ def repair(node, in_security: bool = False):
     return node
 
 
+def repair_schema_dialect(node):
+    """Fixes OpenAPI 3.0 violations the fragments carry.
+
+    Three recur, and all three come from iyzico rather than from this script:
+
+    - `enum` sitting on a Parameter Object, where 3.0 wants it inside `schema`
+    - `required: false` on a path parameter, which 3.0 forbids
+    - `oneOf: [{type: string}, {type: null}]`, which is 3.1's way of saying
+      nullable and not a thing in 3.0
+    """
+    if isinstance(node, dict):
+        if "name" in node and "in" in node:
+            if "enum" in node and isinstance(node.get("schema"), dict):
+                node["schema"].setdefault("enum", node.pop("enum"))
+            if node.get("in") == "path":
+                node["required"] = True
+        one_of = node.get("oneOf")
+        if isinstance(one_of, list):
+            kept = [m for m in one_of if not (isinstance(m, dict) and m.get("type") == "null")]
+            if len(kept) != len(one_of):
+                node["nullable"] = True
+                if len(kept) == 1 and isinstance(kept[0], dict):
+                    del node["oneOf"]
+                    node.update(kept[0])
+                else:
+                    node["oneOf"] = kept
+        for value in list(node.values()):
+            repair_schema_dialect(value)
+    elif isinstance(node, list):
+        for value in node:
+            repair_schema_dialect(value)
+    return node
+
+
 def rename_refs(node, renames: dict[tuple[str, str], str]):
     """Rewrites `$ref`s a merge had to rename, keyed by (section, name)."""
     if isinstance(node, dict):
@@ -203,8 +237,11 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
     notes: list[str] = []
     seen_tags: set[str] = set()
 
+    seen_operation_ids: set[str] = set()
+
     for source, fragment in found:
         repair(fragment)
+        repair_schema_dialect(fragment)
         prefix = base_path(fragment)
 
         # Every component section, not just schemas: a fragment that keeps its
@@ -257,6 +294,17 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
                             str(code)[0], "Undocumented by iyzico"
                         )
                 operation.setdefault("x-iyzico-source", source)
+                # iyzico reuses one operationId across two operations — the
+                # In-Store payment query is documented as both a GET and a POST.
+                op_id = operation.get("operationId")
+                if op_id:
+                    unique, n = op_id, 2
+                    while unique in seen_operation_ids:
+                        unique, n = f"{op_id}{n}", n + 1
+                    if unique != op_id:
+                        notes.append(f"operationId {op_id} reused by {source}, renamed {unique}")
+                        operation["operationId"] = unique
+                    seen_operation_ids.add(unique)
                 if "security" not in operation and fragment.get("security"):
                     operation["security"] = fragment["security"]
                 existing = spec["paths"].setdefault(full, {}).get(verb)
