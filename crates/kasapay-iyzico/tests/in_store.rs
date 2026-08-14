@@ -497,6 +497,19 @@ async fn cancel_is_refused_because_there_is_no_authorisation_to_release() {
 }
 
 #[tokio::test]
+async fn listing_saved_instruments_is_refused_because_there_is_no_vault() {
+    // No mock is mounted: a request that reached iyzico would fail this.
+    let server = MockServer::start().await;
+
+    let error = client(&server)
+        .instruments("user-1")
+        .await
+        .expect_err("the In-Store API keeps no vault");
+
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+#[tokio::test]
 async fn capabilities_match_what_the_methods_actually_do() {
     let server = MockServer::start().await;
     let client = client(&server);

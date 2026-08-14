@@ -5,6 +5,7 @@ use std::fmt;
 use crate::charge::{Charge, ChargeRequest};
 use crate::error::Error;
 use crate::id::PaymentId;
+use crate::instrument::Instrument;
 use crate::money::Money;
 
 /// Names a provider.
@@ -75,18 +76,23 @@ pub struct Capabilities {
     pub partial_refund: bool,
     /// A payment can be refunded more than once, up to what was captured.
     pub repeated_refund: bool,
-    /// A card the provider already holds can be charged through this adapter,
-    /// named by an [`InstrumentId`](crate::InstrumentId), with the payer
-    /// entering nothing.
+    /// An instrument [`Provider::instruments`] lists can be charged, through a
+    /// call of this adapter's own — with the payer entering nothing.
     ///
-    /// What a checkout reads before it offers "use my saved card". False does
-    /// not always mean the provider has no vault — it means this adapter has
-    /// no call that charges one, which is the answer the checkout needs either
-    /// way.
+    /// What a checkout reads before it offers "use my saved card". This
+    /// describes *charging*, not *listing*: every adapter answers
+    /// [`Provider::instruments`] regardless of this flag, and the two do not
+    /// have to agree. PayTR's hosted form does store a card — a vault exists —
+    /// but nothing here can list it or charge it, so both answer
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported), for two
+    /// different reasons that happen to give the same result: `false` here
+    /// says specifically that this adapter has no call that charges one, which
+    /// is the answer a checkout needs before it offers the button.
     ///
-    /// The call itself is the adapter's own: charging a saved card needs what
-    /// that provider demands around it, which is not the same list twice, and
-    /// [`Provider::charge`] carries none of it.
+    /// The charging call itself is the adapter's own: it needs what that
+    /// provider demands around a saved-instrument payment, which is not the
+    /// same list twice at any two of them, and neither [`Provider::charge`]
+    /// nor [`Provider::instruments`] carries any of it.
     pub saved_instruments: bool,
 }
 
@@ -153,6 +159,34 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// than a silent success: giving that money back is a refund, a different
     /// act with a different entry in the ledger.
     async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error>;
+
+    /// Lists what a customer has saved with this provider.
+    ///
+    /// `customer` is the provider's own name for them — the same string
+    /// [`ChargeRequest::customer`] carries, and, for iyzico's classic API,
+    /// the `cardUserKey` that names the vault rather than a payer as such.
+    ///
+    /// This is the shape every provider can answer: an identity and something
+    /// to show somebody choosing between them. It is not a card number and
+    /// carries no field one could go in. What it is not, on purpose, is a way
+    /// to charge one or to forget one — those stay each adapter's own call,
+    /// because forgetting a card needs iyzico's `cardUserKey` *and* its token
+    /// where Stripe's needs only the instrument, and charging one takes a
+    /// buyer and a basket at iyzico, an `off_session` flag at Stripe, a
+    /// `sequenceType` at Mollie — three requests this trait cannot honestly
+    /// narrow to one signature. See [`Capabilities::saved_instruments`] for
+    /// what that leaves this trait able to say about charging one.
+    ///
+    /// A provider with no vault at all — or one this crate has no working call
+    /// against, which is PayTR's case: it does store a card, but nothing here
+    /// signs a request against it — answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// an empty list, because an empty list would read as "this customer has
+    /// nothing saved" instead of "asking is not possible here".
+    ///
+    /// No default: a provider outside this workspace has to answer, the same
+    /// as every other method here.
+    async fn instruments(&self, customer: &str) -> Result<Vec<Instrument>, Error>;
 
     /// What this provider will do, before there is a payment to ask about.
     fn capabilities(&self) -> Capabilities;

@@ -62,6 +62,13 @@
 //! payment carries. Charging one is not the same act as taking a card number,
 //! and only the first of the two is here.
 //!
+//! [`Provider::instruments`] lists what a customer has on file — every
+//! adapter answers the same shape, an [`Instrument`] carrying the identity and
+//! something to show a person choosing between them. Charging one is not:
+//! iyzico wants a buyer and a basket beside the token, Stripe an
+//! `off_session` flag, Mollie a `sequenceType`, so that call stays each
+//! adapter's own.
+//!
 //! # Amounts
 //!
 //! [`Money`] counts minor units. There is no `f64` anywhere in this crate,
@@ -74,6 +81,7 @@
 mod charge;
 mod error;
 mod id;
+mod instrument;
 mod money;
 mod provider;
 mod raw;
@@ -88,6 +96,8 @@ pub use crate::charge::{
 pub use crate::error::{Error, ErrorKind};
 #[doc(inline)]
 pub use crate::id::{Id, IdKind, IdSource, InstrumentId, PaymentId, kind};
+#[doc(inline)]
+pub use crate::instrument::Instrument;
 #[doc(inline)]
 pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 #[doc(inline)]

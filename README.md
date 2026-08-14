@@ -129,11 +129,15 @@ Stripe.js in the payer's browser; Mollie only ever redirects.
 
 A returning customer is `InstrumentId` — the provider keeps the card and hands
 back a handle, and the handle is what the payment carries.
-`iyzico::classic::Client::pay_with_saved_card` is the first of these:
-`POST /payment/auth`, the same endpoint an ordinary card payment uses, with the
-`cardUserKey` and `cardToken` where the number would be. `saved::Card` has no
-field for a number and refuses a value that is one by shape.
-`Capabilities::saved_instruments` says which providers can do this before there
+`Provider::instruments` lists what a customer has on file, the same shape at
+every adapter: an identity and something to show them choosing between saved
+instruments, never a card number. Charging one is not the same shape twice —
+`iyzico::classic::Client::pay_with_saved_card` is `POST /payment/auth`, the
+same endpoint an ordinary card payment uses, with the `cardUserKey` and
+`cardToken` where the number would be, but wants a buyer, two addresses and a
+basket beside it; `saved::Card` has no field for a number and refuses a value
+that is one by shape. So charging stays each adapter's own call, and
+`Capabilities::saved_instruments` says which providers can do it before there
 is a payment to ask about.
 
 **The card gets into the vault through the hosted form, not through an API

@@ -14,8 +14,8 @@
 use std::sync::Mutex;
 
 use kasapay::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Status, async_trait,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, Money, NextAction,
+    OrderRef, PaymentId, Provider, ProviderId, Raw, Status, async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -103,6 +103,14 @@ impl Provider for Kumbara {
             provider: Self::ID,
             raw: Raw::default(),
         })
+    }
+
+    async fn instruments(&self, _customer: &str) -> Result<Vec<Instrument>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            Self::ID,
+            "kumbara keeps no vault",
+        ))
     }
 
     fn capabilities(&self) -> Capabilities {
@@ -245,6 +253,14 @@ impl Provider for Yastik {
 
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
         Err(Self::unnamed())
+    }
+
+    async fn instruments(&self, _customer: &str) -> Result<Vec<Instrument>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            Self::ID,
+            "yastik keeps no vault",
+        ))
     }
 
     fn capabilities(&self) -> Capabilities {

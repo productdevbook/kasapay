@@ -221,6 +221,50 @@ async fn stored_cards_come_back_without_a_card_number_in_sight() {
     assert_eq!(cards[1].card_type, Some(CardType::Debit));
 }
 
+/// `Provider::instruments` is the same `/cardstorage/cards` call, with the
+/// alias — or, failing that, the last four digits — as the label, and each
+/// card's own JSON kept on `raw` rather than the list envelope.
+#[tokio::test]
+async fn provider_instruments_lists_the_same_cards() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/cardstorage/cards"))
+        .and(body_json(
+            json!({ "locale": "tr", "cardUserKey": "user-key-1" }),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "cardUserKey": "user-key-1",
+            "cardDetails": [
+                {
+                    "cardToken": "tok-1",
+                    "cardAlias": "Bonus kartim",
+                    "binNumber": "552879",
+                    "lastFourDigits": "0004",
+                },
+                { "cardToken": "tok-2", "cardType": "DEBIT_CARD", "lastFourDigits": "1111" },
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let instruments = client(&server)
+        .instruments("user-key-1")
+        .await
+        .expect("the list reads back");
+
+    assert_eq!(instruments.len(), 2);
+    assert_eq!(instruments[0].id, InstrumentId::issued("tok-1"));
+    assert_eq!(instruments[0].label.as_deref(), Some("Bonus kartim"));
+    assert_eq!(
+        instruments[0].raw.text_at("/binNumber").as_deref(),
+        Some("552879")
+    );
+    // No alias on the second card: the last four digits stand in for it.
+    assert_eq!(instruments[1].id, InstrumentId::issued("tok-2"));
+    assert_eq!(instruments[1].label.as_deref(), Some("•••• 1111"));
+}
+
 #[tokio::test]
 async fn a_user_with_no_stored_cards_is_an_empty_list_not_an_error() {
     let server = MockServer::start().await;
