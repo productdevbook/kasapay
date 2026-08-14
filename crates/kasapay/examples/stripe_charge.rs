@@ -43,6 +43,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("send the payer to {url}");
             return Ok(());
         }
+        // NextAction is non-exhaustive, so a caller has to say what it does
+        // with one kasapay learns about after they build. Refusing to guess is
+        // the right answer for money.
+        Some(other) => {
+            println!("this build does not know how to finish {other:?}");
+            return Ok(());
+        }
         None if charge.status == Status::Captured => println!("paid"),
         None => {
             println!("nothing to do yet, and not captured either");
