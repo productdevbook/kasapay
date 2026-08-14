@@ -4,6 +4,7 @@
 //! kuruş rather than 10.50 TRY — because that is what every provider settles
 //! in and because binary floating point cannot hold 10.10 exactly.
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
@@ -109,6 +110,14 @@ pub enum MoneyError {
     /// The amount was zero or negative where a positive one was required.
     #[error("amount must be positive, got {0}")]
     NotPositive(i64),
+    /// Two amounts in different currencies were combined.
+    #[error("cannot combine {left} with {right}")]
+    CurrencyMismatch {
+        /// The currency of the amount on the left.
+        left: Currency,
+        /// The currency of the amount on the right.
+        right: Currency,
+    },
 }
 
 impl Money {
@@ -181,6 +190,54 @@ impl Money {
         }
     }
 
+    /// Adds another amount in the same currency.
+    ///
+    /// Fails on a currency mismatch, and on the overflow that would otherwise
+    /// wrap a total round to a negative one.
+    pub fn checked_add(self, other: Self) -> Result<Self, MoneyError> {
+        self.same_currency(other)?;
+        self.minor_units
+            .checked_add(other.minor_units)
+            .map(|minor_units| Self {
+                minor_units,
+                currency: self.currency,
+            })
+            .ok_or_else(|| MoneyError::Overflow(format!("{self} + {other}")))
+    }
+
+    /// Subtracts another amount in the same currency.
+    ///
+    /// The result may be negative, because a ledger needs it to be: an
+    /// over-refund is a number somebody has to see, not one to clamp away.
+    /// [`Money::require_positive`] is what refuses it where it must be refused.
+    pub fn checked_sub(self, other: Self) -> Result<Self, MoneyError> {
+        self.same_currency(other)?;
+        self.minor_units
+            .checked_sub(other.minor_units)
+            .map(|minor_units| Self {
+                minor_units,
+                currency: self.currency,
+            })
+            .ok_or_else(|| MoneyError::Overflow(format!("{self} - {other}")))
+    }
+
+    /// Whether the amount is exactly zero.
+    #[must_use]
+    pub const fn is_zero(self) -> bool {
+        self.minor_units == 0
+    }
+
+    fn same_currency(self, other: Self) -> Result<(), MoneyError> {
+        if self.currency == other.currency {
+            Ok(())
+        } else {
+            Err(MoneyError::CurrencyMismatch {
+                left: self.currency,
+                right: other.currency,
+            })
+        }
+    }
+
     /// Renders the amount as a plain decimal string, without the currency code.
     ///
     /// This is the form providers that take a decimal amount expect: `10.50`,
@@ -203,6 +260,18 @@ impl Money {
     }
 }
 
+/// Orders two amounts, and refuses to order two currencies.
+///
+/// `partial_cmp` answers `None` across currencies, because ten lira and ten
+/// dollars have no order. Deriving [`Ord`] would invent one out of the
+/// declaration order of [`Currency`], which is how a comparison quietly starts
+/// answering a question nobody asked.
+impl PartialOrd for Money {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        (self.currency == other.currency).then(|| self.minor_units.cmp(&other.minor_units))
+    }
+}
+
 impl fmt::Display for Money {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.to_decimal_string(), self.currency)
@@ -211,6 +280,8 @@ impl fmt::Display for Money {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+
     use super::{Currency, Money, MoneyError};
 
     #[test]
@@ -308,6 +379,92 @@ mod tests {
                 assert_eq!(back, money);
             }
         }
+    }
+
+    #[test]
+    fn amounts_in_one_currency_add_and_subtract() {
+        let ten = Money::parse("10.00", Currency::Try).expect("valid");
+        let three = Money::parse("3.50", Currency::Try).expect("valid");
+        assert_eq!(
+            ten.checked_add(three).expect("same currency"),
+            Money::parse("13.50", Currency::Try).expect("valid")
+        );
+        assert_eq!(
+            ten.checked_sub(three).expect("same currency"),
+            Money::parse("6.50", Currency::Try).expect("valid")
+        );
+    }
+
+    #[test]
+    fn combining_two_currencies_is_an_error_rather_than_a_sum() {
+        let lira = Money::parse("10.00", Currency::Try).expect("valid");
+        let dollars = Money::parse("10.00", Currency::Usd).expect("valid");
+        assert!(matches!(
+            lira.checked_add(dollars),
+            Err(MoneyError::CurrencyMismatch {
+                left: Currency::Try,
+                right: Currency::Usd,
+            })
+        ));
+        assert!(lira.checked_sub(dollars).is_err());
+    }
+
+    #[test]
+    #[expect(
+        clippy::neg_cmp_op_on_partial_ord,
+        reason = "asserting that both directions are false is the whole test"
+    )]
+    fn two_currencies_have_no_order_in_either_direction() {
+        let lira = Money::parse("10.00", Currency::Try).expect("valid");
+        let dollars = Money::parse("10.00", Currency::Usd).expect("valid");
+        assert!(lira.partial_cmp(&dollars).is_none());
+        // Checking only one direction would pass for a type that had silently
+        // become totally ordered.
+        assert!(!(lira < dollars));
+        assert!(!(lira >= dollars));
+        assert_ne!(lira, dollars);
+    }
+
+    #[test]
+    fn one_currency_orders_by_amount() {
+        let small = Money::parse("3.50", Currency::Try).expect("valid");
+        let large = Money::parse("10.00", Currency::Try).expect("valid");
+        assert!(small < large);
+        assert!(large >= small);
+        assert_eq!(small.partial_cmp(&large), Some(Ordering::Less));
+        // No `Money::max`: that comes from Ord, which this type deliberately
+        // does not have.
+    }
+
+    #[test]
+    fn subtracting_past_zero_is_negative_and_still_refused_where_it_matters() {
+        let three = Money::parse("3.50", Currency::Try).expect("valid");
+        let ten = Money::parse("10.00", Currency::Try).expect("valid");
+        let owed = three.checked_sub(ten).expect("same currency");
+        assert_eq!(owed.minor_units(), -650);
+        assert_eq!(owed.to_decimal_string(), "-6.50");
+        assert!(owed.require_positive().is_err());
+    }
+
+    #[test]
+    fn overflow_is_an_error_rather_than_a_wrap() {
+        let huge = Money::from_minor_units(i64::MAX, Currency::Try);
+        let one = Money::from_minor_units(1, Currency::Try);
+        assert!(matches!(
+            huge.checked_add(one),
+            Err(MoneyError::Overflow(_))
+        ));
+        let lowest = Money::from_minor_units(i64::MIN, Currency::Try);
+        assert!(matches!(
+            lowest.checked_sub(one),
+            Err(MoneyError::Overflow(_))
+        ));
+    }
+
+    #[test]
+    fn zero_knows_itself() {
+        assert!(Money::from_minor_units(0, Currency::Try).is_zero());
+        assert!(!Money::from_minor_units(-1, Currency::Try).is_zero());
     }
 
     #[test]
