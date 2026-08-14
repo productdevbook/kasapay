@@ -26,6 +26,10 @@ both are the kind 0.0.x exists to make.
 
 ### Added
 
+- A dependency audit. `deny.toml` refuses a known vulnerability, a non-permissive
+  licence, a wildcard version or a source outside crates.io, checked on every
+  push and again daily — an advisory lands against a tree that has not changed.
+
 - **`kasapay-paytr`, a third provider.** PayTR's hosted form, status query,
   refund and payment-notice verification. It has no payment id of its own — a
   payment is named by the merchant's order reference — so that reference must
