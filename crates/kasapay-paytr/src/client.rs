@@ -264,7 +264,7 @@ impl PayTr {
             .await?;
         if response.status.as_deref() != Some("success") {
             let error = Error::new(
-                ErrorKind::InvalidRequest,
+                refund_error_kind(response.err_no.as_deref()),
                 PAYTR,
                 response
                     .reason
