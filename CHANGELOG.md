@@ -21,6 +21,8 @@ both are the kind 0.0.x exists to make.
 
 ### Added
 
+- Two examples under `crates/kasapay/examples/`, built by CI so they cannot
+  drift from the API.
 - `classic::Client` implements `Provider` for reading: `charge_status` takes
   the checkout form's token. `charge` answers `Unsupported` and names
   `start_checkout_form`, because the form needs more than `ChargeRequest`
