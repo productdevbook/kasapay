@@ -40,11 +40,10 @@ all are the kind 0.0.x exists to make.
   `classic::Client::start_checkout_form` leaves `Charge::id` `None`, because
   iyzico has issued no payment id yet and the token is not one — it is where it
   always was, in the redirect's `continuation`, and the charge that
-  `checkout_result` answers is the first to carry a payment id. And
-  `Provider::charge_status` on a `classic::Client` now answers
-  `ErrorKind::Unsupported`: the only read of a hosted form this crate
-  implements is by the form's own token, which that signature cannot take, so
-  the call is `checkout_result`. `PaymentId::issued`, `derived`, `as_str` and
+  `checkout_result` answers is the first to carry a payment id.
+  `Provider::charge_status` on a `classic::Client` still reads a payment back,
+  now through `/payment/detail` rather than by passing a form token off as a
+  payment id. `PaymentId::issued`, `derived`, `as_str` and
   `source` are unchanged; an adapter outside this workspace names a kind of its
   own by implementing `IdKind` on a unit struct and writing one type alias over
   `Id`.

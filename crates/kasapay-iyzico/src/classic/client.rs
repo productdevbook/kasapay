@@ -267,7 +267,7 @@ impl Client {
             token: token.as_str(),
         };
         let (response, raw) = self
-            .post::<_, wire::CheckoutResultResponse>(
+            .post::<_, wire::PaymentResultResponse>(
                 "/payment/iyzipos/checkoutform/auth/ecom/detail",
                 &body,
             )
@@ -293,7 +293,48 @@ impl Client {
                 response.token.as_deref().unwrap_or_default(),
             ],
         )?;
-        into_checkout_charge(response, raw)
+        into_payment_charge(response, raw)
+    }
+
+    /// Reads a payment back by the id iyzico gave it.
+    ///
+    /// `POST /payment/detail`. This is the one that takes a payment id, and
+    /// the only way a classic payment is read back once the payer has
+    /// finished — [`Client::checkout_result`] takes the form's own token and
+    /// answers the same shape while the payment is still being made.
+    ///
+    /// The response is signed over `paymentId`, `currency`, `basketId`,
+    /// `conversationId`, `paidPrice` and `price`, which iyzico documents in
+    /// both languages, and an answer that does not match is
+    /// [`ErrorKind::Untrusted`] rather than a charge.
+    pub async fn payment(&self, id: &PaymentId) -> Result<Charge, Error> {
+        let body = wire::PaymentDetailRequest {
+            locale: "tr",
+            payment_id: id.as_str(),
+        };
+        let (response, raw) = self
+            .post::<_, wire::PaymentResultResponse>("/payment/detail", &body)
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message.clone(),
+            response.error_code.clone(),
+            "iyzico refused to read the payment",
+        ) {
+            return Err(error);
+        }
+        self.check_signature(
+            response.signature.as_deref(),
+            &[
+                response.payment_id.as_deref().unwrap_or_default(),
+                response.currency.as_deref().unwrap_or_default(),
+                response.basket_id.as_deref().unwrap_or_default(),
+                response.conversation_id.as_deref().unwrap_or_default(),
+                signature::signed_amount(response.paid_price.as_deref().unwrap_or_default()),
+                signature::signed_amount(response.price.as_deref().unwrap_or_default()),
+            ],
+        )?;
+        into_payment_charge(response, raw)
     }
 
     /// Refuses a response that is not signed, or is signed wrongly.
@@ -752,7 +793,7 @@ fn address_body(address: &crate::classic::checkout::Address) -> wire::AddressBod
 /// `paymentStatus` is the field that matters, and `status: "success"` only
 /// means the query worked — a refused card comes back as a successful query
 /// reporting a failure.
-fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Result<Charge, Error> {
+fn into_payment_charge(response: wire::PaymentResultResponse, raw: Raw) -> Result<Charge, Error> {
     let currency = response
         .currency
         .as_deref()
@@ -1074,19 +1115,14 @@ impl Provider for Client {
         ))
     }
 
-    /// Always [`ErrorKind::Unsupported`]: a form is not read back by a payment id.
+    /// Reads a payment back by its id, through [`Client::payment`].
     ///
-    /// What identifies a hosted checkout form is the [`FormToken`] it was
-    /// opened with, and iyzico issues no payment id until the payer finishes.
-    /// The two are different kinds of identifier and this signature only takes
-    /// one of them, so the call is [`Client::checkout_result`].
-    async fn charge_status(&self, _id: &PaymentId) -> Result<Charge, Error> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            PROVIDER,
-            "a classic checkout form is read back by the token it was opened with rather \
-             than by a payment id; call Client::checkout_result",
-        ))
+    /// A hosted form the payer has not finished has no payment id yet, and is
+    /// read back by the [`FormToken`] it was opened with — that is
+    /// [`Client::checkout_result`], and no signature that takes a `PaymentId`
+    /// can stand in for it.
+    async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
+        self.payment(id).await
     }
 
     /// Always [`ErrorKind::Unsupported`]: the hosted form captures as it takes.

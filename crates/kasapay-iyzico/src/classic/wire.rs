@@ -190,9 +190,19 @@ pub(crate) struct CheckoutResultRequest<'a> {
     pub(crate) token: &'a str,
 }
 
-/// What the form's result looks like once the payer is done.
+/// `POST /payment/detail` — a payment read back by its own id.
+#[derive(Debug, Serialize)]
+pub(crate) struct PaymentDetailRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "paymentId")]
+    pub(crate) payment_id: &'a str,
+}
+
+/// A payment as iyzico reports it, from the form's result or from the payment
+/// itself. `token` is only on the first; the two differ in what they sign, not
+/// in what they answer.
 #[derive(Debug, Deserialize)]
-pub(crate) struct CheckoutResultResponse {
+pub(crate) struct PaymentResultResponse {
     pub(crate) status: Option<String>,
     #[serde(rename = "errorCode")]
     pub(crate) error_code: Option<String>,

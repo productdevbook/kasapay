@@ -913,3 +913,70 @@ async fn the_classic_client_refuses_to_start_a_payment_through_the_trait() {
     assert_eq!(error.kind(), ErrorKind::Unsupported);
     assert!(error.to_string().contains("start_checkout_form"));
 }
+
+#[tokio::test]
+async fn a_payment_is_read_back_by_its_id_and_its_signature_checked() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/detail"))
+        .and(body_json(json!({ "locale": "tr", "paymentId": "pay-1" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "pay-1",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "conversationId": "conv-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            // HMAC-SHA256("pay-1:TRY:ord-1:conv-1:149.90:149.90", "secret-key")
+            "signature": "512f5cc6860f6df96dbacca294eed71908c7307e639e994cf8732240719b8a4b",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .charge_status(&PaymentId::issued("pay-1"))
+        .await
+        .expect("the payment reads back");
+
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.id, Some(PaymentId::issued("pay-1")));
+    assert_eq!(
+        charge.amount,
+        Money::parse("149.90", Currency::Try).expect("valid amount")
+    );
+    assert_eq!(charge.order.as_ref().map(OrderRef::as_str), Some("ord-1"));
+}
+
+/// The signature is over the payment's six fields, not the form's eight.
+///
+/// Sending the form's own list would verify against the wrong thing, and the
+/// two calls answer the same shape — so nothing but the signature would say.
+#[tokio::test]
+async fn a_payment_signed_as_though_it_were_a_form_is_untrusted() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "pay-1",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "conversationId": "conv-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            // HMAC-SHA256("SUCCESS:pay-1:TRY:ord-1:conv-1:149.90:149.90:", "secret-key"),
+            // which is the checkout form's eight fields with no token to end them.
+            "signature": "50bbd3a6c6eb8433840ef0ed15fd748ae5392d18d0f1d14be3a81d98d104e2bc",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .charge_status(&PaymentId::issued("pay-1"))
+        .await
+        .expect_err("a signature over the wrong fields is not a payment");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+}
