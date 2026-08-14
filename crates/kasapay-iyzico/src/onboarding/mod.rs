@@ -24,7 +24,7 @@
 //! `POST /v1/agent/get_auth_key` and `POST /v1/agent/logout` — that were
 //! considered for this module and left out. They are not a sub-merchant
 //! operation at all: iyzico's own description is a mobile "app2app" session
-//! for the `PayPOS` product, and they authenticate with a **plain
+//! for the PayPOS product, and they authenticate with a **plain
 //! `Authorization: Basic sck_…` header and a required `PaynetMobile` header**,
 //! neither of which is [`IYZWSv2`](crate::Credentials) signing. Bolting a
 //! second authentication scheme onto a client built for a different one, for

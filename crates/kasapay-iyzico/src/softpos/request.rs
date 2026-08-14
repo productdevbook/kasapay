@@ -4,7 +4,7 @@ use kasapay_core::Money;
 
 /// A sale to start on the payer's phone.
 ///
-/// Build one with [`InitSale::new`]. `PayPOS`'s own schema marks every field of
+/// Build one with [`InitSale::new`]. PayPOS's own schema marks every field of
 /// `InitSaleRequest` optional, `amount` included — this crate still requires
 /// one, because a sale of nothing is not a sale kasapay will send.
 #[derive(Debug, Clone)]
@@ -12,15 +12,15 @@ use kasapay_core::Money;
 pub struct InitSale {
     /// What to charge. See [`InitSale::new`] for why this is lira only.
     pub amount: Money,
-    /// Whether `PayPOS`'s commission is added on top of `amount`.
+    /// Whether PayPOS's commission is added on top of `amount`.
     pub add_commission: Option<bool>,
-    /// How many instalments. `PayPOS` documents no meaning for zero versus one.
+    /// How many instalments. PayPOS documents no meaning for zero versus one.
     pub instalment: Option<i32>,
-    /// The payer's phone number, for `PayPOS`'s own receipt.
+    /// The payer's phone number, for PayPOS's own receipt.
     pub card_holder_phone: Option<Box<str>>,
-    /// The payer's email, for `PayPOS`'s own receipt.
+    /// The payer's email, for PayPOS's own receipt.
     pub card_holder_mail: Option<Box<str>>,
-    /// Free text `PayPOS` shows the payer.
+    /// Free text PayPOS shows the payer.
     pub description: Option<Box<str>>,
     /// The caller's own reference for this attempt.
     pub reference_no: Option<Box<str>>,
@@ -39,7 +39,7 @@ impl InitSale {
     /// beside it anywhere in the schema, and `specs/README.md`'s per-product
     /// currency table names no enum for `softpos` at all — the group is
     /// absent from all three rows. Nothing documents another currency working
-    /// here, `PayPOS` is a Turkish domestic acceptance product, and its
+    /// here, PayPOS is a Turkish domestic acceptance product, and its
     /// contactless-PIN threshold is written in TRY on the product overview
     /// page — the closest thing to currency evidence either language offers.
     /// That is inference, not a documented enum, and is said plainly rather
@@ -60,7 +60,7 @@ impl InitSale {
         }
     }
 
-    /// Adds `PayPOS`'s commission on top of [`InitSale::amount`].
+    /// Adds PayPOS's commission on top of [`InitSale::amount`].
     #[must_use]
     pub const fn add_commission(mut self, add: bool) -> Self {
         self.add_commission = Some(add);
@@ -88,7 +88,7 @@ impl InitSale {
         self
     }
 
-    /// Sets the free text `PayPOS` shows the payer.
+    /// Sets the free text PayPOS shows the payer.
     #[must_use]
     pub fn description(mut self, description: impl Into<Box<str>>) -> Self {
         self.description = Some(description.into());
@@ -119,7 +119,7 @@ impl InitSale {
 
 /// A cancel or refund to start on the payer's phone.
 ///
-/// Build one with [`InitReversal::new`]. `xact_id` is the one field `PayPOS`
+/// Build one with [`InitReversal::new`]. `xact_id` is the one field PayPOS
 /// marks required; it is `check_transaction`'s own `xact_id` on the payment
 /// being reversed, not the original `payment_session_id`.
 #[derive(Debug, Clone)]
@@ -132,7 +132,7 @@ pub struct InitReversal {
     pub reference_no: Option<Box<str>>,
     /// Where the mobile app's deeplink returns to once the payer is done.
     ///
-    /// `PayPOS` types this nullable as well as optional; both are read as
+    /// PayPOS types this nullable as well as optional; both are read as
     /// "send nothing", the same as every other optional field here.
     pub callback_url: Option<Box<str>>,
 }

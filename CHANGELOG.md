@@ -146,7 +146,14 @@ all are the kind 0.0.x exists to make.
   its amount as a bare `number` with no `currency` field anywhere beside it,
   and `specs/README.md`'s per-product currency table names no enum for
   `softpos` at all, so the restriction is inference from context rather than
-  a documented enum, and is said as such.
+  a documented enum, and is said as such. Reading is the permissive
+  direction this crate uses everywhere else: `Client::check_transaction`
+  reads a `Transaction`'s amount in whatever `Currency` its `currency` names,
+  not only lira, and only falls back to `Transaction::raw` for a code
+  `Currency` cannot name at all.
+
+  `PayPOS` and `PayPos` join `clippy.toml`'s `doc-valid-idents` — vendor
+  proper nouns next to `PayTR`, not identifiers this crate can link to.
 
   Neither language's page for any of the five operations carries a worked
   example, so `tests/agent.rs` and `tests/softpos.rs` are stand-ins built

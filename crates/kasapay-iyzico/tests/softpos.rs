@@ -1,9 +1,9 @@
-//! `PayPOS`'s softpos services against a mock server.
+//! PayPOS's softpos services against a mock server.
 //!
 //! Same position as `tests/agent.rs`: none of `init_sale_transaction`,
 //! `init_reversal_transaction` or `check_transaction` has a worked example on
 //! either language's page, so every fixture here is a stand-in built from the
-//! field names `PayPOS` documents. No live `PayPOS` account was available to
+//! field names PayPOS documents. No live PayPOS account was available to
 //! check any of it against.
 
 #![allow(
@@ -168,7 +168,12 @@ async fn checking_a_transaction_reads_the_array_paypos_documents() {
 }
 
 #[tokio::test]
-async fn a_transaction_in_a_currency_this_crate_will_not_send_stays_in_raw() {
+async fn a_currency_this_crate_can_still_read_is_not_forced_into_lira() {
+    // check_transaction's reading is permissive the same way mass and
+    // iyzilink's is: PayPOS restricting what it will *take* on
+    // init_sale_transaction (TRY) says nothing about what it might echo back
+    // on a line, so a Currency this crate can name is read as that currency,
+    // not silently coerced to TRY or thrown away.
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/v1/softpos/check_transaction"))
@@ -190,10 +195,39 @@ async fn a_transaction_in_a_currency_this_crate_will_not_send_stays_in_raw() {
         .expect("the transactions");
 
     assert_eq!(transactions.len(), 1);
+    assert_eq!(
+        transactions[0].amount,
+        Some(Money::parse("10.00", Currency::Usd).expect("a valid amount"))
+    );
+}
+
+#[tokio::test]
+async fn a_transaction_in_a_currency_kasapay_cannot_name_stays_in_raw() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/softpos/check_transaction"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "Data": [
+                {
+                    "xact_id": "xact-2",
+                    "amount": 10.00,
+                    "currency": "SEK",
+                }
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let transactions = client(&server)
+        .check_transaction("ps-9")
+        .await
+        .expect("the transactions");
+
+    assert_eq!(transactions.len(), 1);
     assert_eq!(transactions[0].amount, None);
     assert_eq!(
         transactions[0].raw.text_at("/currency").as_deref(),
-        Some("USD")
+        Some("SEK")
     );
 }
 

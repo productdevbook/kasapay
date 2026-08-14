@@ -1,4 +1,4 @@
-//! The agent client: `PayPOS`'s `Authorize` service, and its logout.
+//! The agent client: PayPOS's `Authorize` service, and its logout.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -10,7 +10,7 @@ use crate::agent::wire;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
 
-/// The header `PayPOS` asks every `/v1/agent/*` call to carry.
+/// The header PayPOS asks every `/v1/agent/*` call to carry.
 ///
 /// Documented as "Indicates a mobile request", with `2` as the only value
 /// either language's example ever shows. Nothing on either page names another,
@@ -115,11 +115,11 @@ impl Credentials {
     }
 }
 
-/// Gets and invalidates a `PayPOS` mobile session key.
+/// Gets and invalidates a PayPOS mobile session key.
 ///
 /// Cloning shares one connection pool. The session key [`Client::get_auth_key`]
 /// answers is what [`crate::softpos::Client`] is built with — this module and
-/// `softpos` are two halves of one flow, split because `PayPOS` documents them
+/// `softpos` are two halves of one flow, split because PayPOS documents them
 /// as separate services rather than because they belong to different products.
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -156,7 +156,7 @@ impl Client {
 
     /// Generates a mobile session key.
     ///
-    /// `PayPOS`'s own warning: "Only servers whose IP addresses are defined by
+    /// PayPOS's own warning: "Only servers whose IP addresses are defined by
     /// Paynet can call this service." A request from anywhere else is refused
     /// before it reaches whatever iyzico or Paynet would otherwise have said
     /// about `agent_id` and `user_id` — this crate cannot check that in
@@ -244,7 +244,7 @@ impl Client {
 pub struct Session {
     /// What [`crate::softpos::Client`] authenticates with.
     pub session_key: Secret,
-    /// When `PayPOS` says the session stops working, exactly as it was written.
+    /// When PayPOS says the session stops working, exactly as it was written.
     ///
     /// Text rather than a timestamp: neither page states a format, and
     /// nothing in this dependency tree should guess one for a value this
@@ -252,14 +252,14 @@ pub struct Session {
     pub expired_date: Option<Box<str>>,
     /// The dealer id this session belongs to, echoed back.
     pub agent_id: Option<Box<str>>,
-    /// `PayPOS`'s id for the parent company.
+    /// PayPOS's id for the parent company.
     pub company_code: Option<Box<str>>,
     /// The user id this session was requested for, echoed back.
     pub user_id: Option<Box<str>>,
-    /// `PayPOS`'s own unique id for that user.
+    /// PayPOS's own unique id for that user.
     pub user_unique_id: Option<Box<str>>,
     /// Result of an "ÖKC exemption" check — a Turkish fiscal-device waiver.
-    /// `PayPOS` documents no more about it than the one field.
+    /// PayPOS documents no more about it than the one field.
     pub is_okc_inquiry: Option<bool>,
     /// iyzico's own answer, untouched.
     pub raw: Raw,
@@ -295,7 +295,7 @@ fn raw(bytes: &[u8]) -> Raw {
 /// # No error-code registry for this to consult
 ///
 /// The classic API's numeric codes — [`crate::errors::kind_for`] — describe a
-/// different service and are not read here. `PayPOS`'s own `ErrorResponse` names
+/// different service and are not read here. PayPOS's own `ErrorResponse` names
 /// `code` and `message` with no meaning documented for either, and no page
 /// under `paypos-app2app` lists what a `code` value means the way iyzico's
 /// [error-codes page](https://docs.iyzico.com/en/add-ons/error-codes) does for

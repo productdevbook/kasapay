@@ -1,4 +1,4 @@
-//! `PayPOS`'s `Authorize` service — the session a [`crate::softpos`] call needs.
+//! PayPOS's `Authorize` service — the session a [`crate::softpos`] call needs.
 //!
 //! Two operations, both of iyzico's `agent` group:
 //!
@@ -38,10 +38,10 @@
 //! `https://pts-api.paynet.com.tr` (sandbox) as its servers. That is not
 //! `api.iyzipay.com`. The integration overview page says the same thing twice
 //! more, outside any OpenAPI fragment: its glossary calls the two products
-//! `Paynet API` and `PayPos`, as if naming two different things, its warning
+//! `Paynet API` and PayPos, as if naming two different things, its warning
 //! box says obtaining a secret key means registering an IP address
 //! "in the Paynet panel", and it carries its own prose `BaseUrl` section
-//! naming the identical pair of hosts. iyzico documents `PayPOS` on its own
+//! naming the identical pair of hosts. iyzico documents PayPOS on its own
 //! site because it resells it, not because it runs it — and a client for it
 //! that quietly pointed at `api.iyzipay.com` would be a client for the wrong
 //! service.
@@ -60,11 +60,11 @@
 //! Neither language's page for either operation here, nor for any of
 //! [`crate::softpos`]'s three, carries a curl example or a request/response
 //! body with real values — only the schema. `Session` and the request types
-//! are built from the field names `PayPOS` documents and nothing more, and the
+//! are built from the field names PayPOS documents and nothing more, and the
 //! `tests/agent.rs` fixtures are stand-ins the same way
 //! [`mass`](crate::mass)'s `authorize`, `cancel`, `balance` and single-item
-//! read are, for the same reason: `PayPOS` leaves them undemonstrated. No live
-//! `PayPOS` account was available to check any of it against.
+//! read are, for the same reason: PayPOS leaves them undemonstrated. No live
+//! PayPOS account was available to check any of it against.
 //!
 //! # What a success looks like is not documented either
 //!

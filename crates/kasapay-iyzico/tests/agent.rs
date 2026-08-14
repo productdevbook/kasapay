@@ -1,11 +1,11 @@
-//! `PayPOS`'s Authorize service against a mock server.
+//! PayPOS's Authorize service against a mock server.
 //!
 //! Neither language's page for `get_auth_key` or `logout` carries a worked
 //! example — a curl command, a filled-in request, an answer with real
 //! values — only the OpenAPI schema. So every fixture here is built from the
-//! field names `PayPOS` documents and nothing more, the same position
+//! field names PayPOS documents and nothing more, the same position
 //! [`mass`](kasapay_iyzico::mass)'s `authorize`, `cancel`, `balance` and
-//! single-item read are in and say so for. No live `PayPOS` account was
+//! single-item read are in and say so for. No live PayPOS account was
 //! available to check any of it against.
 
 #![allow(

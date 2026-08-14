@@ -1,8 +1,8 @@
-//! iyzico's `PayPOS` softpos — a sale on the payer's own phone.
+//! iyzico's PayPOS softpos — a sale on the payer's own phone.
 //!
-//! `PayPOS` turns an Android phone with NFC into a contactless card reader:
+//! PayPOS turns an Android phone with NFC into a contactless card reader:
 //! the caller's own app asks this API for a `deeplink_url`, hands the payer
-//! off to Paynet's `PayPOS` app to tap their card, and reads the outcome back
+//! off to Paynet's PayPOS app to tap their card, and reads the outcome back
 //! either through the deeplink's callback or with [`Client::check_transaction`].
 //! There is no card number anywhere in this module — the card only ever
 //! touches the payer's phone.
@@ -39,12 +39,14 @@
 //!
 //! # Currency
 //!
-//! `TRY`, and nothing else is accepted — see
-//! [`InitSale::new`](crate::softpos::InitSale::new) for the evidence and
+//! `TRY`, and nothing else is accepted on [`Client::init_sale_transaction`] —
+//! see [`InitSale::new`](crate::softpos::InitSale::new) for the evidence and
 //! for what is inference rather than a documented enum. Reading is the
-//! permissive direction: [`Transaction`]'s amount fields are `None` for a
-//! `currency` this crate cannot read as `TRY`, with the figure still in
-//! [`Transaction::raw`].
+//! permissive direction, as it is everywhere else in this crate:
+//! [`Transaction`]'s amount fields read whatever [`Currency`](kasapay_core::Currency)
+//! its `currency` names, and are `None` only for a code
+//! [`Currency`](kasapay_core::Currency) has no name for, with the figure
+//! still in [`Transaction::raw`].
 //!
 //! # Example
 //!

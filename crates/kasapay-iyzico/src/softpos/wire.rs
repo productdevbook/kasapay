@@ -98,15 +98,15 @@ pub(crate) struct ErrorResponse {
     pub(crate) message: Option<String>,
 }
 
-/// A value as `PayPOS` wrote it, whether that was `10.5` or `"10.5"`.
+/// A value as PayPOS wrote it, whether that was `10.5` or `"10.5"`.
 pub(crate) fn text(value: &RawValue) -> &str {
     value.get().trim_matches('"')
 }
 
-/// A [`Money`] read off a `PayPOS` `number` field, in the currency the caller
+/// A [`Money`] read off a PayPOS `number` field, in the currency the caller
 /// already knows the transaction is in.
 ///
-/// `None` for anything [`Money::parse`] will not take — `PayPOS` types these
+/// `None` for anything [`Money::parse`] will not take — PayPOS types these
 /// fields `number` with no further shape documented, so a value this cannot
 /// read stays in [`crate::softpos::Transaction::raw`] rather than being
 /// guessed at.
@@ -114,7 +114,7 @@ pub(crate) fn money(value: Option<&RawValue>, currency: kasapay_core::Currency) 
     Money::parse(text(value?), currency).ok()
 }
 
-/// An amount on the way out, as the bare JSON number `PayPOS`'s schema types it.
+/// An amount on the way out, as the bare JSON number PayPOS's schema types it.
 ///
 /// Never a float: the digits [`Money`] holds are written straight into the
 /// body, so nothing is rounded on the way to the wire.

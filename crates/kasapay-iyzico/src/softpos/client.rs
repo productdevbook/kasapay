@@ -1,4 +1,4 @@
-//! The softpos client: `PayPOS`'s three payment-session services.
+//! The softpos client: PayPOS's three payment-session services.
 
 use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
@@ -22,7 +22,7 @@ pub struct Config {
 impl Config {
     /// How long a request waits before it is given up on.
     ///
-    /// `PayPOS` returns as soon as it has produced a `deeplink_url` or an
+    /// PayPOS returns as soon as it has produced a `deeplink_url` or an
     /// answer to a status query — nothing here waits on a payer the way a
     /// Terminal Host call does — so this uses the crate's ordinary default
     /// rather than [`crate::terminal::Config::DEFAULT_TIMEOUT`].
@@ -70,7 +70,7 @@ impl Config {
     }
 }
 
-/// Starts, reverses and reads back a `PayPOS` softpos payment.
+/// Starts, reverses and reads back a PayPOS softpos payment.
 ///
 /// Cloning shares one connection pool and one session key.
 ///
@@ -193,11 +193,11 @@ impl Client {
         flow(status, &bytes, "iyzico refused to start the reversal")
     }
 
-    /// Reads back every transaction `PayPOS` recorded for a payment session.
+    /// Reads back every transaction PayPOS recorded for a payment session.
     ///
     /// The one call here that moves no money. `Data` is documented as an
-    /// array — `PayPOS` does not say when it holds more than one entry — so
-    /// every one it sent is returned, oldest first as `PayPOS` wrote them.
+    /// array — PayPOS does not say when it holds more than one entry — so
+    /// every one it sent is returned, oldest first as PayPOS wrote them.
     pub async fn check_transaction(
         &self,
         payment_session_id: &str,
@@ -256,26 +256,26 @@ pub struct PaymentFlow {
     /// about once the payer has been through the flow.
     pub payment_session_id: Option<Box<str>>,
     /// The deeplink the caller's mobile app opens to hand the payer off to
-    /// the `PayPOS` app.
+    /// the PayPOS app.
     pub deeplink_url: Option<Box<str>>,
-    /// Decrypts what the `PayPOS` app returns to `callback_url`.
+    /// Decrypts what the PayPOS app returns to `callback_url`.
     pub encryption_key: Option<Box<str>>,
     /// iyzico's own answer, untouched.
     pub raw: Raw,
 }
 
-/// One transaction `PayPOS` recorded against a payment session.
+/// One transaction PayPOS recorded against a payment session.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Transaction {
     /// The encrypted transaction id — what [`InitReversal::xact_id`] wants.
     pub xact_id: Option<Box<str>>,
-    /// When it happened, exactly as `PayPOS` wrote it.
+    /// When it happened, exactly as PayPOS wrote it.
     pub xact_date: Option<Box<str>>,
-    /// `PayPOS`'s own numeric code for what kind of transaction this is.
+    /// PayPOS's own numeric code for what kind of transaction this is.
     /// Undocumented beyond the field's existence.
     pub transaction_type: Option<i32>,
-    /// `PayPOS`'s own numeric code for the POS type. Undocumented beyond that.
+    /// PayPOS's own numeric code for the POS type. Undocumented beyond that.
     pub pos_type: Option<i32>,
     /// The dealer this transaction belongs to.
     pub agent_id: Option<Box<str>>,
@@ -285,40 +285,46 @@ pub struct Transaction {
     pub bank_id: Option<Box<str>>,
     /// How many instalments.
     pub instalment: Option<i32>,
-    /// The card number, masked as `PayPOS` chose to send it.
+    /// The card number, masked as PayPOS chose to send it.
     pub card_no: Option<Box<str>>,
     /// The name on the card.
     pub card_holder: Option<Box<str>>,
-    /// What kind of card. `PayPOS` documents no enum for this field.
+    /// What kind of card. PayPOS documents no enum for this field.
     pub card_type: Option<Box<str>>,
-    /// The commission rate `PayPOS` applied.
+    /// The commission rate PayPOS applied.
     ///
-    /// Kept as `PayPOS` wrote it rather than parsed into a number: it is a
+    /// Kept as PayPOS wrote it rather than parsed into a number: it is a
     /// rate, not an amount, and nothing here claims to know its precision.
     pub ratio: Option<Box<str>>,
-    /// What the transaction moved, read in [`Currency::Try`] — see
-    /// [`crate::softpos::InitSale::new`] for why. `None` if `currency` was
-    /// not `TRY` or `PayPOS`'s number could not be read as one; either way the
-    /// figure is still in [`Transaction::raw`].
+    /// What the transaction moved.
+    ///
+    /// Reading is the permissive direction, the same as every other module
+    /// here: [`init_sale_transaction`](Client::init_sale_transaction) refuses
+    /// anything but [`Currency::Try`] — see
+    /// [`crate::softpos::InitSale::new`] for why — but a line PayPOS echoes
+    /// back is read in whatever [`Currency`] its `currency` names, not forced
+    /// into lira or thrown away. `None` only if `currency` is absent, is a
+    /// code [`Currency`] has no name for, or PayPOS's number could not be
+    /// read as one; either way the figure is still in [`Transaction::raw`].
     pub amount: Option<Money>,
-    /// What was left after `PayPOS`'s commission, same currency handling as
+    /// What was left after PayPOS's commission, same currency handling as
     /// [`Transaction::amount`].
     pub net_amount: Option<Money>,
-    /// `PayPOS`'s commission, same currency handling as [`Transaction::amount`].
+    /// PayPOS's commission, same currency handling as [`Transaction::amount`].
     pub commission_amount: Option<Money>,
-    /// Tax on `PayPOS`'s commission, same currency handling as
+    /// Tax on PayPOS's commission, same currency handling as
     /// [`Transaction::amount`].
     pub commission_tax: Option<Money>,
     /// The bank's approval code.
     pub authorization_code: Option<Box<str>>,
-    /// `PayPOS`'s own reference code for the transaction.
+    /// PayPOS's own reference code for the transaction.
     pub reference_code: Option<Box<str>>,
     /// The caller's own order number, echoed back.
     pub order_id: Option<Box<str>>,
     /// Whether the transaction succeeded. The one field this module treats
     /// as the actual verdict on a `check_transaction` line.
     pub is_succeed: Option<bool>,
-    /// `PayPOS`'s own transaction id, distinct from [`Transaction::xact_id`].
+    /// PayPOS's own transaction id, distinct from [`Transaction::xact_id`].
     pub xact_transaction_id: Option<Box<str>>,
     /// The payer's email, where `init_sale_transaction` was given one.
     pub email: Option<Box<str>>,
@@ -333,7 +339,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    /// Reads one transaction out of the bytes `PayPOS` sent for it.
+    /// Reads one transaction out of the bytes PayPOS sent for it.
     fn read(value: &serde_json::value::RawValue) -> Result<Self, Error> {
         let wire: wire::TransactionWire = serde_json::from_str(value.get()).map_err(|e| {
             Error::new(
