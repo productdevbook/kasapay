@@ -4,13 +4,23 @@ use kasapay_core::{Currency, Error, ErrorKind, Money, ProviderId, Status};
 
 pub(crate) const PROVIDER: ProviderId = ProviderId::STRIPE;
 
-/// Maps a currency kasapay knows onto Stripe's.
-pub(crate) const fn currency(currency: Currency) -> stripe_types::Currency {
+/// Maps a currency kasapay knows onto Stripe's, where Stripe has one.
+///
+/// Not every currency survives the trip. Stripe settles in nothing with three
+/// decimal places, so a Kuwaiti dinar has nowhere to go and is refused rather
+/// than rounded into something else.
+pub(crate) fn currency(currency: Currency) -> Result<stripe_types::Currency, Error> {
     match currency {
-        Currency::Try => stripe_types::Currency::TRY,
-        Currency::Usd => stripe_types::Currency::USD,
-        Currency::Eur => stripe_types::Currency::EUR,
-        Currency::Gbp => stripe_types::Currency::GBP,
+        Currency::Try => Ok(stripe_types::Currency::TRY),
+        Currency::Usd => Ok(stripe_types::Currency::USD),
+        Currency::Eur => Ok(stripe_types::Currency::EUR),
+        Currency::Gbp => Ok(stripe_types::Currency::GBP),
+        Currency::Jpy => Ok(stripe_types::Currency::JPY),
+        Currency::Kwd => Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            format!("Stripe does not settle in {currency}"),
+        )),
     }
 }
 
@@ -21,6 +31,7 @@ pub(crate) fn currency_back(currency: &stripe_types::Currency) -> Option<Currenc
         stripe_types::Currency::USD => Some(Currency::Usd),
         stripe_types::Currency::EUR => Some(Currency::Eur),
         stripe_types::Currency::GBP => Some(Currency::Gbp),
+        stripe_types::Currency::JPY => Some(Currency::Jpy),
         _ => None,
     }
 }
@@ -106,13 +117,23 @@ mod tests {
     }
 
     #[test]
-    fn every_currency_survives_the_round_trip() {
-        for currency in [Currency::Try, Currency::Usd, Currency::Eur, Currency::Gbp] {
-            assert_eq!(
-                super::currency_back(&super::currency(currency)),
-                Some(currency)
-            );
+    fn every_currency_stripe_settles_survives_the_round_trip() {
+        for currency in [
+            Currency::Try,
+            Currency::Usd,
+            Currency::Eur,
+            Currency::Gbp,
+            Currency::Jpy,
+        ] {
+            let there = super::currency(currency).expect("Stripe settles in it");
+            assert_eq!(super::currency_back(&there), Some(currency));
         }
+    }
+
+    #[test]
+    fn a_currency_stripe_cannot_settle_is_refused_rather_than_rounded() {
+        let error = super::currency(Currency::Kwd).expect_err("Stripe has no three-place currency");
+        assert_eq!(error.kind(), ErrorKind::Unsupported);
     }
 
     #[test]
