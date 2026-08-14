@@ -231,8 +231,8 @@ impl Client {
             .await?;
         if let Some(error) = refused(
             response.status.as_deref(),
-            response.error_message,
-            response.error_code,
+            response.error_message.clone(),
+            response.error_code.clone(),
             "iyzico refused to read the form",
         ) {
             return Err(error);
