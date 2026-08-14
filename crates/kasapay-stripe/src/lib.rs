@@ -25,9 +25,11 @@
 //! - Anything this crate does not model is reachable through
 //!   [`Stripe::client`], which hands back the `async-stripe` client itself.
 //! - A saved card is a `pm_…`, which stands alone rather than needing a
-//!   second handle beside it — see the [`saved`] module. [`Stripe::stored_cards`]
-//!   lists a customer's, [`Stripe::charge_saved_card`] charges one without a
-//!   card number in sight, and [`Stripe::forget_card`] detaches one.
+//!   second handle beside it — see the [`saved`] module.
+//!   [`Provider::instruments`](kasapay_core::Provider::instruments) lists a
+//!   customer's, the same as [`Stripe::stored_cards`] with the brand and last
+//!   four turned into a label; [`Stripe::charge_saved_card`] charges one
+//!   without a card number in sight, and [`Stripe::forget_card`] detaches one.
 //!
 //! # Retrying
 //!

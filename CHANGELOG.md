@@ -106,6 +106,16 @@ all are the kind 0.0.x exists to make.
   `stored_cards` passes straight through. Reading the text back is
   `card.token.as_str()`.
 
+- **`Provider` gains `instruments`, with no default.** A provider outside this
+  workspace has to answer it, the same reason `capture`, `cancel` and
+  `capabilities` do before it. `customer` is the provider's own name for
+  whoever the instruments are saved against — the same string
+  `ChargeRequest::customer` carries, and for `iyzico::classic` its
+  `cardUserKey`. An adapter with nothing to list — no vault, or one this crate
+  has no working call against — answers `ErrorKind::Unsupported`, the way
+  `PayTr` now does, rather than an empty list that would read as "this
+  customer has nothing saved".
+
 ### Added
 
 - **`kasapay_iyzico::onboarding`, all three iyzico sub-merchant operations.**
@@ -591,6 +601,44 @@ all are the kind 0.0.x exists to make.
   which version of `async-trait` the trait was defined with.
 - A request timeout on both adapters, 30 seconds by default. There was none,
   so a provider that stopped answering hung the caller forever.
+
+- **`kasapay_core::Instrument`, and `Provider::instruments` — listing a
+  customer's saved cards is now one call, the same shape at every adapter.**
+  #61: three adapters already held saved instruments, and comparing their
+  signatures found one thing the same at all of them — name the payer, get a
+  list back — and two that were not: forgetting one needs iyzico's
+  `cardUserKey` *and* its token where Stripe's needs only the instrument, and
+  charging one takes a buyer and a basket at iyzico, an `off_session` flag at
+  Stripe, a `sequenceType` at Mollie. Only the first goes on the trait.
+
+  `Instrument` is `id`, an `InstrumentId`; `label`, `Option<Box<str>>`,
+  something to show a person choosing between saved instruments; and `raw`,
+  the provider's own answer. It does not assume a card on purpose — Mollie's
+  saved instrument is a mandate against a bank account, not one — so there is
+  no brand, no expiry, no last four here. The richer, provider-specific type
+  stays exactly where it was: `classic::StoredCard`, `saved::StoredCard`,
+  `Mandate`, each still answering everything `Instrument` leaves out.
+
+  `iyzico::classic::Client` answers its own `/cardstorage/cards`, `customer`
+  being the `cardUserKey`, and keeps the per-card JSON so `Instrument::raw` is
+  that card's own object rather than empty. `Stripe` delegates to
+  `Stripe::stored_cards`, the brand and last four becoming the label; Stripe
+  drops the original response bytes by the time this crate sees them, so
+  `Instrument::raw` is reconstructed the same way `Charge::raw` already is for
+  a PaymentIntent. `Mollie` delegates to `Mollie::mandates`, with `method` —
+  `directdebit`, `creditcard`, `paypal` — as the label, because this crate
+  models nothing more specific for a mandate. `iyzico::in_store::Client` and
+  `PayTr` both answer `ErrorKind::Unsupported`, for different reasons that
+  land on the same result: In-Store has no vault at all, a payer taps a card
+  at a counter; PayTR has one — its hosted form stores a card against a
+  `utoken` — but nothing here can sign a request against it, the same reason
+  `Capabilities::saved_instruments` was already false for it.
+
+  `Capabilities::saved_instruments`'s documentation now says plainly that it
+  describes *charging*, not *listing*: every adapter answers
+  `Provider::instruments` regardless of this flag, and the two need not agree
+  — PayTR's do not, because a vault existing and this crate being able to
+  reach it are different facts.
 
 ### Fixed
 

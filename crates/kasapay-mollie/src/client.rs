@@ -6,8 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, InstrumentId, Money,
-    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Instrument,
+    InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret,
+    Status,
 };
 use url::Url;
 
@@ -910,6 +911,20 @@ impl Mandate {
     }
 }
 
+impl From<Mandate> for Instrument {
+    /// `method` — `directdebit`, `creditcard`, `paypal` — is the only thing
+    /// worth showing somebody: this crate models no IBAN, no card, nothing
+    /// that would tell two direct-debit mandates apart. `None` where Mollie
+    /// sent no `method` at all.
+    fn from(mandate: Mandate) -> Self {
+        Self {
+            id: mandate.id,
+            label: mandate.method,
+            raw: mandate.raw,
+        }
+    }
+}
+
 /// Whether a mandate can be charged.
 ///
 /// Mollie's own enum has three values and no fourth for "revoked": revoking a
@@ -1037,6 +1052,18 @@ impl Provider for Mollie {
             .await?;
         let payment: wire::Payment = parse(&raw, "a payment")?;
         into_charge(&payment, raw)
+    }
+
+    /// Lists a customer's mandates, through [`Mollie::mandates`].
+    ///
+    /// `customer` is Mollie's `cst_…`.
+    async fn instruments(&self, customer: &str) -> Result<Vec<Instrument>, Error> {
+        Ok(self
+            .mandates(&CustomerId::issued(customer))
+            .await?
+            .into_iter()
+            .map(Instrument::from)
+            .collect())
     }
 
     /// Mollie separates authorisation from capture, captures partially, and
