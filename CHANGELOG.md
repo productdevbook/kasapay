@@ -688,6 +688,13 @@ all are the kind 0.0.x exists to make.
 
 ### Fixed
 
+- **A payout line printed the account it was paying.** `mass::Recipient`
+  derived `Debug`, so an IBAN and a national identity number went wherever a
+  `NewPayout` was printed — and a payout is exactly the thing somebody debugs
+  by printing it. It shows which kind of recipient it is and the last four
+  characters now: enough to tell two lines apart, not enough to send money.
+  Same defect as `Raw`'s, in a module that landed before that was found.
+
 - **A PayTR payment settled in roubles could not be read back.** The adapter
   sends `RUB` when it opens one, and the reverse mapping had no arm for it, so
   `charge_status` and `refunds` answered `ErrorKind::Unsupported` saying kasapay

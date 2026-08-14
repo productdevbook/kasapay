@@ -37,7 +37,10 @@
         "POST /v1/agent/logout"
       ],
       "schemas": 3,
-      "notes": []
+      "notes": [
+        "POST /v1/agent/get_auth_key is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host",
+        "POST /v1/agent/logout is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host"
+      ]
     },
     "cardstorage": {
       "authentication": {
@@ -323,7 +326,11 @@
         "POST /v1/softpos/init_sale_transaction"
       ],
       "schemas": 8,
-      "notes": []
+      "notes": [
+        "POST /v1/softpos/init_sale_transaction is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host",
+        "POST /v1/softpos/init_reversal_transaction is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host",
+        "POST /v1/softpos/check_transaction is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host"
+      ]
     },
     "subscription": {
       "authentication": {
