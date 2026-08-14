@@ -469,6 +469,8 @@ fn decrypted_into_charge(
         id: payment.clone(),
         order: None,
         amount,
+        // The In-Store API reports one amount; there is no basket beside it.
+        order_amount: None,
         status,
         next_action: None,
         provider: PROVIDER,
@@ -525,6 +527,8 @@ fn query_into_charge(response: wire::PaymentQueryResponse, raw: Raw) -> Result<C
         id: PaymentId::new(payment_id.to_string()),
         order: response.order_id.map(OrderRef::new),
         amount,
+        // The In-Store API reports one amount; there is no basket beside it.
+        order_amount: None,
         status,
         next_action: None,
         provider: PROVIDER,
