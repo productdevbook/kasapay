@@ -14,6 +14,9 @@
 //!   carrying the `client_secret` for Stripe.js.
 //! - [`Stripe::refund`] gives money back, and [`Stripe::cancel`] withdraws a
 //!   payment that was never captured. Neither is on the shared trait yet.
+//! - A refunded PaymentIntent still reads `succeeded`, so how much of a
+//!   payment has been given back is [`Stripe::refunds`] summed rather than a
+//!   status to read.
 //! - **A declined card is not [`Status::Failed`](kasapay_core::Status::Failed).**
 //!   Stripe puts such a PaymentIntent back to `requires_payment_method`, which
 //!   arrives as [`Status::RequiresAction`](kasapay_core::Status::RequiresAction)

@@ -11,7 +11,7 @@ use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_core::payment_intent::{
     CancelPaymentIntent, CapturePaymentIntent, CreatePaymentIntent, RetrievePaymentIntent,
 };
-use stripe_core::refund::CreateRefund;
+use stripe_core::refund::{CreateRefund, ListRefund};
 
 use crate::convert;
 
@@ -27,6 +27,9 @@ pub const ORDER_METADATA_KEY: &str = "kasapay_order";
 /// a provider that never answers is a locked cart rather than a slow one. Pass
 /// a configured client to [`Stripe::with_client`] to change it.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Stripe's largest page. Its default is ten, which most payments fit in.
+const REFUND_PAGE_SIZE: i64 = 100;
 
 /// Takes payments through Stripe.
 ///
@@ -85,7 +88,8 @@ impl Stripe {
             .await
             .map_err(|e| convert::error(&e).with_source(e))?;
 
-        let refunded = convert::amount(refund.amount, &refund.currency)?;
+        let refund = into_refund(refund, payment)?;
+        let refunded = refund.amount;
         if let Some(asked) = amount
             && asked.currency() != refunded.currency()
         {
@@ -99,23 +103,49 @@ impl Stripe {
             ));
         }
 
-        Ok(Refund {
-            id: refund.id.as_str().into(),
-            payment: payment.clone(),
-            amount: refunded,
-            status: refund
-                .status
-                .as_deref()
-                .map_or(RefundState::Pending, RefundState::from),
-            raw: Raw::from_json(&serde_json::json!({
-                "id": refund.id.as_str(),
-                "amount": refund.amount,
-                "currency": format!("{:?}", refund.currency),
-                "status": refund.status,
-                "reason": refund.reason.map(|r| format!("{r:?}")),
-                "failure_reason": refund.failure_reason,
-            })),
-        })
+        Ok(refund)
+    }
+
+    /// Lists every refund taken off a payment, newest first.
+    ///
+    /// This is how "has all of it been given back" is answered: kasapay has no
+    /// refunded status — Stripe leaves a refunded PaymentIntent `succeeded`
+    /// and models the refunds as objects beside it — so the question is
+    /// [`Money::checked_add`] over this list against the charge.
+    ///
+    /// # It is more than one request
+    ///
+    /// Stripe pages this endpoint and answers ten at a time by default. Asking
+    /// for a page and stopping would silently undercount a payment refunded
+    /// more often than that, so this walks the cursor to the end and the
+    /// [`DEFAULT_TIMEOUT`] bounds each page rather than the whole walk. A
+    /// payment with hundreds of refunds costs a round trip per hundred.
+    pub async fn refunds(&self, payment: &PaymentId) -> Result<Vec<Refund>, Error> {
+        let mut refunds = Vec::new();
+        let mut cursor: Option<String> = None;
+        loop {
+            let mut list = ListRefund::new()
+                .payment_intent(payment.as_str().to_owned())
+                .limit(REFUND_PAGE_SIZE);
+            if let Some(after) = cursor.take() {
+                list = list.starting_after(after);
+            }
+            let page = list
+                .customize()
+                .timeout(DEFAULT_TIMEOUT)
+                .send(self.inner.as_ref())
+                .await
+                .map_err(|e| convert::error(&e).with_source(e))?;
+
+            cursor = page.data.last().map(|last| last.id.as_str().to_owned());
+            for refund in page.data {
+                refunds.push(into_refund(refund, payment)?);
+            }
+            // An empty page with `has_more` set would otherwise loop forever.
+            if !page.has_more || cursor.is_none() {
+                return Ok(refunds);
+            }
+        }
     }
 
     /// Withdraws a payment that has not been captured.
@@ -298,6 +328,26 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
         next_action,
         provider: convert::PROVIDER,
         raw,
+    })
+}
+
+fn into_refund(refund: stripe_shared::Refund, payment: &PaymentId) -> Result<Refund, Error> {
+    Ok(Refund {
+        id: refund.id.as_str().into(),
+        payment: payment.clone(),
+        amount: convert::amount(refund.amount, &refund.currency)?,
+        status: refund
+            .status
+            .as_deref()
+            .map_or(RefundState::Pending, RefundState::from),
+        raw: Raw::from_json(&serde_json::json!({
+            "id": refund.id.as_str(),
+            "amount": refund.amount,
+            "currency": format!("{:?}", refund.currency),
+            "status": refund.status,
+            "reason": refund.reason.map(|r| format!("{r:?}")),
+            "failure_reason": refund.failure_reason,
+        })),
     })
 }
 

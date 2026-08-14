@@ -15,7 +15,9 @@ use kasapay_core::{
 };
 use kasapay_stripe::{ORDER_METADATA_KEY, RefundState, Stripe};
 use serde_json::json;
-use wiremock::matchers::{body_string_contains, header, method, path};
+use wiremock::matchers::{
+    body_string_contains, header, method, path, query_param, query_param_is_missing,
+};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn client(server: &MockServer) -> Stripe {
@@ -407,6 +409,136 @@ async fn an_unknown_refund_state_is_kept_rather_than_dropped() {
         .await
         .expect("the refund goes through");
     assert_eq!(refund.status, RefundState::Other("reversing".into()));
+}
+
+/// One page of Stripe's list envelope, which needs `url` and `has_more` too.
+fn refund_list(data: &[serde_json::Value], has_more: bool) -> serde_json::Value {
+    json!({
+        "object": "list",
+        "url": "/v1/refunds",
+        "has_more": has_more,
+        "data": data,
+    })
+}
+
+fn refund_with_id(id: &str, amount: i64) -> serde_json::Value {
+    let mut refund = refund_body(amount, "succeeded");
+    refund["id"] = id.into();
+    refund
+}
+
+#[tokio::test]
+async fn refunds_asks_for_the_ones_off_this_payment_and_nothing_else() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/refunds"))
+        .and(query_param("payment_intent", "pi_kasapay1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_list(
+            &[
+                refund_with_id("re_kasapay2", 400),
+                refund_with_id("re_kasapay1", 500),
+            ],
+            false,
+        )))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::new("pi_kasapay1"))
+        .await
+        .expect("the refunds read back");
+
+    assert_eq!(refunds.len(), 2);
+    // Newest first, the order Stripe answers in.
+    assert_eq!(&*refunds[0].id, "re_kasapay2");
+    assert_eq!(refunds[0].payment, PaymentId::new("pi_kasapay1"));
+    assert_eq!(refunds[1].amount.minor_units(), 500);
+    assert_eq!(refunds[1].status, RefundState::Succeeded);
+}
+
+#[tokio::test]
+async fn how_much_of_a_payment_came_back_is_its_refunds_summed() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_list(
+            &[
+                refund_with_id("re_kasapay2", 400),
+                refund_with_id("re_kasapay1", 500),
+            ],
+            false,
+        )))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::new("pi_kasapay1"))
+        .await
+        .expect("the refunds read back");
+
+    let given_back = refunds
+        .iter()
+        .try_fold(
+            Money::from_minor_units(0, Currency::Usd),
+            |total, refund| total.checked_add(refund.amount),
+        )
+        .expect("one currency throughout");
+
+    assert_eq!(
+        given_back,
+        Money::parse("9.00", Currency::Usd).expect("valid amount")
+    );
+    // The charge was 19.99, so this is the question a `Refunded` status would
+    // have answered wrongly: partly given back, not fully.
+    assert_ne!(given_back.minor_units(), 1999);
+}
+
+#[tokio::test]
+async fn refunds_follows_the_cursor_rather_than_stopping_at_the_first_page() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/refunds"))
+        .and(query_param_is_missing("starting_after"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(refund_list(&[refund_with_id("re_page1", 400)], true)),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/refunds"))
+        .and(query_param("starting_after", "re_page1"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(refund_list(&[refund_with_id("re_page2", 500)], false)),
+        )
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::new("pi_kasapay1"))
+        .await
+        .expect("both pages read back");
+
+    // Stopping at the page would have undercounted by 5.00.
+    assert_eq!(refunds.len(), 2);
+    assert_eq!(&*refunds[1].id, "re_page2");
+}
+
+#[tokio::test]
+async fn a_payment_nothing_has_come_off_has_an_empty_list_rather_than_an_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_list(&[], false)))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::new("pi_kasapay1"))
+        .await
+        .expect("no refunds is an answer, not a failure");
+    assert!(refunds.is_empty());
 }
 
 #[tokio::test]
