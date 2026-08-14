@@ -54,6 +54,11 @@ all are the kind 0.0.x exists to make.
   the checkout form's token. `charge` answers `Unsupported` and names
   `start_checkout_form`, because the form needs more than `ChargeRequest`
   carries.
+- `Stripe::refunds`, the refunds taken off a payment. A refunded PaymentIntent
+  still reads `succeeded`, so "how much has come back" is this list summed
+  rather than a status — and every provider has to be able to answer it. It
+  follows Stripe's cursor to the end, because the default page is ten and
+  stopping there would undercount.
 - `Stripe::refund` and `Stripe::cancel`, which had no counterpart to iyzico's.
   Refunding in a currency the payment was not in cannot be refused before
   sending — Stripe takes a bare integer — so it is caught against the answer,
