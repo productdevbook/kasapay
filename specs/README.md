@@ -4,6 +4,11 @@ What each provider said its API was, on the day it was asked. A record, not a
 contract. Nothing in `crates/` is generated from these — they exist so a change
 upstream shows up as a diff here before it shows up as a failure in production.
 
+Three of the four keep the description itself. **Mollie's is recorded without a
+copy of it**, because theirs is licensed CC-BY-NC-SA and this repository is
+MIT; `specs/mollie/` holds a dated meta and two hashes instead, and the section
+below says what that buys and what it costs.
+
 `.github/workflows/spec-drift.yml` refetches weekly and opens a PR when
 anything moved.
 
@@ -252,14 +257,133 @@ kasapay does not generate a Stripe client from this. `kasapay-stripe` wraps
 from the same document by people who do it full time. The subset here is for
 reading when a mapping looks wrong.
 
+## Mollie — `specs/mollie/`
+
+    <YYYY-MM-DD>.meta.json   the whole of what is kept
+
+**This is the one provider whose document is deliberately not here.** Mollie
+publishes a real OpenAPI 3.1 document — `specs.yaml` in
+[mollie/openapi](https://github.com/mollie/openapi) — so nothing is
+reassembled from documentation pages; `scripts/fetch_mollie.py` fetches it,
+cuts it to the five paths kasapay maps, checks it, records what it said, and
+throws it away.
+
+### Why no copy is kept
+
+`info.license` on Mollie's document says **CC-BY-NC-SA-4.0** — attribution,
+non-commercial, share-alike — and this repository is MIT and says so to
+everyone who forks or vendors it. A non-commercial share-alike file sitting
+inside an MIT tree is a restriction on exactly the commercial users the licence
+invites, and one they would not notice. Mollie's licence is theirs to set and
+there is nothing wrong with it; it simply does not belong in here. Stripe's, by
+contrast, is MIT, which is why theirs is kept.
+
+Subsetting does not change that. A cut-down copy is still a copy.
+
+### What is kept instead, and what it costs
+
+`<date>.meta.json` carries the API version, the licence, the paths and
+`operationId`s, the repairs below, the component counts, and two hashes:
+
+| | moves when |
+|---|---|
+| `upstream_sha256` | anything in Mollie's whole 1.9MB document does |
+| `subset_sha256` | one of the five paths kasapay maps does |
+
+The second is the sharper of the two and it is the reason both are there: the
+first moves whenever any of Mollie's eighty-seven paths changes, which is
+often and mostly irrelevant.
+
+What this costs is the field-level diff `compare_specs.py` gives the others —
+it will not name a field Mollie withdrew, only say that something under the
+five paths moved. `compare_specs.py` says so out loud rather than staying
+silent about Mollie, because silence reads as "nothing changed".
+
+What it keeps is the weekly job noticing the version or a hash moved, which is
+most of why `specs/` exists.
+
+### Reading the document yourself
+
+    python3 scripts/fetch_mollie.py --write-document
+
+writes `specs/mollie/<date>.yaml` — the same subset, around 400KB of the
+upstream 1.9MB. `.gitignore` covers `specs/mollie/*.yaml` so it cannot be
+committed by accident. Delete it when you are done, or do not; git will not
+see it either way.
+
+### Two things the document does not say
+
+**Which currencies Mollie takes.** `currency` is described as "a
+three-character ISO 4217 currency code" and enumerates nothing, anywhere in the
+document. The list of twenty-seven, and the decimal places each has, is on
+their [multicurrency page](https://docs.mollie.com/docs/multicurrency) and
+nowhere machine-readable. `kasapay-mollie` maps seven of them and refuses lira
+and Kuwaiti dinar before a request is built.
+
+**How a webhook is authenticated.** It is not, and the document has no webhook
+in it at all. Mollie posts one form field — the payment's id — to the address
+the payment was created with, and nothing that proves the post was theirs.
+
+### Mollie's own document is not quite valid OpenAPI, and the fetcher repairs it
+
+Five of the parameters on the kept operations are a `$ref` with a `schema`
+beside it. A Reference Object in OpenAPI 3.1 may carry `summary` and
+`description` alongside its `$ref` and nothing else, so those five make the
+document invalid and `openapi-spec-validator` refuses it outright — which is
+how this was found, in CI, rather than by reading.
+
+What Mollie plainly means is the shared parameter with that schema on top, so
+that is what is built: the referenced parameter inlined and the siblings
+overlaid. Nothing is dropped, and each repair is named in the dated meta under
+`repaired_reference_objects`, so it is never silent — the same rule
+`merge_iyzico.py` follows.
+
+The same pattern **inside a schema** is left exactly as it is. `$ref` with
+siblings is legal in JSON Schema 2020-12, which is what an OpenAPI 3.1 Schema
+Object is, and there are thirty-three of them.
+
+**The check moved into the fetcher when the document stopped being kept.**
+`validate_specs.py` walks files under `specs/`, and there is no longer a Mollie
+file for it to walk — so `fetch_mollie.py` validates the subset itself, before
+writing the meta, and exits non-zero rather than recording a document it could
+not check. It runs `openapi-spec-validator` when that is installed, and two
+rules of its own whether it is or not: no Reference Object carrying more than
+`$ref`, `summary` and `description`, and no `$ref` pointing at something the
+cut left behind. Those two are what the cut and the repairs could plausibly get
+wrong, and the first is exactly what caught these five. `checked` in the meta
+says which of the two ran.
+
+### What the fetcher does that the Stripe one does not
+
+- **Loads YAML with the timestamp resolver switched off.** Several of Mollie's
+  examples carry an unquoted date and one of them is `2023-02-29`, which is not
+  a date. A plain `yaml.safe_load` raises on it before the document can be
+  subset at all.
+- **Follows `$ref` into four component sections**, not just `schemas`: Mollie's
+  operations reference shared parameters, responses and examples as well.
+  `securitySchemes` are copied in whole, since nothing `$ref`s them and how a
+  request is authenticated is the first thing a reader wants.
+
+`scripts/validate_specs.py` learned something here too, and it is worth keeping
+even though it will never meet this document in CI. It reads every `type:` in a
+file as a schema type, which held until Mollie — whose `_links` objects carry a
+field literally called `type`, holding `application/hal+json`, inside example
+payloads, and whose `x-speakeasy-pagination` extension carries one holding
+`url`. Neither is OpenAPI. Example subtrees and `x-` extensions are now skipped
+the way `securitySchemes` already was, so a `--write-document` copy passes, and
+so will the next provider whose examples carry a field of that name.
+
 ## Refetching by hand
 
-    pip install pyyaml
+    pip install pyyaml openapi-spec-validator
     python3 scripts/merge_iyzico.py    # writes today's date
     python3 scripts/fetch_stripe.py
     python3 scripts/fetch_paytr.py
+    python3 scripts/fetch_mollie.py    # meta only; --write-document for the rest
 
-All three take an optional `YYYY-MM-DD` argument.
+All four take an optional `YYYY-MM-DD` argument. `openapi-spec-validator` is
+only needed by the Mollie one, which checks what it fetched rather than
+committing something nothing will check.
 
     python3 scripts/compare_specs.py --against-git origin/main
 

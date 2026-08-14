@@ -1,0 +1,47 @@
+{
+  "source": "https://raw.githubusercontent.com/mollie/openapi/main/specs.yaml",
+  "fetched": "2026-08-14",
+  "api_version": "1.0.0",
+  "licence": {
+    "name": "Attribution-NonCommercial-ShareAlike 4.0 International",
+    "identifier": "CC-BY-NC-SA-4.0"
+  },
+  "document_kept": false,
+  "checked": "reference objects and pointers, after the repairs below",
+  "upstream_sha256": "d2a3bd80c1fa029268521066e1082aa781b2ddeee911c6172be0321f0ba8014e",
+  "subset_sha256": "8c94be5f14abcda0d34d0b62d283bd4fbe907b01b4d35b13e6a1320eb14d1f24",
+  "kept_paths": [
+    "/v2/payments",
+    "/v2/payments/{paymentId}",
+    "/v2/payments/{paymentId}/captures",
+    "/v2/payments/{paymentId}/refunds",
+    "/v2/payments/{paymentId}/release-authorization"
+  ],
+  "missing_paths": [],
+  "operations": [
+    "cancel-payment",
+    "create-capture",
+    "create-payment",
+    "create-refund",
+    "get-payment",
+    "list-captures",
+    "list-payments",
+    "list-refunds",
+    "release-authorization",
+    "update-payment"
+  ],
+  "repaired_reference_objects": [
+    "POST /v2/payments parameters[0] (#/components/parameters/include)",
+    "GET /v2/payments/{paymentId} parameters[0] (#/components/parameters/include)",
+    "GET /v2/payments/{paymentId} parameters[1] (#/components/parameters/embed)",
+    "GET /v2/payments/{paymentId}/captures parameters[2] (#/components/parameters/embed)",
+    "GET /v2/payments/{paymentId}/refunds parameters[2] (#/components/parameters/embed)"
+  ],
+  "component_counts": {
+    "examples": 4,
+    "parameters": 6,
+    "responses": 3,
+    "schemas": 98,
+    "securitySchemes": 4
+  }
+}

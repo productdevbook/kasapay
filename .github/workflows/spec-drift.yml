@@ -28,6 +28,16 @@ jobs:
           python3 scripts/merge_iyzico.py
           python3 scripts/fetch_stripe.py
           python3 scripts/fetch_paytr.py
+      # Its own step, and allowed to fail on its own. Nothing of Mollie's is
+      # committed, so this script is the only thing that validates their
+      # document — and a document that does not validate must not become a meta
+      # claiming it did. Failing here leaves specs/mollie/ untouched and still
+      # opens the pull request for the other three, which is better than three
+      # providers' drift going unreported because a fourth moved.
+      - name: Refetch Mollie, which checks what it fetched
+        id: mollie
+        continue-on-error: true
+        run: python3 scripts/fetch_mollie.py
       - name: The refetched specs must still be valid
         run: python3 scripts/validate_specs.py --strict
       - name: What the refetch changed about the fields the specs carry
@@ -52,6 +62,18 @@ jobs:
             A **lost** field is the line to read first. It means either that the
             provider withdrew it, or that `merge_iyzico.py` dropped it — those
             look identical in the diff and only one of them is fine.
+
+            **Mollie's diff is one JSON file and no fields**, by design: their
+            document is licensed so that no copy of it is kept here, so what
+            moved is a version string or a hash. `subset_sha256` is the one to
+            read — it moves only for the five paths kasapay maps, where
+            `upstream_sha256` moves for any of their eighty-seven. Fetch the
+            document with `python3 scripts/fetch_mollie.py --write-document` to
+            see what actually changed. `specs/README.md` says why.
+
+            Mollie's own check: **${{ steps.mollie.outcome }}**. A failure there
+            means their document did not validate, `specs/mollie/` is unchanged
+            in this pull request, and the job log is where the reason is.
 
             ```
             ${{ steps.moved.outputs.report }}

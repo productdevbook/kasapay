@@ -155,6 +155,96 @@ all are the kind 0.0.x exists to make.
   than `Status::Captured`. That mapping has not been checked against a live
   account.
 
+- **`kasapay-mollie`, a fourth provider — and the first that is neither
+  card-first nor Turkish.** `kasapay = { features = ["mollie"] }`. Mollie's
+  Payments API behind the same trait: `charge` opens a hosted checkout and
+  answers a `NextAction::Redirect`, `charge_status` reads it back by the
+  `tr_…` Mollie issued, `capture`, `cancel`, and `Mollie::refund` beside
+  Stripe's and iyzico's. Tests run against `wiremock` with Mollie's own
+  documented example bodies.
+
+  `capabilities()` answers the `saved_instruments` #97 added, and answers
+  `false`. Mollie's saved instrument is a mandate — `mdt_…`, held against a
+  customer, charged with `sequenceType: recurring` — and no call in this crate
+  sends one, so a checkout must not offer use-my-saved-card here. A boundary of
+  the adapter rather than of Mollie, which is the distinction that field's
+  documentation draws.
+
+  Nothing existing changes. What is worth reading before writing against it is
+  the four places Mollie does not fit the shape three card-first providers gave
+  the trait.
+
+  **Mollie takes neither lira nor Kuwaiti dinar.** Seven of `Currency`'s nine —
+  USD, EUR, GBP, JPY, RUB, CHF, NOK — and TRY and KWD are
+  `ErrorKind::Unsupported` before a socket opens. Amounts go as
+  `{"currency": "EUR", "value": "10.00"}`, written from `Money`'s integer minor
+  units; yen goes as `1200`, with no decimal point, which is what Mollie
+  documents for it.
+
+  **A hold is `Mollie::authorize`, not `charge`.** Mollie decides at creation
+  whether a payment is captured automatically or held for a later capture, and
+  `ChargeRequest` has no field that says which. So `Provider::charge` opens a
+  payment captured the moment the payer finishes, and `authorize` opens the
+  same one with `captureMode: manual`. `capabilities().separate_capture` is
+  still true: it describes Mollie, and `authorize` is the way to it.
+
+  **Releasing a hold is not `cancel`.** `Provider::cancel` is Mollie's
+  `DELETE /v2/payments/{id}`, which withdraws a payment the payer has not
+  finished and answers the cancelled payment. Releasing an authorisation is
+  their `release-authorization`, and it cannot be on the trait: Mollie answers
+  it `202 Accepted` **with no body at all**, and says the issuing bank decides
+  if and when the hold lifts. `Mollie::release_authorization` returns
+  `Ok(())` and the payment is read back afterwards.
+
+  **Mollie's `expired` has no `Status`.** A payment the payer abandoned until
+  it could no longer be paid is neither refused nor withdrawn. It arrives as
+  `Status::Failed` — final, no money moved — and which of Mollie's two it was
+  is in `Charge::raw`. `Status`'s own table now carries Mollie's row and says
+  so.
+
+  Two smaller things a caller meets. A capture and a refund are Mollie's own
+  objects with their own identifiers, so `mollie::CaptureId` and
+  `mollie::RefundId` are kinds of their own beside `PaymentId` — `cpt_…`,
+  `re_…` and `tr_…` are all Mollie's strings and `IdSource` could never
+  separate them. And **Mollie's errors carry no code**: their error object is
+  `status`, `title`, `detail` and sometimes `field`, so `Error::code` is `None`
+  for every failure this adapter reports, where PayTR's `err_no` and iyzico's
+  `errorCode` are not, and the offending field is named in the message.
+
+  Mollie's webhook posts one form field — the payment's id — and nothing that
+  proves it came from Mollie. No verification is built here, and the crate
+  documentation says what a handler must do instead: read the payment back and
+  act on nothing else in the request.
+
+- **`specs/mollie/` records Mollie's OpenAPI document without keeping a copy of
+  it**, which no other provider here does. Mollie licenses theirs
+  CC-BY-NC-SA-4.0 — non-commercial, share-alike — and this repository is MIT: a
+  file under those terms inside an MIT tree is a restriction on exactly the
+  commercial users the licence invites, and one they would not notice.
+  Subsetting does not change that, because a cut-down copy is still a copy.
+
+  So `scripts/fetch_mollie.py` fetches the document, cuts it to the five paths
+  kasapay maps, checks it, writes `<date>.meta.json` and throws the rest away.
+  The meta carries the version, the licence, the paths and `operationId`s, the
+  repairs, and two hashes: `upstream_sha256` moves when anything in Mollie's
+  1.9MB does, and `subset_sha256` only when one of the five paths does.
+  `--write-document` writes the subset for reading, to a path `.gitignore`
+  covers.
+
+  What that costs is the field-level diff the other three get. `compare_specs.py`
+  now names the providers it cannot speak for — Mollie and PayTR — rather than
+  saying nothing about them, because silence reads as "nothing changed".
+
+  **Mollie's own document is not quite valid OpenAPI**, which is worth recording
+  either way: five parameters on those paths are a `$ref` with a `schema`
+  beside it, and OpenAPI 3.1 lets a Reference Object carry `summary` and
+  `description` and nothing else. The fetcher inlines the referenced parameter,
+  overlays the siblings, drops nothing, and names each repair in the meta. The
+  same pattern inside a schema is left alone — legal in JSON Schema 2020-12,
+  and thirty-three of Mollie's are that. Because nothing is committed, the
+  validation moved into the fetcher, which exits non-zero rather than recording
+  a document it could not check.
+
 - **`paytr::Notice`, the payment notice as a type — and the only place PayTR
   reports a refusal.** PayTR's status query answers a payment that succeeded or
   an error, so a refused payment was reachable only as an `ErrorKind::NotFound`

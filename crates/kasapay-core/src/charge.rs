@@ -64,8 +64,9 @@ impl IdempotencyKey {
 /// | iyzico `in_store` | yes | yes | no | yes | yes | yes |
 /// | iyzico `classic` | yes | yes | no | yes | yes | no |
 /// | PayTR | no | yes | no | yes | notice only | no |
+/// | Mollie | yes | yes | yes | yes | yes | yes |
 ///
-/// Two of those cells are worth knowing about.
+/// Three of those cells are worth knowing about.
 ///
 /// **Stripe never reports `Failed`.** A PaymentIntent whose card was declined
 /// goes back to `requires_payment_method`, which arrives here as
@@ -78,6 +79,13 @@ impl IdempotencyKey {
 /// same for a payment PayTR refused and an order it has never heard of —
 /// `ErrorKind::NotFound` either way, because PayTR sends nothing that
 /// separates them.
+///
+/// **Mollie's `Failed` is two of its own states.** A payment it refused is
+/// `failed`; one the payer abandoned until it could no longer be paid is
+/// `expired`, which is neither a refusal nor a withdrawal and has no word
+/// here. Both arrive as [`Status::Failed`], and which it was is in
+/// [`Charge::raw`]. A caller counting declines separately from abandoned
+/// checkouts reads it there.
 ///
 /// Each adapter's own documentation says the same thing where a reader will
 /// meet it.
@@ -92,7 +100,9 @@ impl IdempotencyKey {
 ///
 /// So "how much of this has gone back" is the adapter's own refunds — Stripe's
 /// and PayTR's both answer a list — summed with [`Money::checked_add`] and
-/// compared against [`Charge::amount`].
+/// compared against [`Charge::amount`]. Mollie is the one that answers the
+/// figure outright, as `amountRefunded` on a payment that still reads `paid`,
+/// and it is read off [`Charge::raw`] rather than off a status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Status {
