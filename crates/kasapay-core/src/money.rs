@@ -8,8 +8,11 @@ use std::fmt;
 use std::str::FromStr;
 
 /// A currency kasapay knows how to move money in.
+///
+/// Deliberately exhaustive: adding one is a breaking change, and that is the
+/// point — every adapter has to say what the new currency maps to rather than
+/// falling into a wildcard arm and silently doing the wrong thing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[non_exhaustive]
 pub enum Currency {
     /// Turkish lira.
     Try,

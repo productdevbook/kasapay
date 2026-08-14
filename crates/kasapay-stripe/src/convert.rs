@@ -66,7 +66,6 @@ pub(crate) fn error(error: &stripe::StripeError) -> Error {
         stripe::StripeError::JSONDeserialize(_) => ErrorKind::Malformed,
         stripe::StripeError::ClientError(_) | stripe::StripeError::Timeout => ErrorKind::Transport,
         stripe::StripeError::ConfigError(_) => ErrorKind::InvalidRequest,
-        _ => ErrorKind::Provider,
     };
     Error::new(kind, PROVIDER, error.to_string())
 }

@@ -125,8 +125,10 @@ pub enum NextAction {
 }
 
 /// A charge, as the provider currently sees it.
+///
+/// Every field is public and the struct is open: a provider adapter living
+/// outside this workspace has to be able to build one.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct Charge {
     /// The provider's identifier for the payment.
     pub id: PaymentId,
