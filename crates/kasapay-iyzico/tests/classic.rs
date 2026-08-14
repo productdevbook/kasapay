@@ -171,3 +171,106 @@ async fn an_unknown_card_type_is_kept_rather_than_dropped() {
     assert_eq!(card.card_type, Some(CardType::Other("VIRTUAL_CARD".into())));
     assert!(card.commercial);
 }
+
+#[tokio::test]
+async fn stored_cards_come_back_without_a_card_number_in_sight() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/cardstorage/cards"))
+        .and(body_json(
+            json!({ "locale": "tr", "cardUserKey": "user-key-1" }),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "cardUserKey": "user-key-1",
+            "cardDetails": [
+                {
+                    "cardToken": "tok-1",
+                    "cardAlias": "Bonus kartim",
+                    "binNumber": "552879",
+                    "lastFourDigits": "0004",
+                    "cardType": "CREDIT_CARD",
+                    "cardAssociation": "MASTER_CARD",
+                    "cardFamily": "Bonus",
+                    "cardBankName": "Garanti Bankasi",
+                },
+                { "cardToken": "tok-2", "cardType": "DEBIT_CARD" },
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let cards = client(&server)
+        .stored_cards("user-key-1")
+        .await
+        .expect("the cards list");
+
+    assert_eq!(cards.len(), 2);
+    assert_eq!(&*cards[0].token, "tok-1");
+    assert_eq!(cards[0].alias.as_deref(), Some("Bonus kartim"));
+    assert_eq!(cards[0].last_four.as_deref(), Some("0004"));
+    assert_eq!(cards[0].card_type, Some(CardType::Credit));
+    assert_eq!(cards[0].association, Some(Association::MasterCard));
+    // A card iyzico knows little about is still a card.
+    assert_eq!(&*cards[1].token, "tok-2");
+    assert!(cards[1].alias.is_none());
+    assert_eq!(cards[1].card_type, Some(CardType::Debit));
+}
+
+#[tokio::test]
+async fn a_user_with_no_stored_cards_is_an_empty_list_not_an_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/cardstorage/cards"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "status": "success" })))
+        .mount(&server)
+        .await;
+
+    let cards = client(&server)
+        .stored_cards("user-key-1")
+        .await
+        .expect("no cards is a valid answer");
+    assert!(cards.is_empty());
+}
+
+#[tokio::test]
+async fn forgetting_a_card_sends_a_delete_with_a_body() {
+    let server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/cardstorage/card"))
+        .and(header_exists("authorization"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "cardUserKey": "user-key-1",
+            "cardToken": "tok-1",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "status": "success" })))
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .forget_card("user-key-1", "tok-1")
+        .await
+        .expect("the card is forgotten");
+}
+
+#[tokio::test]
+async fn a_refused_delete_is_an_error_carrying_iyzicos_code() {
+    let server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/cardstorage/card"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failure",
+            "errorCode": "5107",
+            "errorMessage": "Kart bulunamadi",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .forget_card("user-key-1", "tok-gone")
+        .await
+        .expect_err("a failure status is not a deletion");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.code(), Some("5107"));
+}
