@@ -311,12 +311,27 @@ impl Client {
 
     /// Takes an amount back off a payment.
     ///
-    /// `/v2/payment/refund`, which refunds against the payment as a whole. Use
-    /// [`Client::refund_transaction`] to take it off one line of a basket
-    /// instead — a shop refunding one returned item of three wants that one.
+    /// `/v2/payment/refund`, which refunds against the payment as a whole and
+    /// lets iyzico decide which basket line it comes off.
     ///
-    /// Repeated partial refunds are normal and iyzico allows them up to the
-    /// amount captured.
+    /// # Not for a basket with more than one line
+    ///
+    /// iyzico's own words: *"It is strictly not recommended to use the Refund
+    /// V2 service for orders with more than one product in the basket."* Which
+    /// line the refund lands on is then iyzico's choice, and a shop's ledger
+    /// says something different from iyzico's.
+    ///
+    /// Use [`Client::refund_transaction`] for anything with more than one
+    /// line. It names the line, which is what a shop refunding one returned
+    /// item of three actually means.
+    ///
+    /// # Repeated refunds
+    ///
+    /// Allowed, and documented: a refund must not exceed the amount still
+    /// refundable, and *"as long as that rule is followed, more than one
+    /// refund may be made in succession"*. That is what
+    /// [`Capabilities::repeated_refund`](kasapay_core::Capabilities::repeated_refund)
+    /// reports for this provider.
     pub async fn refund(&self, payment: &PaymentId, amount: Money) -> Result<Reversal, Error> {
         let body = wire::RefundRequest {
             locale: "tr",
@@ -335,6 +350,10 @@ impl Client {
     ///
     /// `paymentTransactionId` names the line, and comes from the payment's own
     /// `itemTransactions`. It is not the payment id.
+    ///
+    /// This is the one to use for a basket with more than one line — see
+    /// [`Client::refund`] for why. The amount must not exceed that line's own
+    /// price, rather than the payment's.
     pub async fn refund_transaction(
         &self,
         transaction: &str,
@@ -918,6 +937,9 @@ impl Provider for Client {
             separate_capture: false,
             partial_capture: false,
             partial_refund: true,
+            // Documented rather than assumed: a refund must not exceed the
+            // amount still refundable, and "as long as that rule is followed,
+            // more than one refund may be made in succession".
             repeated_refund: true,
         }
     }
