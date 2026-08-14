@@ -32,9 +32,14 @@ url = "2.5.8"
 # The maintained line is the 1.0 prerelease, not 0.41. Pinned exactly because a
 # candidate has changed generated types under us; loosen to "1" when 1.0.0 ships.
 async-stripe = { version = "=1.0.0-rc.8", default-features = false, features = ["rustls-tls-native", "rustls-aws-lc-rs"] }
-async-stripe-core = { version = "=1.0.0-rc.8", default-features = false, features = ["payment_intent", "refund"] }
+async-stripe-core = { version = "=1.0.0-rc.8", default-features = false, features = ["payment_intent", "refund", "customer"] }
 async-stripe-shared = { version = "=1.0.0-rc.8", default-features = false }
 async-stripe-types = { version = "=1.0.0-rc.8", default-features = false }
+# `stripe_client_core`, the request-builder plumbing every generated request in
+# async-stripe-core sits on. Already carried transitively through async-stripe;
+# named directly so kasapay-stripe can hand-write the one request that has no
+# generated form here — see kasapay-stripe's `Stripe::forget_card`.
+async-stripe-client-core = { version = "=1.0.0-rc.8", default-features = false }
 
 base64 = "0.23.1"
 hmac = "0.13.0"
