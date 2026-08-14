@@ -90,6 +90,49 @@ all are the kind 0.0.x exists to make.
   `Status`'s per-provider table, in the crate documentation, and in the error's
   own message.
 
+- **`kasapay_iyzico::mass`, all six iyzico Mass Payout operations.** Money
+  going out rather than coming in: create a payout of many recipients,
+  authorize it, cancel one that has not been authorized, read the merchant's
+  payout balance, and read a payout or one of its lines back. Built over
+  `classic::Client` like `iyzilink` and `subscription`, so
+  `mass::Client::new(classic)` is the whole setup. iyzico gates the product
+  behind their own approval; none of it answers anything else until they switch
+  it on.
+
+  **A `success` from `start` is not an acceptance of every line.** iyzico
+  reports the ones it would not take in the same body, as
+  `Started::invalid_items`, and never mentions them again. That list is the
+  only warning a caller gets before `authorize` spends the money, and
+  `authorize` is documented with nothing that undoes it.
+
+  Who is paid is one value rather than three loose fields:
+  `Recipient::{Phone, Iban, IdentityNumber, MemberId}`, where the IBAN variant
+  carries the account holder's name because that is the one case iyzico makes
+  it mandatory. Nothing computes an IBAN checksum or matches a name to an
+  account — iyzico documents neither — so a well-formed identifier for the
+  wrong person is paid rather than refused.
+
+  **iyzico documents no response signature for any of the six**, in either
+  language, so nothing here is verified — including the answers that report
+  where money already gone has got to. The request signature covers the path
+  without the query string, as everywhere else in this crate, and mass payout
+  is the one part that carries `locale` in the query on a `POST`.
+
+  A line priced in anything but `TRY`, `USD` or `EUR` cannot be built: that is
+  the only currency list either documentation language gives, and it is on the
+  Turkish pages only. Amounts go out as bare JSON numbers written from `Money`'s
+  own digits, which is what iyzico's worked examples send; their schemas type
+  every money field `decimal`, which is not a JSON type at all. Reading is
+  permissive, and tolerant of the eight decimal places their example writes a
+  commission with — those zeros carry no value and are dropped, while a
+  non-zero digit past the currency's minor unit answers `None` rather than
+  being rounded into an amount nobody sent.
+
+  `mass`'s module documentation lists what iyzico's two documentation
+  languages contradict each other about, and what neither of them says — what
+  `totalAmount` on a line means, who bears a line that fails, what currency the
+  balance is counted in, and whether `externalId` is really idempotent.
+
 - **`kasapay_iyzico::subscription`, the subscription catalogue: ten of iyzico's
   twenty-four subscription operations.** Create, read, list, replace and delete
   a product, and the same five for the pricing plans that hang off it — the

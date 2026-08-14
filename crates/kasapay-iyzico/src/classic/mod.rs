@@ -23,9 +23,10 @@
 //! All three of those take an optional [`Reason`], which is what iyzico is
 //! told the money went back for.
 //!
-//! iyzico Link and Subscription are part of this API as well, and are signed
-//! the same way, but they are products rather than payment calls: they live in
-//! [`crate::iyzilink`] and [`crate::subscription`], over this same [`Client`].
+//! iyzico Link, Subscription and Mass Payout are part of this API as well, and
+//! are signed the same way, but they are products rather than payment calls:
+//! they live in [`crate::iyzilink`], [`crate::subscription`] and
+//! [`crate::mass`], over this same [`Client`].
 //!
 //! [`Client`] implements [`Provider`](kasapay_core::Provider), but only half
 //! of it: `charge_status` reads a payment back, and `charge` answers
