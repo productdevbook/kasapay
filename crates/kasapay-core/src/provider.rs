@@ -54,6 +54,10 @@ impl fmt::Display for ProviderId {
 /// [`Charge`] is: an adapter in someone else's repository has to be able to
 /// build one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is an independent yes or no about one provider; a state machine would invent an order between them that does not exist"
+)]
 pub struct Capabilities {
     /// Funds can be held at authorisation and taken later by
     /// [`Provider::capture`].
