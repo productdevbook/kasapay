@@ -853,6 +853,7 @@ components:
         userId:
           type: string
           description: Ödemeyi yapacak kullanıcı ID'si
+          format: float
         orderId:
           type: string
           description: Sipariş referans numarası

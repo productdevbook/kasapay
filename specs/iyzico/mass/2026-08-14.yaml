@@ -237,6 +237,10 @@ components:
         currency:
           type: string
           description: Currency code.
+          enum:
+          - TRY
+          - USD
+          - EUR
     InvalidItem:
       type: object
       description: Invalid payout item detail.

@@ -244,9 +244,35 @@ def deref(fragment: dict, node):
     return node if isinstance(node, dict) else {}
 
 
+# What a field is allowed to be, as opposed to what it is called or how it
+# reads. One language routinely constrains a field the other leaves open —
+# mass payout's `currency` carries its enum only in Turkish — and a lost
+# constraint is a documented fact lost. `description` is not here: the base
+# fragment's prose is what a reader gets, and two languages of it in one field
+# help nobody. Neither is `required`, which the two languages disagree about
+# outright, and a union of it would invent a stricter API than either.
+CONSTRAINTS = (
+    "enum",
+    "format",
+    "pattern",
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "multipleOf",
+    "nullable",
+    "default",
+    "example",
+)
+
+
 def graft(base: dict, mine, theirs, other: dict, added: list[str], trail: str = "") -> None:
-    """Copies into `mine` every property `theirs` documents and it does not."""
+    """Copies into `mine` everything `theirs` documents and it does not."""
     mine, theirs = deref(base, mine), deref(other, theirs)
+    for key in CONSTRAINTS:
+        if key in theirs and key not in mine:
+            mine[key] = copy.deepcopy(theirs[key])
+            added.append(f"{trail.rstrip('.')}.{key}" if trail else key)
     ours, yours = mine.get("properties"), theirs.get("properties")
     if isinstance(ours, dict) and isinstance(yours, dict):
         for name, schema in yours.items():
@@ -334,14 +360,31 @@ def combine_languages(
                         f"documented only in {language}, grafted on"
                     )
 
-    turkish_only = sorted(
+    # Two different things, and calling both "Turkish only" said something
+    # false about the second: mass payout's retrieve is documented in English
+    # too, and the Turkish fragment was merely the fuller one.
+    documented = {
+        (verb, path): {is_english(source) for source, fragment in found if (verb, path) in operations_in(fragment)}
+        for key in chosen
+        for verb, path in key
+    }
+    only_turkish = sorted(
+        f"{verb.upper()} {path}" for (verb, path), langs in documented.items() if langs == {False}
+    )
+    kept_turkish = sorted(
         f"{verb.upper()} {path}"
         for key, (source, _) in chosen.items()
         if not is_english(source)
         for verb, path in key
+        if documented.get((verb, path)) != {False}
     )
-    if turkish_only:
-        notes.append(f"documented in Turkish only: {', '.join(turkish_only)}")
+    if only_turkish:
+        notes.append(f"documented in Turkish only: {', '.join(only_turkish)}")
+    if kept_turkish:
+        notes.append(
+            "documented in both, kept from the Turkish page because it is the "
+            f"fuller one: {', '.join(kept_turkish)}"
+        )
     return sorted(chosen.values(), key=lambda pair: pair[0]), notes
 
 
