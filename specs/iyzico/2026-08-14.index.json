@@ -7,6 +7,7 @@
   "language": "both; one fragment per operation, with what the other language alone documents grafted on",
   "upstream_sha256": "32169fec6334ddd8694e419e165a48270802e39527776af3be14cb813e68f7b8",
   "notes": [
+    "https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md: fragments on one page declare different servers (/v2/in-store, /v3/in-store), all kept",
     "POST /payment/auth: basketItems.withholdingTax, paymentCard.cardHolderName, paymentCard.cardNumber, paymentCard.cvc, paymentCard.expireMonth, paymentCard.expireYear, paymentCard.registerCard documented only in Turkish, grafted on",
     "POST /payment/auth: paymentSource documented only in Turkish, grafted on",
     "POST /payment/iyzipos/checkoutform/auth/ecom/detail: itemTransactions.convertedPayout.iyziConversionRate, itemTransactions.convertedPayout.iyziConversionRateAmount documented only in Turkish, grafted on",
