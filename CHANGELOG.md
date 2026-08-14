@@ -12,8 +12,10 @@ all are the kind 0.0.x exists to make.
 
 - **`Currency` gains `Rub`, `Chf` and `Nok`.** It is exhaustive on purpose, so a
   `match` on it in code outside this workspace has to answer for three more
-  arms. They are here because providers already settle in them: iyzico
-  documents links and payments in all three, and PayTR takes roubles.
+  arms. They are here because providers already document them: francs and
+  kroner on iyzico's payment, card-storage and reporting APIs, all three on an
+  iyzico Link, and roubles at PayTR. Which of them a given iyzico product will
+  take is not one list — see `specs/README.md`.
 
 - **`PaymentId::new` is gone; an identifier says where it came from.**
   `PaymentId::issued(x)` is one the provider issued, and

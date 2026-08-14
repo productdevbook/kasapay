@@ -48,6 +48,30 @@ Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
 in English — grouping by page filed everything twice under two names.
 
+### The currency list is per product, not per company
+
+There is no one list of currencies iyzico takes. Counting every `currency*`
+property that carries an `enum`, across all eleven groups, there are three:
+
+| currencies | where |
+|---|---|
+| TRY USD EUR GBP RUB CHF NOK | `iyzilink`, `onboarding` |
+| TRY USD EUR GBP CHF NOK | `payment`, `cardstorage`, `reporting` |
+| TRY USD EUR | `subscription`, `terminal-host`, two schemas in `payment` |
+
+So a link can be priced in roubles and a payment cannot; a subscription plan
+can be priced in three currencies and a link in seven. A new module has to read
+its own pages rather than inheriting another's list, and `kasapay-core`'s
+`Currency` naming a currency is not the same as iyzico taking it for a given
+product.
+
+Two inside `payment` contradict the rest of `payment`: `PostAuthResponse` and
+`ConvertedPayout` allow only TRY, USD and EUR while the authorisation that
+produces them allows six. A capture in sterling would answer a currency its own
+response schema forbids.
+
+Regenerate it after a refetch with `python3 scripts/currency_enums.py`.
+
 ### How authentication is declared
 
 Two ways, and counting only one of them is how this file twice said something
