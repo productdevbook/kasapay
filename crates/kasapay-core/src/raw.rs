@@ -19,8 +19,23 @@ use std::fmt;
 /// So the body is held as text and parsed on request. [`Raw::json`] is the one
 /// place `serde_json` appears, and a provider that has no JSON can still build a
 /// `Raw` with [`Raw::from_text`].
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// # It does not print itself
+///
+/// `Debug` shows the length and nothing else. A body from a payment provider
+/// carries whatever they chose to send — an IBAN, a masked card number, a
+/// buyer's address, an identity number — and `Raw` is on `Charge`, on every
+/// stored card and on every sub-merchant. One `tracing::debug!("{charge:?}")`
+/// would put all of it in a log file that outlives the request.
+///
+/// Reading it is deliberate: [`Raw::as_str`], [`Raw::json`], [`Raw::text_at`].
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct Raw(Box<str>);
+
+impl fmt::Debug for Raw {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Raw({} bytes)", self.0.len())
+    }
+}
 
 impl Raw {
     /// Keeps a response body exactly as it arrived.
@@ -120,5 +135,19 @@ mod tests {
         let raw = Raw::default();
         assert!(raw.is_empty());
         assert!(raw.json().is_none());
+    }
+
+    /// A body reaches a log only when somebody asks for it by name.
+    #[test]
+    fn debug_shows_the_length_and_not_the_body() {
+        let raw = Raw::from_text(r#"{"iban":"TR330006100519786457841326"}"#);
+        let shown = format!("{raw:?}");
+        assert!(!shown.contains("TR33"), "the body reached Debug: {shown}");
+        assert_eq!(shown, format!("Raw({} bytes)", raw.as_str().len()));
+        // And the deliberate way still works.
+        assert_eq!(
+            raw.text_at("/iban").as_deref(),
+            Some("TR330006100519786457841326")
+        );
     }
 }
