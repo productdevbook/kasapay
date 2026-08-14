@@ -66,6 +66,30 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`paytr::Notice`, the payment notice as a type — and the only place PayTR
+  reports a refusal.** PayTR's status query answers a payment that succeeded or
+  an error, so a refused payment was reachable only as an `ErrorKind::NotFound`
+  from `charge_status`, and a caller had to read a commercial outcome out of an
+  error kind. `Notice::charge(&credentials, currency)` checks PayTR's hash and
+  answers the `Charge` the notice reports: `Status::Captured` for a payment,
+  `Status::Failed` carrying the amount attempted for one PayTR refused, and
+  `ErrorKind::Untrusted` for a notice PayTR did not sign — which must still be
+  answered `OK`, or PayTR retries it for days.
+
+  It takes the currency rather than reading it off the notice, because PayTR's
+  hash covers `merchant_oid`, `status` and `total_amount` and nothing else. The
+  amounts on a notice are in minor units where a refund takes a decimal string;
+  this is what keeps those two formats apart.
+
+  Costs an upgrading caller nothing. Code that verified a notice by hand with
+  `Credentials::verify_callback` still compiles and still works.
+
+  `charge_status` continues to answer `ErrorKind::NotFound` for a payment PayTR
+  refused: PayTR sends nothing that separates it from an order it has never
+  heard of, and rather than invent a distinction, the type now says so — in
+  `Status`'s per-provider table, in the crate documentation, and in the error's
+  own message.
+
 - **`kasapay_iyzico::subscription`, the subscription catalogue: ten of iyzico's
   twenty-four subscription operations.** Create, read, list, replace and delete
   a product, and the same five for the pricing plans that hang off it — the
@@ -195,6 +219,11 @@ all are the kind 0.0.x exists to make.
   so a provider that stopped answering hung the caller forever.
 
 ### Fixed
+
+- **A PayTR payment settled in roubles could not be read back.** The adapter
+  sends `RUB` when it opens one, and the reverse mapping had no arm for it, so
+  `charge_status` and `refunds` answered `ErrorKind::Unsupported` saying kasapay
+  has no currency for PayTR's `RUB` — for a payment this crate had opened.
 
 - **PayTR sent an empty currency rather than refusing one it does not take.**
   `paytr_currency` answered `""` for yen and dinar, and nothing checked it — the

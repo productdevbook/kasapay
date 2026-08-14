@@ -361,6 +361,10 @@ impl PayTr {
     }
 
     /// The status query, which both `charge_status` and `refunds` read.
+    ///
+    /// Anything but a success is [`ErrorKind::NotFound`]: PayTR answers this
+    /// call for a payment that succeeded, and gives a refused payment and an
+    /// order it does not know the same reply.
     async fn status(&self, order: &str) -> Result<(crate::wire::StatusResponse, Raw), Error> {
         let token = self
             .inner
@@ -379,10 +383,11 @@ impl PayTr {
             let error = Error::new(
                 ErrorKind::NotFound,
                 PAYTR,
-                response
-                    .reason
-                    .clone()
-                    .unwrap_or_else(|| "PayTR does not know this payment".to_owned()),
+                response.reason.clone().unwrap_or_else(|| {
+                    "PayTR reports no successful payment against this reference, which is \
+                     also what it answers for one it refused"
+                        .to_owned()
+                }),
             );
             return Err(match response.err_no.clone() {
                 Some(code) => error.with_code(code),
@@ -462,33 +467,17 @@ impl Provider for PayTr {
     /// Reads a payment back by the order reference it was opened with.
     ///
     /// [`payment_id`] builds what this takes out of an [`OrderRef`].
+    ///
+    /// # A refused payment is not distinguishable here
+    ///
+    /// PayTR answers this call for a payment that succeeded and nothing else.
+    /// A payment it refused and an order it has never heard of both come back
+    /// as [`ErrorKind::NotFound`], carrying PayTR's own `err_no`, because that
+    /// is all PayTR sends for either. The refusal itself is reported on the
+    /// payment notice, which [`Notice::charge`](crate::Notice::charge) reads as
+    /// a [`Status::Failed`] charge.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
-        let token = self
-            .inner
-            .config
-            .credentials
-            .token(&[self.inner.config.credentials.merchant_id(), id.as_str()]);
-        let form = [
-            ("merchant_id", self.inner.config.credentials.merchant_id()),
-            ("merchant_oid", id.as_str()),
-            ("paytr_token", token.as_str()),
-        ];
-        let (response, raw) = self
-            .post::<crate::wire::StatusResponse>("/odeme/durum-sorgu", &form)
-            .await?;
-        if response.status.as_deref() != Some("success") {
-            let error = Error::new(
-                ErrorKind::NotFound,
-                PAYTR,
-                response
-                    .reason
-                    .unwrap_or_else(|| "PayTR does not know this payment".to_owned()),
-            );
-            return Err(match response.err_no {
-                Some(code) => error.with_code(code),
-                None => error,
-            });
-        }
+        let (response, raw) = self.status(id.as_str()).await?;
 
         let currency = response
             .currency
@@ -521,8 +510,7 @@ impl Provider for PayTr {
             order: Some(order),
             amount,
             order_amount,
-            // A durum-sorgu that answers success means the payment succeeded;
-            // a failed or unstarted one is a failure status with a reason.
+            // durum-sorgu answers a payment that succeeded and nothing else.
             status: Status::Captured,
             next_action: None,
             provider: PAYTR,
@@ -669,12 +657,16 @@ fn parse_yes_no(value: &str) -> Option<bool> {
     }
 }
 
+/// What PayTR calls a currency, read back.
+///
+/// The same five [`paytr_currency`] sends, lira included under both spellings.
 fn parse_currency(value: &str) -> Result<Currency, Error> {
     match value {
         "TL" | "TRY" => Ok(Currency::Try),
         "USD" => Ok(Currency::Usd),
         "EUR" => Ok(Currency::Eur),
         "GBP" => Ok(Currency::Gbp),
+        "RUB" => Ok(Currency::Rub),
         other => Err(Error::new(
             ErrorKind::Unsupported,
             PAYTR,

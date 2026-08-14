@@ -79,6 +79,12 @@ subscription's twenty-four.
   passing a caller's own string off as the provider's. It is `None` where
   nothing has named the payment yet.
 - `Charge::raw` — the provider's own answer, kept whole.
+- A refusal is read where the provider reports it. PayTR's status query answers
+  a payment that succeeded and nothing else, so `paytr::Notice::charge` — the
+  notice PayTR posts — is where a refused payment becomes a `Status::Failed`
+  charge. The query gives that payment and an order PayTR has never heard of
+  the same answer, and `Status`'s own documentation carries the table of which
+  provider can produce which status.
 - `Stripe::client` — the `async-stripe` client itself, for calls kasapay
   does not make.
 - iyzico's In-Store settles in lira only and requires `customer` and

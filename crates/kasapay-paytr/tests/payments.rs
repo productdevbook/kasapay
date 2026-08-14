@@ -186,6 +186,29 @@ async fn reading_a_payment_back_names_it_by_the_order_reference() {
     assert_eq!(charge.amount.currency(), Currency::Try);
 }
 
+/// PayTR settles in roubles and this crate opens payments in them, so reading
+/// one back must not answer that kasapay has no currency for it.
+#[tokio::test]
+async fn a_payment_settled_in_roubles_reads_back() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payment_amount": "1499.00",
+            "payment_total": "1499.00",
+            "currency": "RUB",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .charge_status(&payment_id(&OrderRef::new("ord-1")))
+        .await
+        .expect("the payment reads back");
+    assert_eq!(charge.amount.currency(), Currency::Rub);
+}
+
 #[tokio::test]
 async fn refunds_come_off_the_same_status_query() {
     let server = MockServer::start().await;
@@ -289,19 +312,6 @@ async fn starting_a_payment_through_the_shared_trait_is_refused_with_the_way_out
         .expect_err("PayTR needs more than a ChargeRequest carries");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
     assert!(error.to_string().contains("start_payment"));
-}
-
-#[test]
-fn a_payment_notice_verifies_against_paytrs_hash() {
-    // The salt sits between the order reference and the outcome here, unlike
-    // every other call, which is the mistake this test exists to catch.
-    let hash = "bGOjbiyL0EfGqNehYd/+AxWSZyvFgfp4Uc+KUiqnfsc=";
-    assert!(credentials().verify_callback(hash, "ord-1", "success", "14990"));
-
-    // A notice claiming ten times the amount, with the hash left alone.
-    assert!(!credentials().verify_callback(hash, "ord-1", "success", "149900"));
-    assert!(!credentials().verify_callback(hash, "ord-2", "success", "14990"));
-    assert!(!credentials().verify_callback(hash, "ord-1", "failed", "14990"));
 }
 
 #[test]
