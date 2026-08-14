@@ -98,6 +98,16 @@ Implement `Provider` in a `kasapay-<name>` crate, add a spec fetcher under
 `scripts/`, add a feature to `kasapay`. Tests run against `wiremock`; no
 credentials, no network.
 
+## Examples
+
+`crates/kasapay/examples/` — a Stripe charge and refund, and an iyzico hosted
+checkout form end to end. Both compile in CI, so they cannot drift from the
+API the way a README snippet can.
+
+```sh
+STRIPE_SECRET_KEY=sk_test_… cargo run -p kasapay --features stripe --example stripe_charge
+```
+
 ## Developing
 
 ```sh
