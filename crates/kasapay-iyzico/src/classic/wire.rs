@@ -178,6 +178,9 @@ pub(crate) struct CheckoutFormResponse {
     pub(crate) token: Option<String>,
     #[serde(rename = "paymentPageUrl")]
     pub(crate) payment_page_url: Option<String>,
+    pub(crate) signature: Option<String>,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: Option<String>,
 }
 
 /// `POST /payment/iyzipos/checkoutform/auth/ecom/detail`.
@@ -203,5 +206,10 @@ pub(crate) struct CheckoutResultResponse {
     pub(crate) basket_id: Option<String>,
     #[serde(rename = "paidPrice")]
     pub(crate) paid_price: Option<String>,
+    pub(crate) price: Option<String>,
     pub(crate) currency: Option<String>,
+    pub(crate) token: Option<String>,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: Option<String>,
+    pub(crate) signature: Option<String>,
 }

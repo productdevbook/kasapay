@@ -23,6 +23,12 @@ pub enum ErrorKind {
     Transport,
     /// The provider answered, but with something this crate cannot read.
     Malformed,
+    /// The answer could not be shown to have come from the provider.
+    ///
+    /// A signature that does not match, or one that is missing where the
+    /// provider always sends it. Not a transport failure and not a decline: it
+    /// means the message may not be theirs, and it must never be acted on.
+    Untrusted,
     /// The provider does not offer what was asked of it.
     Unsupported,
     /// The provider failed on its own side.
@@ -50,6 +56,7 @@ impl fmt::Display for ErrorKind {
             Self::RateLimited => "rate limited",
             Self::Transport => "transport",
             Self::Malformed => "malformed response",
+            Self::Untrusted => "unverified response",
             Self::Unsupported => "unsupported",
             Self::Provider => "provider failure",
         };

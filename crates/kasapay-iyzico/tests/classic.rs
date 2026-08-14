@@ -360,8 +360,11 @@ async fn opening_a_form_gives_a_page_to_send_the_payer_to() {
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "status": "success",
+            "conversationId": "ord-1",
             "token": "cf-token-1",
             "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            // HMAC-SHA256("ord-1:cf-token-1", "secret-key")
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
         })))
         .mount(&server)
         .await;
@@ -397,8 +400,13 @@ async fn a_finished_form_reports_the_payment() {
             "paymentStatus": "SUCCESS",
             "paymentId": "12345678",
             "basketId": "ord-1",
+            "conversationId": "ord-1",
             "paidPrice": "149.90",
+            "price": "149.90",
             "currency": "TRY",
+            "token": "cf-token-1",
+            // Signed over the amounts without their trailing zeros: 149.9.
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
         })))
         .mount(&server)
         .await;
@@ -426,8 +434,13 @@ async fn a_query_that_worked_can_still_report_a_refused_card() {
             "status": "success",
             "paymentStatus": "FAILURE",
             "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
             "paidPrice": "149.90",
+            "price": "149.90",
             "currency": "TRY",
+            "token": "cf-token-1",
+            "signature": "aa62235f8aa986f865101ab8329d38b9a5a5a2c914fd819c1690ac6083afd983",
         })))
         .mount(&server)
         .await;

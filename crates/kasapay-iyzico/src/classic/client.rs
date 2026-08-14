@@ -11,7 +11,7 @@ use kasapay_core::{
 use url::Url;
 
 use crate::classic::checkout::CheckoutForm;
-use crate::classic::wire;
+use crate::classic::{signature, wire};
 use crate::signing::Credentials;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
@@ -25,6 +25,7 @@ pub struct Config {
     base_url: Box<str>,
     credentials: Credentials,
     timeout: Duration,
+    require_signature: bool,
 }
 
 impl Config {
@@ -60,6 +61,7 @@ impl Config {
             base_url: trimmed.into(),
             credentials,
             timeout: Self::DEFAULT_TIMEOUT,
+            require_signature: true,
         })
     }
 
@@ -67,6 +69,21 @@ impl Config {
     #[must_use]
     pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
+        self
+    }
+
+    /// Accepts a response that carries no `signature`.
+    ///
+    /// Off by default, and leaving it off is the right thing: a response whose
+    /// signature is missing is one that has not been shown to come from
+    /// iyzico, and a forged callback is how a merchant ships against a payment
+    /// that never happened. Turn it on only for an endpoint iyzico is known
+    /// not to sign, and say which one in a comment.
+    ///
+    /// A signature that is present but wrong is refused either way.
+    #[must_use]
+    pub const fn allow_unsigned(mut self) -> Self {
+        self.require_signature = false;
         self
     }
 }
@@ -194,6 +211,15 @@ impl Client {
             )
         })?;
 
+        let conversation_id = response
+            .conversation_id
+            .as_deref()
+            .unwrap_or(form.order.as_str());
+        self.check_signature(
+            response.signature.as_deref(),
+            &[conversation_id, token.as_str()],
+        )?;
+
         Ok(Charge {
             // iyzico has no payment id until the payer is done; the form's
             // token is what identifies it until then.
@@ -237,7 +263,48 @@ impl Client {
         ) {
             return Err(error);
         }
+        self.check_signature(
+            response.signature.as_deref(),
+            &[
+                response.payment_status.as_deref().unwrap_or_default(),
+                response.payment_id.as_deref().unwrap_or_default(),
+                response.currency.as_deref().unwrap_or_default(),
+                response.basket_id.as_deref().unwrap_or_default(),
+                response.conversation_id.as_deref().unwrap_or_default(),
+                signature::signed_amount(response.paid_price.as_deref().unwrap_or_default()),
+                signature::signed_amount(response.price.as_deref().unwrap_or_default()),
+                response.token.as_deref().unwrap_or_default(),
+            ],
+        )?;
         into_checkout_charge(response, raw)
+    }
+
+    /// Refuses a response that is not signed, or is signed wrongly.
+    fn check_signature(&self, signature: Option<&str>, values: &[&str]) -> Result<(), Error> {
+        match signature {
+            Some(signature) => {
+                if self
+                    .inner
+                    .config
+                    .credentials
+                    .verify_response(signature, values)
+                {
+                    Ok(())
+                } else {
+                    Err(Error::new(
+                        ErrorKind::Untrusted,
+                        PROVIDER,
+                        "the response signature does not match what iyzico should have sent",
+                    ))
+                }
+            }
+            None if self.inner.config.require_signature => Err(Error::new(
+                ErrorKind::Untrusted,
+                PROVIDER,
+                "the response carried no signature; Config::allow_unsigned accepts one anyway",
+            )),
+            None => Ok(()),
+        }
     }
 
     /// Lists the cards stored against a user key.

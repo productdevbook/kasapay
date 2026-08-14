@@ -45,6 +45,7 @@
 
 pub mod checkout;
 mod client;
+pub mod signature;
 mod wire;
 
 #[doc(inline)]
