@@ -142,7 +142,7 @@ impl PayTr {
         let no_instalment = u8::from(!payment.instalments).to_string();
         let max_instalment = payment.max_instalments.to_string();
         let test_mode = u8::from(self.inner.config.test_mode).to_string();
-        let currency = paytr_currency(payment.amount.currency());
+        let currency = paytr_currency(payment.amount.currency())?;
 
         let token = self.inner.config.credentials.token(&[
             self.inner.config.credentials.merchant_id(),
@@ -584,14 +584,24 @@ pub struct RefundRecord {
 ///
 /// Lira is `TL` rather than the ISO code, and it is the default when the field
 /// is left out — but it goes into the signature, so it is always sent.
-const fn paytr_currency(currency: Currency) -> &'static str {
+/// What PayTR calls a currency, where PayTR has a name for it.
+///
+/// PayTR takes TL, EUR, USD, GBP and RUB and nothing else, and lira is `TL`
+/// rather than `TRY`. Anything else is refused here rather than sent: this
+/// used to answer an empty string, which was signed into the token and posted,
+/// so a payment in yen went to PayTR with no currency at all.
+fn paytr_currency(currency: Currency) -> Result<&'static str, Error> {
     match currency {
-        Currency::Try => "TL",
-        Currency::Usd => "USD",
-        Currency::Eur => "EUR",
-        Currency::Gbp => "GBP",
-        // PayTR takes TL, EUR, USD, GBP and RUB and nothing else.
-        Currency::Jpy | Currency::Kwd => "",
+        Currency::Try => Ok("TL"),
+        Currency::Usd => Ok("USD"),
+        Currency::Eur => Ok("EUR"),
+        Currency::Gbp => Ok("GBP"),
+        Currency::Rub => Ok("RUB"),
+        Currency::Jpy | Currency::Kwd | Currency::Chf | Currency::Nok => Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            format!("PayTR does not settle in {currency}"),
+        )),
     }
 }
 

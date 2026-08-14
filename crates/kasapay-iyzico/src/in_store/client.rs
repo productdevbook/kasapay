@@ -582,15 +582,13 @@ fn failed(response_status: Option<&str>) -> bool {
 ///
 /// The schema types it a string and calls it a currency code, and the only
 /// value iyzico publishes is `"0949"` — ISO 4217's **numeric** code for lira,
-/// zero-padded — where every other API of theirs writes `TRY`. Both are read;
-/// no other numeric code is guessed at, because this API settles in lira only.
+/// zero-padded — where every other API of theirs writes `TRY`. `Currency`
+/// reads either. An absent code is lira, because this API settles in nothing
+/// else.
 fn currency_code(code: Option<&str>) -> Result<Currency, Error> {
     let Some(code) = code else {
         return Ok(Currency::Try);
     };
-    if code.trim_start_matches('0') == "949" {
-        return Ok(Currency::Try);
-    }
     code.parse().map_err(|e: kasapay_core::UnknownCurrency| {
         Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
     })

@@ -337,15 +337,20 @@ impl FastLinkBuilder {
     }
 }
 
-/// The currencies iyzico takes a link in, as far as [`Currency`] can name them.
+/// The currencies iyzico takes a link in.
 ///
 /// iyzico documents seven — `TRY`, `USD`, `EUR`, `GBP`, `RUB`, `CHF`, `NOK` —
-/// and kasapay's `Currency` has names for four of them. The other three are
-/// refused here rather than sent: a link priced in a currency `Currency` cannot
-/// name cannot be built in the first place.
+/// and `Currency` names all seven since #10. Yen and dinar are refused here
+/// rather than sent.
 fn iyzilink_currency(currency: Currency) -> Result<(), LinkError> {
     match currency {
-        Currency::Try | Currency::Usd | Currency::Eur | Currency::Gbp => Ok(()),
+        Currency::Try
+        | Currency::Usd
+        | Currency::Eur
+        | Currency::Gbp
+        | Currency::Rub
+        | Currency::Chf
+        | Currency::Nok => Ok(()),
         Currency::Jpy | Currency::Kwd => Err(LinkError::UnsupportedCurrency(currency)),
     }
 }

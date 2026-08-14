@@ -10,6 +10,11 @@ all are the kind 0.0.x exists to make.
 
 ### Breaking
 
+- **`Currency` gains `Rub`, `Chf` and `Nok`.** It is exhaustive on purpose, so a
+  `match` on it in code outside this workspace has to answer for three more
+  arms. They are here because providers already settle in them: iyzico
+  documents links and payments in all three, and PayTR takes roubles.
+
 - **`PaymentId::new` is gone; an identifier says where it came from.**
   `PaymentId::issued(x)` is one the provider issued, and
   `PaymentId::derived(x, &["field"])` one kasapay composed because the provider
@@ -158,6 +163,12 @@ all are the kind 0.0.x exists to make.
   so a provider that stopped answering hung the caller forever.
 
 ### Fixed
+
+- **PayTR sent an empty currency rather than refusing one it does not take.**
+  `paytr_currency` answered `""` for yen and dinar, and nothing checked it — the
+  empty string was signed into the token and posted, so a payment PayTR cannot
+  settle went out with no currency on it. It is `ErrorKind::Unsupported` before
+  a socket opens now, which is what the iyzico adapters already did.
 
 - **`specs/iyzico/` was missing fields iyzico documents.** The merge script kept
   one fragment per operation and preferred the English one, on the belief that

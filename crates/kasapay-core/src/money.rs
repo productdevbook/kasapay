@@ -27,6 +27,12 @@ pub enum Currency {
     Jpy,
     /// Kuwaiti dinar, whose minor unit is a thousandth.
     Kwd,
+    /// Russian rouble. iyzico and PayTR both settle in it.
+    Rub,
+    /// Swiss franc. iyzico settles in it.
+    Chf,
+    /// Norwegian krone. iyzico settles in it.
+    Nok,
 }
 
 impl Currency {
@@ -40,6 +46,28 @@ impl Currency {
             Self::Gbp => "GBP",
             Self::Jpy => "JPY",
             Self::Kwd => "KWD",
+            Self::Rub => "RUB",
+            Self::Chf => "CHF",
+            Self::Nok => "NOK",
+        }
+    }
+
+    /// The ISO 4217 numeric code, three digits and no padding.
+    ///
+    /// The standard defines this alongside the alphabetic one and some
+    /// providers answer with it: iyzico's In-Store API reports lira as `0949`.
+    #[must_use]
+    pub const fn numeric(self) -> &'static str {
+        match self {
+            Self::Try => "949",
+            Self::Usd => "840",
+            Self::Eur => "978",
+            Self::Gbp => "826",
+            Self::Jpy => "392",
+            Self::Kwd => "414",
+            Self::Rub => "643",
+            Self::Chf => "756",
+            Self::Nok => "578",
         }
     }
 
@@ -48,7 +76,7 @@ impl Currency {
     pub const fn exponent(self) -> u32 {
         match self {
             Self::Jpy => 0,
-            Self::Try | Self::Usd | Self::Eur | Self::Gbp => 2,
+            Self::Try | Self::Usd | Self::Eur | Self::Gbp | Self::Rub | Self::Chf | Self::Nok => 2,
             Self::Kwd => 3,
         }
     }
@@ -68,14 +96,38 @@ pub struct UnknownCurrency(pub String);
 impl FromStr for Currency {
     type Err = UnknownCurrency;
 
+    /// Reads either ISO 4217 code, alphabetic or numeric.
+    ///
+    /// Both, because providers answer with both: iyzico's In-Store API reports
+    /// lira as `0949` where every other API of theirs writes `TRY`. The two
+    /// cannot be confused — one is three letters and the other three digits —
+    /// and leading zeros are ignored, since that is how iyzico pads it.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_uppercase().as_str() {
+        let trimmed = s.trim();
+        if !trimmed.is_empty() && trimmed.bytes().all(|b| b.is_ascii_digit()) {
+            return match trimmed.trim_start_matches('0') {
+                "949" => Ok(Self::Try),
+                "840" => Ok(Self::Usd),
+                "978" => Ok(Self::Eur),
+                "826" => Ok(Self::Gbp),
+                "392" => Ok(Self::Jpy),
+                "414" => Ok(Self::Kwd),
+                "643" => Ok(Self::Rub),
+                "756" => Ok(Self::Chf),
+                "578" => Ok(Self::Nok),
+                _ => Err(UnknownCurrency(s.to_owned())),
+            };
+        }
+        match trimmed.to_ascii_uppercase().as_str() {
             "TRY" => Ok(Self::Try),
             "USD" => Ok(Self::Usd),
             "EUR" => Ok(Self::Eur),
             "GBP" => Ok(Self::Gbp),
             "JPY" => Ok(Self::Jpy),
             "KWD" => Ok(Self::Kwd),
+            "RUB" => Ok(Self::Rub),
+            "CHF" => Ok(Self::Chf),
+            "NOK" => Ok(Self::Nok),
             _ => Err(UnknownCurrency(s.to_owned())),
         }
     }
@@ -344,6 +396,25 @@ mod tests {
             Money::parse("1200.50", Currency::Jpy),
             Err(MoneyError::TooPrecise { .. })
         ));
+    }
+
+    #[test]
+    fn a_numeric_iso_code_reads_as_the_currency_it_names() {
+        // What iyzico's In-Store API actually answers, zero-padded.
+        assert_eq!("0949".parse(), Ok(Currency::Try));
+        assert_eq!("949".parse(), Ok(Currency::Try));
+        assert_eq!("643".parse(), Ok(Currency::Rub));
+        assert_eq!("TRY".parse(), Ok(Currency::Try));
+        assert_eq!("try".parse(), Ok(Currency::Try));
+    }
+
+    #[test]
+    fn a_number_that_names_no_currency_is_refused_rather_than_guessed() {
+        assert!("999".parse::<Currency>().is_err());
+        assert!("0".parse::<Currency>().is_err());
+        assert!("94".parse::<Currency>().is_err());
+        // Not a number and not a code — neither branch may claim it.
+        assert!("9X9".parse::<Currency>().is_err());
     }
 
     #[test]
