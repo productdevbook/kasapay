@@ -144,12 +144,12 @@ paths:
     post:
       tags:
       - GMU Payment
-      description: 'Starts the partial payment flow where the same sale can be covered by different payment
-        instruments. The returned saleNumber is used in the following steps.
+      description: 'Aynı satışın farklı ödeme araçlarıyla karşılanabileceği kısmi ödeme akışını başlatır.
+        Dönen saleNumber sonraki adımlarda kullanılır.
 
         '
       parameters:
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -158,30 +158,30 @@ paths:
               $ref: '#/components/schemas/GmuPaymentRequest'
       responses:
         '200':
-          description: Successful partial payment start result
+          description: Başarılı kısmi ödeme başlatma sonucu
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
         '400':
-          description: Invalid request
+          description: Hatalı istek
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
-      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/partial-payment.md
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md
       security:
       - BearerAuth: []
   /v2/terminal-host/gmu/payment:
     post:
       tags:
       - GMU Payment
-      description: 'Performs a standard sale transaction via the GMU device. `saleDocumentType=1` can
-        be used for e-Invoice and `saleDocumentType=9` for Expense Slip.
+      description: 'GMU cihazı üzerinden standart satış işlemi gerçekleştirir. E-Fatura için `saleDocumentType=1`,
+        Gider Pusulası için `saleDocumentType=9` kullanılabilir.
 
         '
       parameters:
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -190,18 +190,18 @@ paths:
               $ref: '#/components/schemas/GmuPaymentRequest'
       responses:
         '200':
-          description: Successful transaction result
+          description: Başarılı işlem sonucu
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GmuPaymentResponse'
+                $ref: '#/components/schemas/GmuPaymentResponse2'
         '400':
-          description: Invalid request
+          description: Hatalı istek
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GmuPaymentResponse'
-      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/payment-and-transaction-services.md
+                $ref: '#/components/schemas/GmuPaymentResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md
       security:
       - BearerAuth: []
   /v2/terminal-host/gmu/payment/query-transaction-status:
@@ -241,12 +241,12 @@ paths:
     post:
       tags:
       - GMU Payment
-      description: 'Performs a partial or full refund for a completed sale transaction. It is recommended
-        to call the Refundable Sale Info service first to learn which items can be refunded.
+      description: 'Tamamlanmış bir satış işlemi için kısmi veya tam iade gerçekleştirilir. İade yapılabilecek
+        kalemleri öğrenmek için önce İade Edilebilir Satış Bilgisi servisini çağırmanız önerilir.
 
         '
       parameters:
-      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
       requestBody:
         required: true
         content:
@@ -255,18 +255,18 @@ paths:
               $ref: '#/components/schemas/GmuRefundRequest'
       responses:
         '200':
-          description: Successful refund result
+          description: Başarılı iade sonucu
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GmuRefundResponse'
         '400':
-          description: Invalid request
+          description: Hatalı istek
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GmuRefundResponse'
-      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/void-refund.md
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md
       security:
       - BearerAuth: []
   /v2/terminal-host/gmu/payment/refundable-sale-info:
@@ -471,6 +471,13 @@ components:
       schema:
         type: string
       description: Content type
+    ContentTypeHeader2:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: İçerik tipi
   schemas:
     AddedSaleItem:
       type: object
@@ -502,42 +509,74 @@ components:
           type: string
           description: Total price
           format: decimal
+    AddedSaleItem2:
+      type: object
+      properties:
+        name:
+          type: string
+          description: İşleme eklenen satış kalemi adı
+        generic:
+          type: boolean
+          description: Genel ürün bilgisi
+        unitCode:
+          type: string
+          description: Birim kodu
+        taxGroupCode:
+          type: string
+          description: KDV grubu kodu
+        itemQuantity:
+          type: integer
+          description: Ürün adedi
+        unitPriceAmount:
+          type: string
+          description: Birim fiyat
+          format: decimal
+        grossPriceAmount:
+          type: string
+          description: Brüt fiyat
+          format: decimal
+        totalPriceAmount:
+          type: string
+          description: Toplam fiyat
+          format: decimal
+      title: AddedSaleItem
     BuyerInfo:
       type: object
       properties:
         customerType:
           type: integer
-          description: Customer type. 1 individual, 2 corporate
+          description: Müşteri tipi. 1 bireysel, 2 kurumsal
           enum:
           - 1
           - 2
         firstName:
           type: string
-          description: First name
+          description: Ad
         middleName:
           type: string
-          description: Middle name
+          description: İkinci ad
         familyName:
           type: string
-          description: Last name
+          description: Soyad
         companyName:
           type: string
-          description: Company name. Used for corporate customers
+          description: Şirket adı. Kurumsal müşteriler için kullanılır
         taxOfficeCode:
           type: string
-          description: Tax office code
+          description: Vergi dairesi kodu
         taxNumber:
           type: string
-          description: Tax number or Turkish identity number
+          description: Vergi numarası veya TC kimlik numarası
         country:
           type: string
-          description: Country
+          description: Ülke
         city:
           type: string
-          description: City
+          description: Şehir
         district:
           type: string
-          description: District
+          description: İlçe
+      title: BuyerInfo
     CompletePaymentRequest:
       type: object
       required:
@@ -739,27 +778,28 @@ components:
       properties:
         status:
           type: string
-          description: success or failure
+          description: success veya failure
         errorCode:
           type: string
-          description: Error code
+          description: Hata kodu
         errorMessage:
           type: string
-          description: Error message
+          description: Hata mesajı
         conversationId:
           type: string
-          description: Correlation ID
+          description: Korelasyon ID
         systemTime:
           type: integer
-          description: Timestamp epoch ms
+          description: Zaman damgası epoch ms
         saleNumber:
           type: string
-          description: Main payment ID representing the partial payment flow. Used in Add Partial Payment
-            and Complete Partial Payment steps.
+          description: Kısmi ödeme akışını temsil eden ana ödeme ID'si. Add Partial Payment ve Complete
+            Partial Payment adımlarında kullanılır.
         remainingPaymentAmount:
           type: string
-          description: Remaining unpaid amount
+          description: Henüz ödenmemiş kalan tutar
           format: decimal
+      title: GmuPartialPaymentStartResponse
     GmuPaymentRequest:
       type: object
       required:
@@ -775,62 +815,62 @@ components:
       properties:
         locale:
           type: string
-          description: Language code. Default is TR
+          description: Dil kodu. Varsayılan TR
         conversationId:
           type: string
-          description: Request correlation ID. If left empty, a UUID is generated automatically.
+          description: İstek korelasyon ID’si. Boş bırakılırsa otomatik UUID atanır.
         deviceUniqueId:
           type: string
-          description: Unique identifier of the device. Maximum 64 characters
+          description: Cihazın benzersiz kimliği. Maksimum 64 karakter
         transactionReferenceId:
           type: string
-          description: Unique reference ID assigned by the caller for this transaction. It can be used
-            in void and query operations.
+          description: Çağıran tarafın bu işleme atadığı benzersiz referans ID. İptal ve sorgulama işlemlerinde
+            kullanılabilir.
         price:
           type: string
-          description: Gross amount. Must be positive
+          description: Brüt tutar. Pozitif olmalıdır
           format: decimal
         paidPrice:
           type: string
-          description: Final payable amount. Must be positive
+          description: Ödenecek nihai tutar. Pozitif olmalıdır
           format: decimal
         paymentType:
           type: string
-          description: Payment type. Card, Cash, etc.
+          description: Ödeme türü. (Kart, Nakit vb.)
           enum:
           - CARD
           - CASH
         currency:
           type: string
-          description: Currency. Default is TRY
+          description: Para birimi. Varsayılan TRY
           enum:
           - TRY
           - USD
           - EUR
         installment:
           type: integer
-          description: Installment count. Default is 1
+          description: Taksit sayısı. Varsayılan 1
         saleAppName:
           type: string
-          description: Name of the sale application
+          description: Satış uygulamasının adı
         saleAppVersion:
           type: string
-          description: Version of the sale application
+          description: Satış uygulamasının versiyonu
         saleDocumentType:
           type: string
-          description: Document type. 1 for e-Invoice, 9 for Expense Slip
+          description: Belge tipi. E-Fatura için 1, Gider Pusulası için 9
           enum:
           - '1'
           - '9'
         notificationPhone:
           type: string
-          description: Phone number requested for SMS notification
+          description: SMS bildirimi istenilen telefon numarası
         notificationEmail:
           type: string
-          description: Email address requested for notification
+          description: Bildirim istenilen E-posta adresi
         saleItems:
           type: array
-          description: Sale items. At least 1 item is required.
+          description: Satış kalemleri. En az 1 adet olmalıdır.
           minItems: 1
           items:
             $ref: '#/components/schemas/SaleItem'
@@ -838,7 +878,8 @@ components:
           nullable: true
           allOf:
           - $ref: '#/components/schemas/BuyerInfo'
-          description: Must be filled in if the sale is not made to an end consumer.
+          description: Nihai tüketici değilse doldurulması zorunludur.
+      title: GmuPaymentRequest
     GmuPaymentResponse:
       type: object
       properties:
@@ -931,6 +972,99 @@ components:
           type: string
           description: Sale number. Used in partial payment add and complete services referenced in items
             7 and 8
+    GmuPaymentResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu. Başarılı işlemlerde 0 döner
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: İstek ile eşleşen korelasyon ID
+        systemTime:
+          type: integer
+          description: işlem zamanı (epoch ms)
+        deviceUniqueId:
+          type: string
+          description: İşlem yapılan cihazın ID'si
+        transactionReferenceId:
+          type: string
+          description: Çağıran tarafın referans ID'si
+        transactionDateTime:
+          type: string
+          description: İşlemin gerçekleştiği tarih ve saat
+        paymentId:
+          type: string
+          description: Oluşturulan ödeme ID. İade ve iptal işlemlerinde kullanılır.
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatındadır
+        price:
+          type: string
+          description: İşlem tutarı
+          format: decimal
+        installment:
+          type: integer
+          description: Taksit sayısı
+        acquirerId:
+          type: string
+          description: Acquirer banka ID
+        bankMerchantId:
+          type: string
+          description: Banka üye işyeri numarası
+        bankTerminalId:
+          type: string
+          description: Banka terminal ID
+        issuerId:
+          type: string
+          description: Kartı çıkaran kuruluş ID
+        currency:
+          type: string
+          description: Para birimi
+          enum:
+          - TRY
+          - USD
+          - EUR
+        authCode:
+          type: string
+          description: Onay kodu
+        binNumber:
+          type: string
+          description: Kartın BIN numarası. İlk 6 hanedir
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi
+        hostReference:
+          type: string
+          description: Host referans numarası
+        cardType:
+          type: string
+          description: Kart tipi. Örnek CREDIT veya DEBIT
+        batchNo:
+          type: string
+          description: Batch parti numarası
+        stanNo:
+          type: string
+          description: STAN numarası
+        posEntryModeCode:
+          type: string
+          description: POS giriş modu kodu
+        saleItems:
+          type: array
+          description: İşleme eklenen satış kalemleri detayı
+          items:
+            $ref: '#/components/schemas/AddedSaleItem2'
+        saleNumber:
+          type: string
+          description: Satış numarası. Parçalı ödeme ekleme 7. madde ve tamamlama 8. madde servislerinde
+            kullanılır
+      title: GmuPaymentResponse
     GmuQueryTransactionStatusRequest:
       type: object
       description: At least one of paymentId or transactionReferenceId must be sent.
@@ -976,99 +1110,101 @@ components:
       properties:
         locale:
           type: string
-          description: Language code. Default is TR
+          description: Dil kodu. Varsayılan TR
         conversationId:
           type: string
-          description: Correlation ID
+          description: Korelasyon ID
         deviceUniqueId:
           type: string
-          description: Device unique ID. Maximum 64 characters
+          description: Cihaz benzersiz ID. Maksimum 64 karakter
         paymentId:
           type: string
-          description: paymentId returned by the sale service
+          description: Satış servisinden dönen paymentId
         paymentDate:
           type: integer
-          description: Payment date. Must be in YYYYMMDD format
+          description: Ödeme tarihi. YYYYMMDD formatında olmalıdır
         transactionReferenceId:
           type: string
-          description: Reference ID of this refund transaction
+          description: Bu iade işlemine ait referans ID
         saleAppName:
           type: string
-          description: Sale application name
+          description: Satış uygulaması adı
         saleAppVersion:
           type: string
-          description: Sale application version
+          description: Satış uygulaması versiyonu
         notificationPhone:
           type: string
-          description: Phone number requested for SMS notification
+          description: SMS bildirimi istenilen telefon numarası
         notificationEmail:
           type: string
-          description: Email address requested for notification
+          description: Bildirim istenilen E-posta adresi
         saleItems:
           type: array
-          description: Items to be refunded. At least 1 item is required
+          description: İade edilecek kalemler. En az 1 adet olmalıdır
           minItems: 1
           items:
             $ref: '#/components/schemas/SaleItem'
+      title: GmuRefundRequest
     GmuRefundResponse:
       type: object
       properties:
         status:
           type: string
-          description: success or failure
+          description: success veya failure
         errorCode:
           type: string
-          description: Error code
+          description: Hata kodu
         errorMessage:
           type: string
-          description: Error message
+          description: Hata mesajı
         conversationId:
           type: string
-          description: Correlation ID
+          description: Korelasyon ID
         systemTime:
           type: integer
-          description: Timestamp epoch ms
+          description: Zaman damgası epoch ms
         deviceUniqueId:
           type: string
-          description: Device ID used in the transaction
+          description: İşlem yapılan cihaz ID
         transactionReferenceId:
           type: string
-          description: Reference ID of the refund transaction
+          description: İade işlemine ait referans ID
         price:
           type: string
-          description: Refund amount
+          description: İade tutarı
           format: decimal
         vatAmount:
           type: string
-          description: VAT amount
+          description: KDV tutarı
           format: decimal
         currency:
           type: string
-          description: Currency
+          description: Para birimi
         invoiceNo:
           type: string
-          description: Invoice number
+          description: Fatura numarası
         authCode:
           type: string
-          description: Authorization code
+          description: Onay kodu
         hostReference:
           type: string
-          description: Host reference number
+          description: Host referans numarası
         binNumber:
           type: string
-          description: Card BIN number
+          description: Kartın BIN numarası
         lastFourDigits:
           type: string
-          description: Last 4 digits of the card
+          description: Kartın son 4 hanesi
         acquirerName:
           type: string
-          description: Acquirer bank name
+          description: Acquirer banka adı
         acquirerId:
           type: string
-          description: Acquirer bank ID
+          description: Acquirer banka ID
         batchNo:
           type: string
-          description: Batch number
+          description: Batch numarası
+      title: GmuRefundResponse
     GmuRefundableSaleInfoRequest:
       type: object
       required:
@@ -1326,34 +1462,44 @@ components:
       - unitPriceAmount
       - grossPriceAmount
       - totalPriceAmount
+      - relatedSaleItemId
+      - returnAmount
       properties:
+        relatedSaleItemId:
+          type: string
+          description: İade edilecek satış kırılımının ID bilgisi.
         name:
           type: string
-          description: Product or service name
+          description: Ürün veya hizmet adı
         generic:
           type: boolean
-          description: Generic product information
+          description: Genel ürün bilgisi
         unitCode:
           type: string
-          description: Unit code. Example C62 means quantity piece
+          description: Birim kodu. Örnek C62 adet anlamına gelir
         taxGroupCode:
           type: string
-          description: VAT group code
+          description: KDV grubu kodu
         itemQuantity:
           type: integer
-          description: Item quantity
+          description: Ürün adedi
         unitPriceAmount:
           type: string
-          description: Unit price. Must be positive
+          description: Birim fiyat. Pozitif olmalıdır
           format: decimal
         grossPriceAmount:
           type: string
-          description: Gross price. Must be positive
+          description: Brüt fiyat. Pozitif olmalıdır
           format: decimal
         totalPriceAmount:
           type: string
-          description: Total price. Must be positive
+          description: Toplam fiyat. Pozitif olmalıdır
           format: decimal
+        returnAmount:
+          type: string
+          description: İade tutarı
+          format: decimal
+      title: SaleItem
     TailDto:
       type: object
       properties:

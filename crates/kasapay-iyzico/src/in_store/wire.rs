@@ -89,6 +89,16 @@ pub(crate) struct DecryptResponse {
 #[derive(Debug, Deserialize)]
 pub(crate) struct CompleteOperation {
     pub(crate) transaction: Option<SettledTransaction>,
+    /// What a payment that did not go through carries instead of a transaction.
+    #[serde(rename = "paymentFailedResult")]
+    pub(crate) payment_failed_result: Option<PaymentFailedResult>,
+}
+
+/// A payment the payer did not complete, as the callback reports it.
+#[derive(Debug, Deserialize)]
+pub(crate) struct PaymentFailedResult {
+    #[serde(rename = "transactionAmount")]
+    pub(crate) transaction_amount: Option<serde_json::Number>,
 }
 
 /// What the bank did, as the callback reports it.

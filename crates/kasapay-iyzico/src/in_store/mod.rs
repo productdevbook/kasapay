@@ -27,9 +27,37 @@
 //! [`charge_status`](kasapay_core::Provider::charge_status) works, but the
 //! callback is what the flow is built around.
 //!
-//! iyzico documents `/crypt/decrypt` under both `/v3/in-store` and
-//! `/v2/in-store` with identical bodies, and does not say which is current.
-//! This crate calls whichever the configured base points at.
+//! # Which version of `/crypt/decrypt` this is
+//!
+//! **v3.** iyzico documents the operation twice, and the two are not two
+//! versions of one endpoint to choose between: they belong to two separate
+//! integrations, `App2App V2` and `App2App V3`, each with its own documentation
+//! section and its own paths. Only `/crypt/decrypt` is spelled the same in
+//! both. Everything else differs — V2 lists users at
+//! `/v2/in-store/user-info/list` and starts a payment at `/v2/in-store/payment`,
+//! against V3's `/v3/in-store/user/list` and `/v3/in-store/payment/init` — so
+//! pointing [`Config`] at the v2 base to reach v2's decrypt would break every
+//! other call this client makes. This crate implements V3 throughout.
+//!
+//! `specs/iyzico/in-store/latest.yaml` carrying both is not evidence of a
+//! choice either. The v2 entry comes from one OpenAPI fragment on the page
+//! titled *In-Store API V3*, whose six sibling fragments all declare a
+//! `/v3/in-store` server while that one declares `/v2/in-store` — and the
+//! merge script derives each path from its own fragment's server. All seven
+//! say `version: 3.0`. The v3 fragment on iyzico's dedicated decrypt page
+//! declares `/v3/in-store` for both sandbox and production.
+//!
+//! iyzico nowhere says V2 is withdrawn, and its pages are still published.
+//! What is settled is that v3 is this client's version and v2 is not reachable
+//! by reconfiguring it.
+//!
+//! # `currencyCode` is a number
+//!
+//! The one response iyzico publishes in full answers `"currencyCode": "0949"`
+//! — ISO 4217's numeric code for lira, zero-padded, where the rest of their
+//! API writes `TRY`. Both are read here. Nothing else numeric is: this API
+//! settles in lira only, so another number is a surprise worth an error rather
+//! than a guess.
 //!
 //! # What a status query can say
 //!

@@ -5,6 +5,7 @@ document per endpoint, so this sweeps every page listed in llms.txt, pulls the
 fragments out, and merges them into one document per product area.
 """
 
+import copy
 import datetime
 import hashlib
 import json
@@ -107,6 +108,10 @@ def repair(node, in_security: bool = False):
             node["type"] = openapi_type
             if fmt:
                 node["format"] = fmt
+        # A field the fragment's author left blank arrives as a null description,
+        # which OpenAPI refuses. It is an absent description, not an empty one.
+        if node.get("description", "") is None:
+            del node["description"]
         for key, value in node.items():
             repair(value, in_security or key == "securitySchemes")
     elif isinstance(node, list):
@@ -222,24 +227,113 @@ def operations_in(fragment: dict) -> frozenset[tuple[str, str]]:
     )
 
 
-def prefer_english(found: list[tuple[str, dict]]) -> tuple[list[tuple[str, dict]], list[str]]:
-    """Keeps one fragment per operation, the English one where there is a choice.
+def documented_fields(fragment: dict) -> int:
+    """How much a fragment actually documents, counted in schema properties."""
+    return sum(
+        len(schema.get("properties") or {})
+        for schema in fragment.get("components", {}).get("schemas", {}).values()
+        if isinstance(schema, dict)
+    )
 
-    Neither language documents everything: the whole In-Store v3 API appears
-    only in Turkish, and the In-Store OAuth refresh only in English. So the
-    union is the coverage, and English is only a tiebreak on the prose.
+
+def deref(fragment: dict, node):
+    """Follows a `$ref` into the fragment's own schemas, once."""
+    if isinstance(node, dict) and "$ref" in node:
+        name = node["$ref"].rsplit("/", 1)[-1]
+        return fragment.get("components", {}).get("schemas", {}).get(name, {})
+    return node if isinstance(node, dict) else {}
+
+
+def graft(base: dict, mine, theirs, other: dict, added: list[str], trail: str = "") -> None:
+    """Copies into `mine` every property `theirs` documents and it does not."""
+    mine, theirs = deref(base, mine), deref(other, theirs)
+    ours, yours = mine.get("properties"), theirs.get("properties")
+    if isinstance(ours, dict) and isinstance(yours, dict):
+        for name, schema in yours.items():
+            where = f"{trail}{name}"
+            if name not in ours:
+                ours[name] = copy.deepcopy(deref(other, schema))
+                added.append(where)
+            else:
+                graft(base, ours[name], schema, other, added, f"{where}.")
+    if "items" in mine and "items" in theirs:
+        graft(base, mine["items"], theirs["items"], other, added, trail)
+
+
+def schemas_of(fragment: dict, verb: str, path: str):
+    """The request and response schemas one operation names, in document order."""
+    prefix = base_path(fragment)
+    for own, ops in fragment.get("paths", {}).items():
+        if (f"{prefix}{own}" if prefix else own) != path:
+            continue
+        op = ops.get(verb)
+        if not isinstance(op, dict):
+            continue
+        for media in (op.get("requestBody") or {}).get("content", {}).values():
+            if "schema" in media:
+                yield media["schema"]
+        for response in (op.get("responses") or {}).values():
+            for media in (response.get("content") or {}).values():
+                if "schema" in media:
+                    yield media["schema"]
+
+
+def combine_languages(
+    found: list[tuple[str, dict]],
+) -> tuple[list[tuple[str, dict]], list[str]]:
+    """Keeps one fragment per operation, with everything else grafted onto it.
+
+    Neither language documents everything. The whole In-Store v3 API appears
+    only in Turkish and the In-Store OAuth refresh only in English, so the
+    union across pages is the coverage.
+
+    Where both languages describe one operation they are usually the same
+    fragment twice — but not always, and the differences are substance rather
+    than prose. iyzico's cancel-and-refund page carries `reason` and
+    `description` only in Turkish; its In-Store refund is `refundAmount` in one
+    language and `refundPrice` in the other. An earlier version of this script
+    preferred English on the grounds that it was only choosing how things read.
+    It was not: it was dropping documented fields.
+
+    So the fuller fragment is the base — English breaking a tie, because its
+    prose is what a reader gets — and every field any other fragment documents
+    and it does not is grafted onto it. Grafting is per operation rather than
+    per page, because pages overlap without matching: the checkout form's own
+    page describes both initialising and querying, while a second page
+    describes only the query, and the two disagree about where `currency`
+    sits. What was grafted is recorded, because a field iyzico describes in
+    one place and not another is worth somebody looking at.
     """
     chosen: dict[frozenset[tuple[str, str]], tuple[str, dict]] = {}
-    notes: list[str] = []
     for source, fragment in found:
         key = operations_in(fragment)
         if not key:
             continue
         held = chosen.get(key)
-        if held is None:
+        if held is None or (documented_fields(fragment), is_english(source)) > (
+            documented_fields(held[1]),
+            is_english(held[0]),
+        ):
             chosen[key] = (source, fragment)
-        elif is_english(source) and not is_english(held[0]):
-            chosen[key] = (source, fragment)
+
+    notes: list[str] = []
+    for key, (base_source, base) in sorted(chosen.items(), key=lambda pair: pair[1][0]):
+        for verb, path in sorted(key):
+            for source, fragment in found:
+                if fragment is base or (verb, path) not in operations_in(fragment):
+                    continue
+                added: list[str] = []
+                for mine, theirs in zip(
+                    schemas_of(base, verb, path), schemas_of(fragment, verb, path)
+                ):
+                    graft(base, mine, theirs, fragment, added)
+                if added:
+                    language = "Turkish" if is_english(base_source) else "English"
+                    notes.append(
+                        f"{verb.upper()} {path}: {', '.join(sorted(set(added)))} "
+                        f"documented only in {language}, grafted on"
+                    )
+
     turkish_only = sorted(
         f"{verb.upper()} {path}"
         for key, (source, _) in chosen.items()
@@ -411,7 +505,7 @@ def main() -> None:
 
     # Deduplicate across languages before grouping, or the same operation lands
     # in two groups under two names.
-    every, language_notes = prefer_english(every)
+    every, language_notes = combine_languages(every)
 
     by_area: dict[str, list[tuple[str, dict]]] = {}
     for source, fragment in every:
@@ -427,7 +521,7 @@ def main() -> None:
         "pages_swept": len(urls),
         "pages_with_fragments": sum(len({s for s, _ in v}) for v in by_area.values()),
         "fragments": sum(len(v) for v in by_area.values()),
-        "language": "both, English preferred where a page exists in each",
+        "language": "both; one fragment per operation, with what the other language alone documents grafted on",
         "upstream_sha256": hashlib.sha256("".join(bodies).encode()).hexdigest(),
         "notes": language_notes,
         "areas": {},
