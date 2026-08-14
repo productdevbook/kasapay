@@ -6,8 +6,8 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef,
-    PaymentId, Provider, ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, Money, NextAction,
+    OrderRef, PaymentId, Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -544,13 +544,32 @@ impl Provider for PayTr {
         ))
     }
 
+    /// Always [`ErrorKind::Unsupported`].
+    ///
+    /// PayTR's hosted form does store a card against a `utoken`, so a vault
+    /// exists — but listing what is in it is a call this crate does not
+    /// implement, for the same reason charging one is not: the hash that
+    /// signs those calls is documented only as "see the sample code", and a
+    /// signature guessed from a field table fails against every real
+    /// merchant.
+    async fn instruments(&self, _customer: &str) -> Result<Vec<Instrument>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            "PayTR's card vault is not reachable from this crate; the hash that signs \
+             cardstorage calls is documented only as \"see the sample code\"",
+        ))
+    }
+
     /// No separate capture; refunds are partial and may be repeated.
     ///
     /// PayTR has a vault — its hosted form stores a card against a `utoken`
     /// when asked to, and `ctoken` names one of them — but nothing here charges
-    /// one: the hash that signs those calls is documented only as "see the
-    /// sample code", and a signature guessed from a field table fails against
-    /// every real merchant. So [`Capabilities::saved_instruments`] is false.
+    /// or lists one: the hash that signs those calls is documented only as
+    /// "see the sample code", and a signature guessed from a field table fails
+    /// against every real merchant. So [`Capabilities::saved_instruments`] is
+    /// false, and [`Provider::instruments`] answers
+    /// [`ErrorKind::Unsupported`] rather than an empty list.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: false,

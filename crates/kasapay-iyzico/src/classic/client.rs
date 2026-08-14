@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, InstrumentId, Money,
-    NextAction, PaymentId, Provider, ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, InstrumentId,
+    Money, NextAction, PaymentId, Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -1152,6 +1152,16 @@ pub struct BinDetails {
     pub raw: Raw,
 }
 
+/// What to show somebody choosing between saved cards: the alias they gave
+/// one, or its last four digits, in that order. `None` where iyzico sent
+/// neither.
+fn instrument_label(alias: Option<&str>, last_four: Option<&str>) -> Option<Box<str>> {
+    alias
+        .filter(|value| !value.is_empty())
+        .map(Into::into)
+        .or_else(|| last_four.map(|value| format!("•••• {value}").into()))
+}
+
 /// Turns a `status: "failure"` envelope into an error, and anything else into `None`.
 ///
 /// The classic API answers 200 for a refusal and puts the verdict in the body,
@@ -1238,8 +1248,10 @@ fn http_error(status: reqwest::StatusCode, body: &str) -> Error {
 /// [`ChargeRequest`] carries and none of which belongs in it. `charge_status`
 /// cannot, because what identifies an unfinished form is a [`FormToken`] and
 /// this trait names a payment by a [`PaymentId`]. The calls are
-/// [`Client::start_checkout_form`] and [`Client::checkout_result`], and what is
-/// left of the trait here is [`Provider::id`] and [`Provider::capabilities`],
+/// [`Client::start_checkout_form`] and [`Client::checkout_result`]. What is
+/// left of the trait here is [`Provider::id`], [`Provider::instruments`] —
+/// the same `/cardstorage/cards` call [`Client::stored_cards`] makes,
+/// `customer` being the `cardUserKey` — and [`Provider::capabilities`], all of
 /// which a caller can still ask of this client alongside any other.
 #[async_trait::async_trait]
 impl Provider for Client {
@@ -1292,6 +1304,51 @@ impl Provider for Client {
             "voiding a classic payment answers a Reversal rather than a charge; \
              call Client::cancel",
         ))
+    }
+
+    /// Lists the cards stored under a `cardUserKey`.
+    ///
+    /// `customer` is iyzico's `cardUserKey` — the vault, not a payer as such —
+    /// same as it is everywhere else a saved card is named here. Written
+    /// separately from [`Client::stored_cards`] rather than through it: this
+    /// keeps the per-card JSON `cardDetails` carries so
+    /// [`Instrument::raw`](kasapay_core::Instrument::raw) is that card's own
+    /// object rather than nothing, which the typed [`StoredCard`] does not
+    /// keep.
+    async fn instruments(&self, customer: &str) -> Result<Vec<Instrument>, Error> {
+        let body = wire::CardListRequest {
+            locale: "tr",
+            card_user_key: customer,
+        };
+        let (response, raw) = self
+            .post::<_, wire::CardListResponse>("/cardstorage/cards", &body)
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused the card list",
+        ) {
+            return Err(error);
+        }
+        let items: Vec<serde_json::Value> = raw
+            .json()
+            .and_then(|value| value.get("cardDetails").and_then(|v| v.as_array().cloned()))
+            .unwrap_or_default();
+        Ok(response
+            .card_details
+            .unwrap_or_default()
+            .into_iter()
+            .zip(items)
+            .map(|(item, item_raw)| Instrument {
+                id: InstrumentId::issued(item.card_token.unwrap_or_default()),
+                label: instrument_label(
+                    item.card_alias.as_deref(),
+                    item.last_four_digits.as_deref(),
+                ),
+                raw: Raw::from_json(&item_raw),
+            })
+            .collect())
     }
 
     /// No separate capture, refunds the way iyzico documents them, and a card

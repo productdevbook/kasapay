@@ -128,6 +128,40 @@ async fn stored_cards_keeps_a_brand_it_does_not_recognise_rather_than_dropping_i
     assert_eq!(cards[0].brand, Brand::Other("some_future_network".into()));
 }
 
+/// `Provider::instruments` is `Stripe::stored_cards` behind the shared trait,
+/// with the brand and last four turned into a label.
+#[tokio::test]
+async fn provider_instruments_lists_the_same_cards() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/customers/cus_kasapay1/payment_methods"))
+        .and(query_param("type", "card"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(payment_method_list(
+                &[payment_method(
+                    "pm_1Pgc75B7WZ01zgkWlHVgdEGJ",
+                    "visa",
+                    "4242",
+                )],
+                false,
+            )),
+        )
+        .mount(&server)
+        .await;
+
+    let instruments = client(&server)
+        .instruments("cus_kasapay1")
+        .await
+        .expect("the list reads back");
+
+    assert_eq!(instruments.len(), 1);
+    assert_eq!(
+        instruments[0].id,
+        InstrumentId::issued("pm_1Pgc75B7WZ01zgkWlHVgdEGJ")
+    );
+    assert_eq!(instruments[0].label.as_deref(), Some("visa •••• 4242"));
+}
+
 #[tokio::test]
 async fn a_customer_with_no_saved_cards_is_an_empty_list_not_an_error() {
     let server = MockServer::start().await;

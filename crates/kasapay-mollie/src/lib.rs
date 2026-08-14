@@ -154,6 +154,10 @@
 //! `valid`, `pending` or `invalid`, and Mollie's own enum has no fourth value
 //! for "revoked" — see its documentation for what that means for telling the
 //! two apart.
+//! [`Provider::instruments`](kasapay_core::Provider::instruments) is
+//! [`Mollie::mandates`] behind the shared trait, with `method` — `directdebit`,
+//! `creditcard`, `paypal` — as the label, because this crate models no IBAN
+//! and no card for a mandate to show more than that.
 //!
 //! [`Mollie::charge_with_mandate`] is the charge itself: `sequenceType:
 //! recurring` with the `mandateId`, and
