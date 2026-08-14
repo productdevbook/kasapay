@@ -43,14 +43,30 @@ def fetch(url: str) -> str:
 
 def pages() -> list[str]:
     index = fetch(INDEX)
-    urls = sorted(set(re.findall(r"https://docs\.iyzico\.com/[^)\s]+\.md", index)))
-    # The English pages carry the same fragments as the Turkish ones.
-    return [u for u in urls if "/en/" not in u]
+    return sorted(set(re.findall(r"https://docs\.iyzico\.com/[^)\s]+\.md", index)))
 
 
-def area(url: str) -> str:
+def path_parts(url: str) -> list[str]:
     parts = url.removeprefix("https://docs.iyzico.com/").removesuffix(".md").split("/")
-    return "/".join(parts[:2]) if len(parts) > 1 else parts[0]
+    return parts[1:] if parts and parts[0] == "en" else parts
+
+
+def is_english(url: str) -> bool:
+    return url.startswith("https://docs.iyzico.com/en/")
+
+
+VERSION = re.compile(r"^v\d+$")
+
+
+def api_group(full_path: str) -> str:
+    """Which part of the API a path belongs to, from the path itself.
+
+    Not from the documentation URL: the same API is filed under `urunler/abonelik`
+    in Turkish and `products/subscription` in English, so grouping by page would
+    file every operation twice under two names.
+    """
+    segments = [s for s in full_path.strip("/").split("/") if s and not VERSION.match(s)]
+    return segments[0] if segments else "unfiled"
 
 
 def fragments(markdown: str):
@@ -102,11 +118,51 @@ def base_path(fragment) -> str:
     return ""
 
 
-def merge(area_name: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
+def operations_in(fragment: dict) -> frozenset[tuple[str, str]]:
+    """Which operations a fragment describes, as (verb, full path)."""
+    prefix = base_path(fragment)
+    return frozenset(
+        (verb, f"{prefix}{path}" if prefix else path)
+        for path, ops in fragment.get("paths", {}).items()
+        for verb, op in ops.items()
+        if isinstance(op, dict)
+    )
+
+
+def prefer_english(found: list[tuple[str, dict]]) -> tuple[list[tuple[str, dict]], list[str]]:
+    """Keeps one fragment per operation, the English one where there is a choice.
+
+    Neither language documents everything: the whole In-Store v3 API appears
+    only in Turkish, and the In-Store OAuth refresh only in English. So the
+    union is the coverage, and English is only a tiebreak on the prose.
+    """
+    chosen: dict[frozenset[tuple[str, str]], tuple[str, dict]] = {}
+    notes: list[str] = []
+    for source, fragment in found:
+        key = operations_in(fragment)
+        if not key:
+            continue
+        held = chosen.get(key)
+        if held is None:
+            chosen[key] = (source, fragment)
+        elif is_english(source) and not is_english(held[0]):
+            chosen[key] = (source, fragment)
+    turkish_only = sorted(
+        f"{verb.upper()} {path}"
+        for key, (source, _) in chosen.items()
+        if not is_english(source)
+        for verb, path in key
+    )
+    if turkish_only:
+        notes.append(f"documented in Turkish only: {', '.join(turkish_only)}")
+    return sorted(chosen.values(), key=lambda pair: pair[0]), notes
+
+
+def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
     spec = {
         "openapi": "3.0.3",
         "info": {
-            "title": f"iyzico — {area_name}",
+            "title": f"iyzico — {group}",
             "version": "unversioned",
             "description": (
                 "Reassembled from the per-endpoint fragments embedded in "
@@ -188,11 +244,19 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=8) as pool:
         bodies = list(pool.map(fetch, urls))
 
-    by_area: dict[str, list[tuple[str, dict]]] = {}
+    every: list[tuple[str, dict]] = []
     for url, body in zip(urls, bodies, strict=True):
-        found = list(fragments(body))
-        if found:
-            by_area.setdefault(area(url), []).extend((url, f) for f in found)
+        every.extend((url, fragment) for fragment in fragments(body))
+
+    # Deduplicate across languages before grouping, or the same operation lands
+    # in two groups under two names.
+    every, language_notes = prefer_english(every)
+
+    by_area: dict[str, list[tuple[str, dict]]] = {}
+    for source, fragment in every:
+        groups = {api_group(path) for _, path in operations_in(fragment)}
+        for group in groups:
+            by_area.setdefault(group, []).append((source, fragment))
 
     import yaml
 
@@ -200,11 +264,11 @@ def main() -> None:
         "fetched": day,
         "source": INDEX,
         "pages_swept": len(urls),
-        "pages_with_fragments": sum(
-            len({s for s, _ in v}) for v in by_area.values()
-        ),
+        "pages_with_fragments": sum(len({s for s, _ in v}) for v in by_area.values()),
         "fragments": sum(len(v) for v in by_area.values()),
+        "language": "both, English preferred where a page exists in each",
         "upstream_sha256": hashlib.sha256("".join(bodies).encode()).hexdigest(),
+        "notes": language_notes,
         "areas": {},
     }
 

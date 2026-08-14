@@ -1,0 +1,4719 @@
+openapi: 3.0.3
+info:
+  title: iyzico — payment
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: Ön Provizyon
+  description: Ön provizyon işlemleri (başlatma/kapama/iptal)
+paths:
+  /payment/3dsecure/auth:
+    post:
+      summary: Create 3DS Payment
+      description: Finalizes the payment after successful 3D authentication.
+      tags:
+      - 3DS Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreeDSAuthRequest'
+      responses:
+        '200':
+          description: Successful response (payment completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse6'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md
+  /payment/3dsecure/initialize:
+    post:
+      summary: Initialize 3DS Payment
+      description: Starts a 3D Secure session and returns an htmlContent value for 3DS authentication.
+      tags:
+      - 3DS Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreeDSInitializeRequest'
+      responses:
+        '200':
+          description: Successful response (3DS initialized)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreeDSInitializeResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse6'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md
+  /payment/3dsecure/initialize/preauth:
+    post:
+      summary: Initialize 3DS Payment
+      description: 3D Secure oturumu başlatır ve 3DS doğrulama için htmlContent değeri döner.
+      tags:
+      - 3DS Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreeDSInitializeRequest2'
+      responses:
+        '200':
+          description: Başarılı yanıt (3DS başlatıldı)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreeDSInitializeResponse2'
+        '400':
+          description: Hatalı istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse10'
+      x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md
+  /payment/auth:
+    post:
+      summary: Crate Payment with Stored Card (NON3D)
+      description: After card storage, you can send a “NON3D or 3DS” payment request using the returned
+        `cardUserKey` and `cardToken`. Unlike a standard payment request, card details are sent via `cardUserKey`
+        and `cardToken`. Suitable for one-click payments or subscription cycles. Example below shows NON3D.
+      tags:
+      - Card Storage
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentAuthSavedCardRequest'
+      responses:
+        '200':
+          description: Successful response — payment captured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAuthSuccessResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/card-storage.md
+  /payment/bin/check:
+    post:
+      summary: BIN Service Request
+      description: Retrieves card attributes in BIN inquiries such as issuing bank, card family, and card
+        scheme. To obtain the desired information, simply include the required parameters in your request.
+        The API will respond with comprehensive details.
+      tags:
+      - BIN
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BINCheckRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BINCheckResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/installment-and-bin-service.md
+  /payment/cancel:
+    post:
+      summary: Cancel
+      description: Used to cancel a payment.
+      tags:
+      - Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelPaymentRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelPaymentResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/refund-and-cancel.md
+  /payment/detail:
+    post:
+      summary: Retrieve Payment Result
+      description: Retrieves the result of a payment.
+      tags:
+      - Non3D Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - paymentId
+              properties:
+                locale:
+                  type: string
+                  description: Language code. Allowed values; tr, en. Default; tr
+                  enum:
+                  - tr
+                  - en
+                paymentId:
+                  type: string
+                  description: Payment transaction ID.
+                paymentConversationId:
+                  type: string
+                  description: ConversationId of the payment transaction. Required if paymentId is not
+                    sent.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponseTwo'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/retrieve-payment.md
+  /payment/item:
+    put:
+      summary: Submerchant Item/Price Update
+      description: 'This service is used to modify the payout amount of the submerchant or update the
+        submerchant information based on a single paymentTransaction
+
+        '
+      tags:
+      - Marketplace
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemPayoutUpdateRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPayoutUpdateResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md
+  /payment/iyzipos/checkoutform/auth/ecom/detail:
+    post:
+      summary: Checkout Form (CF) Retrieve
+      description: After the CF payment form is completed, queries the result using the `token`.
+      tags:
+      - CheckoutForm
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CFRetrieveRequest'
+      responses:
+        '200':
+          description: Successful response (payment completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CFRetrieveResponse'
+        '400':
+          description: Failed response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse8'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/checkoutform.md
+  /payment/iyzipos/checkoutform/initialize/auth/ecom:
+    post:
+      summary: Checkout Form (CF) Initialize
+      description: Starts a Checkout Form session and returns `checkoutFormContent` / `paymentPageUrl`
+        and a `token` to render the payment page.
+      tags:
+      - CheckoutForm
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CFInitializeRequest'
+      responses:
+        '200':
+          description: Successful response (CF initialized)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CFInitializeResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse8'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/checkoutform.md
+  /payment/iyzipos/checkoutform/initialize/preauth/ecom:
+    post:
+      summary: Ödeme Formu (CF) Başlatma
+      description: Ödeme formu (Checkout Form) oturumu başlatır ve ödeme sayfasını göstermek için `checkoutFormContent`
+        / `paymentPageUrl` ve işleme ait `token` döner.
+      tags:
+      - CheckoutForm
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CFInitializeRequest2'
+      responses:
+        '200':
+          description: Başarılı yanıt (CF başlatıldı)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CFInitializeResponse2'
+        '400':
+          description: Hatalı istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse11'
+      x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md
+  /payment/iyzipos/installment:
+    post:
+      summary: Installment Service Request
+      description: The API provides installment counts, rates and amounts, as well as attributes such
+        as issuing bank, card family and card scheme. It lists available installment options based on
+        the given BIN and amount. You can also query installment rates with only the BIN or only the amount.
+      tags:
+      - Installment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallmentRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallmentResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/installment-and-bin-service.md
+  /payment/iyzipos/item/approve:
+    post:
+      summary: Approve Item
+      description: To approve an item, provide the split id (**paymentTransactionId**). The id is returned
+        by the payment service.
+      tags:
+      - Marketplace
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemApproveRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemActionResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md
+  /payment/iyzipos/item/disapprove:
+    post:
+      summary: Dissapprove
+      description: To disapprove a product, the related paymentTransactionId must be provided in the request.
+        The id (paymentTransactionId) of the disapproved payment transaction will be returned in the response.
+      tags:
+      - Marketplace
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemDisapproveRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemActionResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md
+  /payment/pay-with-iyzico/initialize:
+    post:
+      summary: Pay with iyzico (PWI) — Initialize
+      description: Starts a PWI session; returns the token and page URL for redirection.
+      tags:
+      - Pay with iyzico
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PwiInitializeRequest'
+      responses:
+        '200':
+          description: Successful response (PWI initialized)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PwiInitializeResponse'
+        '400':
+          description: Bad request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse9'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md
+  /payment/postauth:
+    post:
+      tags:
+      - Ön Provizyon
+      summary: Provizyon Kapama (PostAuth)
+      description: 'Başarılı şekilde ön provizyonu alınmış bir ödemeyi **satışa çevirir**.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostAuthRequest'
+      responses:
+        '200':
+          description: Başarılı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostAuthResponse'
+      x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md
+  /payment/preauth:
+    post:
+      summary: Create Non3D Payment
+      description: 3D Secure olmadan ödeme başlatır.
+      tags:
+      - Non3D Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - paidPrice
+              - price
+              - currency
+              - paymentCard
+              - buyer
+              - shippingAddress
+              - billingAddress
+              - basketItems
+              properties:
+                conversationId:
+                  type: string
+                  description: İstek/yanıt eşleştirmesi için benzersiz ID.
+                locale:
+                  type: string
+                  description: Dil kodu. Alabileceği değerler; tr, en. Default; tr
+                  enum:
+                  - tr
+                  - en
+                paidPrice:
+                  type: decimal
+                  description: Kullanıcıdan tahsil edilecek toplam tutar.
+                price:
+                  type: decimal
+                  description: Sepet toplam tutarı.
+                paymentGroup:
+                  type: string
+                  description: Ödeme grubu. Default; PRODUCT.
+                  enum:
+                  - PRODUCT
+                  - LISTING
+                  - SUBSCRIPTION
+                currency:
+                  type: string
+                  description: Para birimi. Default; TRY.
+                  enum:
+                  - TRY
+                  - USD
+                  - EUR
+                  - GBP
+                  - NOK
+                  - CHF
+                installment:
+                  type: integer
+                  description: Taksit sayısı. Gönderilmezse tek çekim (1) olarak işlem sağlanılabilir.
+                  enum:
+                  - 1
+                  - 2
+                  - 3
+                  - 6
+                  - 9
+                  - 12
+                basketId:
+                  type: string
+                  description: Sepet ID’si.
+                paymentChannel:
+                  type: string
+                  description: Ödeme kanalı.
+                  enum:
+                  - WEB
+                  - MOBILE
+                  - MOBILE_WEB
+                  - MOBILE_IOS
+                  - MOBILE_ANDROID
+                  - MOBILE_WINDOWS
+                  - MOBILE_TABLET
+                  - MOBILE_PHONE
+                paymentCard:
+                  description: Kart Bilgileri.
+                  $ref: '#/components/schemas/PaymentCard'
+                buyer:
+                  description: Alıcı Bilgileri.
+                  $ref: '#/components/schemas/Buyer2'
+                shippingAddress:
+                  description: Kargo Adresi. Sepetteki ürünlerden en az bir tanesinin, itemType "PHYSICAL"
+                    olması durumunda gönderilmesi zorunludur. Tüm ürünler "VIRTUAL" olduğu taktirde gönderilmesi
+                    gerekmez.
+                  $ref: '#/components/schemas/Address4'
+                billingAddress:
+                  description: Fatura Adresi.
+                  $ref: '#/components/schemas/Address4'
+                basketItems:
+                  type: array
+                  description: Sepetteki ürünler.
+                  items:
+                    $ref: '#/components/schemas/BasketItem4'
+                paymentSource:
+                  type: string
+                  description: Bu alan, partner firmalar tarafından iletilen ödeme kaynağı bilgisidir.
+                    Eğer bir altyapı sağlayıcısıysanız ve iyzico ile entegrasyon/iş birliğiniz bulunuyorsa
+                    bu parametreyi gönderebilirsiniz.
+      responses:
+        '200':
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse2'
+        '400':
+          description: Hatalı istek / doğrulama hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse12'
+      x-iyzico-source: https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md
+  /payment/refund:
+    post:
+      summary: Refund
+      description: 'Used to refund a payment. The refund is executed over **paymentTransactionId** (per
+        basket item). You can perform a **full** or **partial** refund for the payment amount.
+
+        '
+      tags:
+      - Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPaymentResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/refund-and-cancel.md
+  /payment/v2/3dsecure/auth:
+    post:
+      summary: Create 3DS v2 Payment
+      description: After the verification step, both the v1 and the new-generation v2 endpoints can be
+        used to finalize the payment. However, to align with more advanced and secure technologies, the
+        use of the v2 endpoint is recommended.
+      tags:
+      - 3DS Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreeDSV2AuthRequest'
+      responses:
+        '200':
+          description: Successful response (payment completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreeDSV2PaymentResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse7'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md
+  /v2/payment/refund:
+    post:
+      summary: Refund V2
+      description: 'Enables refunds over **paymentId**. No item breakdown is required; the system determines
+        the basket item to refund. You can perform a **full** or **partial** refund for the payment amount.
+
+        '
+      tags:
+      - Payment
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentV2Request'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPaymentV2Response'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/refund-and-cancel.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    Address:
+      type: object
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Full address.
+        zipCode:
+          type: string
+          description: Zip / postal code.
+        contactName:
+          type: string
+          description: Contact person.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+    Address2:
+      type: object
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Full address.
+        zipCode:
+          type: string
+          description: Postal code.
+        contactName:
+          type: string
+          description: Contact name.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+    Address3:
+      type: object
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Tam adres.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        contactName:
+          type: string
+          description: İletişim adı.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+    Address4:
+      type: object
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Tam adres.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        contactName:
+          type: string
+          description: İlgili kişi.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+    BINCheckRequest:
+      type: object
+      required:
+      - binNumber
+      properties:
+        locale:
+          type: string
+          description: Language preference used in requests and responses.
+          enum:
+          - tr
+          - en
+        binNumber:
+          type: string
+          description: BIN to query (8 digits).
+        conversationId:
+          type: string
+          description: Request/response correlation ID. The value sent in the request is returned as-is
+            in the response.
+    BINCheckResponse:
+      type: object
+      properties:
+        binNumber:
+          type: string
+          description: Queried BIN.
+        cardType:
+          type: string
+          description: Card type.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Card scheme.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Card family.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - Enpara Bank DC
+          - QNB CC
+          - QNB DC
+          - Ziraat Bankası DC
+          - BankkartCombo
+          - Albaraka Türk DC
+          - Vakıfbank DC
+          - Neo
+          - Paracard
+          - TEB DC
+          - Kuveyt Türk CC
+          - Kuveyt Türk DC
+          - Shop&Fly
+          - Halkbank DC
+          - Papara Card
+          - Tlcard
+          - Tosla
+          - Bankamatik
+          - ING Bank DC
+          - Sipay DC
+          - T.O.M.Kt.Bnk.A.Ş. CC
+          - Turk Telekom
+          - PTT DC
+          - Miles&Smiles
+          - Denizbank DC
+        bankName:
+          type: string
+          description: Bank name.
+        bankCode:
+          type: integer
+          description: Bank code.
+        commercial:
+          type: integer
+          description: Commercial card flag (0; Personal, 1; Commercial).
+          enum:
+          - 0
+          - 1
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID matching the request.
+    BaseResponse:
+      type: object
+      description: Standard response fields.
+      properties:
+        status:
+          type: string
+          description: It shows the result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: If sent in the request, echoed back in the response for correlation.
+        price:
+          type: decimal
+          description: Basket total amount.
+        paidPrice:
+          type: decimal
+          description: Total amount charged.
+        installment:
+          type: integer
+          description: Installment count.
+        paymentId:
+          type: string
+          description: Payment ID.
+        fraudStatus:
+          type: integer
+          description: 'Payment status based on fraud filters. If the fraud risk score is low, the payment
+            is approved immediately; if high, it is rejected.
+
+            - **1**: Approved.
+
+            - **0**: Under review — wait for notification.
+
+            - **-1**: Rejected.
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Merchant’s own installment/commission rate. If `price=100` and `paidPrice=110`,
+            the merchant rate is 10%. Informational.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Merchant’s own commission amount (e.g., 10 in the example above). Informational.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico commission rate amount.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico transaction fee for the payment.
+        cardType:
+          type: string
+          description: Card type.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Card association.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+        cardFamily:
+          type: string
+          description: Card family.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - Enpara Bank DC
+          - QNB CC
+          - QNB DC
+          - Ziraat Bankası DC
+          - BankkartCombo
+          - Albaraka Türk DC
+          - Vakıfbank DC
+          - Neo
+          - Paracard
+          - TEB DC
+          - Kuveyt Türk CC
+          - Kuveyt Türk DC
+          - Shop&Fly
+          - Halkbank DC
+          - Papara Card
+          - Tlcard
+          - Tosla
+          - Bankamatik
+          - ING Bank DC
+          - Sipay DC
+          - T.O.M.Kt.Bnk.A.Ş. CC
+          - Turk Telekom
+          - PTT DC
+          - Miles&Smiles
+          - Denizbank DC
+        binNumber:
+          type: string
+          description: BIN (first 8 digits).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card.
+        basketId:
+          type: string
+          description: Basket ID.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - NOK
+          - CHF
+          - GBP
+        itemTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemTransaction'
+        authCode:
+          type: string
+          description: Authorization code.
+        phase:
+          type: string
+        hostReference:
+          type: string
+          description: Bank-provided hostReference value for the payment.
+        signature:
+          type: string
+          description: Signature value that can be used for verification.
+    BasketItem:
+      type: object
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      properties:
+        id:
+          type: string
+          description: Product ID.
+        price:
+          type: decimal
+          description: Product price.
+        name:
+          type: string
+          description: Product name.
+        category1:
+          type: string
+          description: Primary category.
+        category2:
+          type: string
+          description: Secondary category (optional).
+        itemType:
+          type: string
+          description: Item type.
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+        subMerchantKey:
+          type: string
+          description: Sub-merchant key for the service provider. Not used in the standard business model;
+            required only for marketplace model.
+        subMerchantPrice:
+          type: decimal
+          description: Amount to be transferred to the sub-merchant. Not used in the standard business
+            model; required only for marketplace model.
+    BasketItem2:
+      type: object
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      properties:
+        id:
+          type: string
+          description: Item ID.
+        price:
+          type: decimal
+          description: Item price.
+        name:
+          type: string
+          description: Item name.
+        category1:
+          type: string
+          description: Main category.
+        category2:
+          type: string
+          description: Subcategory (optional).
+        itemType:
+          type: string
+          description: Item type.
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+        subMerchantKey:
+          type: string
+          description: Sub-merchant key for the service provider. Not sent in the standard business model;
+            required only for marketplace model.
+        subMerchantPrice:
+          type: string
+          description: Amount to be transferred to the sub-merchant. Not sent in the standard business
+            model; required only for marketplace model.
+    BasketItem3:
+      type: object
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      properties:
+        id:
+          type: string
+          description: Item ID.
+        price:
+          type: decimal
+          description: Item price.
+        name:
+          type: string
+          description: Item name.
+        category1:
+          type: string
+          description: Primary category.
+        category2:
+          type: string
+          description: Secondary category (optional).
+        itemType:
+          type: string
+          description: Item type.
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+        subMerchantKey:
+          type: string
+          description: Sub-merchant key for the service provider. Not sent in the standard business model.
+            Required only for the marketplace model.
+        subMerchantPrice:
+          type: string
+          description: Amount to be transferred to the sub-merchant. Not sent in the standard business
+            model. Required only for the marketplace model.
+    BasketItem4:
+      type: object
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      properties:
+        id:
+          type: string
+          description: Ürün ID.
+        price:
+          type: decimal
+          description: Ürün fiyatı.
+        name:
+          type: string
+          description: Ürün adı.
+        category1:
+          type: string
+          description: Ana kategori.
+        category2:
+          type: string
+          description: Alt kategori (opsiyonel).
+        itemType:
+          type: string
+          description: Ürün tipi.
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+        subMerchantKey:
+          type: string
+          description: Hizmeti veren alt üye işyerine ait, alt üye işyeri anahtarı bilgisi. Standart iş
+            modelinde gönderilmez. Sadece pazaryeri iş modelinde gönderilmesi gerekmektedir.
+        subMerchantPrice:
+          type: string
+          description: Alt üye işyerine aktarılacak tutar. Standart iş modelinde gönderilmez. Sadece pazaryeri
+            iş modelinde gönderilmesi gerekmektedir.
+    Buyer:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Buyer ID.
+        name:
+          type: string
+          description: First name.
+        surname:
+          type: string
+          description: Last name.
+        identityNumber:
+          type: string
+          description: National ID number (Türkiye).
+        email:
+          type: string
+          description: Email.
+        gsmNumber:
+          type: string
+          description: Phone number.
+        registrationDate:
+          type: string
+          description: Registration date (yyyy-MM-dd HH:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Last login date (yyyy-MM-dd HH:mm:ss).
+        registrationAddress:
+          type: string
+          description: Address.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+        zipCode:
+          type: string
+          description: Zip / postal code.
+        ip:
+          type: string
+          description: IP address.
+    Buyer2:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Müşteri ID’si.
+        name:
+          type: string
+          description: Adı.
+        surname:
+          type: string
+          description: Soyadı.
+        identityNumber:
+          type: string
+          description: TC Kimlik Numarası.
+        email:
+          type: string
+          description: E-posta.
+        gsmNumber:
+          type: string
+          description: Telefon numarası.
+        registrationDate:
+          type: string
+          description: Kayıt tarihi (yyyy-MM-dd HH:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Son giriş tarihi (yyyy-MM-dd HH:mm:ss).
+        registrationAddress:
+          type: string
+          description: Adres.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        ip:
+          type: string
+          description: IP adresi.
+    Buyer3DS:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Customer ID.
+        name:
+          type: string
+          description: First name.
+        surname:
+          type: string
+          description: Last name.
+        identityNumber:
+          type: string
+          description: Identity/ID number.
+        email:
+          type: string
+          description: Email address.
+        gsmNumber:
+          type: string
+          description: Mobile phone.
+        registrationDate:
+          type: string
+          description: Registration date (YYYY-MM-DD HH:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Last login date (YYYY-MM-DD HH:mm:ss).
+        registrationAddress:
+          type: string
+          description: Registered address.
+        city:
+          type: string
+          description: City code/name.
+        country:
+          type: string
+          description: Country.
+        zipCode:
+          type: string
+          description: Postal code.
+        ip:
+          type: string
+          description: IP address.
+    Buyer3DS2:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Müşteri ID’si.
+        name:
+          type: string
+          description: Ad.
+        surname:
+          type: string
+          description: Soyad.
+        identityNumber:
+          type: string
+          description: Kimlik numarası.
+        email:
+          type: string
+          description: E-posta.
+        gsmNumber:
+          type: string
+          description: Cep telefonu.
+        registrationDate:
+          type: string
+          description: Kayıt tarihi (YYYY-MM-DD hh:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Son giriş tarihi (YYYY-MM-DD hh:mm:ss).
+        registrationAddress:
+          type: string
+          description: Kayıtlı adres.
+        city:
+          type: string
+          description: Şehir kodu/adı.
+        country:
+          type: string
+          description: Ülke.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        ip:
+          type: string
+          description: IP adresi.
+    BuyerCF:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Customer ID.
+        name:
+          type: string
+          description: First name.
+        surname:
+          type: string
+          description: Last name.
+        identityNumber:
+          type: string
+          description: National ID number.
+        email:
+          type: string
+          description: Email.
+        gsmNumber:
+          type: string
+          description: Mobile phone number.
+        registrationDate:
+          type: string
+          description: Registration date (YYYY-MM-DD hh:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Last login date (YYYY-MM-DD hh:mm:ss).
+        registrationAddress:
+          type: string
+          description: Registered address.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+        zipCode:
+          type: string
+          description: Postal code.
+        ip:
+          type: string
+          description: IP address.
+    BuyerCF2:
+      type: object
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      properties:
+        id:
+          type: string
+          description: Müşteri ID’si.
+        name:
+          type: string
+          description: Ad.
+        surname:
+          type: string
+          description: Soyad.
+        identityNumber:
+          type: string
+          description: Kimlik numarası.
+        email:
+          type: string
+          description: E-posta.
+        gsmNumber:
+          type: string
+          description: Cep telefonu.
+        registrationDate:
+          type: string
+          description: Kayıt tarihi (YYYY-MM-DD hh:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Son giriş tarihi (YYYY-MM-DD hh:mm:ss).
+        registrationAddress:
+          type: string
+          description: Kayıtlı adres.
+        city:
+          type: string
+          description: Şehir.
+        country:
+          type: string
+          description: Ülke.
+        zipCode:
+          type: string
+          description: Posta kodu.
+        ip:
+          type: string
+          description: IP adresi.
+    CFInitializeRequest:
+      type: object
+      required:
+      - price
+      - paidPrice
+      - currency
+      - callbackUrl
+      - buyer
+      - shippingAddress
+      - billingAddress
+      - basketItems
+      properties:
+        locale:
+          type: string
+          description: Language code. Default is `tr`. Send `en` to render the form in English.
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: Request/response correlation ID. The value sent in the request is returned unchanged
+            in the response.
+        price:
+          type: decimal
+          description: Basket total.
+        paidPrice:
+          type: decimal
+          description: Total amount to be charged.
+        currency:
+          type: string
+          description: Currency. Default is `TRY`.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        basketId:
+          type: string
+          description: Basket ID.
+        paymentGroup:
+          type: string
+          description: Payment group. Default is `PRODUCT`.
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+        callbackUrl:
+          type: string
+          description: Merchant URL that iyzico calls to deliver both success and failure results. Must
+            have a valid SSL certificate.
+        enabledInstallments:
+          type: array
+          description: Available installment options.
+          items:
+            type: integer
+        buyer:
+          description: Buyer information.
+          $ref: '#/components/schemas/BuyerCF'
+        shippingAddress:
+          description: Shipping address. Required if at least one basket item is `PHYSICAL`. If all items
+            are `VIRTUAL`, it is not required.
+          $ref: '#/components/schemas/Address2'
+        billingAddress:
+          description: Billing address.
+          $ref: '#/components/schemas/Address2'
+        basketItems:
+          type: array
+          description: Basket items.
+          items:
+            $ref: '#/components/schemas/BasketItem3'
+    CFInitializeRequest2:
+      type: object
+      required:
+      - price
+      - paidPrice
+      - currency
+      - callbackUrl
+      - buyer
+      - shippingAddress
+      - billingAddress
+      - basketItems
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan; tr. Ödeme formunun İngilizce oluşturulması için "en" gönderilmelidir.
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme ID’si. İstekte gönderilen değer, response'da aynen geri
+            döner.
+        price:
+          type: decimal
+          description: Sepet toplamı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilecek toplam tutar.
+        currency:
+          type: string
+          description: Para birimi. Varsayılan; TRY.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        basketId:
+          type: string
+          description: Sepet ID’si.
+        paymentGroup:
+          type: string
+          description: Ödeme grubu. Varsayılan; PRODUCT.
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+        callbackUrl:
+          type: string
+          description: Ödeme akışında üye işyerine başarılı ve hatalı sonucu bildirmek üzere alınan URL
+            adresi. Geçerli bir ssl sertifikasına sahip olmalıdır.
+        enabledInstallments:
+          type: array
+          description: Kullanılabilir taksit seçenekleri.
+          items:
+            type: integer
+        buyer:
+          description: Alıcı Bilgileri
+          $ref: '#/components/schemas/BuyerCF2'
+        shippingAddress:
+          description: Teslimat Adresi. Sepetteki ürünlerden en az bir tanesi PHYSICAL ise zorunludur.
+            Tüm ürünler VIRTUAL ise gönderilmesi gerekmez.
+          $ref: '#/components/schemas/Address3'
+        billingAddress:
+          description: Fatura Adresi
+          $ref: '#/components/schemas/Address3'
+        basketItems:
+          type: array
+          description: Sepetteki ürünler.
+          items:
+            $ref: '#/components/schemas/BasketItem4'
+        paymentSource:
+          type: string
+          description: Bu alan, partner firmalar tarafından iletilen ödeme kaynağı bilgisidir. Eğer bir
+            altyapı sağlayıcısıysanız ve iyzico ile entegrasyon/iş birliğiniz bulunuyorsa bu parametreyi
+            gönderebilirsiniz.
+    CFInitializeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: System time (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID that matches the request.
+        token:
+          type: string
+          description: Unique token generated for the checkout form. Mandatory to retrieve the payment
+            result.
+        checkoutFormContent:
+          type: string
+          description: HTML content of the payment form (Base64-encoded).
+        paymentPageUrl:
+          type: string
+          description: URL of iyzico’s hosted payment page (Common Payment Page).
+        signature:
+          type: string
+          description: Signature value that can be used for integrity verification.
+    CFInitializeResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Gönderilen isteğin sonucu.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek ile eşleşen ID.
+        token:
+          type: string
+          description: Checkout form için oluşturulan tekil değer. Her istek için özel üretilir ve işyerine
+            dönülür. Ödemenin sonucunu öğrenmek için zorunlu bir alandır.
+        checkoutFormContent:
+          type: string
+          description: Ödeme formunun HTML içeriği (Base64 kodlu).
+        paymentPageUrl:
+          type: string
+          description: iyzico Ortak Ödeme Sayfası için dönen URL adresi.
+        signature:
+          type: string
+          description: İmza doğrulaması için kullanılabilecek signature değeri.
+    CFRetrieveRequest:
+      type: object
+      required:
+      - token
+      properties:
+        locale:
+          type: string
+          description: Language code. Default is `tr`.
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: Request/response correlation ID. The value sent in the request is returned unchanged
+            in the response.
+        token:
+          type: string
+          description: Token returned in the CF initialize response.
+    CFRetrieveResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: System time (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID that matches the request.
+        price:
+          type: decimal
+          description: Basket total amount.
+        paidPrice:
+          type: decimal
+          description: Total charged amount.
+        installment:
+          type: integer
+          description: Number of installments.
+        paymentId:
+          type: string
+          description: Payment ID.
+        fraudStatus:
+          type: integer
+          description: "Payment status according to fraud filters. If the risk score is low, the payment\
+            \ is approved immediately; if the risk score is high, the payment is rejected. The merchant\
+            \ should ship only when the value is **1**; for **0**, wait for notification.\n - **1**: Approved\n\
+            \ - **0**: In review\n - **-1**: Rejected\n"
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Merchant’s installment/commission rate. For example, if price=100 and paidPrice=110,
+            the rate is 10%. Informational.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Merchant’s installment/commission amount. Example; 10 when price=100 and paidPrice=110.
+            Informational.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico processing commission amount for the payment.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico processing fee for the payment.
+        cardType:
+          type: string
+          description: Card type.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Card brand.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Card family.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        binNumber:
+          type: string
+          description: BIN (first 8 digits).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card.
+        basketId:
+          type: string
+          description: Basket ID.
+        currency:
+          type: string
+          description: Currency of the payment.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - NOK
+          - CHF
+          - GBP
+        itemTransactions:
+          type: array
+          description: Line items corresponding to basket items.
+          items:
+            type: object
+            properties:
+              paymentTransactionId:
+                type: string
+                description: ID for the payment line item. Must be stored by the merchant. Used for refund/capture/void
+                  and when communicating with iyzico (ideally stored together with `itemId`).
+              itemId:
+                type: string
+                description: Merchant-provided ID of the item in the basket.
+              price:
+                type: decimal
+                description: Item amount on the merchant’s side.
+              paidPrice:
+                type: decimal
+                description: Collected amount distributed per line item. Must be stored by the merchant.
+              transactionStatus:
+                type: integer
+                description: 'Status of the payment line item.
+
+                  - **0**: In fraud review
+
+                  - **-1**: Rejected after fraud review
+
+                  - **1**: Approved (in Marketplace, 1 means “Awaiting Merchant Approval”)
+
+                  - **2**: Approved (Marketplace approval granted)
+
+                  '
+                enum:
+                - 0
+                - -1
+                - 1
+                - 2
+              blockageRate:
+                type: decimal
+                description: Merchant blockage rate for this line item. According to the iyzico–merchant
+                  agreement, a per-transaction blockage may be applied to mitigate fraud risk.
+              blockageRateAmountMerchant:
+                type: decimal
+                description: Portion of the blockage amount reflected to the merchant. If the blockage
+                  exceeds the merchant amount, it is reflected to the sub-merchant as well.
+              blockageResolvedDate:
+                type: string
+                description: Blockage resolution datetime for this line item. Format **yyyy-MM-dd HH:mm:ss**
+                  (e.g., 2015-10-19 14:36:52).
+              iyziCommissionFee:
+                type: decimal
+                description: Portion of iyzico processing fee distributed to this line item.
+              iyziCommissionRateAmount:
+                type: decimal
+                description: Portion of iyzico processing commission distributed to this line item.
+              merchantCommissionRate:
+                type: decimal
+                description: Merchant’s installment/commission rate distributed to this line item.
+              merchantCommissionRateAmount:
+                type: decimal
+                description: Merchant’s installment/commission amount distributed to this line item.
+              merchantPayoutAmount:
+                type: decimal
+                description: Amount to be paid out to the merchant for this line item after fees/commissions
+                  and blockages.
+              convertedPayout:
+                type: object
+                description: Post-conversion calculations per line item.
+                properties:
+                  paidPrice:
+                    type: decimal
+                    description: Collected amount per line item (must be stored).
+                  iyziCommissionFee:
+                    type: decimal
+                    description: iyzico processing fee distributed to this line item.
+                  iyziCommissionRateAmount:
+                    type: decimal
+                    description: iyzico processing commission distributed to this line item.
+                  blockageRateAmountMerchant:
+                    type: decimal
+                    description: Portion of the blockage reflected to the merchant.
+                  merchantPayoutAmount:
+                    type: decimal
+                    description: Amount to be paid to the merchant after fees/commissions and blockages.
+                  iyziConversionRate:
+                    type: decimal
+                    description: Conversion rate.
+                  iyziConversionRateAmount:
+                    type: decimal
+                    description: Amount resulting from the conversion rate.
+          currency:
+            type: string
+            description: Currency of the payment.
+        authCode:
+          type: string
+          description: Authorization code returned by the bank.
+        phase:
+          type: string
+          description: Payment phase.
+        hostReference:
+          type: string
+          description: Bank-provided host reference value for the payment.
+        signature:
+          type: string
+          description: Signature value that can be used for integrity verification.
+        token:
+          type: string
+          description: Checkout Form token value.
+        callbackUrl:
+          type: string
+          description: Callback URL.
+        paymentStatus:
+          type: string
+          description: Result of the payment.
+    CancelPaymentRequest:
+      type: object
+      required:
+      - paymentId
+      properties:
+        paymentId:
+          type: string
+          description: The **unique payment number** assigned by iyzico for the payment you want to cancel.
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation. Returned as-is in the response.
+        ip:
+          type: string
+          description: IP address the request is sent from.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language for iyzico messages.
+    CancelPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Indicates the outcome of the request.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Current **epoch ms** at the time of response.
+        conversationId:
+          type: string
+          description: Echoes the conversationId sent in the request.
+        paymentId:
+          type: string
+          description: Canceled payment number.
+        price:
+          type: decimal
+          description: Canceled payment amount.
+        currency:
+          type: string
+          description: Currency (payment currency).
+        authCode:
+          type: string
+          description: Authorization (auth) code returned by the bank.
+        hostReference:
+          type: string
+          description: Transaction reference value.
+        cancelHostReference:
+          type: string
+          description: Reference value for the cancel transaction.
+    ConvertedPayout:
+      type: object
+      description: Post-conversion calculations per line item.
+      properties:
+        paidPrice:
+          type: decimal
+          description: Distribution of the collected amount for this line. Must be stored by the merchant.
+        iyziCommissionFee:
+          type: decimal
+          description: Distributed iyzico transaction fee for this line.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: Distributed iyzico commission amount for this line.
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Portion of the blockage amount reflected to the merchant for this line.
+        blockageRateAmountSubMerchant:
+          type: string
+        subMerchantPayoutAmount:
+          type: string
+        merchantPayoutAmount:
+          type: decimal
+          description: Amount to be sent to the merchant after fees/commissions/blockages.
+        iyziConversationRate:
+          type: decimal
+          description: Conversion rate.
+        iyziConversationRateAmount:
+          type: decimal
+          description: Amount after applying the conversion rate.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+    ConvertedPayout2:
+      type: object
+      description: Dönüştürülmüş (varsa kur/komisyon sonrası) payout bilgileri.
+      properties:
+        paidPrice:
+          type: decimal
+          description: Dönüştürülmüş tahsilat tutarı.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: Dönüştürülmüş iyzico komisyon tutarı.
+        iyziCommissionFee:
+          type: decimal
+          description: Dönüştürülmüş iyzico işlem ücreti.
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Dönüştürülmüş üye işyeri bloke tutarı.
+        blockageRateAmountSubMerchant:
+          type: decimal
+          description: Dönüştürülmüş alt üye işyeri bloke tutarı.
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Dönüştürülmüş alt üye işyeri hakediş tutarı.
+        merchantPayoutAmount:
+          type: decimal
+          description: Dönüştürülmüş üye işyeri hakediş tutarı.
+        iyziConversionRate:
+          type: decimal
+          description: Kullanılan dönüşüm kuru (varsa).
+        iyziConversionRateAmount:
+          type: decimal
+          description: Kur dönüşümüne karşılık gelen tutar (varsa).
+        currency:
+          type: string
+          description: Payout para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+    ErrorResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          errorCode:
+            type: string
+            description: Code describing the error, if any.
+          errorMessage:
+            type: string
+            description: Localized error message (depends on the `locale`).
+          errorGroup:
+            type: string
+            description: Error category/group.
+    ErrorResponse10:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Yapılan isteğin sonucunu bildirir.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        locale:
+          type: string
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek ile eşleşen ID.
+    ErrorResponse11:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Yapılan isteğin sonucu.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        locale:
+          type: string
+          description: Yanıt dili.
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek ile eşleşen ID.
+    ErrorResponse12:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Hata/başarı bilgisi.
+        errorCode:
+          type: string
+          description: Hata kodu.
+        errorMessage:
+          type: string
+          description: Hata mesajı.
+        errorGroup:
+          type: string
+          description: Hata grubu.
+        locale:
+          type: string
+          description: Dil kodu.
+        systemTime:
+          type: integer
+          description: Sistem zamanı.
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme ID’si.
+    ErrorResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID matching the request.
+    ErrorResponse3:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: Indicates the request result (failure).
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Current **epoch ms** at the time of response.
+        conversationId:
+          type: string
+          description: conversationId sent in the request.
+        paymentId:
+          type: string
+          description: Related payment id (if any).
+        paymentTransactionId:
+          type: string
+          description: Related payment transaction id (if any).
+        price:
+          type: decimal
+          description: Related amount (if any).
+        retryable:
+          type: boolean
+          description: Whether the operation can be retried.
+    ErrorResponse4:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Success/failure info.
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        errorGroup:
+          type: string
+          description: Error group.
+        locale:
+          type: string
+          description: Language code.
+        systemTime:
+          type: integer
+          description: System time.
+        conversationId:
+          type: string
+          description: Request/response matching ID.
+    ErrorResponse5:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+    ErrorResponse6:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request.
+    ErrorResponse7:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Timestamp (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request.
+    ErrorResponse8:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: System time (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID that matches the request.
+    ErrorResponse9:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Success/failure indicator.
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          description: Timestamp (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID of the request.
+    InstallmentDetail:
+      type: object
+      properties:
+        binNumber:
+          type: string
+          description: BIN used in the calculation.
+        price:
+          type: number
+          format: decimal
+          description: Amount used in the calculation.
+        cardType:
+          type: string
+          description: Card type.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Card scheme.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamilyName:
+          type: string
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - Enpara Bank DC
+          - QNB CC
+          - QNB DC
+          - Ziraat Bankası DC
+          - BankkartCombo
+          - Albaraka Türk DC
+          - Vakıfbank DC
+          - Neo
+          - Paracard
+          - TEB DC
+          - Kuveyt Türk CC
+          - Kuveyt Türk DC
+          - Shop&Fly
+          - Halkbank DC
+          - Papara Card
+          - Tlcard
+          - Tosla
+          - Bankamatik
+          - ING Bank DC
+          - Sipay DC
+          - T.O.M.Kt.Bnk.A.Ş. CC
+          - Turk Telekom
+          - PTT DC
+          - Miles&Smiles
+          - Denizbank DC
+          description: Card family.
+        force3ds:
+          type: integer
+          description: 3DS requirement (0; No, 1; Yes).
+          enum:
+          - 0
+          - 1
+        bankCode:
+          type: integer
+          description: Bank code.
+        bankName:
+          type: string
+          description: Bank name.
+        forceCvc:
+          type: integer
+          description: CVC requirement (0; No, 1; Yes).
+          enum:
+          - 0
+          - 1
+        commercial:
+          type: integer
+          description: Commercial card flag (0; Personal, 1; Commercial).
+          enum:
+          - 0
+          - 1
+        dccEnabled:
+          type: integer
+          description: DCC (Dynamic Currency Conversion) support (0; No, 1; Yes).
+          enum:
+          - 0
+          - 1
+        agricultureEnabled:
+          type: integer
+          description: Agricultural card flag (0; No, 1; Yes).
+          enum:
+          - 0
+          - 1
+        installmentPrices:
+          type: array
+          description: Installment options and prices.
+          items:
+            $ref: '#/components/schemas/InstallmentPrice'
+    InstallmentPrice:
+      type: object
+      properties:
+        installmentPrice:
+          type: number
+          format: decimal
+          description: Amount per installment.
+        totalPrice:
+          type: number
+          format: decimal
+          description: Total amount with installments.
+        installmentNumber:
+          type: integer
+          description: Number of installments.
+    InstallmentRequest:
+      type: object
+      required:
+      - price
+      properties:
+        locale:
+          type: string
+          description: Language preference used in requests and responses.
+          enum:
+          - tr
+          - en
+        price:
+          type: number
+          format: decimal
+          description: Amount for installment calculation.
+        binNumber:
+          type: string
+          description: 8-digit card BIN. If provided, suitability is returned per card/bank. If omitted,
+            installment rates can be returned based on the amount only.
+        conversationId:
+          type: string
+          description: Request/response correlation ID. The value sent in the request is returned as-is
+            in the response.
+    InstallmentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID matching the request.
+        installmentDetails:
+          type: array
+          description: Installment options calculated according to BIN and amount.
+          items:
+            $ref: '#/components/schemas/InstallmentDetail'
+    ItemActionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+    ItemApproveRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+          description: Split id to be approved.
+    ItemDisapproveRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+          description: Split id whose approval will be revoked.
+    ItemPayoutUpdateRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      - subMerchantPrice
+      - subMerchantKey
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        paymentTransactionId:
+          type: string
+          description: Payment split id.
+        subMerchantKey:
+          type: string
+          description: Submerchant key.
+        subMerchantPrice:
+          type: number
+          description: Amount to be transferred to the submerchant.
+    ItemPayoutUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+        itemId:
+          type: string
+        paymentTransactionId:
+          type: string
+        transactionStatus:
+          type: integer
+        price:
+          type: number
+        paidPrice:
+          type: number
+        merchantCommissionRate:
+          type: number
+        merchantCommissionRateAmount:
+          type: number
+        iyziCommissionRateAmount:
+          type: number
+        iyziCommissionFee:
+          type: number
+        blockageRate:
+          type: number
+        blockageRateAmountMerchant:
+          type: number
+        blockageRateAmountSubMerchant:
+          type: number
+        blockageResolvedDate:
+          type: string
+        subMerchantKey:
+          type: string
+        subMerchantPrice:
+          type: number
+        subMerchantPayoutRate:
+          type: number
+        subMerchantPayoutAmount:
+          type: number
+        merchantPayoutAmount:
+          type: number
+        convertedPayout:
+          type: object
+          properties:
+            paidPrice:
+              type: number
+            iyziCommissionRateAmount:
+              type: number
+            iyziCommissionFee:
+              type: number
+            blockageRateAmountMerchant:
+              type: number
+            blockageRateAmountSubMerchant:
+              type: number
+            subMerchantPayoutAmount:
+              type: number
+            merchantPayoutAmount:
+              type: number
+            iyziConversionRate:
+              type: number
+            iyziConversionRateAmount:
+              type: number
+            currency:
+              type: string
+    ItemTransaction:
+      type: object
+      description: Line items for basket transactions.
+      properties:
+        itemId:
+          type: string
+          description: Merchant-provided ID for the basket item.
+        paymentTransactionId:
+          type: string
+          description: ID of the payment breakdown; must be stored by the merchant (used for refund/capture/approval
+            and communication with iyzico).
+        transactionStatus:
+          type: integer
+          description: 'Status of the payment breakdown.
+
+            - **0**: Under fraud review
+
+            - **-1**: Rejected after fraud review
+
+            - **1**: Approved (In marketplace, 1 means "Awaiting Merchant Approval")
+
+            - **2**: Approved (Marketplace approval given)
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+          - 2
+        price:
+          type: decimal
+          description: Item amount on the merchant side.
+        paidPrice:
+          type: decimal
+          description: Distribution of the collected amount for this line. Must be stored by the merchant.
+        installment:
+          type: integer
+          description: Installment count.
+        blockageRate:
+          type: decimal
+          description: Merchant blockage rate for the line. Per agreement, iyzico may apply blockage to
+            mitigate fraud risk.
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Portion of the blockage amount reflected to the merchant for this line.
+        blockageRateAmountsubMerchant:
+          type: decimal
+          description: Blockage amount for the sub-merchant on this line.
+        blockageResolvedDate:
+          type: string
+          description: Blockage release date for the transaction. Format; yyyy-MM-dd HH:mm:ss (e.g., 2015-10-19
+            14:36:52).
+          enum:
+          - '2015-10-19 14:36:52'
+        iyziCommissionFee:
+          type: decimal
+          description: Distributed iyzico transaction fee for this line.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: Distributed iyzico commission amount for this line.
+        merchantCommissionRate:
+          type: decimal
+          description: Distributed merchant commission rate for this line.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Distributed merchant commission amount for this line.
+        merchantPayoutAmount:
+          type: decimal
+          description: Amount to be sent to the merchant after fees/commissions/blockages.
+        subMerchantPrice:
+          type: decimal
+          description: Sub-merchant entitlement.
+        subMerchantPayoutRate:
+          type: string
+          description: Sub-merchant payout rate.
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Amount to be transferred to the sub-merchant.
+        convertedPayout:
+          $ref: '#/components/schemas/ConvertedPayout'
+    ItemTransaction2:
+      type: object
+      description: Sepet kalemi bazında kapama ve hakediş bilgileri.
+      properties:
+        itemId:
+          type: string
+          description: Ön provizyon isteğinde belirtilen, basketItemId değeri.
+        paymentTransactionId:
+          type: string
+          description: iyzico tarafından üretilen, ödeme kırılımına ait ID değeri.
+        transactionStatus:
+          type: integer
+          description: 'Kalem durumu:
+
+            `0`=Fraud incelemesi,
+
+            `-1`=Ret edildi.,
+
+            `1`=Onay (pazaryeri için onay bekliyor statüsü.),
+
+            `2`=Onaylandı.
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+          - 2
+        price:
+          type: decimal
+          description: Kalemin fiyatı.
+        paidPrice:
+          type: decimal
+          description: Bu kalem için tahsil edilen tutar.
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyeri komisyon oranı (kalem bazında).
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyeri komisyon tutarı (kalem bazında).
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico komisyon tutarı (kalem bazında).
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico işlem ücreti (kalem bazında).
+        blockageRate:
+          type: decimal
+          description: Bloke oranı.
+        blockageRateAmountMerchant:
+          type: decimal
+          description: Üye işyeri bloke tutarı.
+        blockageRateAmountSubMerchant:
+          type: decimal
+          description: Alt üye işyeri bloke tutarı.
+        blockageResolvedDate:
+          type: string
+          description: Blokenin çözümlendiği tarih (`YYYY-MM-DD hh:mm:ss`).
+        subMerchantPrice:
+          type: decimal
+          description: Alt üye işyeri fiyatı (varsa).
+        subMerchantPayoutRate:
+          type: decimal
+          description: Alt üye işyeri ödeme oranı (varsa).
+        subMerchantPayoutAmount:
+          type: decimal
+          description: Alt üye işyeri hakediş tutarı.
+        merchantPayoutAmount:
+          type: decimal
+          description: Üye işyeri net hakediş tutarı (kalem bazında).
+        convertedPayout:
+          $ref: '#/components/schemas/ConvertedPayout2'
+    PaymentAuthSavedCardRequest:
+      type: object
+      description: Request to NON3D payment using a stored card.
+      properties:
+        locale:
+          type: string
+          description: Language code. Default; tr
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation.
+        paidPrice:
+          type: decimal
+          description: Total amount to be charged from the customer.
+        price:
+          type: decimal
+          description: Basket total amount.
+        installment:
+          type: integer
+          description: Installment count. If omitted, single installment (1) is used.
+          enum:
+          - 1
+          - 2
+          - 3
+          - 6
+          - 9
+          - 12
+        paymentChannel:
+          type: string
+          description: Payment channel.
+          enum:
+          - WEB
+          - MOBILE
+          - MOBILE_WEB
+          - MOBILE_IOS
+          - MOBILE_ANDROID
+          - MOBILE_WINDOWS
+          - MOBILE_TABLET
+          - MOBILE_PHONE
+        basketId:
+          type: string
+          description: Basket ID.
+        paymentGroup:
+          type: string
+          description: Payment group. Default; PRODUCT.
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+        currency:
+          type: string
+          description: Currency. Default; TRY.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        paymentCard:
+          $ref: '#/components/schemas/PaymentCardSaved'
+        buyer:
+          description: Buyer information.
+          $ref: '#/components/schemas/Buyer'
+        shippingAddress:
+          description: Shipping Address. Required if at least one basket item is `PHYSICAL`. Not required
+            if all items are `VIRTUAL`.
+          $ref: '#/components/schemas/Address'
+        billingAddress:
+          description: Billing Address.
+          $ref: '#/components/schemas/Address'
+        basketItems:
+          description: Basket items.
+          type: array
+          items:
+            $ref: '#/components/schemas/BasketItem'
+      required:
+      - price
+      - paidPrice
+      - paymentCard
+      - buyer
+      - shippingAddress
+      - billingAddress
+      - basketItems
+    PaymentAuthSuccessResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+    PaymentCard:
+      type: object
+      required:
+      - cardHolderName
+      - cardNumber
+      - expireYear
+      - expireMonth
+      - cvc
+      properties:
+        cardHolderName:
+          type: string
+          description: Kart sahibinin adı soyadı.
+        cardNumber:
+          type: string
+          description: Kart numarası.
+        expireYear:
+          type: string
+          description: Son kullanma yılı (YYYY formatında).
+        expireMonth:
+          type: string
+          description: Son kullanma ayı (MM formatında).
+        cvc:
+          type: string
+          description: CVC kodu.
+        registerCard:
+          type: integer
+          description: Kart kaydedilsin mi? (0 = hayır, 1 = evet)
+    PaymentCard3DS:
+      type: object
+      required:
+      - cardHolderName
+      - cardNumber
+      - expireYear
+      - expireMonth
+      - cvc
+      properties:
+        cardHolderName:
+          type: string
+          description: Cardholder’s full name.
+        cardNumber:
+          type: string
+          description: Card number (PAN).
+        expireYear:
+          type: string
+          description: Expiration year (YY or YYYY).
+        expireMonth:
+          type: string
+          description: Expiration month (MM).
+        cvc:
+          type: string
+          description: Card security code.
+        registerCard:
+          type: integer
+          description: Save the card? (0 = no, 1 = yes)
+    PaymentCard3DS2:
+      type: object
+      required:
+      - cardHolderName
+      - cardNumber
+      - expireYear
+      - expireMonth
+      - cvc
+      properties:
+        cardHolderName:
+          type: string
+          description: Kart sahibi adı soyadı.
+        cardNumber:
+          type: string
+          description: Kart numarası (PAN).
+        expireYear:
+          type: string
+          description: Son kullanma yılı (YY ya da YYYY).
+        expireMonth:
+          type: string
+          description: Son kullanma ayı (MM).
+        cvc:
+          type: string
+          description: Kart güvenlik kodu.
+        registerCard:
+          type: integer
+          description: Kart kaydedilsin mi? (0 = hayır, 1 = evet)
+    PaymentCardSaved:
+      type: object
+      description: Token data for the card.
+      properties:
+        cardUserKey:
+          type: string
+          description: cardUserKey returned by iyzico after card storage.
+        cardToken:
+          type: string
+          description: cardToken returned by iyzico for the stored card.
+      required:
+      - cardUserKey
+      - cardToken
+    PaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: It reports the result of the transaction. If the response returns success, it means
+            the payment has been completed successfully.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language (tr/en).
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request.
+        price:
+          type: decimal
+          description: Basket total amount.
+        paidPrice:
+          type: decimal
+          description: Total charged amount.
+        installment:
+          type: integer
+          description: Installment count.
+        paymentId:
+          type: string
+          description: Payment ID.
+        fraudStatus:
+          type: integer
+          description: 'Payment status according to fraud filters.
+
+            - 1: Approved
+
+            - 0: Under review
+
+            - -1: Declined
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Merchant’s installment/commission rate (informational).
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Merchant’s installment/commission amount (informational).
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico commission amount.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico transaction fee.
+        cardType:
+          type: string
+          description: Card type.
+        cardAssociation:
+          type: string
+          description: Card scheme/brand.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Card product/family.
+        binNumber:
+          type: string
+          description: BIN (first 8 digits).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card.
+        basketId:
+          type: string
+          description: Basket ID.
+        currency:
+          type: string
+          description: Currency of the payment.
+        itemTransactions:
+          type: array
+          description: Line items per basket item.
+          items:
+            type: object
+            properties:
+              paymentTransactionId:
+                type: string
+                description: Line-item ID; must be stored by the merchant (used for refund/approve operations).
+              itemId:
+                type: string
+                description: Merchant-defined item ID in the basket.
+              price:
+                type: decimal
+                description: Item price on merchant side.
+              paidPrice:
+                type: decimal
+                description: Collected amount allocated to this line item.
+              transactionStatus:
+                type: integer
+                description: 'Line item status.
+
+                  - 0: In fraud check
+
+                  - -1: Declined after fraud check
+
+                  - 1: Approved (Marketplace: Waiting for Merchant Approval)
+
+                  - 2: Approved (Marketplace approval given)
+
+                  '
+                enum:
+                - 0
+                - -1
+                - 1
+                - 2
+              blockageRate:
+                type: decimal
+                description: Merchant blockage rate at line level.
+              blockageRateAmountMerchant:
+                type: decimal
+                description: Blockage amount reflected to the merchant.
+              blockageResolvedDate:
+                type: string
+                description: Blockage release date (yyyy-MM-dd HH:mm:ss).
+              iyziCommissionFee:
+                type: decimal
+                description: iyzico fee allocated to the line item.
+              iyziCommissionRateAmount:
+                type: decimal
+                description: iyzico commission allocated to the line item.
+              merchantCommissionRate:
+                type: decimal
+                description: Merchant’s commission rate allocated to the line item.
+              merchantCommissionRateAmount:
+                type: decimal
+                description: Merchant’s commission amount allocated to the line item.
+              merchantPayoutAmount:
+                type: decimal
+                description: Amount to be paid to the merchant after fees/blocks.
+              convertedPayout:
+                type: object
+                description: Post-conversion calculations per line item.
+                properties:
+                  paidPrice:
+                    type: decimal
+                    description: Collected amount allocated to this line item.
+                  iyziCommissionFee:
+                    type: decimal
+                    description: iyzico fee allocated to the line item.
+                  iyziCommissionRateAmount:
+                    type: decimal
+                    description: iyzico commission allocated to the line item.
+                  blockageRateAmountMerchant:
+                    type: decimal
+                    description: Merchant-side blockage amount.
+                  merchantPayoutAmount:
+                    type: decimal
+                    description: Amount to be paid to the merchant after fees/blocks.
+                  iyziConversationRate:
+                    type: decimal
+                    description: Conversion rate.
+                  iyziConversationRateAmount:
+                    type: decimal
+                    description: Converted amount produced by the rate.
+        authCode:
+          type: string
+          description: Authorization code returned by the bank.
+        phase:
+          type: string
+          description: Payment phase.
+        mdStatus:
+          type: integer
+          description: 3DS authentication result (1 means successful).
+          enum:
+          - -1
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+        hostReference:
+          type: string
+          description: Host reference returned by the bank/acquirer.
+        signature:
+          type: string
+          description: Signature value that can be used for verification.
+    PaymentResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Yapılan isteğin sonucunu bildirir.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Yanıt dili (tr/en).
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek ile eşleşen ID.
+        price:
+          type: decimal
+          description: Sepet toplam tutarı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilen toplam tutar.
+        installment:
+          type: integer
+          description: Taksit sayısı.
+        paymentId:
+          type: string
+          description: Ödeme ID’si.
+        fraudStatus:
+          type: integer
+          description: "Fraud filtrelerine göre ödeme durumu. Eğer ödemenin fraud risk skoru düşük ise\
+            \ ödemeye anında onay verilir, eğer fraud risk skoru yüksek ise ödeme işlemi reddedilir. Üye\
+            \ işyeri sadece 1 olan işlemlerde ürünü kargoya vermelidir, 0 olan işlemler için bilgilendirme\
+            \ beklemelidir.\n - 1: Onaylandı\n - 0: İncelemede\n - -1: Reddedildi\n"
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon oranı. Örneğin price=100, paidPrice=110
+            ise üye işyeri vade/komisyon oranı %10’dur. Bilgi amaçlıdır.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyerinin uyguladığı vade/komisyon tutarı. Örneğin price=100, paidPrice=110
+            ise üye işyeri vade/komisyon tutarı 10’dur. Bilgi amaçlıdır.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: Ödemeye ait iyzico işlem komisyon tutarı.
+        iyziCommissionFee:
+          type: decimal
+          description: Ödemeye ait iyzico işlem ücreti.
+        cardType:
+          type: string
+          description: Kart tipi.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Kart kuruluşu.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Kart ailesi.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        binNumber:
+          type: string
+          description: BIN (ilk 8 hane).
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi.
+        basketId:
+          type: string
+          description: Sepet ID.
+        currency:
+          type: string
+          description: Para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - NOK
+          - CHF
+          - GBP
+        itemTransactions:
+          type: array
+          description: Sepet öğelerine ait işlem kalemleri.
+          items:
+            type: object
+            properties:
+              paymentTransactionId:
+                type: string
+                description: Ödeme kırılımına ait id, üye işyeri tarafından mutlaka saklanmalıdır. Ödeme
+                  kırılımının iadesi, onayı, onay geri çekmesi ve iyzico ile iletişimde kullanılır. Tercihen
+                  itemId ile ilişkili bir şekilde tutulmalıdır.
+              itemId:
+                type: string
+                description: Üye işyeri tarafından iletilen, sepetteki ürüne ait id.
+              price:
+                type: decimal
+                description: Üye işyeri tarafındaki sepetteki ürüne ait tutar.
+              paidPrice:
+                type: decimal
+                description: Tahsilat tutarının kırılım bazındaki dağılımı. Üye işyeri tarafından mutlaka
+                  saklanmalıdır.
+              transactionStatus:
+                type: integer
+                description: 'Ödeme kırılımının durumu.
+
+                  - 0: Fraud kontrolünde
+
+                  - -1: Fraud kontrolünden sonra reddedildi
+
+                  - 1: Onaylandı. (Pazaryerinde 1 değeri Üye İşyeri Onayı Bekliyor Anlamına Gelir)
+
+                  - 2: Onaylandı (Pazaryeri Onay Verilmiş)
+
+                  '
+                enum:
+                - 0
+                - -1
+                - 1
+                - 2
+              blockageRate:
+                type: decimal
+                description: Kırılım bazında üye işyeri blokaj oranı. iyzico – üye işyeri anlaşmasına
+                  göre, üye işyerine işlem bazında blokaj uygulayabilir. Bu blokaj üye işyeri fraud riskini
+                  önlemek içindir, blokaj süresi boyunca para iyzico’da tutulur, bu süre sonrasında üye
+                  işyerine gönderilir.
+              blockageRateAmountMerchant:
+                type: decimal
+                description: Kırılım bazında üye işyeri blokaj tutarının, üye işyerine yansıyan rakamı.
+                  Blokaj tutarı mümkün olduğunca üye işyerine yansıtılır. Eğer blokaj tutarı, üye işyeri
+                  tutarından daha büyükse bu durumda alt üye işyerine de yansıtılır.
+              blockageRateAmountsubMerchant:
+                type: decimal
+                description: Kırılım bazında alt üye işyeri blokaj tutarı.
+              blockageResolvedDate:
+                type: string
+                description: İşlem bazında blokaj çözülme tarihi. yyyy-MM-dd HH:mm:ss formatındadır, örn.
+                  2015-10-19 14:36:52.
+              iyziCommissionFee:
+                type: decimal
+                description: iyzico işlem ücretinin kırılım bazında dağılmış tutarı.
+              iyziCommissionRateAmount:
+                type: decimal
+                description: iyzico işlem komisyon tutarının kırılım bazında dağılmış tutarı.
+              merchantCommissionRate:
+                type: decimal
+                description: Üye işyerinin uyguladığı vade/komisyon oranının kırılım bazında dağılmış
+                  oranı.
+              merchantCommissionRateAmount:
+                type: decimal
+                description: Üye işyerinin uyguladığı vade/komisyon tutarıın, kırılım bazında dağılmış
+                  tutarı.
+              merchantPayoutAmount:
+                type: decimal
+                description: Bu kırılım için, iyzico işlem ücreti, komisyon tutarı ve blokajlar düşüldükten
+                  sonra üye işyerine gönderilecek tutar.
+              subMerchantPrice:
+                type: decimal
+                description: Alt üye işyeri hakedişi.
+              subMerchantPayoutRate:
+                type: string
+                description: Alt üye işyeri gönderilecek tutar oranı.
+              subMerchantPayoutAmount:
+                type: decimal
+                description: Alt üye işyerine aktarılacak tutar.
+              convertedPayout:
+                type: object
+                description: Kırılım bazında, kur çevrimi sonrası hesaplamalar.
+                properties:
+                  paidPrice:
+                    type: decimal
+                    description: Tahsilat tutarının kırılım bazındaki dağılımı. Üye işyeri tarafından
+                      mutlaka saklanmalıdır.
+                  iyziCommissionFee:
+                    type: decimal
+                    description: iyzico işlem ücretinin kırılım bazında dağılmış tutarı.
+                  iyziCommissionRateAmount:
+                    type: decimal
+                    description: iyzico işlem komisyon tutarının kırılım bazında dağılmış tutarı.
+                  blockageRateAmountMerchant:
+                    type: decimal
+                    description: Kırılım bazında üye işyeri blokaj tutarının, üye işyerine yansıyan rakamı.
+                      Blokaj tutarı mümkün olduğunca üye işyerine yansıtılır. Eğer blokaj tutarı, üye
+                      işyeri tutarından daha büyükse bu durumda alt üye işyerine de yansıtılır.
+                  blockageRateAmountSubMerchant:
+                    type: string
+                  subMerchantPayoutAmount:
+                    type: string
+                  merchantPayoutAmount:
+                    type: decimal
+                    description: Bu kırılım için, iyzico işlem ücreti, komisyon tutarı ve blokajlar düşüldükten
+                      sonra üye işyerine gönderilecek tutar.
+                  iyziConversationRate:
+                    type: decimal
+                    description: Kur oranı.
+                  iyziConversationRateAmount:
+                    type: decimal
+                    description: Kur oranı sonucu tutar.
+        authCode:
+          type: string
+          description: Bankadan dönen authCode değeri.
+        phase:
+          type: string
+          description: Ödeme Fazı.
+        hostReference:
+          type: string
+          description: Ödemeye ilişkin banka tarafından verilen hostReference değeri.
+        signature:
+          type: string
+          description: İmza doğrulaması için kullanılabilecek signature değeri.
+    PaymentResponseTwo:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Indicates the result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language (tr/en).
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request.
+        price:
+          type: decimal
+          description: Basket total amount.
+        paidPrice:
+          type: decimal
+          description: Total collected amount.
+        installment:
+          type: integer
+          description: Installment count.
+        paymentId:
+          type: string
+          description: Payment ID.
+        fraudStatus:
+          type: integer
+          description: "Payment status per fraud filters. If the risk score is low, the payment is approved\
+            \ instantly; if high, the payment is declined. The merchant should ship products only for\
+            \ transactions with value 1; for 0, the merchant should wait for notification.\n - 1: Approved\n\
+            \ - 0: Under review\n - -1: Declined\n"
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Merchant's applied installment/commission rate. For example, if price=100 and paidPrice=110,
+            the merchant rate is 10%. Informational.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Merchant's commission amount. For example, if price=100 and paidPrice=110, the
+            commission is 10. Informational.
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico transaction commission amount.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico transaction fee.
+        cardType:
+          type: string
+          description: Card type.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Card association.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Card family.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        binNumber:
+          type: string
+          description: BIN (first 8 digits).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card.
+        basketId:
+          type: string
+          description: Basket ID.
+        currency:
+          type: string
+          description: Currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - NOK
+          - CHF
+          - GBP
+        itemTransactions:
+          type: array
+          description: Payment line items for basket entries.
+          items:
+            type: object
+            properties:
+              paymentTransactionId:
+                type: string
+                description: ID of the payment breakdown. Must be stored by the merchant. Used for refund/approve/disapprove
+                  operations and communication with iyzico. Preferably stored in relation with itemId.
+              itemId:
+                type: string
+                description: ID of the item in the basket provided by the merchant.
+              price:
+                type: decimal
+                description: Amount of the item in the merchant's basket.
+              paidPrice:
+                type: decimal
+                description: Distributed collected amount per breakdown. Must be stored by the merchant.
+              transactionStatus:
+                type: integer
+                description: 'Status of the payment breakdown.
+
+                  - 0: In fraud control
+
+                  - -1: Declined after fraud control
+
+                  - 1: Approved (Marketplace: Waiting for Merchant Approval)
+
+                  - 2: Approved (Marketplace Approval Given)
+
+                  '
+                enum:
+                - 0
+                - -1
+                - 1
+                - 2
+              blockageRate:
+                type: decimal
+                description: Merchant blockage rate per breakdown.
+              blockageRateAmountMerchant:
+                type: decimal
+                description: Portion of the blockage amount reflected to the merchant.
+              blockageRateAmountsubMerchant:
+                type: decimal
+                description: Sub-merchant blockage amount per breakdown.
+              blockageResolvedDate:
+                type: string
+                description: Blockage release date per transaction. Format yyyy-MM-dd HH:mm:ss, e.g. 2015-10-19
+                  14:36:52.
+              iyziCommissionFee:
+                type: decimal
+                description: iyzico transaction fee distributed per breakdown.
+              iyziCommissionRateAmount:
+                type: decimal
+                description: iyzico commission amount distributed per breakdown.
+              merchantCommissionRate:
+                type: decimal
+                description: Merchant commission rate distributed per breakdown.
+              merchantCommissionRateAmount:
+                type: decimal
+                description: Merchant commission amount distributed per breakdown.
+              merchantPayoutAmount:
+                type: decimal
+                description: Amount to be sent to the merchant after fees, commissions and blockages are
+                  deducted for this breakdown.
+              subMerchantPrice:
+                type: decimal
+                description: Sub-merchant entitlement.
+              subMerchantPayoutRate:
+                type: string
+                description: Rate of the amount to be sent to the sub-merchant.
+              subMerchantPayoutAmount:
+                type: decimal
+                description: Amount to be transferred to the sub-merchant.
+              convertedPayout:
+                type: object
+                description: Post-conversion calculations per breakdown.
+                properties:
+                  paidPrice:
+                    type: decimal
+                    description: Distributed collected amount per breakdown. Must be stored by the merchant.
+                  iyziCommissionFee:
+                    type: decimal
+                    description: iyzico transaction fee distributed per breakdown.
+                  iyziCommissionRateAmount:
+                    type: decimal
+                    description: iyzico commission amount distributed per breakdown.
+                  blockageRateAmountMerchant:
+                    type: decimal
+                    description: Portion of blockage amount reflected to the merchant.
+                  blockageRateAmountSubMerchant:
+                    type: string
+                  subMerchantPayoutAmount:
+                    type: string
+                  merchantPayoutAmount:
+                    type: decimal
+                    description: Amount to be sent to the merchant after fees, commissions and blockages
+                      are deducted for this breakdown.
+                  iyziConversationRate:
+                    type: decimal
+                    description: Exchange rate.
+                  iyziConversationRateAmount:
+                    type: decimal
+                    description: Amount after applying the exchange rate.
+        authCode:
+          type: string
+          description: Auth code returned by the bank.
+        phase:
+          type: string
+          description: Payment phase.
+        hostReference:
+          type: string
+          description: Host reference value given by the bank for the payment.
+        signature:
+          type: string
+          description: Signature value that can be used for signature verification.
+        paymentStatus:
+          type: string
+          description: Shows the result of the payment process.
+          enum:
+          - SUCCESS
+          - FAILURE
+          - INIT_THREEDS
+          - CALLBACK_THREEDS
+    PostAuthRequest:
+      type: object
+      description: Daha önce ön provizyonu alınmış bir ödemenin kapama (tahsil) isteği.
+      required:
+      - paymentId
+      - paidPrice
+      properties:
+        locale:
+          type: string
+          description: Yanıt dili.
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirmesi için kullanılabilir.
+        paymentId:
+          type: string
+          description: Gerçekleştirilen ön provizyon işlemine ait iyzico'dan dönen ödeme numarası bilgisi.
+        paidPrice:
+          type: decimal
+          description: Karttan tahsil edilecek nihai tutar.
+        ip:
+          type: string
+          description: İsteği gönderen istemcinin IP adresi.
+        currency:
+          type: string
+          description: İşlem para birimi.
+    PostAuthResponse:
+      type: object
+      description: Provizyon kapama (postAuth) yanıtı.
+      properties:
+        status:
+          type: string
+          description: İşlem sonucu.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Yanıt dili.
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          description: Sistem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: Gönderildiyse, istekteki conversationId tekrarlanır.
+        price:
+          type: decimal
+          description: Sepet toplam tutarı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilen (kapama yapılan) tutar.
+        installment:
+          type: integer
+          description: Taksit sayısı; `1` tek çekim anlamına gelir.
+        paymentId:
+          type: string
+          description: Ödeme numarası.
+        fraudStatus:
+          type: integer
+          description: Fraud tarama sonucu; `1`=onay, `0`=inceleme, `-1`=ret.
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Üye işyeri uygulanan komisyon oranı.
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Üye işyeri komisyon tutarı (bilgilendirme amaçlı).
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico komisyon tutarı.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico işlem ücreti.
+        cardType:
+          type: string
+          description: Kart tipi.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Kart ağı.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Kart ailesi (örn. Axess, World, Maximum vb.).
+        binNumber:
+          type: string
+          description: Kartın ilk 8 hanesi.
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi.
+        basketId:
+          type: string
+          description: Üye işyeri tarafından gönderilen basketId bilgisi.
+        currency:
+          type: string
+          description: İşlemin gerçekleşmiş olduğu para birimi.
+          enum:
+          - TRY
+          - USD
+          - EUR
+        itemTransactions:
+          type: array
+          description: Ödeme kırılımı bazında işlem bilgileri.
+          items:
+            $ref: '#/components/schemas/ItemTransaction2'
+        authCode:
+          type: string
+          description: Banka tarafından üretilen otorizasyon kodu.
+        phase:
+          type: string
+          description: İşlem fazı.
+        hostReference:
+          type: string
+          description: Sistem içi referans alanı.
+        signature:
+          type: string
+          description: Yanıt imza değeri (doğrulama için kullanılabilir).
+    PwiAddress:
+      type: object
+      description: Address information
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Address.
+        contactName:
+          type: string
+          description: Contact name.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+        zipCode:
+          type: string
+          description: Postal code.
+    PwiBasketItem:
+      type: object
+      required:
+      - id
+      - price
+      - name
+      - category1
+      - itemType
+      properties:
+        id:
+          type: string
+          description: Item ID.
+        price:
+          type: decimal
+          description: Item price.
+        name:
+          type: string
+          description: Item name.
+        category1:
+          type: string
+          description: Primary category.
+        category2:
+          type: string
+          description: Secondary category (optional).
+        itemType:
+          type: string
+          description: Item type.
+          enum:
+          - PHYSICAL
+          - VIRTUAL
+        subMerchantKey:
+          type: string
+          description: Sub-merchant key of the service provider. Not used in the standard business model;
+            required only in marketplace model.
+        subMerchantPrice:
+          type: string
+          description: Amount to be transferred to the sub-merchant. Not used in the standard business
+            model; required only in marketplace model.
+    PwiBuyer:
+      type: object
+      description: Buyer information
+      required:
+      - id
+      - name
+      - surname
+      - identityNumber
+      - email
+      - gsmNumber
+      - registrationAddress
+      - city
+      - country
+      - ip
+      properties:
+        id:
+          type: string
+          description: Customer ID.
+        name:
+          type: string
+          description: First name.
+        surname:
+          type: string
+          description: Last name.
+        identityNumber:
+          type: string
+          description: National ID number (e.g., TR ID).
+        email:
+          type: string
+          description: Email address.
+        gsmNumber:
+          type: string
+          description: Mobile phone number.
+        registrationAddress:
+          type: string
+          description: Registered address.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+        ip:
+          type: string
+          description: IP address.
+        zipCode:
+          type: string
+          description: Postal code.
+        registrationDate:
+          type: string
+          description: Registration date (YYYY-MM-DD hh:mm:ss).
+        lastLoginDate:
+          type: string
+          description: Last login date (YYYY-MM-DD hh:mm:ss).
+    PwiInitializeRequest:
+      type: object
+      required:
+      - price
+      - basketId
+      - callbackUrl
+      - currency
+      - paidPrice
+      - buyer
+      - billingAddress
+      - shippingAddress
+      - basketItems
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Language code. Default; tr
+        conversationId:
+          type: string
+          description: Request/response correlation ID.
+        price:
+          type: decimal
+          description: Basket total amount.
+        basketId:
+          type: string
+          description: Basket ID.
+        paymentGroup:
+          type: string
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+          description: Payment group.
+        callbackUrl:
+          type: string
+          description: URL to redirect after the transaction.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+          description: Currency. Default; TRY.
+        paidPrice:
+          type: decimal
+          description: Amount to be collected.
+        paymentChannel:
+          type: string
+          enum:
+          - WEB
+          - MOBILE
+          - MOBILE_WEB
+          - MOBILE_IOS
+          - MOBILE_ANDROID
+          - MOBILE_WINDOWS
+          - MOBILE_TABLET
+          - MOBILE_PHONE
+          description: Payment channel.
+        enabledInstallments:
+          type: array
+          items:
+            type: integer
+            enum:
+            - 1
+            - 2
+            - 3
+            - 6
+            - 9
+            - 12
+          description: Installment options to offer.
+        buyer:
+          $ref: '#/components/schemas/PwiBuyer'
+        shippingAddress:
+          $ref: '#/components/schemas/PwiAddress'
+          description: Shipping Address. Required if at least one basket item is PHYSICAL. If all items
+            are VIRTUAL, this is not required.
+        billingAddress:
+          $ref: '#/components/schemas/PwiAddress'
+        basketItems:
+          type: array
+          description: Basket items.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PwiBasketItem'
+    PwiInitializeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Outcome of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          description: Timestamp (epoch ms).
+        conversationId:
+          type: string
+          description: Correlation ID of the request.
+        token:
+          type: string
+          description: Token generated for Pay with iyzico. Returned per request and required to retrieve
+            the result.
+        tokenExpireTime:
+          type: integer
+          description: Token validity in seconds; 1800 seconds.
+        payWithIyzicoPageUrl:
+          type: string
+          description: Payment page URL to redirect to.
+        signature:
+          type: string
+          description: Response signature (hash).
+    RefundPaymentRequest:
+      type: object
+      required:
+      - paymentTransactionId
+      - price
+      properties:
+        paymentTransactionId:
+          type: string
+          description: Basket item (payment breakdown) identifier (**paymentTransactionId**) to be refunded.
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation.
+        ip:
+          type: string
+          description: IP address the request is sent from.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        price:
+          type: decimal
+          description: Amount to refund. **Must not exceed** the item price.
+        currency:
+          type: string
+          description: Payment currency.
+    RefundPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Indicates the outcome of the request.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Current **epoch ms** at the time of response.
+        conversationId:
+          type: string
+          description: Echoes the conversationId sent in the request.
+        paymentId:
+          type: string
+          description: Payment number.
+        paymentTransactionId:
+          type: string
+          description: Refunded payment item identifier.
+        price:
+          type: decimal
+          description: Refunded amount.
+        currency:
+          type: string
+          description: Currency.
+        authCode:
+          type: string
+          description: Authorization (auth) code returned by the bank.
+        hostReference:
+          type: string
+          description: Reference value provided by the bank for the payment.
+        refundHostReference:
+          type: string
+          description: Reference value provided by the bank for the refund.
+        retryable:
+          type: boolean
+          description: Indicates whether the operation can be retried.
+          enum:
+          - true
+          - false
+        signature:
+          type: string
+          description: Signature value that can be used for verification.
+    RefundPaymentV2Request:
+      type: object
+      required:
+      - paymentId
+      - price
+      properties:
+        paymentId:
+          type: string
+          description: Payment identifier to be refunded.
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation.
+        ip:
+          type: string
+          description: IP address the request is sent from.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        price:
+          type: decimal
+          description: Amount to refund. **Must not exceed** the payment total.
+        currency:
+          type: string
+          description: Payment currency.
+    RefundPaymentV2Response:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Indicates the outcome of the request.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Current **epoch ms** at the time of response.
+        conversationId:
+          type: string
+          description: Echoes the conversationId sent in the request.
+        paymentId:
+          type: string
+          description: Refunded payment identifier.
+        price:
+          type: decimal
+          description: Refunded amount.
+        currency:
+          type: string
+          description: Currency.
+        authCode:
+          type: string
+          description: Authorization (auth) code returned by the bank.
+        hostReference:
+          type: string
+          description: Reference value provided by the bank for the payment.
+        refundHostReference:
+          type: string
+          description: Reference value provided by the bank for the refund.
+        retryable:
+          type: boolean
+          description: Indicates whether the operation can be retried.
+          enum:
+          - true
+          - false
+        signature:
+          type: string
+          description: Signature value that can be used for verification.
+    ThreeDSAuthRequest:
+      type: object
+      required:
+      - paymentId
+      properties:
+        locale:
+          type: string
+          description: Language code. Default; tr
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: Payment ID returned by the initialize call.
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation.
+        conversationData:
+          type: string
+          description: Data posted by the 3DS result. If present, it must be sent.
+    ThreeDSInitializeRequest:
+      type: object
+      required:
+      - price
+      - paidPrice
+      - callbackUrl
+      - paymentCard
+      - buyer
+      - shippingAddress
+      - billingAddress
+      - basketItems
+      properties:
+        locale:
+          type: string
+          description: Language code. Default; tr
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation.
+        price:
+          type: decimal
+          description: Basket total amount.
+        paidPrice:
+          type: decimal
+          description: Final amount to be charged to the customer.
+        currency:
+          type: string
+          description: Currency. Default; TRY.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        installment:
+          type: integer
+          description: Installment count (if omitted, a single installment is used).
+          enum:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 9
+          - 12
+        paymentChannel:
+          type: string
+          description: Payment channel.
+          enum:
+          - WEB
+          - MOBILE
+          - MOBILE_WEB
+          - MOBILE_IOS
+          - MOBILE_ANDROID
+          - MOBILE_WINDOWS
+          - MOBILE_TABLET
+          - MOBILE_PHONE
+        basketId:
+          type: string
+          description: Basket ID.
+        paymentGroup:
+          type: string
+          description: Payment group. Default; PRODUCT.
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+        callbackUrl:
+          type: string
+          description: Redirect URL after 3DS flow completes.
+        paymentCard:
+          description: Card information.
+          $ref: '#/components/schemas/PaymentCard3DS'
+        buyer:
+          description: Buyer information.
+          $ref: '#/components/schemas/Buyer3DS'
+        shippingAddress:
+          description: Shipping address. Required if at least one basket item has itemType "PHYSICAL".
+            If all items are "VIRTUAL", it is not required.
+          $ref: '#/components/schemas/Address2'
+        billingAddress:
+          description: Billing address.
+          $ref: '#/components/schemas/Address2'
+        basketItems:
+          type: array
+          description: Basket items.
+          items:
+            $ref: '#/components/schemas/BasketItem2'
+    ThreeDSInitializeRequest2:
+      type: object
+      required:
+      - price
+      - paidPrice
+      - callbackUrl
+      - paymentCard
+      - buyer
+      - shippingAddress
+      - billingAddress
+      - basketItems
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan; tr
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: İstek/yanıt eşleştirme ID’si.
+        price:
+          type: decimal
+          description: Sepet toplamı.
+        paidPrice:
+          type: decimal
+          description: Tahsil edilecek nihai tutar.
+        currency:
+          type: string
+          description: Para birimi. Varsayılan; TRY.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        installment:
+          type: integer
+          description: Taksit sayısı (gönderilmezse tek çekim olarak işlem gerçekleşir).
+          enum:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 9
+          - 12
+        paymentChannel:
+          type: string
+          description: Ödeme kanalı.
+          enum:
+          - WEB
+          - MOBILE
+          - MOBILE_WEB
+          - MOBILE_IOS
+          - MOBILE_ANDROID
+          - MOBILE_WINDOWS
+          - MOBILE_TABLET
+          - MOBILE_PHONE
+        basketId:
+          type: string
+          description: Sepet ID.
+        paymentGroup:
+          type: string
+          description: Ödeme grubu. Varsayılan; PRODUCT.
+          enum:
+          - PRODUCT
+          - LISTING
+          - SUBSCRIPTION
+        callbackUrl:
+          type: string
+          description: 3DS işlem sonrası yönlenecek dönüş URL’si.
+        paymentCard:
+          description: Kart Bilgileri.
+          $ref: '#/components/schemas/PaymentCard3DS2'
+        buyer:
+          description: Alıcı Bilgileri.
+          $ref: '#/components/schemas/Buyer3DS2'
+        shippingAddress:
+          description: Kargo Adresi. Sepetteki ürünlerden en az bir tanesinin, itemType "PHYSICAL" olması
+            durumunda gönderilmesi zorunludur. Tüm ürünler "VIRTUAL" olduğu taktirde gönderilmesi gerekmez.
+          $ref: '#/components/schemas/Address3'
+        billingAddress:
+          description: Fatura Adresi.
+          $ref: '#/components/schemas/Address3'
+        basketItems:
+          type: array
+          description: Sepetteki ürünler.
+          items:
+            $ref: '#/components/schemas/BasketItem4'
+        paymentSource:
+          type: string
+          description: Bu alan, partner firmalar tarafından iletilen ödeme kaynağı bilgisidir. Eğer bir
+            altyapı sağlayıcısıysanız ve iyzico ile entegrasyon/iş birliğiniz bulunuyorsa bu parametreyi
+            gönderebilirsiniz.
+    ThreeDSInitializeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language (tr/en).
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request.
+        threeDSHtmlContent:
+          type: string
+          description: Base64-encoded HTML content of the 3DS verification screen.
+        paymentId:
+          type: string
+          description: Unique paymentId returned by iyzico.
+        signature:
+          type: string
+          description: Signature value that can be used for verification.
+    ThreeDSInitializeResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Yapılan isteğin sonucunu bildirir.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Yanıt dili (tr/en).
+        systemTime:
+          type: integer
+          description: İşlem zamanı (epoch ms).
+        conversationId:
+          type: string
+          description: İstek ile eşleşen ID.
+        threeDSHtmlContent:
+          type: string
+          description: 3DS doğrulama ekranının Base64 kodlu HTML içeriği.
+        paymentId:
+          type: string
+          description: iyzico tarafından dönen uniq paymentId bilgisi.
+        signature:
+          type: string
+          description: İmza doğrulaması için kullanılabilecek signature değeri.
+    ThreeDSV2AuthRequest:
+      type: object
+      required:
+      - paymentId
+      - paidPrice
+      - basketId
+      - currency
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Language code. Default; tr
+        paymentId:
+          type: string
+          description: Payment ID returned after 3DS initialization.
+        conversationId:
+          type: string
+          description: Unique ID for request/response correlation.
+        paidPrice:
+          type: decimal
+          description: Collected amount to be used in 3DS v2 completion. Must match the paidPrice sent
+            in INIT 3DS.
+        basketId:
+          type: string
+          description: Basket ID (must match INIT 3DS basketId).
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+          description: Currency. Default; TRY (must match the value sent in INIT 3DS).
+    ThreeDSV2PaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: It reports the result of the transaction. If the response returns success, it means
+            the payment has been completed successfully.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Timestamp (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request.
+        price:
+          type: decimal
+          description: Basket total amount.
+        paidPrice:
+          type: decimal
+          description: Total charged amount.
+        installment:
+          type: integer
+          description: Installment count.
+        paymentId:
+          type: string
+          description: Payment ID.
+        fraudStatus:
+          type: integer
+          description: 'Payment status according to fraud filters.
+
+            - 1: Approved
+
+            - 0: Under review
+
+            - -1: Declined
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+        merchantCommissionRate:
+          type: decimal
+          description: Merchant’s installment/commission rate (informational).
+        merchantCommissionRateAmount:
+          type: decimal
+          description: Merchant’s installment/commission amount (informational).
+        iyziCommissionRateAmount:
+          type: decimal
+          description: iyzico commission amount.
+        iyziCommissionFee:
+          type: decimal
+          description: iyzico transaction fee.
+        cardType:
+          type: string
+          description: Card type.
+        cardAssociation:
+          type: string
+          description: Card scheme/brand.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+          - TROY
+        cardFamily:
+          type: string
+          description: Card product/family.
+        binNumber:
+          type: string
+          description: BIN (first 8 digits).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card.
+        basketId:
+          type: string
+          description: Basket ID.
+        currency:
+          type: string
+          description: Currency of the payment.
+        itemTransactions:
+          type: array
+          description: Line items per basket item.
+          items:
+            type: object
+            properties:
+              paymentTransactionId:
+                type: string
+                description: Line-item ID; must be stored by the merchant (used for refund/approve operations).
+              itemId:
+                type: string
+                description: Merchant-defined item ID in the basket.
+              price:
+                type: decimal
+                description: Item price on merchant side.
+              paidPrice:
+                type: decimal
+                description: Collected amount allocated to this line item.
+              transactionStatus:
+                type: integer
+                description: 'Line item status.
+
+                  - 0: In fraud check
+
+                  - -1: Declined after fraud check
+
+                  - 1: Approved (Marketplace: Waiting for Merchant Approval)
+
+                  - 2: Approved (Marketplace approval given)
+
+                  '
+                enum:
+                - 0
+                - -1
+                - 1
+                - 2
+              blockageRate:
+                type: decimal
+                description: Merchant blockage rate at line level.
+              blockageRateAmountMerchant:
+                type: decimal
+                description: Blockage amount reflected to the merchant.
+              blockageResolvedDate:
+                type: string
+                description: Blockage release date (yyyy-MM-dd HH:mm:ss).
+              iyziCommissionFee:
+                type: decimal
+                description: iyzico fee allocated to the line item.
+              iyziCommissionRateAmount:
+                type: decimal
+                description: iyzico commission allocated to the line item.
+              merchantCommissionRate:
+                type: decimal
+                description: Merchant’s commission rate allocated to the line item.
+              merchantCommissionRateAmount:
+                type: decimal
+                description: Merchant’s commission amount allocated to the line item.
+              merchantPayoutAmount:
+                type: decimal
+                description: Amount to be paid to the merchant after fees/blocks.
+              convertedPayout:
+                type: object
+                description: Post-conversion calculations per line item.
+                properties:
+                  paidPrice:
+                    type: decimal
+                    description: Collected amount allocated to this line item.
+                  iyziCommissionFee:
+                    type: decimal
+                    description: iyzico fee allocated to the line item.
+                  iyziCommissionRateAmount:
+                    type: decimal
+                    description: iyzico commission allocated to the line item.
+                  blockageRateAmountMerchant:
+                    type: decimal
+                    description: Merchant-side blockage amount.
+                  merchantPayoutAmount:
+                    type: decimal
+                    description: Amount to be paid to the merchant after fees/blocks.
+                  iyziConversationRate:
+                    type: decimal
+                    description: Conversion rate.
+                  iyziConversationRateAmount:
+                    type: decimal
+                    description: Converted amount produced by the rate.
+        authCode:
+          type: string
+          description: Authorization code returned by the bank.
+        phase:
+          type: string
+          description: Payment phase.
+        mdStatus:
+          type: integer
+          description: '3DS authentication result.
+
+            - 1: Successful
+
+            - 0,2-8: Failed
+
+            '
+          enum:
+          - -1
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+        hostReference:
+          type: string
+          description: Host reference returned by the bank/acquirer.
+        signature:
+          type: string
+          description: Signature value that can be used for verification.

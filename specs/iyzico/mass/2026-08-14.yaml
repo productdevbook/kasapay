@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: iyzico — urunler/mass-payout
+  title: iyzico — mass
   version: unversioned
   description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
     publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
@@ -15,14 +15,18 @@ security:
   MerchantIdAuth: []
 tags:
 - name: Mass Payout
-  description: Toplu ödeme işlemleri
+  description: Mass payout operations
 paths:
   /v1/mass/payout/auth:
     post:
       tags:
       - Mass Payout
-      summary: Toplu Ödemeyi Yetkilendir
-      description: 'INIT durumundaki geçerli kırılımları PROCESSING durumuna geçirir.
+      summary: Auth Mass Payout
+      description: 'Second step of the two-phase process. Transitions valid mass payout items from `INIT`
+        to `PROCESSING`.
+
+        Messages to be processed are queued (for fund reservation/transfer). Invalid orders remain unchanged.
+        An audit trail is recorded.
 
         '
       parameters:
@@ -37,35 +41,36 @@ paths:
               $ref: '#/components/schemas/MassPayoutAuthRequest'
       responses:
         '200':
-          description: Başarılı
+          description: Successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MassPayoutAuthResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-tamamlama.md
+      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/mass-payout-auth.md
   /v1/mass/payout/balance:
     get:
       tags:
       - Mass Payout
-      summary: Toplu Ödeme Bakiyesi
+      summary: Retrieve Mass Payout Balance
+      description: Displays the mass payout balance of the merchant.
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
       - $ref: '#/components/parameters/ContentTypeHeader'
       - $ref: '#/components/parameters/LocaleQuery'
       responses:
         '200':
-          description: Başarılı
+          description: Successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MassPayoutBalanceResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/bakiye-sorgulama.md
+      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/retrieve-mass-payout-balance.md
   /v1/mass/payout/cancel/{requestId}:
     post:
       tags:
       - Mass Payout
-      summary: Toplu Ödemeyi İptal Et
-      description: INIT durumundaki toplu ödeme ve kırılımlarını iptal eder.
+      summary: Cancel Mass Payout
+      description: Cancels the mass payout request and its items that are in `INIT` status.
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
       - $ref: '#/components/parameters/ContentTypeHeader'
@@ -73,23 +78,30 @@ paths:
       - name: requestId
         in: path
         required: true
-        description: İptal edilecek toplu ödeme takip kimliği.
+        description: Correlation / tracking identifier of the mass payout.
         schema:
           type: string
       responses:
         '200':
-          description: Başarılı
+          description: Successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MassPayoutCancelResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-iptal-etme.md
+                $ref: '#/components/schemas/MassPayoutAuthResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/mass-payout-cancel.md
   /v1/mass/payout/init:
     post:
       tags:
       - Mass Payout
-      summary: Toplu Ödeme Başlat
-      description: 'Yeni bir toplu ödeme oluşturur. Geçerli kırılımlar INIT durumunda saklanır.
+      summary: Initialize Mass Payout
+      description: 'Creates a new **Mass Payout**. Each valid payout item is stored with status `INIT`.
+
+
+        **Resulting States**
+
+        - Mass Payout → `INIT`
+
+        - Mass Payout Items → `INIT` (if valid) or `INVALID` (if invalid)
 
         '
       parameters:
@@ -104,26 +116,21 @@ paths:
               $ref: '#/components/schemas/MassPayoutInitializeRequest'
       responses:
         '200':
-          description: Başarılı
+          description: Successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MassPayoutInitializeResponse'
-        '400':
-          description: Başarısız
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MassPayoutInitializeResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-baslatma.md
+      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/mass-payout-initalize.md
   /v1/mass/payout/retrieve:
     post:
       tags:
       - Mass Payout
-      summary: Toplu Ödeme Detayı Getir
-      description: 'Toplu ödeme ve kırılım detaylarını döndürür.
+      summary: Retrieve Mass Payout and Items Detail
+      description: 'Retrieves the details of a **Mass Payout** and its contained payout items.
 
-        requestId veya externalMassPayoutId alanlarından en az biri gönderilmelidir.
+        You must provide **either** `requestId` **or** `externalMassPayoutId` (or both), along with pagination
+        parameters.
 
         '
       parameters:
@@ -138,18 +145,18 @@ paths:
               $ref: '#/components/schemas/MassPayoutRetrieveRequest'
       responses:
         '200':
-          description: Başarılı
+          description: Successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MassPayoutRetrieveResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-raporlama.md
+      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/retrieve-mass-payout.md
   /v1/mass/payout/retrieve/items/{referenceCode}:
     get:
       tags:
       - Mass Payout
-      summary: Toplu Ödeme Kırılım Detayı Getir
-      description: Belirtilen toplu ödeme kırılımına ait detay bilgilerini döndürür.
+      summary: Retrieve Mass Payout Item Detail
+      description: Retrieves the details of an item contained within a mass payout.
       parameters:
       - $ref: '#/components/parameters/AuthHeader'
       - $ref: '#/components/parameters/ContentTypeHeader'
@@ -157,17 +164,17 @@ paths:
       - name: referenceCode
         in: path
         required: true
-        description: Toplu ödeme kırılımına ait benzersiz referans kodu.
+        description: Unique reference code of the mass payout item.
         schema:
           type: string
       responses:
         '200':
-          description: Başarılı
+          description: Successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MassPayoutItemRetrieveResponse'
-      x-iyzico-source: https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-sorgulama.md
+      x-iyzico-source: https://docs.iyzico.com/en/products/mass-payout/mass-payout-integration/mass-payout-reporting.md
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -185,59 +192,55 @@ components:
   schemas:
     Amount:
       type: object
-      description: Tutar bilgisi.
+      description: Amount information.
       required:
       - value
       - currency
       properties:
         value:
           type: decimal
-          description: Gönderilecek tutar.
+          description: Amount to send.
         currency:
           type: string
-          description: Para birimi kodu.
-          enum:
-          - TRY
-          - USD
-          - EUR
+          description: Currency code.
     InvalidItem:
       type: object
-      description: Geçersiz ödeme kırılım detayı.
+      description: Invalid payout item detail.
       properties:
         externalId:
           type: string
-          description: Hata veren kırılım external ID'si.
+          description: External ID of the specific item that failed.
         errorCode:
           type: string
         errorMessage:
           type: string
     MassPayoutAuthRequest:
       type: object
-      description: Toplu ödeme yetkilendirme isteği.
+      description: Mass payout authorization request.
       required:
       - requestId
       properties:
         requestId:
           type: string
-          description: Başlatma adımında dönen korelasyon / takip kimliği.
+          description: Correlation / tracking identifier returned from the initialization step.
     MassPayoutAuthResponse:
       type: object
-      description: Toplu ödeme yetkilendirme yanıtı.
+      description: Mass payout authorization response.
       properties:
         status:
           type: string
           enum:
           - success
           - failure
-        locale:
-          type: string
-          description: Yanıt dili (`tr` veya `en`).
         systemTime:
           type: integer
-          description: Sistem zamanı (epoch ms).
+          description: System time (epoch ms).
+        locale:
+          type: string
+          description: Language/region setting such as `tr` or `en`.
     MassPayoutBalanceResponse:
       type: object
-      description: İşletmenin toplu ödeme bakiyesi yanıtı.
+      description: Merchant mass payout balance response.
       properties:
         status:
           type: string
@@ -248,59 +251,49 @@ components:
           type: integer
         balance:
           type: decimal
-          description: Toplu ödeme işlemleri için kullanılabilir bakiye.
-    MassPayoutCancelResponse:
-      type: object
-      description: Toplu ödeme iptal yanıtı.
-      properties:
-        status:
-          type: string
-          enum:
-          - success
-          - failure
-        locale:
-          type: string
-          description: Yanıt dili (`tr` veya `en`).
-        systemTime:
-          type: integer
-          description: Sistem zamanı (epoch ms).
+          description: Available balance amount for mass payout transactions.
     MassPayoutInitializeRequest:
       type: object
-      description: Toplu ödeme başlatma isteği.
+      description: Mass payout initialization request.
       required:
       - externalId
+      - conversationId
       - items
       properties:
         externalId:
           type: string
-          description: Toplu ödeme isteği için benzersiz kimlik (idempotency).
+          description: Unique identifier for the mass payout request (idempotency).
         conversationId:
           type: string
-          description: Toplu ödeme için korelasyon ID'si.
+          description: Correlation ID for the mass payout.
         purpose:
           type: string
-          description: Ödemenin iş amacı.
+          description: Business purpose of the payout.
           enum:
           - SALARY
           - BONUS
           - SETTLEMENT
           - GOODS
           - SERVICES
+          - CASHBACK
+          - REBATES
+          - DONATIONS
         items:
           type: array
-          description: Ödeme kırılımları.
+          description: Payout items.
+          minItems: 1
           items:
             $ref: '#/components/schemas/MassPayoutItem'
     MassPayoutInitializeResponse:
       type: object
-      description: Toplu ödeme başlatma yanıtı.
+      description: Mass payout initialization response.
       properties:
         requestId:
           type: string
-          description: Toplu ödeme için korelasyon / takip kimliği.
+          description: Correlation / tracking identifier for the mass payout.
         conversationId:
           type: string
-          description: Varsa temel istekteki korelasyon kimliği.
+          description: Correlation ID inherited from the base request if present.
         status:
           type: string
           enum:
@@ -308,18 +301,18 @@ components:
           - failure
         locale:
           type: string
-          description: Yanıt dili (`tr` veya `en`).
+          description: Language/region setting such as `tr` or `en`.
         systemTime:
           type: integer
-          description: Sistem zamanı (epoch ms).
+          description: System time (epoch ms).
         invalidItems:
           type: array
-          description: Kırılım seviyesinde hata detayları.
+          description: Collection of order-level error details.
           items:
             $ref: '#/components/schemas/InvalidItem'
     MassPayoutItem:
       type: object
-      description: Toplu ödeme kırılımı.
+      description: Mass payout item.
       required:
       - itemExternalId
       - recipientType
@@ -329,10 +322,10 @@ components:
       properties:
         itemExternalId:
           type: string
-          description: Kırılım bazında ID.
+          description: ID per payout item.
         recipientType:
           type: string
-          description: Alıcı tanımlayıcı tipi.
+          description: Type of recipient identifier.
           enum:
           - PHONE
           - IBAN
@@ -340,21 +333,21 @@ components:
           - MEMBER_ID
         recipientInfo:
           type: string
-          description: recipientType ile uyumlu tanımlayıcı (telefon, IBAN vb.).
+          description: Identifier matching the recipientType (phone, IBAN, etc.).
         amount:
           $ref: '#/components/schemas/Amount'
         description:
           type: string
-          description: Kırılım açıklaması.
+          description: Item description.
         recipientName:
           type: string
-          description: Alıcı adı. `recipientType = IBAN` ise **zorunludur**.
+          description: Recipient name. **Required if** `recipientType` is `IBAN`.
         nonWithdrawable:
           type: boolean
-          description: iyzico cüzdana gönderilecek ücretin çekilemez olmasını sağlar.
+          description: iyzico ensures that the fee sent to your wallet cannot be withdrawn.
     MassPayoutItemDetail:
       type: object
-      description: Toplu ödeme kırılım detayı.
+      description: Mass payout item detail.
       properties:
         itemExternalId:
           type: string
@@ -375,7 +368,7 @@ components:
           type: string
         itemStatus:
           type: string
-          description: Toplu ödeme kırılımı statü durumu.
+          description: Mass payout item lifecycle status (enum).
           enum:
           - FAILED
           - SUCCESS
@@ -398,24 +391,22 @@ components:
           type: string
     MassPayoutItemRetrieveResponse:
       type: object
-      description: Tekil toplu ödeme kırılımı detayı yanıtı.
+      description: Mass payout single item detail response.
       properties:
         status:
           type: string
           enum:
           - success
           - failure
-        locale:
-          type: string
-          description: Yanıt dili (`tr` veya `en`).
         systemTime:
           type: integer
-          description: Sistem zamanı (epoch ms).
+        locale:
+          type: string
         item:
           $ref: '#/components/schemas/MassPayoutItemDetail'
     MassPayoutItemsPage:
       type: object
-      description: Toplu ödeme kırılımlarının sayfalı listesi.
+      description: Paged list of mass payout items.
       properties:
         items:
           type: array
@@ -423,44 +414,42 @@ components:
             $ref: '#/components/schemas/MassPayoutItemDetail'
     MassPayoutRetrieveRequest:
       type: object
-      description: requestId veya externalMassPayoutId alanlarından en az biri gönderilmelidir.
+      description: Retrieve mass payout and item details.
       required:
-      - itemType
       - page
       - size
+      anyOf:
+      - required:
+        - requestId
+      - required:
+        - externalMassPayoutId
       properties:
         requestId:
           type: string
-          description: Toplu ödeme için korelasyon/takip kimliği. Init işleminin response'u üzerinde dönmektedir.
+          description: Correlation / tracking identifier for the mass payout.
         externalMassPayoutId:
           type: string
-          description: Toplu ödeme isteği için benzersiz kimlik (idempotency).
-        itemType:
-          type: string
-          description: Kırılım filtre tipi.
-          enum:
-          - VALID
-          - INVALID
+          description: Unique id for the mass payout request (idempotency).
         page:
           type: integer
-          description: Getirilecek sayfa numarası.
+          description: Page number to retrieve.
         size:
           type: integer
-          description: Sayfa başına sonuç adedi.
+          description: Number of results per page.
     MassPayoutRetrieveResponse:
       type: object
-      description: Toplu ödeme ve kırılım detayları yanıtı.
+      description: Mass payout and items detail response.
       properties:
         status:
           type: string
           enum:
           - success
           - failure
-        locale:
-          type: string
         systemTime:
           type: integer
-          description: Sistem zamanı (epoch ms).
+          description: System time (epoch ms).
+        locale:
+          type: string
         massPayout:
           $ref: '#/components/schemas/MassPayoutSummary'
         massPayoutItems:
@@ -473,7 +462,7 @@ components:
           type: integer
     MassPayoutSummary:
       type: object
-      description: Toplu ödeme özet bilgileri.
+      description: Summary information for a mass payout.
       properties:
         externalId:
           type: string
@@ -485,7 +474,7 @@ components:
           type: decimal
         massPayoutStatus:
           type: string
-          description: Toplu ödemenin yaşam döngüsü durumu (enum).
+          description: Mass payout lifecycle status (enum).
           enum:
           - INIT
           - IN_PROGRESS

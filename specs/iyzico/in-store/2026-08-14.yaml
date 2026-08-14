@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: iyzico — urunler/ceppos-app2app
+  title: iyzico — in-store
   version: unversioned
   description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
     publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
@@ -14,11 +14,116 @@ security:
   SecretKeyAuth: []
   MerchantIdAuth: []
 tags:
+- name: OAuth
 - name: Payment
   description: Ödeme işlemleri servisleri
-- name: User
-  description: Kullanıcı yönetimi servisleri
 paths:
+  /in-store/oauth2/authorize:
+    post:
+      tags:
+      - OAuth
+      description: 'This service starts the authorization step and generates an "auth code".
+
+
+        Flow:
+
+        1) A request is sent to this service with a form-urlencoded body.
+
+        2) The "code" value in the response is received.
+
+        3) The received "code" value is used in the "Get Token with Auth Code" service to generate a token.
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthAuthorizeRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+  /in-store/oauth2/token:
+    post:
+      tags:
+      - OAuth
+      description: "This service generates access_token and refresh_token using the auth code.\n\nAuthorization\
+        \ (Basic Auth):\n- Username: client_id\n- Password: client_secret\nHeader format:\nAuthorization:\
+        \ Basic base64(client_id:client_secret)\n\nFlow (Auth Code):\n1) The \"code\" returned from /authorize\
+        \ call is retrieved.\n2) It is sent to this service with a form-urlencoded body:\n   - grant_type=authorization_code\n\
+        \   - code={authCode}\n3) From the response:\n   - access_token: Used as Bearer Token in Terminal\
+        \ Host services.\n   - refresh_token: Stored for token renewal.\n   - expires_in: access_token\
+        \ validity period (seconds).\n"
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/OAuthTokenRequestAuthCode'
+              - $ref: '#/components/schemas/OAuthTokenRequestRefresh'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+  /in-store/oauth2/token/refresh:
+    post:
+      tags:
+      - OAuth
+      summary: Get Token with Refresh Token
+      description: "This service generates a new access_token using the refresh_token (token renewal).\n\
+        \nAuthorization (Basic Auth):\n- Username: client_id\n- Password: client_secret\nHeader format:\n\
+        Authorization: Basic base64(client_id:client_secret)\n\nFlow:\n1) The \"refresh_token\" received\
+        \ from the previous token call is stored.\n2) It is sent to this service with a form-urlencoded\
+        \ body:\n   - grant_type=refresh_token\n   - refresh_token={refresh_token}\n3) The new access_token\
+        \ is received from the response and used in Terminal Host services.\n"
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthTokenRequestRefresh'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
   /v2/in-store/crypt/decrypt:
     post:
       tags:
@@ -536,14 +641,6 @@ components:
         userId:
           type: string
           description: Silinecek kullanıcı kimliği
-    DeleteUserRequest2:
-      type: object
-      required:
-      - userId
-      properties:
-        userId:
-          type: string
-          description: Silinecek kullanıcı kimliği
     DeleteUserResponse:
       type: object
       properties:
@@ -562,15 +659,6 @@ components:
         enrollmentStatus:
           type: string
           description: Banka terminali kayıt durumu.
-    Enrollment2:
-      type: object
-      properties:
-        enrolledBank:
-          type: string
-          description: Kullanıcının kayıtlı olduğu bankanın adı.
-        enrolledTerminalId:
-          type: string
-          description: Bankaya ait fiziksel POS terminal kimliği.
     ErrorResponse:
       type: object
       properties:
@@ -655,6 +743,126 @@ components:
           type: string
           description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde
             referans olarak kullanılır.
+    OAuthAuthorizeErrorResponse:
+      type: object
+      properties:
+        errorCode:
+          type: string
+          description: Error Code
+        description:
+          type: string
+          description: Error Description
+        uri:
+          type: string
+          description: Returned in some cases
+    OAuthAuthorizeRequest:
+      type: object
+      required:
+      - scope
+      - client_id
+      - client_secret
+      - response_type
+      - username
+      - password
+      - request_timestamp
+      properties:
+        scope:
+          type: string
+          description: 'Default value: iyzipayApiGateway'
+          enum:
+          - iyzipayApiGateway
+        client_id:
+          type: string
+          description: Merchant-specific client_id value provided by iyzico.
+        client_secret:
+          type: string
+          description: Merchant-specific client secret value generated by iyzico.
+        response_type:
+          type: string
+          description: 'Default value: code'
+          enum:
+          - code
+        username:
+          type: string
+          description: Username
+        password:
+          type: string
+          description: User password
+        request_timestamp:
+          type: string
+          description: Unix timestamp value of the relevant request.
+    OAuthAuthorizeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Auth Code
+        issuedAt:
+          type: string
+          description: Transaction date
+        expiredAt:
+          type: string
+          description: Transaction validity date
+    OAuthSimpleError:
+      type: object
+      properties:
+        error:
+          type: string
+    OAuthTokenRequestAuthCode:
+      type: object
+      required:
+      - grant_type
+      - code
+      description: Generates a JWT token using the Authorization Code. Basic Auth is performed with client_id
+        and client_secret.
+      properties:
+        grant_type:
+          type: string
+          description: Transaction type for token generation
+          enum:
+          - authorization_code
+          - refresh_token
+        code:
+          type: string
+          description: authCode value generated during the authorization step.
+    OAuthTokenRequestRefresh:
+      type: object
+      required:
+      - grant_type
+      - refresh_token
+      description: Generates a JWT token using the Refresh Token. Basic Auth is performed with client_id
+        and client_secret.
+      properties:
+        grant_type:
+          type: string
+          description: Transaction type for token generation
+          enum:
+          - authorization_code
+          - refresh_token
+        refresh_token:
+          type: string
+          description: Refresh token value to be used for token renewal.
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: Access Token Value
+        refresh_token:
+          type: string
+          description: Refresh Token Value
+        scope:
+          type: string
+          description: Default Scope Value
+          enum:
+          - iyzipayApiGateway
+        token_type:
+          type: string
+          description: Token type used in authorization
+        expires_in:
+          type: integer
+          format: int32
+          description: Validity period in seconds.
     PaymentFailedResult:
       type: object
       properties:
@@ -674,50 +882,6 @@ components:
           type: string
           format: date-time
           description: İşlem tarihi ve saati.
-    PaymentInitRequest:
-      type: object
-      required:
-      - userId
-      - orderId
-      - amount
-      properties:
-        userId:
-          type: string
-          description: Ödemeyi yapacak kullanıcı ID'si
-        orderId:
-          type: string
-          description: Sipariş referans numarası
-        amount:
-          type: string
-          description: Ödeme tutarı
-          format: decimal
-    PaymentInitResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
-        errorCode:
-          type: string
-          nullable: true
-          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
-        errorMessage:
-          type: string
-          nullable: true
-          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
-        deepLinkUrl:
-          type: string
-          description: Müşterinin iyzico mobil uygulamasına yönlendirileceği deep link URL'i. Bu link
-            açıldığında uygulama ödeme ekranını başlatır.
-        paymentSessionToken:
-          type: string
-          description: Ödeme oturumuna özgü token. Ödeme tamamlandıktan sonra /crypt/decrypt adımında
-            şifre çözmek için kullanılır.
-        paymentId:
-          type: integer
-          format: int64
-          description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde
-            referans olarak kullanılır.
     PaymentQueryResponse:
       type: object
       properties:
@@ -998,55 +1162,12 @@ components:
           type: string
           format: decimal
           description: İade edilecek tutar. Boş bırakılırsa eğer tam iade yapılır.
-    RefundRequest2:
-      type: object
-      required:
-      - userId
-      - paymentId
-      properties:
-        userId:
-          type: string
-          description: İşlemi başlatan kullanıcı ID'si
-        paymentId:
-          type: integer
-          description: İade edilecek ödemenin ID'si
-          format: int64
-        refundAmount:
-          type: string
-          nullable: true
-          description: Kısmi iade tutarı; girilmezse tam iade yapılır
-          format: decimal
     RefundResponse:
       type: object
       properties:
         status:
           type: string
           description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
-        deepLinkUrl:
-          type: string
-          description: Müşteriyi iade onay ekranına yönlendiren deep link URL'i. İade akışı bu link üzerinden
-            tamamlanır.
-        paymentSessionToken:
-          type: string
-          description: İade oturumuna özgü token. Callback sonrasında şifre çözmek için kullanılır.
-        paymentId:
-          type: integer
-          description: İade işlemi başlatılan orijinal ödemenin kimliği.
-          format: int64
-    RefundResponse2:
-      type: object
-      properties:
-        status:
-          type: string
-          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
-        errorCode:
-          type: string
-          nullable: true
-          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
-        errorMessage:
-          type: string
-          nullable: true
-          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
         deepLinkUrl:
           type: string
           description: Müşteriyi iade onay ekranına yönlendiren deep link URL'i. İade akışı bu link üzerinden
@@ -1288,28 +1409,6 @@ components:
           description: Kullanıcının kayıtlı olduğu banka ve terminal bilgilerinin listesi.
           items:
             $ref: '#/components/schemas/Enrollment'
-    UserDetail2:
-      type: object
-      properties:
-        userId:
-          type: string
-          description: Sisteme kayıtlı kullanıcının benzersiz kimliği.
-        enrollments:
-          type: array
-          description: Kullanıcının kayıtlı olduğu banka ve terminal bilgilerinin listesi.
-          items:
-            $ref: '#/components/schemas/Enrollment2'
-    UserDetail3:
-      type: object
-      properties:
-        userId:
-          type: string
-          description: Sisteme kayıtlı kullanıcının benzersiz kimliği.
-        enrollments:
-          type: array
-          description: Kullanıcının kayıtlı olduğu banka ve terminal bilgilerinin listesi.
-          items:
-            $ref: '#/components/schemas/Enrollment2'
     UserListResponse:
       type: object
       properties:
@@ -1326,12 +1425,3 @@ components:
             ve terminal bilgilerini içerir.
           items:
             $ref: '#/components/schemas/UserDetail'
-    UserListResponse2:
-      type: object
-      properties:
-        userList:
-          type: array
-          description: Sisteme kayıtlı kullanıcıların sayfalanmış listesi. Her kayıt kullanıcının banka
-            ve terminal bilgilerini içerir.
-          items:
-            $ref: '#/components/schemas/UserDetail3'
