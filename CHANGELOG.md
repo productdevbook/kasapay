@@ -32,6 +32,13 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`PayTr::bin_details`**, PayTR's BIN service: the bank, network, company-card
+  flag, non-3-D permission and instalment programme behind the first 6 or 8
+  digits of a card number. A BIN PayTR has no record of is `Ok(None)`, not an
+  error. Its token hashes `bin_number + merchant_id` before the salt — the BIN
+  first, unlike every other PayTR call. `/odeme/taksit-oranlari` is deliberately
+  not wrapped alongside it: PayTR documents the request and its hash but never
+  what one entry of the `oranlar` payload looks like.
 - Every GitHub action is pinned to a commit rather than a tag. A tag can be
   moved, and one workflow holds the crates.io publish token.
 - A dependency audit. `deny.toml` refuses a known vulnerability, a non-permissive
