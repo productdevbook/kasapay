@@ -515,10 +515,9 @@ fn parse_currency(value: &str) -> Result<Currency, Error> {
 fn refund_error_kind(code: Option<&str>) -> ErrorKind {
     match code {
         // "iade yapilamiyor, daha sonra tekrar deneyin" — the refund service
-        // is locked while a payout runs.
-        Some("000") => ErrorKind::Provider,
-        // "Net bakiyeniz yetersiz" — the balance may be there tomorrow.
-        Some("010") => ErrorKind::Provider,
+        // is locked while a payout runs — and "Net bakiyeniz yetersiz", where
+        // the balance may be there tomorrow.
+        Some("000" | "010") => ErrorKind::Provider,
         // "paytr_token gonderilmedi veya gecersiz"
         Some("004") => ErrorKind::Auth,
         // "merchant_oid ile basarili odeme bulunamadi", and the payment that
