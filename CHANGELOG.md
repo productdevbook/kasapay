@@ -502,8 +502,8 @@ all are the kind 0.0.x exists to make.
   Refunding in a currency the payment was not in cannot be refused before
   sending — Stripe takes a bare integer — so it is caught against the answer,
   and the error says the money has already moved.
-- `classic`, iyzico's other API — the hosted checkout form, refunds, cancel,
-  stored cards, BIN lookup. Twelve of iyzico's ninety-six documented
+- `classic`, iyzico's other API — the hosted checkout form, a payment read back
+  by its id, refunds, cancel, stored cards and charging one, BIN lookup. Ten
   operations, and none of them touches a card number.
 - `IYZWSv2` request signing, and verification of the signature iyzico puts on
   every money-moving response. An unsigned response is refused unless

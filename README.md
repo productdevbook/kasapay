@@ -63,8 +63,9 @@ presented a card. `classic` is everything else, signed with `IYZWSv2`: the
 hosted checkout form, refunds, cancel, stored cards and charging one, BIN
 lookup — with `iyzilink`, pay-by-link, `subscription`, the products and plans a
 recurring charge is sold out of, and `mass`, money going out rather than coming
-in, over the same client. Forty-three of iyzico's ninety-six documented
-operations, and none of them touches a card number.
+in, over the same client. Forty-seven of iyzico's ninety-six documented
+operations — `scripts/coverage.py` says which — and none of them touches a
+card number.
 
 **Every iyzico response iyzico signs is verified.** They sign the money-moving
 ones with an HMAC over selected fields of the reply, and kasapay refuses one

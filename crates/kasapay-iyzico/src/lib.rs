@@ -12,7 +12,7 @@
 //! | Where | [`in_store`] | [`terminal`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
 //! | Authentication | three plain headers | an OAuth2 bearer token that expires | [`IYZWSv2`](Credentials) request signing |
 //! | Currency | Turkish lira only | lira, dollars, euro | several |
-//! | Implemented here | four of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | thirty-two of seventy |
+//! | Implemented here | seven of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | thirty-three of seventy |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
 //! likely reason [`in_store`] does not. Whether its plain headers are the
@@ -42,7 +42,8 @@
 //! security scheme means the fragment was silent, not that the endpoint is
 //! open.
 //!
-//! Ninety-six operations across eleven groups. Forty-three are implemented.
+//! Ninety-six operations across eleven groups. Forty-seven are implemented,
+//! which `python3 scripts/coverage.py` counts rather than anybody remembering.
 //!
 //! Grouping is by path, which is why three of [`terminal`]'s belong to a group
 //! named after another product: its login sits at `/in-store/oauth2/…` and is
