@@ -69,7 +69,7 @@ impl Provider for Stripe {
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
         let mut create = CreatePaymentIntent::new(
             request.amount.minor_units(),
-            convert::currency(request.amount.currency()),
+            convert::currency(request.amount.currency())?,
         )
         .metadata(metadata(request));
         if let Some(description) = &request.description {

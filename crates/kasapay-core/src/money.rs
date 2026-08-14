@@ -22,6 +22,10 @@ pub enum Currency {
     Eur,
     /// Pound sterling.
     Gbp,
+    /// Japanese yen, which has no minor unit at all.
+    Jpy,
+    /// Kuwaiti dinar, whose minor unit is a thousandth.
+    Kwd,
 }
 
 impl Currency {
@@ -33,6 +37,8 @@ impl Currency {
             Self::Usd => "USD",
             Self::Eur => "EUR",
             Self::Gbp => "GBP",
+            Self::Jpy => "JPY",
+            Self::Kwd => "KWD",
         }
     }
 
@@ -40,7 +46,9 @@ impl Currency {
     #[must_use]
     pub const fn exponent(self) -> u32 {
         match self {
+            Self::Jpy => 0,
             Self::Try | Self::Usd | Self::Eur | Self::Gbp => 2,
+            Self::Kwd => 3,
         }
     }
 }
@@ -65,6 +73,8 @@ impl FromStr for Currency {
             "USD" => Ok(Self::Usd),
             "EUR" => Ok(Self::Eur),
             "GBP" => Ok(Self::Gbp),
+            "JPY" => Ok(Self::Jpy),
+            "KWD" => Ok(Self::Kwd),
             _ => Err(UnknownCurrency(s.to_owned())),
         }
     }
@@ -255,11 +265,48 @@ mod tests {
     }
 
     #[test]
+    fn a_currency_with_no_minor_unit_never_grows_a_decimal_point() {
+        let money = Money::parse("1200", Currency::Jpy).expect("valid amount");
+        assert_eq!(money.minor_units(), 1200);
+        assert_eq!(money.to_decimal_string(), "1200");
+        assert!(matches!(
+            Money::parse("1200.50", Currency::Jpy),
+            Err(MoneyError::TooPrecise { .. })
+        ));
+    }
+
+    #[test]
+    fn a_three_place_currency_keeps_all_three() {
+        let money = Money::parse("1.500", Currency::Kwd).expect("valid amount");
+        assert_eq!(money.minor_units(), 1500);
+        assert_eq!(money.to_decimal_string(), "1.500");
+        assert_eq!(
+            Money::parse("1.5", Currency::Kwd)
+                .expect("valid amount")
+                .minor_units(),
+            1500
+        );
+        assert!(matches!(
+            Money::parse("1.5005", Currency::Kwd),
+            Err(MoneyError::TooPrecise { .. })
+        ));
+    }
+
+    #[test]
     fn round_trips_through_its_decimal_form() {
-        for minor in [1i64, 5, 99, 100, 101, 1050, 123_456_789] {
-            let money = Money::from_minor_units(minor, Currency::Eur);
-            let back = Money::parse(&money.to_decimal_string(), Currency::Eur).expect("valid");
-            assert_eq!(back, money);
+        for currency in [
+            Currency::Try,
+            Currency::Usd,
+            Currency::Eur,
+            Currency::Gbp,
+            Currency::Jpy,
+            Currency::Kwd,
+        ] {
+            for minor in [1i64, 5, 99, 100, 101, 1050, 123_456_789] {
+                let money = Money::from_minor_units(minor, currency);
+                let back = Money::parse(&money.to_decimal_string(), currency).expect("valid");
+                assert_eq!(back, money);
+            }
         }
     }
 
