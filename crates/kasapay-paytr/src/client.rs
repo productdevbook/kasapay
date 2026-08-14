@@ -120,7 +120,7 @@ impl PayTr {
     /// merchant's own order reference.
     pub async fn start_payment(&self, payment: &Payment) -> Result<Charge, Error> {
         let amount = payment.amount.minor_units().to_string();
-        let basket = self.basket(payment)?;
+        let basket = Self::basket(payment)?;
         let no_instalment = u8::from(!payment.instalments).to_string();
         let max_instalment = payment.max_instalments.to_string();
         let test_mode = u8::from(self.inner.config.test_mode).to_string();
@@ -240,7 +240,7 @@ impl PayTr {
     }
 
     /// The basket, as PayTR wants it: base64 of `[[name, price, quantity], …]`.
-    fn basket(&self, payment: &Payment) -> Result<String, Error> {
+    fn basket(payment: &Payment) -> Result<String, Error> {
         let lines: Vec<_> = payment
             .basket
             .iter()
