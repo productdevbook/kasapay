@@ -10,14 +10,14 @@ use std::fmt;
 ///
 /// # Why this is not a `serde_json::Value`
 ///
-/// It used to be. That put serde_json in the public API of every provider
-/// adapter, including ones written outside this workspace — the day serde_json
+/// It used to be. That put `serde_json` in the public API of every provider
+/// adapter, including ones written outside this workspace — the day `serde_json`
 /// goes to 2.0, every one of them breaks for a reason its author did not cause.
 /// A provider that answers XML, or a form body, or a protobuf had nowhere to
 /// put it either.
 ///
 /// So the body is held as text and parsed on request. [`Raw::json`] is the one
-/// place serde_json appears, and a provider that has no JSON can still build a
+/// place `serde_json` appears, and a provider that has no JSON can still build a
 /// `Raw` with [`Raw::from_text`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Raw(Box<str>);
@@ -49,7 +49,7 @@ impl Raw {
     /// Parses the body as JSON.
     ///
     /// Returns `None` for a body that is not JSON, including an empty one.
-    /// This is the only method that names serde_json; reach for it when a
+    /// This is the only method that names `serde_json`; reach for it when a
     /// field kasapay does not model is worth reading.
     #[must_use]
     pub fn json(&self) -> Option<serde_json::Value> {
