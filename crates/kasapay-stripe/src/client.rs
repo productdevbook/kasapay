@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use kasapay_core::{
     Charge, ChargeRequest, Error, ErrorKind, NextAction, OrderRef, PaymentId, Provider, ProviderId,
-    Secret,
+    Raw, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_core::payment_intent::{CreatePaymentIntent, RetrievePaymentIntent};
@@ -156,14 +156,16 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
     } else {
         None
     };
-    let raw = serde_json::to_value(RawIntent::from(intent)).map_err(|e| {
-        Error::new(
-            ErrorKind::Malformed,
-            convert::PROVIDER,
-            "PaymentIntent could not be echoed as JSON",
-        )
-        .with_source(e)
-    })?;
+    let raw = serde_json::to_value(RawIntent::from(intent))
+        .map(|value| Raw::from_json(&value))
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::Malformed,
+                convert::PROVIDER,
+                "PaymentIntent could not be echoed as JSON",
+            )
+            .with_source(e)
+        })?;
 
     Ok(Charge {
         id: PaymentId::new(intent.id.as_str()),
@@ -178,9 +180,11 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
 
 /// What lands on [`Charge::raw`] for Stripe.
 ///
-/// `async-stripe` deserializes with miniserde, so a PaymentIntent cannot be
-/// re-serialized with serde; this carries the fields worth keeping instead.
-/// For anything more, take the intent from [`Stripe::client`] directly.
+/// A reconstruction rather than the body Stripe sent: `async-stripe`
+/// deserializes with miniserde and hands back a typed PaymentIntent, so the
+/// original bytes are gone by the time this crate sees it. These are the
+/// fields worth keeping; for anything more, take the intent from
+/// [`Stripe::client`] directly.
 #[derive(serde::Serialize)]
 struct RawIntent<'a> {
     id: &'a str,

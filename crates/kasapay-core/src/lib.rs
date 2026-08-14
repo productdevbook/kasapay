@@ -25,6 +25,7 @@ mod charge;
 mod error;
 mod money;
 mod provider;
+mod raw;
 mod secret;
 
 #[doc(inline)]
@@ -38,5 +39,7 @@ pub use crate::error::{Error, ErrorKind};
 pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 #[doc(inline)]
 pub use crate::provider::{Provider, ProviderId, async_trait};
+#[doc(inline)]
+pub use crate::raw::Raw;
 #[doc(inline)]
 pub use crate::secret::Secret;

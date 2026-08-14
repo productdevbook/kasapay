@@ -158,7 +158,13 @@ async fn query_reads_an_approved_payment_as_captured() {
         charge.order.map(|o| o.to_string()),
         Some("ord-1".to_owned())
     );
-    assert_eq!(charge.raw["transactionDetail"]["currencyCode"], "TRY");
+    assert_eq!(
+        charge
+            .raw
+            .text_at("/transactionDetail/currencyCode")
+            .as_deref(),
+        Some("TRY")
+    );
 }
 
 #[tokio::test]
