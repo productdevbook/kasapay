@@ -36,21 +36,23 @@ Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
 in English — grouping by page filed everything twice under two names.
 
-### Authentication is mostly undocumented
+### Authentication is documented elsewhere
 
-Only 16 of the 96 operations declare a security scheme at all: Bearer JWT for
-Terminal Host and the In-Store OAuth flow, `x-api-key` for In-Store, and Basic
-auth for the OAuth token endpoint itself. The other 80 — including every
-ordinary card payment — say nothing about how a request is authenticated.
+Only 16 of the 96 operations declare a security scheme in their fragment:
+Bearer JWT for Terminal Host and the In-Store OAuth flow, `x-api-key` for
+In-Store, and Basic auth for the OAuth token endpoint. The other 80 say nothing
+— and `specs/` says nothing either, because inventing it is how the last
+version of this script got it wrong.
 
-So `specs/` says nothing either. An earlier version of this script applied
-In-Store's headers (`x-api-key`, `x-secret-key`, `x-merchant-id`) to all 96 as
-a global scheme; those came from prose on one overview page, not from any
-fragment, and stating them as fact for the whole API was an invention. Each
-group's index now lists the operations iyzico documents no authentication for.
+**That absence is about the fragments, not about iyzico.** The classic API
+signs every request with `IYZWSv2`, and iyzico documents that fully — on
+[its own page](https://docs.iyzico.com/en/getting-started/preliminaries/authentication/hmacsha256-auth),
+which carries no fragment and so never reached this sweep. `kasapay-iyzico`
+implements it in `signing.rs`.
 
-Where an adapter needs to know, read iyzico's own integration guide or ask
-them. Do not read it out of these files.
+So: read an operation's declared scheme here if it has one, and read iyzico's
+authentication page if it does not. Do not conclude from a missing scheme that
+a request goes unauthenticated.
 
 ### Validation
 
