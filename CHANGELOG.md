@@ -118,6 +118,48 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay_iyzico::onboarding`, all three iyzico sub-merchant operations.**
+  Creating, updating and reading back a marketplace sub-merchant — a different
+  legal person taking money through the platform's own iyzico integration, so
+  what this sends is compliance data rather than payment data: a name, an
+  email, a national ID or tax number, an IBAN. `onboarding::Client::new(classic)`
+  is the whole setup, the same as `iyzilink` and `mass`.
+
+  iyzico carries a sub-merchant's kind — personal, private company, or limited
+  or joint-stock company — as one `subMerchantType` string next to a bag of
+  fields that are conditionally required depending on it. `NewSubmerchant`'s
+  three variants — `PersonalSubmerchant`, `PrivateCompanySubmerchant`,
+  `LimitedJointSubmerchant` — each carry only the fields their own kind
+  requires, so a personal sub-merchant missing a contact surname, or a limited
+  company missing a tax number, is a compile error. `SubmerchantUpdate` does
+  the same for `PUT /onboarding/submerchant`, with one wrinkle iyzico's own
+  documentation creates: the private-company and limited/joint-stock update
+  schemas are byte-for-byte identical, so both of `SubmerchantUpdate`'s
+  matching variants hold one `CompanyUpdate` rather than two structs that would
+  only ever differ by name.
+
+  An IBAN is not a card number, but it is still somebody's banking detail:
+  every place one travels through this module is a `kasapay_core::Secret`
+  rather than a plain string, so `{:?}` on a sub-merchant, an update or a read
+  answer never puts an account number in a log by accident. A national ID and
+  a tax number travel as a plain string, the same as everywhere else in this
+  crate.
+
+  Onboarding responses carry no signature — none of the three schemas
+  documents one — so none of this is checked against a forged answer; TLS is
+  what stands between a caller and iyzico here. And neither documentation
+  language gives a worked example for any of the three operations, only the
+  schema, so the tests are built from field names with stand-in values, the
+  same as `mass`'s undemonstrated operations — no live marketplace account was
+  available to check any of this against.
+
+  Left out: the Agent API's two operations (`/v1/agent/get_auth_key`,
+  `/v1/agent/logout`), which are not a sub-merchant operation at all — a
+  mobile "app2app" session for the PayPOS product, authenticating with a plain
+  `Authorization: Basic sck_…` header rather than `IYZWSv2` signing. Bolting a
+  second authentication scheme onto a client built for a different one, for
+  two calls unrelated to a sub-merchant's paperwork, was not "fitting cleanly".
+
 - **`kasapay_stripe::saved`, and `Stripe::capabilities().saved_instruments` becomes
   `true`.** The second provider written against #97's `InstrumentId`, and the
   one #97 said would be the case that is not half a name: Stripe's `pm_…`

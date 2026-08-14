@@ -12,7 +12,7 @@
 //! | Where | [`in_store`] | [`terminal`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
 //! | Authentication | three plain headers | an OAuth2 bearer token that expires | [`IYZWSv2`](Credentials) request signing |
 //! | Currency | Turkish lira only | lira, dollars, euro | several |
-//! | Implemented here | seven of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | thirty-three of seventy |
+//! | Implemented here | seven of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | thirty-six of seventy |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
 //! likely reason [`in_store`] does not. Whether its plain headers are the
@@ -42,7 +42,7 @@
 //! security scheme means the fragment was silent, not that the endpoint is
 //! open.
 //!
-//! Ninety-six operations across eleven groups. Forty-seven are implemented,
+//! Ninety-six operations across eleven groups. Fifty are implemented,
 //! which `python3 scripts/coverage.py` counts rather than anybody remembering.
 //!
 //! Grouping is by path, which is why three of [`terminal`]'s belong to a group
@@ -57,15 +57,17 @@
 //! signature, [`iyzilink`] documents none on any of its seven,
 //! [`subscription`] documents none on any of its twenty-four, [`mass`] none on
 //! any of its six — including the ones that report where money that has
-//! already left got to — and [`terminal`] none on any of its fourteen. Each
-//! module says which of its calls are checked and which are only as
-//! trustworthy as the connection they arrived over.
+//! already left got to — [`onboarding`] none on any of its three, and
+//! [`terminal`] none on any of its fourteen. Each module says which of its
+//! calls are checked and which are only as trustworthy as the connection they
+//! arrived over.
 
 pub mod classic;
 mod errors;
 pub mod in_store;
 pub mod iyzilink;
 pub mod mass;
+pub mod onboarding;
 mod signing;
 pub mod subscription;
 pub mod terminal;
