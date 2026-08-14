@@ -24,6 +24,14 @@ default = []
 iyzico = ["dep:kasapay-iyzico"]
 stripe = ["dep:kasapay-stripe"]
 
+[[example]]
+name = "stripe_charge"
+required-features = ["stripe"]
+
+[[example]]
+name = "iyzico_checkout"
+required-features = ["iyzico"]
+
 [package.metadata.docs.rs]
 all-features = true
 
