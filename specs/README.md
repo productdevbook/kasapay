@@ -53,6 +53,23 @@ Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
 in English — grouping by page filed everything twice under two names.
 
+### Not all of it is iyzico's API
+
+Five of the ninety-six operations are somebody else's. The `agent` and
+`softpos` groups are **Paynet's** PayPOS API, documented on iyzico's site as
+part of their offering, and their fragments say so: their own `servers` block
+names `api.paynet.com.tr` and `pts-api.paynet.com.tr`, and their `info.title`
+is `PayPOS (Paynet) API`.
+
+The merge used to write iyzico's two hosts over the whole document, so those
+five said they were served from `api.iyzipay.com` — a caller building from the
+spec would have called the wrong company. A fragment that names a host of its
+own now keeps it, carried onto the operation where OpenAPI's per-operation
+`servers` belongs, and the dated index names each one.
+
+So: read the operation's own `servers` before its group's. Nine of the eleven
+groups have none, which means iyzico's, and two do.
+
 ### The currency list is per product, not per company
 
 There is no one list of currencies iyzico takes. Counting every `currency*`
