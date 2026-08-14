@@ -326,7 +326,7 @@ impl Client {
         let (response, raw) = self
             .post::<_, wire::ReversalResponse>("/v2/payment/refund", &body)
             .await?;
-        self.into_reversal(response, raw, true)
+        self.read_reversal(response, raw, true)
     }
 
     /// Takes an amount back off one line of a payment.
@@ -348,7 +348,7 @@ impl Client {
         let (response, raw) = self
             .post::<_, wire::ReversalResponse>("/payment/refund", &body)
             .await?;
-        self.into_reversal(response, raw, true)
+        self.read_reversal(response, raw, true)
     }
 
     /// Voids a payment outright, before it settles.
@@ -372,11 +372,11 @@ impl Client {
         let (response, raw) = self
             .post::<_, wire::ReversalResponse>("/payment/cancel", &body)
             .await?;
-        self.into_reversal(response, raw, false)
+        self.read_reversal(response, raw, false)
     }
 
     /// Reads a refund or cancel, verifying it where iyzico signs it.
-    fn into_reversal(
+    fn read_reversal(
         &self,
         response: wire::ReversalResponse,
         raw: Raw,
