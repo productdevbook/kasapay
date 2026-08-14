@@ -4,11 +4,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Charge, ChargeRequest, Error, ErrorKind, NextAction, OrderRef, PaymentId, Provider, ProviderId,
-    Raw, Secret,
+    Charge, ChargeRequest, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider,
+    ProviderId, Raw, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
-use stripe_core::payment_intent::{CreatePaymentIntent, RetrievePaymentIntent};
+use stripe_core::payment_intent::{
+    CancelPaymentIntent, CreatePaymentIntent, RetrievePaymentIntent,
+};
+use stripe_core::refund::CreateRefund;
 
 use crate::convert;
 
@@ -51,6 +54,83 @@ impl Stripe {
         Self {
             inner: Arc::new(client),
         }
+    }
+
+    /// Gives money back off a payment.
+    ///
+    /// `amount: None` refunds all of it. Repeated partial refunds are allowed
+    /// up to what was captured.
+    ///
+    /// # The currency is the payment's
+    ///
+    /// Stripe takes a refund amount as a bare integer and applies it in
+    /// whatever currency the payment was in — it has no field to say which.
+    /// So a [`Money`] in the wrong currency cannot be refused before sending;
+    /// it is checked against the currency Stripe reports back, and a mismatch
+    /// is an error **after the money has moved**. Read
+    /// [`Provider::charge_status`] first if the caller is not certain.
+    pub async fn refund(
+        &self,
+        payment: &PaymentId,
+        amount: Option<Money>,
+    ) -> Result<Refund, Error> {
+        let mut create = CreateRefund::new().payment_intent(payment.as_str().to_owned());
+        if let Some(amount) = amount {
+            create = create.amount(amount.minor_units());
+        }
+        let refund = create
+            .customize()
+            .timeout(DEFAULT_TIMEOUT)
+            .send(self.inner.as_ref())
+            .await
+            .map_err(|e| convert::error(&e).with_source(e))?;
+
+        let refunded = convert::amount(refund.amount, &refund.currency)?;
+        if let Some(asked) = amount
+            && asked.currency() != refunded.currency()
+        {
+            return Err(Error::new(
+                ErrorKind::Malformed,
+                convert::PROVIDER,
+                format!(
+                    "asked to refund {asked} and Stripe refunded {refunded}: \
+                     the payment was not in the currency the caller thought"
+                ),
+            ));
+        }
+
+        Ok(Refund {
+            id: refund.id.as_str().into(),
+            payment: payment.clone(),
+            amount: refunded,
+            status: refund
+                .status
+                .as_deref()
+                .map_or(RefundState::Pending, RefundState::from),
+            raw: Raw::from_json(&serde_json::json!({
+                "id": refund.id.as_str(),
+                "amount": refund.amount,
+                "currency": format!("{:?}", refund.currency),
+                "status": refund.status,
+                "reason": refund.reason.map(|r| format!("{r:?}")),
+                "failure_reason": refund.failure_reason,
+            })),
+        })
+    }
+
+    /// Withdraws a payment that has not been captured.
+    ///
+    /// Captured money is refunded, not cancelled. Stripe answers
+    /// `invalid_request` for a captured intent, which arrives as
+    /// [`ErrorKind::InvalidRequest`].
+    pub async fn cancel(&self, payment: &PaymentId) -> Result<Charge, Error> {
+        let intent = CancelPaymentIntent::new(payment.as_str().to_owned())
+            .customize()
+            .timeout(DEFAULT_TIMEOUT)
+            .send(self.inner.as_ref())
+            .await
+            .map_err(|e| convert::error(&e).with_source(e))?;
+        into_charge(&intent)
     }
 
     /// The underlying `async-stripe` client, for calls kasapay does not model.
@@ -176,6 +256,52 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
         provider: convert::PROVIDER,
         raw,
     })
+}
+
+/// Where a refund has got to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RefundState {
+    /// Sent, not yet settled.
+    Pending,
+    /// Waiting on somebody — a bank transfer refund needs the payer's details.
+    RequiresAction,
+    /// The money is back.
+    Succeeded,
+    /// It did not go back, and `failure_reason` on the raw response says why.
+    Failed,
+    /// Withdrawn before it settled.
+    Canceled,
+    /// A state Stripe has added since this was written.
+    Other(Box<str>),
+}
+
+impl From<&str> for RefundState {
+    fn from(value: &str) -> Self {
+        match value {
+            "pending" => Self::Pending,
+            "requires_action" => Self::RequiresAction,
+            "succeeded" => Self::Succeeded,
+            "failed" => Self::Failed,
+            "canceled" => Self::Canceled,
+            other => Self::Other(other.into()),
+        }
+    }
+}
+
+/// Money given back off a Stripe payment.
+#[derive(Debug, Clone)]
+pub struct Refund {
+    /// Stripe's own id for the refund, which a second attempt must not reuse.
+    pub id: Box<str>,
+    /// The payment it came off.
+    pub payment: PaymentId,
+    /// How much went back.
+    pub amount: Money,
+    /// Where it has got to.
+    pub status: RefundState,
+    /// The fields of Stripe's answer worth keeping.
+    pub raw: Raw,
 }
 
 /// What lands on [`Charge::raw`] for Stripe.

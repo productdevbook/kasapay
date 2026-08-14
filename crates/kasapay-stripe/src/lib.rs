@@ -12,6 +12,8 @@
 //! - A PaymentIntent that still needs the payer comes back as
 //!   [`NextAction::ConfirmOnClient`](kasapay_core::NextAction::ConfirmOnClient)
 //!   carrying the `client_secret` for Stripe.js.
+//! - [`Stripe::refund`] gives money back, and [`Stripe::cancel`] withdraws a
+//!   payment that was never captured. Neither is on the shared trait yet.
 //! - Anything this crate does not model is reachable through
 //!   [`Stripe::client`], which hands back the `async-stripe` client itself.
 //!
@@ -43,4 +45,4 @@ mod client;
 mod convert;
 
 #[doc(inline)]
-pub use crate::client::{DEFAULT_TIMEOUT, ORDER_METADATA_KEY, Stripe};
+pub use crate::client::{DEFAULT_TIMEOUT, ORDER_METADATA_KEY, Refund, RefundState, Stripe};

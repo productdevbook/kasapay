@@ -13,7 +13,7 @@ use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, NextAction, OrderRef, PaymentId,
     Provider, Status,
 };
-use kasapay_stripe::{ORDER_METADATA_KEY, Stripe};
+use kasapay_stripe::{ORDER_METADATA_KEY, RefundState, Stripe};
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -188,4 +188,143 @@ async fn charge_status_reads_an_intent_back() {
 
     assert_eq!(charge.status, Status::Authorized);
     assert_eq!(charge.amount.minor_units(), 1999);
+}
+
+fn refund_body(amount: i64, status: &str) -> serde_json::Value {
+    json!({
+        "id": "re_kasapay1",
+        "object": "refund",
+        "amount": amount,
+        "currency": "usd",
+        "created": 1_770_000_000_i64,
+        "payment_intent": "pi_kasapay1",
+        "status": status,
+    })
+}
+
+#[tokio::test]
+async fn a_partial_refund_sends_minor_units_and_the_intent() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .and(body_string_contains("amount=500"))
+        .and(body_string_contains("payment_intent=pi_kasapay1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "succeeded")))
+        .mount(&server)
+        .await;
+
+    let refund = client(&server)
+        .refund(
+            &PaymentId::new("pi_kasapay1"),
+            Some(Money::parse("5.00", Currency::Usd).expect("valid amount")),
+        )
+        .await
+        .expect("the refund goes through");
+
+    assert_eq!(&*refund.id, "re_kasapay1");
+    assert_eq!(refund.amount.minor_units(), 500);
+    assert_eq!(refund.amount.currency(), Currency::Usd);
+    assert_eq!(refund.status, RefundState::Succeeded);
+}
+
+#[tokio::test]
+async fn a_full_refund_sends_no_amount_at_all() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(1999, "pending")))
+        .mount(&server)
+        .await;
+
+    let refund = client(&server)
+        .refund(&PaymentId::new("pi_kasapay1"), None)
+        .await
+        .expect("the refund goes through");
+
+    let sent = server.received_requests().await.expect("recorded");
+    let body = String::from_utf8(sent[0].body.clone()).expect("utf-8");
+    // Sending amount=0 would refund nothing; the field has to be absent.
+    assert!(!body.contains("amount="), "unexpected amount in {body}");
+    assert_eq!(refund.amount.minor_units(), 1999);
+    assert_eq!(refund.status, RefundState::Pending);
+}
+
+#[tokio::test]
+async fn refunding_in_a_currency_the_payment_was_not_in_is_caught() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        // The caller asked in lira; Stripe applied it to a dollar payment.
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "succeeded")))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .refund(
+            &PaymentId::new("pi_kasapay1"),
+            Some(Money::parse("5.00", Currency::Try).expect("valid amount")),
+        )
+        .await
+        .expect_err("the currencies do not match");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+    // The money has already moved by this point, and the message says so.
+    assert!(error.to_string().contains("was not in the currency"));
+}
+
+#[tokio::test]
+async fn an_unknown_refund_state_is_kept_rather_than_dropped() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "reversing")))
+        .mount(&server)
+        .await;
+
+    let refund = client(&server)
+        .refund(
+            &PaymentId::new("pi_kasapay1"),
+            Some(Money::parse("5.00", Currency::Usd).expect("valid amount")),
+        )
+        .await
+        .expect("the refund goes through");
+    assert_eq!(refund.status, RefundState::Other("reversing".into()));
+}
+
+#[tokio::test]
+async fn cancelling_an_uncaptured_payment_reads_it_back_as_canceled() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents/pi_kasapay1/cancel"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(payment_intent("canceled", None)))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .cancel(&PaymentId::new("pi_kasapay1"))
+        .await
+        .expect("the payment is withdrawn");
+    assert_eq!(charge.status, Status::Canceled);
+    assert!(!charge.status.is_open());
+}
+
+#[tokio::test]
+async fn cancelling_a_captured_payment_is_refused() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents/pi_kasapay1/cancel"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({
+            "error": {
+                "type": "invalid_request_error",
+                "code": "payment_intent_unexpected_state",
+                "message": "You cannot cancel this PaymentIntent because it has a status of succeeded.",
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .cancel(&PaymentId::new("pi_kasapay1"))
+        .await
+        .expect_err("captured money is refunded, not cancelled");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }
