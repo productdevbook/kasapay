@@ -127,17 +127,18 @@ impl Money {
             return Err(MoneyError::NotDecimal(value.to_owned()));
         }
         let exponent = currency.exponent();
-        if frac.len() as u32 > exponent {
+        let places = u32::try_from(frac.len()).unwrap_or(u32::MAX);
+        if places > exponent {
             return Err(MoneyError::TooPrecise {
                 value: value.to_owned(),
                 currency,
                 exponent,
             });
         }
-        let mut padded = String::with_capacity(whole.len() + exponent as usize);
+        let mut padded = String::with_capacity(whole.len() + frac.len() + 1);
         padded.push_str(whole);
         padded.push_str(frac);
-        for _ in 0..(exponent - frac.len() as u32) {
+        for _ in 0..(exponent - places) {
             padded.push('0');
         }
         let minor_units: i64 = padded
@@ -176,8 +177,8 @@ impl Money {
     /// never `10.5` and never `1.05e1`.
     #[must_use]
     pub fn to_decimal_string(self) -> String {
-        let exponent = self.currency.exponent() as usize;
-        let scale = 10u64.pow(self.currency.exponent());
+        let exponent = self.currency.exponent();
+        let scale = 10u64.pow(exponent);
         let sign = if self.minor_units < 0 { "-" } else { "" };
         let magnitude = self.minor_units.unsigned_abs();
         if exponent == 0 {
@@ -187,7 +188,7 @@ impl Money {
             "{sign}{}.{:0>width$}",
             magnitude / scale,
             magnitude % scale,
-            width = exponent
+            width = usize::try_from(exponent).unwrap_or(usize::MAX)
         )
     }
 }
