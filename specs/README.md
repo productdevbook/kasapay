@@ -36,23 +36,28 @@ Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
 in English — grouping by page filed everything twice under two names.
 
-### Authentication is documented elsewhere
+### How authentication is declared
 
-Only 16 of the 96 operations declare a security scheme in their fragment:
-Bearer JWT for Terminal Host and the In-Store OAuth flow, `x-api-key` for
-In-Store, and Basic auth for the OAuth token endpoint. The other 80 say nothing
-— and `specs/` says nothing either, because inventing it is how the last
-version of this script got it wrong.
+Two ways, and counting only one of them is how this file twice said something
+false. Per operation, from the dated index's `authentication` block:
 
-**That absence is about the fragments, not about iyzico.** The classic API
-signs every request with `IYZWSv2`, and iyzico documents that fully — on
+| | operations |
+|---|---|
+| a `securityScheme` — Bearer JWT, `x-api-key`, Basic | 18 |
+| an `Authorization` **parameter**, described as an `IYZWSv2` signed hash | 67 |
+| neither | 11 |
+
+The 67 are the classic API. They declare the header as an ordinary parameter
+rather than a security scheme, which is unusual and easy to miss — an earlier
+version of this file reported them as documenting no authentication at all.
+
+Of the 11 that declare neither, 8 are In-Store, which authenticates with three
+plain headers described in prose on its overview page, and 3 are softpos.
+
+The scheme itself — how the signature is computed — lives on
 [its own page](https://docs.iyzico.com/en/getting-started/preliminaries/authentication/hmacsha256-auth),
-which carries no fragment and so never reached this sweep. `kasapay-iyzico`
-implements it in `signing.rs`.
-
-So: read an operation's declared scheme here if it has one, and read iyzico's
-authentication page if it does not. Do not conclude from a missing scheme that
-a request goes unauthenticated.
+which carries no fragment and so is not in `specs/` at all.
+`kasapay-iyzico` implements it in `signing.rs`.
 
 ### Validation
 

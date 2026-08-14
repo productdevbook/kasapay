@@ -11,27 +11,59 @@
   ],
   "areas": {
     "agent": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "POST /v1/agent/get_auth_key",
+          "POST /v1/agent/logout"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "POST /v1/agent/get_auth_key",
         "POST /v1/agent/logout"
       ],
       "schemas": 3,
-      "notes": [
-        "no authentication documented by iyzico for: POST /v1/agent/get_auth_key, POST /v1/agent/logout"
-      ]
+      "notes": []
     },
     "cardstorage": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "DELETE /cardstorage/card",
+          "POST /cardstorage/card",
+          "POST /cardstorage/cards"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "DELETE /cardstorage/card",
         "POST /cardstorage/card",
         "POST /cardstorage/cards"
       ],
       "schemas": 12,
-      "notes": [
-        "no authentication documented by iyzico for: DELETE /cardstorage/card, POST /cardstorage/card, POST /cardstorage/cards"
-      ]
+      "notes": []
     },
     "in-store": {
+      "authentication": {
+        "by_security_scheme": [
+          "GET /v3/in-store/payment/query",
+          "POST /in-store/oauth2/token",
+          "POST /in-store/oauth2/token/refresh",
+          "POST /v2/in-store/crypt/decrypt"
+        ],
+        "by_authorization_parameter": [],
+        "undeclared": [
+          "DELETE /v3/in-store/user",
+          "GET /v3/in-store/user/list",
+          "POST /in-store/oauth2/authorize",
+          "POST /v3/in-store/crypt/decrypt",
+          "POST /v3/in-store/payment/init",
+          "POST /v3/in-store/payment/query",
+          "POST /v3/in-store/payment/refund",
+          "POST /v3/in-store/user"
+        ]
+      },
       "operations": [
         "DELETE /v3/in-store/user",
         "GET /v3/in-store/payment/query",
@@ -60,11 +92,23 @@
         "schemas QueryTransactionDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryTransactionDetail2",
         "schemas QueryReceiptDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryReceiptDetail2",
         "schemas ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as ErrorResponse2",
-        "operationId queryPayment reused by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, renamed queryPayment2",
-        "no authentication documented by iyzico for: DELETE /v3/in-store/user, GET /v3/in-store/user/list, POST /in-store/oauth2/authorize, POST /v3/in-store/crypt/decrypt, POST /v3/in-store/payment/init, POST /v3/in-store/payment/query, POST /v3/in-store/payment/refund, POST /v3/in-store/user"
+        "operationId queryPayment reused by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, renamed queryPayment2"
       ]
     },
     "iyzilink": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "DELETE /v2/iyzilink/products/{token}",
+          "GET /v2/iyzilink/products",
+          "GET /v2/iyzilink/products/{token}",
+          "PATCH /v2/iyzilink/products/{token}/status/{status}",
+          "POST /v2/iyzilink/fast-link/products",
+          "POST /v2/iyzilink/products",
+          "PUT /v2/iyzilink/products/{token}"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "DELETE /v2/iyzilink/products/{token}",
         "GET /v2/iyzilink/products",
@@ -75,11 +119,21 @@
         "PUT /v2/iyzilink/products/{token}"
       ],
       "schemas": 9,
-      "notes": [
-        "no authentication documented by iyzico for: DELETE /v2/iyzilink/products/{token}, GET /v2/iyzilink/products, GET /v2/iyzilink/products/{token}, PATCH /v2/iyzilink/products/{token}/status/{status}, POST /v2/iyzilink/fast-link/products, POST /v2/iyzilink/products, PUT /v2/iyzilink/products/{token}"
-      ]
+      "notes": []
     },
     "mass": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "GET /v1/mass/payout/balance",
+          "GET /v1/mass/payout/retrieve/items/{referenceCode}",
+          "POST /v1/mass/payout/auth",
+          "POST /v1/mass/payout/cancel/{requestId}",
+          "POST /v1/mass/payout/init",
+          "POST /v1/mass/payout/retrieve"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "GET /v1/mass/payout/balance",
         "GET /v1/mass/payout/retrieve/items/{referenceCode}",
@@ -89,22 +143,53 @@
         "POST /v1/mass/payout/retrieve"
       ],
       "schemas": 14,
-      "notes": [
-        "no authentication documented by iyzico for: GET /v1/mass/payout/balance, GET /v1/mass/payout/retrieve/items/{referenceCode}, POST /v1/mass/payout/auth, POST /v1/mass/payout/cancel/{requestId}, POST /v1/mass/payout/init, POST /v1/mass/payout/retrieve"
-      ]
+      "notes": []
     },
     "onboarding": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "POST /onboarding/submerchant",
+          "POST /onboarding/submerchant/detail",
+          "PUT /onboarding/submerchant"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "POST /onboarding/submerchant",
         "POST /onboarding/submerchant/detail",
         "PUT /onboarding/submerchant"
       ],
       "schemas": 13,
-      "notes": [
-        "no authentication documented by iyzico for: POST /onboarding/submerchant, POST /onboarding/submerchant/detail, PUT /onboarding/submerchant"
-      ]
+      "notes": []
     },
     "payment": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "POST /payment/3dsecure/auth",
+          "POST /payment/3dsecure/initialize",
+          "POST /payment/3dsecure/initialize/preauth",
+          "POST /payment/auth",
+          "POST /payment/bin/check",
+          "POST /payment/cancel",
+          "POST /payment/detail",
+          "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+          "POST /payment/iyzipos/checkoutform/initialize/auth/ecom",
+          "POST /payment/iyzipos/checkoutform/initialize/preauth/ecom",
+          "POST /payment/iyzipos/installment",
+          "POST /payment/iyzipos/item/approve",
+          "POST /payment/iyzipos/item/disapprove",
+          "POST /payment/pay-with-iyzico/initialize",
+          "POST /payment/postauth",
+          "POST /payment/preauth",
+          "POST /payment/refund",
+          "POST /payment/v2/3dsecure/auth",
+          "POST /v2/payment/refund",
+          "PUT /payment/item"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "POST /payment/3dsecure/auth",
         "POST /payment/3dsecure/initialize",
@@ -200,32 +285,74 @@
         "parameters AuthHeader redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as AuthHeader7",
         "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ContentTypeHeader7",
         "schemas ItemTransaction redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ItemTransaction2",
-        "schemas ConvertedPayout redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ConvertedPayout2",
-        "no authentication documented by iyzico for: POST /payment/3dsecure/auth, POST /payment/3dsecure/initialize, POST /payment/3dsecure/initialize/preauth, POST /payment/auth, POST /payment/bin/check, POST /payment/cancel, POST /payment/detail, POST /payment/iyzipos/checkoutform/auth/ecom/detail, POST /payment/iyzipos/checkoutform/initialize/auth/ecom, POST /payment/iyzipos/checkoutform/initialize/preauth/ecom, POST /payment/iyzipos/installment, POST /payment/iyzipos/item/approve, POST /payment/iyzipos/item/disapprove, POST /payment/pay-with-iyzico/initialize, POST /payment/postauth, POST /payment/preauth, POST /payment/refund, POST /payment/v2/3dsecure/auth, POST /v2/payment/refund, PUT /payment/item"
+        "schemas ConvertedPayout redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ConvertedPayout2"
       ]
     },
     "reporting": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "GET /v2/reporting/payment/details",
+          "GET /v2/reporting/payment/transactions"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "GET /v2/reporting/payment/details",
         "GET /v2/reporting/payment/transactions"
       ],
       "schemas": 10,
-      "notes": [
-        "no authentication documented by iyzico for: GET /v2/reporting/payment/details, GET /v2/reporting/payment/transactions"
-      ]
+      "notes": []
     },
     "softpos": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [],
+        "undeclared": [
+          "POST /v1/softpos/check_transaction",
+          "POST /v1/softpos/init_reversal_transaction",
+          "POST /v1/softpos/init_sale_transaction"
+        ]
+      },
       "operations": [
         "POST /v1/softpos/check_transaction",
         "POST /v1/softpos/init_reversal_transaction",
         "POST /v1/softpos/init_sale_transaction"
       ],
       "schemas": 8,
-      "notes": [
-        "no authentication documented by iyzico for: POST /v1/softpos/check_transaction, POST /v1/softpos/init_reversal_transaction, POST /v1/softpos/init_sale_transaction"
-      ]
+      "notes": []
     },
     "subscription": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+          "DELETE /v2/subscription/products/{productReferenceCode}",
+          "GET /v2/subscription/checkoutform/{token}",
+          "GET /v2/subscription/customers",
+          "GET /v2/subscription/customers/{customerReferenceCode}",
+          "GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+          "GET /v2/subscription/products",
+          "GET /v2/subscription/products/{productReferenceCode}",
+          "GET /v2/subscription/products/{productReferenceCode}/pricing-plans",
+          "GET /v2/subscription/subscriptions",
+          "GET /v2/subscription/subscriptions/{subscriptionReferenceCode}",
+          "POST /v2/subscription/card-update/checkoutform/initialize",
+          "POST /v2/subscription/checkoutform/initialize",
+          "POST /v2/subscription/customers/{customerReferenceCode}",
+          "POST /v2/subscription/initialize",
+          "POST /v2/subscription/initialize/with-customer",
+          "POST /v2/subscription/operation/retry",
+          "POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+          "POST /v2/subscription/products",
+          "POST /v2/subscription/products/{productReferenceCode}",
+          "POST /v2/subscription/products/{productReferenceCode}/pricing-plans",
+          "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate",
+          "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel",
+          "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade"
+        ],
+        "undeclared": []
+      },
       "operations": [
         "DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
         "DELETE /v2/subscription/products/{productReferenceCode}",
@@ -320,11 +447,30 @@
         "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `page` said in: path for a path with no such placeholder, read as a query parameter",
         "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `count` said in: path for a path with no such placeholder, read as a query parameter",
         "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
-        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6",
-        "no authentication documented by iyzico for: DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}, DELETE /v2/subscription/products/{productReferenceCode}, GET /v2/subscription/checkoutform/{token}, GET /v2/subscription/customers, GET /v2/subscription/customers/{customerReferenceCode}, GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}, GET /v2/subscription/products, GET /v2/subscription/products/{productReferenceCode}, GET /v2/subscription/products/{productReferenceCode}/pricing-plans, GET /v2/subscription/subscriptions, GET /v2/subscription/subscriptions/{subscriptionReferenceCode}, POST /v2/subscription/card-update/checkoutform/initialize, POST /v2/subscription/checkoutform/initialize, POST /v2/subscription/customers/{customerReferenceCode}, POST /v2/subscription/initialize, POST /v2/subscription/initialize/with-customer, POST /v2/subscription/operation/retry, POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}, POST /v2/subscription/products, POST /v2/subscription/products/{productReferenceCode}, POST /v2/subscription/products/{productReferenceCode}/pricing-plans, POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate, POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel, POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade"
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6"
       ]
     },
     "terminal-host": {
+      "authentication": {
+        "by_security_scheme": [
+          "POST /v2/terminal-host/eod",
+          "POST /v2/terminal-host/gmu/eod",
+          "POST /v2/terminal-host/gmu/partial-payment/add-payment",
+          "POST /v2/terminal-host/gmu/partial-payment/complete",
+          "POST /v2/terminal-host/gmu/partial-payment/start",
+          "POST /v2/terminal-host/gmu/payment",
+          "POST /v2/terminal-host/gmu/payment/query-transaction-status",
+          "POST /v2/terminal-host/gmu/payment/refund",
+          "POST /v2/terminal-host/gmu/payment/refundable-sale-info",
+          "POST /v2/terminal-host/gmu/payment/void",
+          "POST /v2/terminal-host/payment",
+          "POST /v2/terminal-host/payment/query-transaction-status",
+          "POST /v2/terminal-host/payment/refund",
+          "POST /v2/terminal-host/payment/void"
+        ],
+        "by_authorization_parameter": [],
+        "undeclared": []
+      },
       "operations": [
         "POST /v2/terminal-host/eod",
         "POST /v2/terminal-host/gmu/eod",
