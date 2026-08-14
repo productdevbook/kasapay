@@ -25,7 +25,11 @@
 //! use kasapay::{Provider, ProviderId};
 //!
 //! # #[cfg(all(feature = "stripe", feature = "iyzico"))]
-//! # fn pick(id: ProviderId, stripe: kasapay::stripe::Stripe, iyzico: kasapay::iyzico::Iyzico)
+//! # fn pick(
+//! #     id: ProviderId,
+//! #     stripe: kasapay::stripe::Stripe,
+//! #     iyzico: kasapay::iyzico::in_store::Client,
+//! # )
 //! # -> Option<Arc<dyn Provider>> {
 //! match id {
 //!     ProviderId::STRIPE => Some(Arc::new(stripe)),
