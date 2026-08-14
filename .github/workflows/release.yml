@@ -27,21 +27,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
-      # A dependency has to exist on crates.io before the crate that names it
-      # can be published, so the order here is the dependency order.
+      # --workspace resolves the crates against each other rather than against
+      # crates.io, which is the only way to package a crate whose dependency
+      # has not been published yet, and publishes them in dependency order.
       - name: Package every crate
-        run: |
-          set -euo pipefail
-          for crate in kasapay-core kasapay-iyzico kasapay-stripe kasapay; do
-            cargo package -p "$crate" --allow-dirty
-          done
+        run: cargo package --workspace --all-features
 
       - name: Publish
         if: github.event_name == 'push' || inputs.dry_run == false
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set -euo pipefail
-          for crate in kasapay-core kasapay-iyzico kasapay-stripe kasapay; do
-            cargo publish -p "$crate"
-          done
+        run: cargo publish --workspace --all-features
