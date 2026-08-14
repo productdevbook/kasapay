@@ -346,17 +346,32 @@ async fn a_currency_code_is_read_as_a_number_or_as_letters() {
 }
 
 #[tokio::test]
-async fn a_currency_this_api_does_not_settle_in_is_not_guessed_at() {
+async fn a_number_that_names_no_currency_is_not_guessed_at() {
     let server = MockServer::start().await;
     let mut body = decrypted(true, false, false);
-    // 840 is USD. The In-Store API settles in lira, so this is a surprise
-    // rather than something to map.
-    body["inStoreCompleteOperation"]["transaction"]["currencyCode"] = json!("0840");
+    // 999 is ISO 4217's code for "no currency". Nothing may be inferred from it.
+    body["inStoreCompleteOperation"]["transaction"]["currencyCode"] = json!("0999");
 
     let error = decrypt(&server, body)
         .await
-        .expect_err("an unrecognised currency code is not a charge");
+        .expect_err("a code naming no currency is not a charge");
     assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
+/// A numeric code that does name a currency is read as that currency.
+///
+/// This API settles in lira and iyzico publishes no other code for it, so the
+/// case is hypothetical — but `0840` is USD unambiguously, and reporting what
+/// they said beats refusing it as unrecognised, which is what happened before
+/// `Currency` learned the numeric codes.
+#[tokio::test]
+async fn a_numeric_code_for_another_currency_is_read_as_that_currency() {
+    let server = MockServer::start().await;
+    let mut body = decrypted(true, false, false);
+    body["inStoreCompleteOperation"]["transaction"]["currencyCode"] = json!("0840");
+
+    let charge = decrypt(&server, body).await.expect("the callback decrypts");
+    assert_eq!(charge.amount.currency(), Currency::Usd);
 }
 
 #[tokio::test]

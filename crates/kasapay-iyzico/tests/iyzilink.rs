@@ -402,10 +402,10 @@ async fn a_page_iyzico_will_not_serve_is_refused_before_a_socket_opens() {
 }
 
 #[tokio::test]
-async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
+async fn a_price_in_a_currency_iyzico_does_not_document_stays_in_the_raw_body() {
     let server = MockServer::start().await;
     let mut body = product();
-    body["currencyCode"] = json!("NOK");
+    body["currencyCode"] = json!("SEK");
     // And a decimal iyzico wrote as a number rather than a string.
     body["price"] = json!(149.9);
     Mock::given(method("GET"))
@@ -419,9 +419,11 @@ async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
 
     let link = client(&server).get("AbC123").await.expect("the link");
 
-    // NOK is an iyzilink currency and not a kasapay one. The link still reads.
+    // `Currency` names all seven currencies iyzico documents for a link, so
+    // this is a currency they do not document rather than one kasapay lacks.
+    // Either way the link reads and the amount stays where iyzico put it.
     assert_eq!(link.price, None);
-    assert_eq!(link.raw.text_at("/currencyCode").as_deref(), Some("NOK"));
+    assert_eq!(link.raw.text_at("/currencyCode").as_deref(), Some("SEK"));
 }
 
 #[tokio::test]
