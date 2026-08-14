@@ -27,9 +27,9 @@ Each operation keeps an `x-iyzico-source` pointing at the page it came from.
 ### Two languages, neither complete
 
 The docs exist in Turkish and English and they do not cover the same endpoints.
-The whole In-Store v3 API is documented **only in Turkish**; the In-Store OAuth
-refresh **only in English**. So both are swept and the union is the coverage.
-The index lists what was Turkish-only.
+The whole In-Store v3 API is documented **only in Turkish**; the Terminal API's
+token-refresh service **only in English**. So both are swept and the union is
+the coverage. The index lists what was Turkish-only.
 
 Where an endpoint appears in each, the two are not the same fragment in two
 languages. They differ in substance: the cancel-and-refund page carries `reason`
@@ -55,16 +55,23 @@ false. Per operation, from the dated index's `authentication` block:
 
 | | operations |
 |---|---|
-| a `securityScheme` — Bearer JWT, `x-api-key`, Basic | 18 |
+| a `securityScheme` — Bearer JWT, `x-api-key`, Basic | 20 |
 | an `Authorization` **parameter**, described as an `IYZWSv2` signed hash | 67 |
-| neither | 11 |
+| neither | 9 |
 
 The 67 are the classic API. They declare the header as an ordinary parameter
 rather than a security scheme, which is unusual and easy to miss — an earlier
 version of this file reported them as documenting no authentication at all.
 
-Of the 11 that declare neither, 8 are In-Store, which authenticates with three
-plain headers described in prose on its overview page, and 3 are softpos.
+Of the 9 that declare neither, 5 are In-Store, which authenticates with three
+plain headers described in prose on its overview page, 3 are softpos, and one
+is `/in-store/oauth2/authorize`, which is the Terminal API's rather than
+In-Store's — see below.
+
+These counts move when the fragments do. They read 18 / 67 / 11 until grafting
+what each language alone documents brought a `security` block onto
+`/v3/in-store/payment/init` and `/v3/in-store/payment/refund`, which had none.
+Recount from the dated index rather than trusting the table.
 
 The scheme itself — how the signature is computed — lives on
 [its own page](https://docs.iyzico.com/en/getting-started/preliminaries/authentication/hmacsha256-auth),
@@ -127,6 +134,38 @@ v2 does exist — as a separate, older integration, documented in prose with no
 fragments, at `/v2/in-store/user-info/list`, `/v2/in-store/payment` and
 `/v2/in-store/payment/refund`. None of those are in `specs/` for want of a
 fragment to sweep. `kasapay-iyzico` speaks v3.
+
+### `/in-store/oauth2/*` is the Terminal API's login, not In-Store's
+
+`in-store/latest.yaml` also carries `/in-store/oauth2/authorize`,
+`/in-store/oauth2/token` and `/in-store/oauth2/token/refresh`. They are filed
+there because grouping is by path and theirs begins `/in-store`. They belong to
+a different product.
+
+All three come from one page,
+[Login](https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md),
+under **Physical POS → Terminal API Integration**. Their fragments say
+`info.title: Terminal API – Outside Flow`, `version: 1.0.3` — the same document
+as the VUK 509 fragments that define `/v2/terminal-host/*`, and nothing like the
+`iyzico In-Store API` that titles every CepPOS fragment. iyzico's description of
+the `access_token` they issue says it is "used as Bearer Token in Terminal Host
+services", which is what those `/v2/terminal-host/*` operations declare, in an
+integration where a cash register drives a physical POS device by
+`deviceUniqueId`. The Turkish page opens by saying so outright: *Terminal API
+servislerine erişim sağlamak için iyzico OAuth2 kimlik doğrulama yapısı
+kullanılmaktadır.*
+
+Nothing on iyzico's CepPOS App2App pages — the In-Store API — mentions OAuth,
+in either language, and no other page in the sweep mentions `/in-store/oauth2`.
+
+Two details follow from the same source and are not evidence of anything else:
+
+- The paths carry no version segment because those fragments declare a bare
+  `https://api.iyzipay.com` server, where the In-Store ones declare
+  `/v3/in-store` and the Terminal Host ones `/v2/terminal-host`.
+- `token/refresh` is English-only because the Turkish Login page documents
+  `authorize` and `token` and then says an expired token means logging in
+  again.
 
 ## PayTR — `specs/paytr/`
 

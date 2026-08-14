@@ -87,7 +87,19 @@
 //! Three plain headers — `x-api-key`, `x-secret-key`, `x-merchant-id` — rather
 //! than the [`IYZWSv2`](crate::Credentials) signing the rest of iyzico uses.
 //! That comes from prose on the overview page; the fragments themselves declare
-//! only `x-api-key`, and also document an OAuth2 flow this crate does not use.
+//! only `x-api-key`.
+//!
+//! There is no OAuth2 alternative to them, whatever the specs look like.
+//! `specs/iyzico/in-store/latest.yaml` carries `/in-store/oauth2/authorize`,
+//! `/in-store/oauth2/token` and `/in-store/oauth2/token/refresh`, and they are
+//! filed under In-Store because that file is grouped by path. All three come
+//! from one page — Physical POS → Terminal API Integration → Login — and their
+//! fragments are titled *Terminal API – Outside Flow*, as are the ones defining
+//! the VUK 509 `/v2/terminal-host/*` services; every fragment of this API is
+//! titled *iyzico In-Store API*. iyzico says of the `access_token` they issue
+//! that it is "used as Bearer Token in Terminal Host services" — a cash
+//! register driving a physical POS device, which is not this. No `CepPOS`
+//! `App2App` page mentions OAuth in either language.
 //!
 //! # Example
 //!

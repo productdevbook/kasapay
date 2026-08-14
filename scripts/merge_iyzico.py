@@ -284,7 +284,7 @@ def combine_languages(
     """Keeps one fragment per operation, with everything else grafted onto it.
 
     Neither language documents everything. The whole In-Store v3 API appears
-    only in Turkish and the In-Store OAuth refresh only in English, so the
+    only in Turkish and the Terminal API's token refresh only in English, so the
     union across pages is the coverage.
 
     Where both languages describe one operation they are usually the same
