@@ -37,6 +37,6 @@ pub use crate::error::{Error, ErrorKind};
 #[doc(inline)]
 pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 #[doc(inline)]
-pub use crate::provider::{Provider, ProviderId};
+pub use crate::provider::{Provider, ProviderId, async_trait};
 #[doc(inline)]
 pub use crate::secret::Secret;
