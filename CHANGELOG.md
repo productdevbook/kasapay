@@ -63,6 +63,11 @@ both are the kind 0.0.x exists to make.
 
 ### Fixed
 
+- PayTR reported every refund refusal as a flat rejection. Two of its
+  documented codes say to try again later — the refund service being locked,
+  and an insufficient balance — and are now retryable, so a caller's retry
+  loop no longer gives up on a refund that would have gone through.
+
 - `ChargeRequest::idempotency_key` was accepted and dropped by every adapter.
   Stripe sends it now; iyzico refuses the request rather than pretending.
 - `Currency` no longer maps blindly onto Stripe's. Stripe settles in no
