@@ -709,3 +709,61 @@ fn transport_error(error: &reqwest::Error) -> Error {
     };
     Error::new(kind, PAYTR, error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_currency, paytr_currency};
+    use kasapay_core::Currency;
+
+    /// Whatever is sent to PayTR can be read back from PayTR.
+    ///
+    /// The two directions are separate matches and only one of them is
+    /// exhaustive: `parse_currency` matches on text, so the compiler cannot
+    /// see a currency missing from it. Roubles were sent and unreadable for
+    /// exactly that reason.
+    #[test]
+    fn every_currency_paytr_is_sent_can_be_read_back() {
+        for currency in every_currency() {
+            if let Ok(sent) = paytr_currency(currency) {
+                assert_eq!(
+                    parse_currency(sent).ok(),
+                    Some(currency),
+                    "{currency} is sent to PayTR as `{sent}` and cannot be read back"
+                );
+            }
+        }
+    }
+
+    /// Every currency there is.
+    ///
+    /// The `match` is what keeps this list honest: adding a variant to
+    /// `Currency` stops it compiling until somebody comes here and decides
+    /// whether PayTR takes it.
+    fn every_currency() -> Vec<Currency> {
+        let every = vec![
+            Currency::Try,
+            Currency::Usd,
+            Currency::Eur,
+            Currency::Gbp,
+            Currency::Jpy,
+            Currency::Kwd,
+            Currency::Rub,
+            Currency::Chf,
+            Currency::Nok,
+        ];
+        for currency in &every {
+            match currency {
+                Currency::Try
+                | Currency::Usd
+                | Currency::Eur
+                | Currency::Gbp
+                | Currency::Jpy
+                | Currency::Kwd
+                | Currency::Rub
+                | Currency::Chf
+                | Currency::Nok => {}
+            }
+        }
+        every
+    }
+}

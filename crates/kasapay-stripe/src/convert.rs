@@ -162,18 +162,57 @@ mod tests {
         assert!(super::error(&stripe::StripeError::Timeout).is_retryable());
     }
 
+    /// Whatever is sent to Stripe can be read back from Stripe.
+    ///
+    /// Only one of the two directions is exhaustive: `currency_back` ends in a
+    /// wildcard, because Stripe names far more currencies than kasapay does.
+    /// So a currency added to `currency` and forgotten in `currency_back` is
+    /// invisible to the compiler, and a payment this crate opened would come
+    /// back as one it has no name for.
     #[test]
     fn every_currency_stripe_settles_survives_the_round_trip() {
-        for currency in [
+        for currency in every_currency() {
+            if let Ok(there) = super::currency(currency) {
+                assert_eq!(
+                    super::currency_back(&there),
+                    Some(currency),
+                    "{currency} is sent to Stripe and cannot be read back"
+                );
+            }
+        }
+    }
+
+    /// Every currency there is.
+    ///
+    /// The `match` is what keeps this list honest: adding a variant to
+    /// `Currency` stops it compiling until somebody comes here and decides
+    /// whether Stripe settles in it.
+    fn every_currency() -> Vec<Currency> {
+        let every = vec![
             Currency::Try,
             Currency::Usd,
             Currency::Eur,
             Currency::Gbp,
             Currency::Jpy,
-        ] {
-            let there = super::currency(currency).expect("Stripe settles in it");
-            assert_eq!(super::currency_back(&there), Some(currency));
+            Currency::Kwd,
+            Currency::Rub,
+            Currency::Chf,
+            Currency::Nok,
+        ];
+        for currency in &every {
+            match currency {
+                Currency::Try
+                | Currency::Usd
+                | Currency::Eur
+                | Currency::Gbp
+                | Currency::Jpy
+                | Currency::Kwd
+                | Currency::Rub
+                | Currency::Chf
+                | Currency::Nok => {}
+            }
         }
+        every
     }
 
     #[test]
