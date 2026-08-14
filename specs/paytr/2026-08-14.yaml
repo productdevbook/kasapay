@@ -1,0 +1,4412 @@
+kind: documentation record, not an API description
+provider: paytr
+source: https://dev.paytr.com/sitemap.xml
+fetched: '2026-08-14'
+note: 'PayTR publishes no machine-readable description. These are the field tables from their documentation,
+  kept so that a change to one is visible in a diff. The column saying whether a field enters the token
+  hash is the one that matters most: the hash signs the request, and a field silently entering or leaving
+  it is a signing failure that looks like bad credentials.'
+warning: The order of the rows is not the order of the hash. On the iFrame API the table lists currency
+  fifth and PayTR's own sample code signs it ninth. The table says which fields are signed; only their
+  sample code says in what order.
+pages:
+- path: bkm-express
+  url: https://dev.paytr.com/bkm-express
+  language: tr
+  digest: b72711774fd18630
+  tables:
+  - under: BKM Express Entegrasyonu
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    rows:
+    - - merchant_id
+      - Mağaza no
+    - - merchant_key
+      - Mağaza parola
+    - - merchant_salt
+      - Mağaza gizli anahtar
+    - - merchant_oid
+      - Sipariş numarası
+    - - payment_amount
+      - Siparişe ait toplam Tutar
+    - - user_ip
+      - Kullanıcıdan alınan ip adresi
+    - - email
+      - Kullanıcının email adresi
+    - - payment_type
+      - Bkm Express için bex olarak gönderilmesi gereklidir.
+    - - installment_options
+      - Taksit seçenekleri opsiyoneldir. Göndermediğiniz takdirde müşterinize taksit seçenekleri gösterilmeyecektir.
+        Aşağıda verilen değerler örnektir. Siz komisyon oranlarınıza göre tutarları hesaplayıp aşağıdaki
+        kısmı düzenlemelisiniz.
+  - under: BKM Express Entegrasyonu
+    columns:
+    - Kullanıcı bilgisi
+    - Banka
+    rows:
+    - - 0010@banka.com
+      - ZİRAAT BANKASI
+    - - 0012@banka.com
+      - HALK BANKASI
+    - - 0015@banka.com
+      - VAKIFBANK
+    - - 0032@banka.com
+      - TEB
+    - - 0046@banka.com
+      - AKBANK
+    - - 0062@banka.com
+      - GARANTİ
+    - - 0064@banka.com
+      - İŞBANK
+    - - 0067@banka.com
+      - YAPI KREDİ
+    - - 0134@banka.com
+      - DENİZBANK
+    - - 0111@banka.com,qnbfinans@bkm.com
+      - FİNANSBANK
+- path: direkt-api/bin-sorgulama-servisi
+  url: https://dev.paytr.com/direkt-api/bin-sorgulama-servisi
+  language: tr
+  digest: 85d5a8073cd4d6ee
+  tables:
+  - under: 4.3 BIN Sorgulama Servisi
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - bin_number
+      - 'BIN Numarası: Sorgulama yapılmak istenen karta ait kart numarasının ilk 6 veya 8 hanesi. Maksimum
+        doğrulama için 8 hane kullanın.'
+      - Evet
+      - Maksimum 8 hane olacak şekilde.
+    - - merchant_id
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: 4.3 BIN Sorgulama Servisi
+    columns:
+    - Alan adı / tipi
+    - Zorunlu
+    - Açıklama
+    rows:
+    - - merchant_id(integer)
+      - Evet
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+    - - bin_number(string)
+      - Evet
+      - 'BIN Numarası: Kart numarasının ilk 6 veya 8 hanesi'
+    - - paytr_token(string)
+      - Evet
+      - 'Paytr Token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir (Hesaplama ile ilgili olarak örnek kodlara bakmalısınız)'
+  - under: 4.3 BIN Sorgulama Servisi
+    columns:
+    - Alan adı / tipi
+    - Değerler
+    - Açıklama
+    rows:
+    - - status (string)
+      - success, error veya failed
+      - 'Status: Sorgulama sonucu'
+    - - cardType (string)
+      - credit / debit
+      - 'Kart Türü: Kartın tipi'
+    - - businessCard (string)
+      - y / n
+      - 'Şirket Kartı: Kartın şirket kartı olup olmadığı bilgisi'
+    - - bank (string)
+      - 'Örnek: Yapı Kredi'
+      - 'Banka: Kartın bankası'
+    - - brand (string)
+      - 'Örnek: axess, bonus,cardfinans, combo,world, paraf, advantage,maximum,saglamkart'
+      - 'Kart Program Ortaklığı İsmi: Kartın program ortaklığı ismi(Kart bir program ortaklığına dahil
+        değil ise değer none olur. Bu durumda ilgili kart ile PayTR üzerinden taksitli işlem yapılamaz.)'
+    - - schema (string)
+      - VISA, MASTERCARD, AMEX, TROY, OTHER
+      - Kartın hangi şemaya ait olduğu. (Kartın hangi şemaya ait olduğu bilinmiyorsa OTHER döner.)
+    - - bankCode (int)
+      - 'Örnek: 0010'
+      - 'Banka Kodu: Kart bankasının kodu'
+    - - allow_non3d (string)
+      - Y(yes) ve N(no)
+      - Non-3D işlem izni sonucu
+- path: direkt-api/direkt-api-1-adim
+  url: https://dev.paytr.com/direkt-api/direkt-api-1-adim
+  language: tr
+  digest: 03633a3bcd5d4101
+  tables:
+  - under: Direkt API Entegrasyonu 1. Adım
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (string)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - ''
+      - ''
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası(Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası.(Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter,Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter ve Türkçe karakter içermemeli
+    - - payment_amount(integer)
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - Ayraç olarak yalnızca nokta(.) gönderilmelidir
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL, EUR, USD, GBP, RUB(Boş ise TL kabul edilir)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Non 3D işlem yapabilmek için 1 gönderilebilir
+      - Evet
+      - 0 veya 1
+    - - request_exp_date(int)
+      - Sıfırdan farklı bir değer gönderilmesi durumunda,ödeme işlemi bu süre öncesinde tamamlanmalıdır.(Ödeme
+        sırasında sisteminizde fiyat güncellemesi olması durumuna karşı güvenlik amaçlı kullanabilirsiniz)
+      - Hayır
+      - Timestamp
+  - under: Direkt API Entegrasyonu 1. Adım
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+    - - paytr_token (string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası (Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası. (Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter, Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter ve Türkçe karakter içermemeli
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - payment_amount (double), ondalık olarak nokta (.) ve noktadan sonra iki hane
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - 'Örn: 100.99 veya 150 veya 1500.35'
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+    - - card_type(string)
+      - Kart tipi (Taksitli işlemlerde kullanmak üzere)
+      - Hayır
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world, saglamkart
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL, EUR, USD (Boş ise TL kabul edilir)
+    - - client_lang(string)
+      - Ödeme sürecinde kullanılacak dil
+      - Hayır
+      - Türkçe için tr veya İngilizce için en (Boş gönderilirse tr geçerli olur)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Non 3D işlem yapabilmek için 1 gönderilebilir
+      - Evet
+      - 0 veya 1
+    - - non3d_test_failed
+      - Non 3D işlemde, başarısız işlem durumunu test etmek için 1 gönderilir (test_mode ve non_3d değerleri
+        1 ise dikkate alınır!)
+      - Hayır
+      - 0 veya 1
+    - - cc_owner(string)
+      - Kart sahibi
+      - Evet
+      - 50 karakter
+    - - card_number(string)
+      - Kart numarası
+      - Evet
+      - 16 karakter
+    - - expiry_month(string)
+      - Kart son kullanma tarihi(Ay)
+      - Evet
+      - 1, 2, 3, .. , 11, 12
+    - - expiry_year(string)
+      - Kart son kullanma tarihi(Yıl)
+      - Evet
+      - 25, 26, 27,…
+    - - cvv(string)
+      - Kart güvenlik kodu
+      - Evet
+      - 3 karakter
+    - - merchant_ok_url(string)
+      - 'Müşterinin başarılı ödeme sonrası yönledirileceği sayfa (Örn.Siparişlerim takip sayfası)(Uyarı:
+        Müşteri bu sayfaya ulaştığında henüz sipariş onaylanmış olmaz)'
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - merchant_fail_url(string)
+      - Müşterinin ödemesi sırasında beklenmeyen bir hatada yönlendirileceği sayfa
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - user_name (string)
+      - 'Müşteri adı ve soyadı: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        adı ve soyadı'
+      - Evet
+      - En fazla 60 karakter
+    - - user_address (string)
+      - 'Müşteri adresi: Müşterinin sipariş sırasında ilettiği adresi'
+      - Evet
+      - En fazla 400 karakter
+    - - user_phone (string)
+      - 'Müşteri telefon numarası: Müşterinin sipariş sırasında ilettiği telefon numarası'
+      - Evet
+      - En fazla 20 karakter
+    - - user_basket (string)
+      - 'Sepet içeriği: Müşterinin siparişindeki ürün/hizmet bilgilerini içermelidir'
+      - Evet
+      - JSON tipinde(Örnek kodları inceleyin)
+    - - debug_on (int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Hayır
+      - 0 veya 1(Entegrasyon ve test sürecinde hataları tespit etmek için mutlaka 1
+    - - sync_mode (int)
+      - 'Sync Mode: Ödeme isteğinin gönderilmesi ardından işlem sonucuna göre başarılı veya başarısız
+        sayfasına yönlendirme yapılmadan, JSON formatında olan yanıt direkt olarak istek sonucuna döner.
+        Ek olarak; işleme ait detaylar tanımlı olan Bildirim URL adresine gönderilir. Sync mode sonucunda
+        dönen status alanının alabileceği değerler “failed”, “wait_callback” ve “success” şeklindedir.Not:
+        Bu işlem için mağazanızda Non3D yetkisinin açık olması gerekmektedir.'
+      - Hayır
+      - 0 veya 1(İlgili yetkinin mağazaya tanımlanabilmesi için tarafımıza talep iletilmesi gerekmektedir.
+        Birimlerimizin onayından geçmesi halinden yetki mağazaya tanımlanacaktır.)
+  - under: Direkt API Entegrasyonu 1. Adım
+    columns:
+    - status
+    - msg (Açıklama)
+    - utoken, ctoken (Kart saklama yapıldıysa)
+    rows:
+    - - failed
+      - “Henüz devam eden bir işleminiz bulunmaktadır, sonuçlandıktan sonra tekrar deneyebilirsiniz.”
+        veya farklı bir hata mesajı.
+      - Hayır
+    - - wait_callback
+      - Ödeme Kontrol Ediliyor, Bildirimi Bekleyin.
+      - Evet
+    - - success
+      - Ödeme Başarılı.
+      - Evet
+- path: direkt-api/direkt-api-2-adim
+  url: https://dev.paytr.com/direkt-api/direkt-api-2-adim
+  language: tr
+  digest: 0afec73697ec2032
+  tables:
+  - under: Direkt API Entegrasyonu 2. Adım
+    columns:
+    - Alan adı
+    - Zorunlu
+    - Token
+    - Açıklama
+    rows:
+    - - merchant_oid
+      - Evet
+      - Evet
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz ve 1. ADIM’da gönderdiğiniz sipariş numarası'
+    - - status
+      - Evet
+      - Evet
+      - Ödeme işleminin sonucu (success veya failed)
+    - - total_amount
+      - Evet
+      - Evet
+      - İşlem başarılı ise ödeme tutarı, işlem başarısız ise sıfır (0) döner.
+    - - hash
+      - Evet
+      - Evet
+      - PayTR sisteminden gönderilen değerlerin doğruluğunu kontrol etmeniz için güvenlik amaçlı oluşturulan
+        hash değeri (Hesaplama ile ilgili olarak örnek kodlara bakmalısınız)
+    - - failed_reason_code
+      - Hayır
+      - Evet
+      - 'Ödemenin onaylanmaması durumunda gönderilir (Bkz: 2. Adım İçin Hata Kodları ve Açıklamaları Tablosu)'
+    - - failed_reason_msg
+      - Hayır
+      - Evet
+      - 'Ödemenin neden onaylanmadığı mesajını içerir (Bkz: 2. Adım İçin Hata Kodları ve Açıklamaları
+        Tablosu)'
+    - - test_mode
+      - Evet
+      - Evet
+      - Mağazanız test modunda iken veya canlı modda yapılan test işlemlerde 1 olarak gönderilir.
+    - - payment_type
+      - Evet
+      - Evet
+      - 'Ödeme şekli: Müşterinin hangi ödeme şekli ile ödemesini tamamladığını belirtir. ''card'' veya
+        ''eft'' değerlerini alır.'
+    - - currency
+      - Evet
+      - Hayır
+      - 'Para birimi: Ödemenin hangi para birimi üzerinden yapıldığını belirtir. ‘TL’, ‘USD’, ‘EUR’, ‘GBP,
+        ‘RUB’ değerlerinden birini alır.'
+    - - payment_amount
+      - Evet
+      - Hayır
+      - 'Sipariş tutarı: 1. ADIM’da gönderdiğiniz “payment_amount” değeridir.(100 ile çarpılmış hali gönderilir.
+        34.56 => 3456)'
+    - - installment_count
+      - Evet
+      - Hayır
+      - İşlemde yapılan taksit sayısı
+  - under: Direkt API Entegrasyonu 2. Adım
+    columns:
+    - failed_reason_code
+    - failed_reason_msg
+    - Açıklama
+    rows:
+    - - '0'
+      - DEĞİŞKEN (AÇIKLAMAYI OKUYUN)
+      - 'Ödemenin neden onaylanmadığına ilişkin,detaylı hata mesajı (Örneğin: Kartın limiti /bakiyesi
+        yetersiz).'
+    - - '1'
+      - Kimlik Doğrulama yapılmadı. Lütfen tekrar deneyin ve işlemi tamamlayın.
+      - Müşteri, kimlik doğrulama adımında cep telefonu numarasını girmedi.
+    - - '2'
+      - Kimlik Doğrulama başarısız. Lütfen tekrar deneyin ve şifreyi doğru girin.
+      - Müşteri, cep telefonuna gelen şifreyi doğru girmedi.
+    - - '3'
+      - Güvenlik kontrolü sonrası onay verilmedi veya kontrol yapılamadı.
+      - Müşterinin işlemi PayTR tarafından güvenlik kontrolünden geçemedi veya kontrol yapılamadı.
+    - - '6'
+      - Müşteri ödeme yapmaktan vazgeçti ve ödeme sayfasından ayrıldı.
+      - Müşteri, kendisine tanınmış olan işlem süresinde(1. ADIM’da tanımlanan request_exp_date değeri)
+        işlemini tamamlamadı veya müşteri ödeme sayfasını kapatarak işlemi sonlandırdı.
+    - - '8'
+      - Bu karta taksit yapılamamaktadır.
+      - Müşterinin kullanmakta olduğu kart ile seçmiş olduğu taksitli ödeme yöntemi kullanılamaz.
+    - - '9'
+      - Bu kart ile işlem yetkisi bulunmamaktadır.
+      - Müşterinin kullanmakta olduğu kart için mağazanızın işlem yetkisi bulunmuyor.
+    - - '10'
+      - Bu işlemde 3D Secure kullanılmalıdır.
+      - Müşteri, yapmış olduğu işlemde 3D Secure ile ödeme yapmalıdır.
+    - - '11'
+      - Güvenlik uyarısı. İşlem yapan müşterinizi kontrol edin.
+      - Müşterinin işleminde fraud tespiti bulunuyor. Güvenliğiniz için müşterinin işlemlerini kontrol
+        edin.
+    - - '99'
+      - 'İşlem başarısız: Teknik entegrasyon hatası.'
+      - Teknik entegrasyon hatası varsa dönülecektir. (debug_on değeri 0 ise)
+- path: direkt-api/kart-saklama-api/kayitli-kart-listesi
+  url: https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-kart-listesi
+  language: tr
+  digest: 346a2c4dc797da22
+  tables:
+  - under: Kayıtlı Kart Listesi
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - utoken
+      - Kart kayıt sonrası ödeme bildiriminde tarafınıza PayTR sisteminden bildirilen kullanıcıya özel
+        token
+      - Evet
+      - '-'
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Kayıtlı Kart Listesi
+    columns:
+    - Alan adı / tipi
+    - Zorunlu
+    - Açıklama
+    rows:
+    - - merchant_id (integer)
+      - Evet
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+    - - utoken (string)
+      - Evet
+      - 'User Token: Kart kayıt sonrası ödeme bildiriminde tarafınıza PayTR sisteminden bildirilen kullanıcıya
+        özel token'
+    - - paytr_token (string)
+      - Evet
+      - 'Paytr Token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir (Hesaplama ile ilgili olarak örnek kodlara bakmalısınız)'
+  - under: Kayıtlı Kart Listesi
+    columns:
+    - Alan adı / tipi
+    - Zorunlu
+    - Olası/Örnek Değerler
+    rows:
+    - - status (string)
+      - 'Status: Hata durumunda error olarak döner, işlem başarılı olduğunda döndürülmez'
+      - error
+    - - err_msg (string)
+      - 'Error Message: İstek başarısız olduğu durumlarda err_msg’de hata nedeni döndürülür'
+      - 'Örnek: Bağlantı hatası oluştu'
+    - - ctoken (string)
+      - 'Card Token: Kullanıcının kayıtlı kartını tanımlayan token'
+      - ''
+    - - last_4 (string)
+      - 'Son 4: Kayıtlı kartın son 4 hanesi'
+      - ''
+    - - require_cvv (string)
+      - 'CVV gerekli: Bu kayıtlı kart ile ödeme yapmak için CVV gerekip gerekmediği'
+      - 0 veya 1 (Bir kart için 1 dönerse, kart ile ödeme yapılabilmesi için kullanıcıdan CVV bilgisini
+        almanız gerekmektedir)
+    - - month (string)
+      - 'Ay: Kartının son kullanma tarihinin ay bilgisi'
+      - 'Örnek: 05'
+    - - year (string)
+      - 'Yılı: Kartının son kullanma tarihinin yıl bilgisi'
+      - 'Örnek: 28'
+    - - c_bank (string)
+      - 'Banka: Kartının bankası'
+      - 'Örnek: Yapı Kredi'
+    - - c_name
+      - 'Adı Soyadı: Kullanıcının kart kayıt sırasında girdiği ad soyadı'
+      - ''
+    - - c_brand (string)
+      - Kart Program Ortaklığı İsmi
+      - 'Örnek: maximum, bonus,world vb.'
+    - - c_type (string)
+      - 'Kart Tipi: Kredi kartı veya banka kartı / ön ödemeli kart'
+      - credit veya debit
+    - - businessCard (string)
+      - 'Şirket Kartı: Kartın şirket kartı olup olmadığı bilgisi'
+      - y / n
+    - - initial (string)
+      - 'Kart Şeması: 2 ve 5 MasterCard, 3 Amex, 4 VISA, 9 TROY'
+      - 2,3,4,5,9
+    - - schema (string)
+      - 'Kartın şeması: Kartın hangi şemaya ait olduğu bilinmiyorsa OTHER döner.'
+      - VISA, MASTERCARD, AMEX, TROY, vb.
+- path: direkt-api/kart-saklama-api/kayitli-kart-silme
+  url: https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-kart-silme
+  language: tr
+  digest: 6af8b2bab060eaa7
+  tables:
+  - under: Kayıtlı Kart Silme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - utoken
+      - Kart kayıt sonrası ödeme bildiriminde tarafınıza PayTR sisteminden bildirilen kullanıcıya özel
+        token
+      - Evet
+      - '-'
+    - - ctoken
+      - CAPI LIST servisinden kullanıcınıza ait karta token bilgisi
+      - Evet
+      - '-'
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Kayıtlı Kart Silme
+    columns:
+    - Alan adı / tipi
+    - Zorunlu
+    - Açıklama
+    rows:
+    - - merchant_id (integer)
+      - Evet
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+    - - utoken (string)
+      - Evet
+      - 'User Token: Kart kayıt sonrası ödeme bildiriminde tarafınıza PayTR sisteminden bildirilen kullanıcıya
+        özel token'
+    - - paytr_token (string)
+      - Evet
+      - 'PayTR Token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir (Hesaplama ile ilgili olarak örnek kodlara bakmalısınız)'
+    - - ctoken (string)
+      - Evet
+      - 'Card Token: Kullanıcının kayıtlı kartını tanımlayan token.'
+  - under: Kayıtlı Kart Silme
+    columns:
+    - Alan adı / tipi
+    - Zorunlu
+    - Olası/Örnek Değerler
+    rows:
+    - - status (string)
+      - 'Status: Yapılan kart silme isteğinin başarılı ya da başarısız olduğunu belirtir'
+      - success veya error
+    - - err_msg (string)
+      - 'Error Message: İstek başarısız olduğu durumlarda err_msg’de hata nedeni döndürülür'
+      - 'Örnek: Kart yok veya daha önce silinmiş'
+- path: direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme
+  url: https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme
+  language: tr
+  digest: 2422ed3320de0ed9
+  tables:
+  - under: Kayıtlı Kart Tekrarlayan Ödeme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+    - - paytr_token (string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası (Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası. (Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter, Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter ve Türkçe karakter içermemeli
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - payment_amount (double), ondalık olarak nokta (.) ve noktadan sonra iki hane
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - 'Örn: 100.99 veya 150 veya 1500.35'
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+    - - card_type(string)
+      - Kart tipi (Taksitli işlemlerde kullanmak üzere)
+      - Hayır
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL(veya TRY), EUR, USD (Boş ise TL kabul edilir)
+    - - client_lang(string)
+      - Ödeme sürecinde kullanılacak dil
+      - Hayır
+      - Türkçe için tr veya İngilizce için en (Boş gönderilirse tr geçerli olur)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Tekrarlayan ödeme için 1 gönderilmelidir
+      - Evet
+      - 0 veya 1
+    - - non3d_test_failed
+      - Non 3D işlemde, başarısız işlem durumunu test etmek için 1 gönderilir (test_mode ve non_3d değerleri
+        1 ise dikkate alınır!)
+      - Hayır
+      - 0 veya 1
+    - - merchant_ok_url(string)
+      - 'Müşterinin başarılı ödeme sonrası yönledirileceği sayfa (Örn.Siparişlerim takip sayfası)(Uyarı:
+        Müşteri bu sayfaya ulaştığında henüz sipariş onaylanmış olmaz)'
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - merchant_fail_url(string)
+      - Müşterinin ödemesi sırasında beklenmeyen bir hatada yönlendirileceği sayfa
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - user_name (string)
+      - 'Müşteri adı ve soyadı: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        adı ve soyadı'
+      - Evet
+      - En fazla 60 karakter
+    - - user_address (string)
+      - 'Müşteri adresi: Müşterinin sipariş sırasında ilettiği adresi'
+      - Evet
+      - En fazla 400 karakter
+    - - user_phone (string)
+      - 'Müşteri telefon numarası: Müşterinin sipariş sırasında ilettiği telefon numarası'
+      - Evet
+      - En fazla 20 karakter
+    - - user_basket (string)
+      - 'Sepet içeriği: Müşterinin siparişindeki ürün/hizmet bilgilerini içermelidir'
+      - Evet
+      - JSON tipinde(Örnek kodları inceleyin)
+    - - debug_on (int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Hayır
+      - 0 veya 1(Entegrasyon ve test sürecinde hataları tespit etmek için mutlaka 1
+    - - utoken(string)
+      - 'User Token: Sitenizdeki kullanıcıya özel PAYTR tarafından oluşturulmuş token. Bu token’ı sisteminizde
+        işlemi yapan kullanıcıyla eşleştirmelisiniz'
+      - Evet
+      - '-'
+    - - ctoken(string)
+      - 'Card Token: Kullanıcının kayıtlı kartını tanımlayan token'
+      - Evet
+      - '-'
+    - - recurring_payment(int)
+      - 'Recurring_payment: Ödeme isteğinin gönderilmesi ardından işlem sonucuna göre başarılı veya başarısız
+        sayfasına yönlendirme yapılmadan, JSON formatında olan yanıt direkt olarak istek sonucuna döner.
+        Ek olarak; işleme ait detaylar tanımlı olan Bildirim URL adresine gönderilir. Recurring_payment
+        sonucunda dönen status alanının alabileceği değerler “failed”, “wait_callback” ve “success” şeklindedir.Not:
+        Bu işlem için mağazanızda Non3D yetkisinin açık olması gerekmektedir.'
+      - Hayır
+      - 0 veya 1(İlgili yetkinin mağazaya tanımlanabilmesi için tarafımıza talep iletilmesi gerekmektedir
+        Birimlerimizin onayından geçmesi halinden yetki mağazaya tanımlanacaktır.)
+  - under: Kayıtlı Kart Tekrarlayan Ödeme
+    columns:
+    - status
+    - msg (açıklama)
+    - try_again
+    rows:
+    - - failed
+      - “Kart banka tarafından kapatılmış. Bu kart ile tekrar işlem göndermeyin.”veya farklı bir hata
+        mesajı.
+      - 'false'
+    - - failed
+      - Henüz devam eden bir işleminiz bulunmaktadır, sonuçlandıktan sonra tekrar deneyebilirsiniz.
+      - 'true'
+    - - wait_callback
+      - Ödeme Kontrol Ediliyor, Bildirimi Bekleyin
+      - '-'
+    - - success
+      - Ödeme Başarılı.
+      - '-'
+- path: direkt-api/kart-saklama-api/kayitli-karttan-odeme
+  url: https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-karttan-odeme
+  language: tr
+  digest: b03a9d3d3ec16808
+  tables:
+  - under: Kayıtlı Karttan Ödeme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - ''
+      - ''
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası(Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası.(Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter,Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter
+    - - payment_amount(integer)
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - Ayraç olarak yalnızca nokta(.) gönderilmelidir
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL, EUR, USD, GBP, RUB(Boş ise TL kabul edilir)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Non 3D işlem yapabilmek için 1 gönderilebilir
+      - Evet
+      - 0 veya 1
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Kayıtlı Karttan Ödeme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+    - - paytr_token (string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası (Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası. (Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter, Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - require_cvv
+      - Kullanıcının seçtiği karta ait require_cvv parametresi kontrol edilip eğer 1 ise CVV gireceği
+        alan gösterilir
+      - Evet(Açıklama dikkatli okunmalı.)
+      - '-'
+    - - payment_amount (double), ondalık olarak nokta (.) ve noktadan sonra iki hane
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - 'Örn: 100.99 veya 150 veya 1500.35'
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+    - - card_type(string)
+      - Kart tipi (Taksitli işlemlerde kullanmak üzere)
+      - Hayır
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL(veya TRY), EUR, USD (Boş ise TL kabul edilir)
+    - - client_lang(string)
+      - Ödeme sürecinde kullanılacak dil
+      - Hayır
+      - Türkçe için tr veya İngilizce için en (Boş gönderilirse tr geçerli olur)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Non 3D işlem yapabilmek için 1 gönderilebilir
+      - Evet
+      - 0 veya 1
+    - - non3d_test_failed
+      - Non 3D işlemde, başarısız işlem durumunu test etmek için 1 gönderilir (test_mode ve non_3d değerleri
+        1 ise dikkate alınır!)
+      - Hayır
+      - 0 veya 1
+    - - merchant_ok_url(string)
+      - 'Müşterinin başarılı ödeme sonrası yönledirileceği sayfa (Örn.Siparişlerim takip sayfası)(Uyarı:
+        Müşteri bu sayfaya ulaştığında henüz sipariş onaylanmış olmaz)'
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - merchant_fail_url(string)
+      - Müşterinin ödemesi sırasında beklenmeyen bir hatada yönlendirileceği sayfa
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - user_name (string)
+      - 'Müşteri adı ve soyadı: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        adı ve soyadı'
+      - Evet
+      - En fazla 60 karakter
+    - - user_address (string)
+      - 'Müşteri adresi: Müşterinin sipariş sırasında ilettiği adresi'
+      - Evet
+      - En fazla 400 karakter
+    - - user_phone (string)
+      - 'Müşteri telefon numarası: Müşterinin sipariş sırasında ilettiği telefon numarası'
+      - Evet
+      - En fazla 20 karakter
+    - - user_basket (string)
+      - 'Sepet içeriği: Müşterinin siparişindeki ürün/hizmet bilgilerini içermelidir'
+      - Evet
+      - JSON tipinde(Örnek kodları inceleyin)
+    - - debug_on (int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Hayır
+      - 0 veya 1(Entegrasyon ve test sürecinde hataları tespit etmek için mutlaka 1
+    - - utoken
+      - Kullanıcıya ait kartı kaydederken servisten tarafınıza dönen ve sizin sistemininiz üzerinden kullacınızla
+        eşleştirdiğiniz değer
+      - Evet
+    - - ctoken
+      - CAPI LIST servisinden dönen kullanıcının kayıtlı kartına ait ctoken değeri
+      - Evet
+- path: direkt-api/kart-saklama-api/yeni-kart-ekleme
+  url: https://dev.paytr.com/direkt-api/kart-saklama-api/yeni-kart-ekleme
+  language: tr
+  digest: 795bb97ba0aac005
+  tables:
+  - under: Yeni Kart Ekleme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - ''
+      - ''
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası(Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası.(Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter,Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter
+    - - payment_amount(integer)
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - Ayraç olarak yalnızca nokta(.) gönderilmelidir
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL, EUR, USD, GBP, RUB(Boş ise TL kabul edilir)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Non 3D işlem yapabilmek için 1 gönderilebilir
+      - Evet
+      - 0 veya 1
+  - under: Yeni Kart Ekleme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    rows:
+    - - utoken (string)
+      - 'User Token: Sitenizdeki kullanıcıya özel PayTR tarafından oluşturulmuş token. Bu token’ı sisteminizde
+        işlemi yapan kullanıcıyla eşleştirmelisiniz.'
+  - under: Yeni Kart Ekleme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+    - - paytr_token (string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası (Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası. (Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter, Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('card')
+    - - payment_amount (double), ondalık olarak nokta (.) ve noktadan sonra iki hane
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - 'Örn: 100.99 veya 150 veya 1500.35'
+    - - installment_count(int)
+      - Taksit sayısı
+      - Evet
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+    - - card_type(string)
+      - Kart tipi (Taksitli işlemlerde kullanmak üzere)
+      - Hayır
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world
+    - - currency(string)
+      - Para birimi
+      - Hayır
+      - TL(veya TRY), EUR, USD (Boş ise TL kabul edilir)
+    - - client_lang(string)
+      - Ödeme sürecinde kullanılacak dil
+      - Hayır
+      - Türkçe için tr veya İngilizce için en (Boş gönderilirse tr geçerli olur)
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - non_3d
+      - Non 3D işlem yapabilmek için 1 gönderilebilir
+      - Evet
+      - 0 veya 1
+    - - non3d_test_failed
+      - Non 3D işlemde, başarısız işlem durumunu test etmek için 1 gönderilir (test_mode ve non_3d değerleri
+        1 ise dikkate alınır!)
+      - Hayır
+      - 0 veya 1
+    - - cc_owner(string)
+      - Kart sahibi
+      - Evet
+      - 50 karakter
+    - - card_number(string)
+      - Kart numarası
+      - Evet
+      - 16 karakter
+    - - expiry_month(string)
+      - Kart son kullanma tarihi(Ay)
+      - Evet
+      - 1, 2, 3, .. , 11, 12
+    - - expiry_year(string)
+      - Kart son kullanma tarihi(Yıl)
+      - Evet
+      - 20, 21, 22,…
+    - - cvv(string)
+      - Kart güvenlik kodu
+      - Evet
+      - 3 karakter
+    - - merchant_ok_url(string)
+      - 'Müşterinin başarılı ödeme sonrası yönledirileceği sayfa (Örn.Siparişlerim takip sayfası)(Uyarı:
+        Müşteri bu sayfaya ulaştığında henüz sipariş onaylanmış olmaz)'
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - merchant_fail_url(string)
+      - Müşterinin ödemesi sırasında beklenmeyen bir hatada yönlendirileceği sayfa
+      - Evet
+      - 'En fazla 400 karakter Uyarı: Tam URL olmalıdır'
+    - - user_name (string)
+      - 'Müşteri adı ve soyadı: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        adı ve soyadı'
+      - Evet
+      - En fazla 60 karakter
+    - - user_address (string)
+      - 'Müşteri adresi: Müşterinin sipariş sırasında ilettiği adresi'
+      - Evet
+      - En fazla 400 karakter
+    - - user_phone (string)
+      - 'Müşteri telefon numarası: Müşterinin sipariş sırasında ilettiği telefon numarası'
+      - Evet
+      - En fazla 20 karakter
+    - - user_basket (string)
+      - 'Sepet içeriği: Müşterinin siparişindeki ürün/hizmet bilgilerini içermelidir'
+      - Evet
+      - JSON tipinde(Örnek kodları inceleyin)
+    - - debug_on (int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Hayır
+      - 0 veya 1(Entegrasyon ve test sürecinde hataları tespit etmek için mutlaka 1
+    - - utoken
+      - Utoken gönderilmediği durumda, bu kullanıcıya ait daha önceden kaydedilmiş bir kart olmadığı varsayılır.
+        PayTR tarafında yeni bir utoken oluşturularak ödeme işleminin devamında döndürülür. (BİLDİRİM
+        URL'E) Eğer kullanıcı sisteminizde daha önce bir kart kaydetmişse tarafınızda kayıtlı utoken parametresini
+        POST içeriğine eklemelisiniz. Böylece bu kart da aynı kullanıcıya tanımlanacaktır. Eğer mecvut
+        kullanıcı için yeni bir kart tanımı yapılacağı halde mevcut utoken gönderilmezse yeni bir utoken
+        oluşturalacağından kullanıcının tüm kartları tek bir utoken altında gruplanmaz
+      - Evet(Açıklama dikkatli okunmalı.)
+      - '-'
+    - - store_card
+      - Kullanıcı adına sistemde ilk kez bir kart kaydediliyorsa POST içeriğinde yalnızca “store_card”
+        parametresi gönderilir.Kullanıcının daha önceden sistemde tanımlanmış bir kartı varsa ve yeni
+        bir kart kaydetmek istiyorsa, POST içeriğinde “utoken” ve “store_card” parametreleri birlikte
+        gönderilmelidir.
+      - Evet(Açıklama dikkatli okunmalı.)
+      - 1 veya 0
+- path: direkt-api/taksit-sorgulama
+  url: https://dev.paytr.com/direkt-api/taksit-sorgulama
+  language: tr
+  digest: c3e226a9aa01c318
+  tables:
+  - under: 4.2 Taksit Oranları Sorgulama
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - request_id
+      - İstek atılırken oluşturulacak random değer.
+      - Evet
+      - '-'
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: 4.2 Taksit Oranları Sorgulama
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    - Zorunlu
+    rows:
+    - - merchant_id
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+    - - request_id
+      - En fazla 32 karakterden oluşan (string) istek ID'si. Yanıt içerisinde tekrar geri döner.
+      - Evet
+    - - paytr_token
+      - ''
+      - Evet
+    - - single_ratio
+      - 1 veya 0 (Mağaza tek çekim oranı için 1 gönderilmelidir)
+      - Hayır
+    - - abroad_ratio
+      - 1 veya 0 (Mağaza yurtdışı tek çekim oranı için 1 gönderilmelidir)
+      - Hayır
+  - under: 4.2 Taksit Oranları Sorgulama
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    rows:
+    - - status
+      - Success olarak dönerse veritabanı işlemleri yapılır
+    - - request_id
+      - En fazla 32 karakterden oluşan (string) istek ID'si. Yanıtta geri döner
+    - - err_msg
+      - Hata mesajı döner (Örnek:"Zorunlu alan degeri gecersiz veya gonderilmedi:")
+    - - max_inst_non_bus
+      - Mağazanıza tanımlı maksimum taksit sayısı
+    - - oranlar
+      - Mağazanıza tanımlı taksit sayısının oranları kart tipine göre (axess, world, maximum, cardfinans,
+        paraf, advantage, combo, bonus) array formatında döner
+- path: direkt-api/test-kart-bilgileri
+  url: https://dev.paytr.com/direkt-api/test-kart-bilgileri
+  language: tr
+  digest: 90402c11733eb978
+  tables:
+  - under: Direkt API Test Kart Bilgileri
+    columns:
+    - Kart bilgileri
+    - Alabileceği değerler
+    - Açıklama
+    rows:
+    - - Adı Soyadı
+      - PAYTR TEST
+      - Dilediğiniz şekilde gönderebilirsiniz.
+    - - Kart No
+      - 4355 0843 5508 4358
+      - Bu değer zorunludur.
+    - - Son Kullanma
+      - 12 / 30
+      - Dilediğiniz şekilde gönderebilirsiniz.
+    - - CVV
+      - '000'
+      - Bu değer zorunludur.
+  - under: Direkt API Test Kart Bilgileri
+    columns:
+    - Kart bilgileri
+    - Alabileceği değerler
+    - Açıklama
+    rows:
+    - - Adı Soyadı
+      - PAYTR TEST
+      - Dilediğiniz şekilde gönderebilirsiniz.
+    - - Kart No
+      - 5406 6754 0667 5403
+      - Bu değer zorunludur.
+    - - Son Kullanma
+      - 12 / 30
+      - Dilediğiniz şekilde gönderebilirsiniz.
+    - - CVV
+      - '000'
+      - Bu değer zorunludur.
+  - under: Direkt API Test Kart Bilgileri
+    columns:
+    - Kart bilgileri
+    - Alabileceği değerler
+    - Açıklama
+    rows:
+    - - Adı Soyadı
+      - PAYTR TEST
+      - Dilediğiniz şekilde gönderebilirsiniz.
+    - - Kart No
+      - 9792 0303 9444 0796
+      - Bu değer zorunludur.
+    - - Son Kullanma
+      - 12 / 30
+      - Dilediğiniz şekilde gönderebilirsiniz.
+    - - CVV
+      - '000'
+      - Bu değer zorunludur.
+- path: durum-sorgu
+  url: https://dev.paytr.com/durum-sorgu
+  language: tr
+  digest: c3bd38e32b1d82a9
+  tables:
+  - under: Durum Sorgu API Entegrasyonu
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    rows:
+    - - merchant_id
+      - Mağaza No
+    - - merchant_key
+      - Mağaza Parola
+    - - merchant_salt
+      - Mağaza Gizli Anahtar
+    - - merchant_oid
+      - Sipariş Numarası
+  - under: Durum Sorgu API Entegrasyonu
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    - Değerler
+    rows:
+    - - status(string)
+      - Sorgulama sonucu(success veya failed)
+      - success veya error
+    - - net_tutar (string)
+      - Kesinti sonrası kalan tutar
+      - '9.76'
+    - - kesinti_tutari (string)
+      - İşlem için kesilen tutar
+      - '0.24'
+    - - payment_amount(string)
+      - İlgili siparişe ait tutar bilgisi
+      - 10,8
+    - - payment_total(string)
+      - Müşterinin ilgili sipariş için ödediği tutar
+      - 10,8
+    - - payment_date(integer)
+      - İşlemin gerçekleşme tarihi
+      - 2021-01-01 23:59:59 (YYYY-MM-DD hh:mm:ss)
+    - - currency(string)
+      - Para birimi
+      - TL(veya TRY), EUR, USD, GBP, RUB
+    - - taksit(string)
+      - 'Taksit: İşlem taksitli yapıldı ise taksit sayısı'
+      - 0,2,3,4,5,6,7,8,9,10,11,12
+    - - kart_marka(string)
+      - İşlem yapılan kartın markası
+      - Örn. WORD, BONUS, vb.
+    - - masked_pan(string)
+      - İşlem yapılan kartın maskeli hali
+      - Örn. 455359AAA6747
+    - - auth_code(integer)
+      - İşlemin provizyon kodu
+      - '123456'
+    - - auth_date(integer)
+      - İşlemin provizyon gerçekleşme tarihi
+      - Örn. 01.01.2026 12:00:00
+    - - odeme_tipi(string)
+      - Ödemenin hangi tipte yapıldığı
+      - KART veya EFT
+    - - test_mode(string)
+      - İşlemin test veya canlı ortamda yapıldığı
+      - 0 veya 1
+    - - returns(Array)
+      - Eğer ilgili sipariş içerisinde iade varsa dönecek değer
+    - - err_no
+      - Hata numarası
+      - '004'
+    - - err_msg
+      - Hata mesajı
+      - merchant_oid ile basarili odeme bulunamadi
+  - under: Durum Sorgu API Entegrasyonu
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    rows:
+    - - merchant_id
+      - Mağaza No
+    - - merchant_key
+      - Mağaza Parola
+    - - merchant_salt
+      - Mağaza Gizli Anahtar
+    - - merchant_oid
+      - Sipariş Numarası
+  - under: Durum Sorgu API Entegrasyonu
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    - Değerler
+    rows:
+    - - Status(string)
+      - Sorgulama sonucu.(success veya failed)
+      - success veya error
+    - - payment_amount(string)
+      - İlgili siparişe ait tutar bilgisi
+      - 10,8
+    - - payment_total(string)
+      - Müşterinin ilgili sipariş için ödediği tutar
+      - 10,8
+    - - payment_date(integer)
+      - İşlemin gerçekleşme tarihi
+      - 2021-01-01 23:59:59 (YYYY-MM-DD hh:mm:ss)
+    - - currency(string)
+      - Para birimi
+      - TL(veya TRY), EUR, USD, GBP, RUB
+    - - taksit(string)
+      - 'Taksit: İşlem taksitli yapıldı ise taksit sayısı'
+      - 0,2,3,4,5,6,7,8,9,10,11,12
+    - - kart_marka(string)
+      - İşlem yapılan kartın markası
+      - Örn. WORD, BONUS, vb.
+    - - masked_pan(string)
+      - İşlemin gerçekleşme tarihi
+      - Örn. 455359AAA6747
+    - - odeme_tipi(string)
+      - Ödemenin hangi tipte yapıldığı
+      - KART veya EFT
+    - - auth_code(integer)
+      - İşlemin provizyon kodu
+      - '123456'
+    - - auth_date(integer)
+      - İşlemin provizyon gerçekleşme tarihi
+      - Örn. 01.01.2026 12:00:00
+    - - test_mode(string)
+      - İşlemin test veya canlı ortamda yapıldığı
+      - 0 veya 1
+    - - returns(string)
+      - Eğer ilgili sipariş içerisinde iade varsa dönecek değer
+      - ''
+    - - reference_no(string)
+      - 'Referans No: İade talebinde bulunurken gönderildi ise dönen iade referans numarası'
+      - 111111111111(maksimum 64 alfanumarik karakter)
+    - - err_no
+      - Hata numarası
+      - '004'
+    - - err_msg
+      - Hata mesajı
+      - merchant_oid ile basarili odeme bulunamadi
+    - - submerchant_payments
+      - Platform ödemeleri
+      - ''
+- path: en/bkm-express
+  url: https://dev.paytr.com/en/bkm-express
+  language: en
+  digest: 33aabbbd206f6903
+  tables:
+  - under: BKM Express
+    columns:
+    - Field name / Type
+    - Explanation
+    rows:
+    - - merchant_id
+      - Store number
+    - - merchant_key
+      - Store Password
+    - - merchant_salt
+      - Store Secret Key
+    - - merchant_oid
+      - Order Number
+    - - payment_amount
+      - 'Payment Amount: Amount information for the order.'
+    - - user_ip
+      - IP address received from the user
+    - - email
+      - User email address
+    - - payment_type
+      - For Bkm Express must sent as "bex".
+    - - installment_options
+      - Installment options are optional. If you do not send it, your customer will not be shown the installment
+        options. The values given below are examples. You should calculate the amounts according to your
+        commission rates and edit the following section.
+  - under: BKM Express
+    columns:
+    - User information
+    - Bank
+    rows:
+    - - 0010@banka.com
+      - ZİRAAT BANKASI
+    - - 0012@banka.com
+      - HALK BANKASI
+    - - 0015@banka.com
+      - VAKIFBANK
+    - - 0032@banka.com
+      - TEB
+    - - 0046@banka.com
+      - AKBANK
+    - - 0062@banka.com
+      - GARANTİ
+    - - 0064@banka.com
+      - İŞBANK
+    - - 0067@banka.com
+      - YAPI KREDİ
+    - - 0134@banka.com
+      - DENİZBANK
+    - - 0111@banka.com,qnbfinans@bkm.com
+      - FİNANSBANK
+- path: en/direkt-api/bin-sorgulama-servisi
+  url: https://dev.paytr.com/en/direkt-api/bin-sorgulama-servisi
+  language: en
+  digest: 75ce07f9f4a77049
+  tables:
+  - under: 4.3 BIN Lookup Service
+    columns:
+    - Field name / Type
+    - Explanation
+    - Compulsory
+    - Limitations
+    rows:
+    - - bin_number
+      - The first 6 or 8 digits of the card number of the card to be questioned. Use 8 digits for maximum
+        verification.
+      - 'Yes'
+      - Maximum 8 digits.
+    - - merchant_id
+      - 'Store Number: Store number given to you by PAYTR'
+      - 'Yes'
+      - '-'
+    - - merchant_salt
+      - Merchant secret key
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - Merchant password
+      - 'Yes'
+      - '-'
+  - under: 4.3 BIN Lookup Service
+    columns:
+    - Variable / Type
+    - Compulsory
+    - Explanation
+    rows:
+    - - merchant_id(integer)
+      - 'Yes'
+      - 'Store Number: Store number given to you by PAYTR'
+    - - bin_number(string)
+      - 'Yes'
+      - The first 6 or 8 digits of the card number of the card to be questioned. Use 8 digits for maximum
+        verification.
+    - - paytr_token(string)
+      - 'Yes'
+      - 'paytr_token: This value is the one you need to create to make sure the request is coming from
+        you and that the values it contains have not changed.'
+  - under: 4.3 BIN Lookup Service
+    columns:
+    - Variable / Type
+    - Values
+    - Explanation
+    rows:
+    - - status (string)
+      - success, error or failed
+      - 'Status: Result of the request (Response)'
+    - - cardType (string)
+      - credit / debit
+      - credit / debit
+    - - businessCard (string)
+      - y / n
+      - 'Company Card: Whether the card is a company card or not'
+    - - bank (string)
+      - 'Example: Yapı Kredi'
+      - 'Bank: The bank of the card'
+    - - brand (string)
+      - 'Example: axess, bonus,cardfinans, combo,world, paraf, advantage,maximum,saglamkart'
+      - 'Program partners: (If the card is not included in a program partnership, the value will be none.
+        In this case, installment payment can not be made with the card on PayTR)'
+    - - schema (string)
+      - VISA, MASTERCARD, AMEX, TROY, OTHER
+      - Information on which scheme the card belongs to. (If it is not known which scheme the card belongs
+        to, answer returns as OTHER)
+    - - bankCode (int)
+      - 'Example: 0010'
+      - 'Bank Code: Card bank code'
+    - - allow_non3d (string)
+      - Y(yes) ve N(no)
+      - Non-3D processing suitability result
+- path: en/direkt-api/direkt-api-1-adim
+  url: https://dev.paytr.com/en/direkt-api/direkt-api-1-adim
+  language: en
+  digest: a3b1bc472e6eac9d
+  tables:
+  - under: Direct API Step 1
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (string)
+      - 'Merchant ID: Your Merchant ID (Mağaza no) provided by PayTR'
+      - 'Yes'
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters and Must not contain Turkish characters
+    - - payment_amount(integer)
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - Brackets only send as dot (.)
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card')
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL, EUR, USD, GBP, RUB (TL is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For Non3D transactions send this value as 1
+      - 'Yes'
+      - 0 or 1
+    - - request_exp_date(int)
+      - If a value other than zero is sent, payment must be completed within that time. (e.g. You can
+        use it for security purposes in case of price updates etc.)
+      - 'No'
+      - Timestamp
+  - under: Direct API Step 1
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant ID: Your Merchant ID provided by PayTR'
+      - 'Yes'
+    - - paytr_token (string)
+      - 'Paytr_token: It is used to ensure that the request comes from you and the content did not change'
+      - 'Yes'
+      - Please check the sample codes for calculation
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters and Must not contain Turkish characters
+    - - payment_amount (double), decimal (.) and two digits after the point
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - 'For example: 100.99 or 150 or 1500.35'
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card')
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - card_type(string)
+      - Card type (For installment transactions)
+      - 'No'
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world, saglamkart
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL(or TRY), EUR, USDD (TL is assumed if not sent)
+    - - client_lang(string)
+      - Language to be used on payment process
+      - 'No'
+      - tr for Turkish or en for English (tr is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For Non3D transactions send this value as 1
+      - 'Yes'
+      - 0 or 1
+    - - non3d_test_failed
+      - If you need to test failed Non3D transaction send 1 (non_3d and test_mode values must be both
+        1)
+      - 'No'
+      - 0 or 1
+    - - cc_owner(string)
+      - Card holder name
+      - 'Yes'
+      - Up to 50 characters
+    - - card_number(string)
+      - Card number
+      - 'Yes'
+      - Up to 16 characters
+    - - expiry_month(string)
+      - Card expiry date (Month)
+      - 'Yes'
+      - 1, 2, 3, .. , 11, 12
+    - - expiry_year(string)
+      - Card expiry date (Year)
+      - 'Yes'
+      - 20, 21, 22,…
+    - - cvv(string)
+      - Card security code
+      - 'Yes'
+      - Up to 4 characters
+    - - merchant_ok_url(string)
+      - 'The page the user will be redirected to after successful payment (e.g. Order status / my orders
+        page)(Warning: the payment may not have been approved yet when the user reaches this page'
+      - 'Yes'
+      - Up to 400 characters
+    - - merchant_fail_url(string)
+      - The page that the user will be redirected to if something unexpected occurs
+      - 'Yes'
+      - Up to 400 characters
+    - - user_name (string)
+      - 'User name and surname: First and last name of the user that you have on your system or received
+        via the order form'
+      - 'Yes'
+      - Up to 60 characters
+    - - user_address (string)
+      - 'User address: The address of the user that you have on your system or received via the order
+        form'
+      - 'Yes'
+      - Up to 400 characters
+    - - user_phone (string)
+      - 'User phone number: The phone number of the user that you have on your system or received via
+        the order form'
+      - 'Yes'
+      - Up to 20 characters
+    - - user_basket (string)
+      - User basket/order contents
+      - 'Yes'
+      - JSON - Please check the sample codes for structure
+    - - debug_on (int)
+      - 'Display errors: If the value is 1, when wrong or incomplete information is transmitted to the
+        API, error message is displayed on the page.'
+      - 'No'
+      - 0 or 1(Be sure to send 1 to detect errors during the integration and testing process)
+    - - sync_mode (int)
+      - 'Sync Mode: After sending a payment request, the response in JSON format returns directly to the
+        request result without redirecting to the successful or unsuccessful page according to the result
+        of the transaction. In addition; Details of the transaction are sent to the defined Notification
+        URL address. The values that the status field returned as a result of sync mode can receive are
+        “failed”, “wait_callback” and “success Note: The Non3D authorization must be turned on in your
+        store for this operation.'
+      - 'No'
+      - 0 or 1 (A request must be sent to us in order for the relevant authorization to be defined to
+        the store. If it is approved by our units, the authorization will be defined to the store.)
+  - under: Direct API Step 1
+    columns:
+    - status
+    - msg (Description)
+    - utoken, ctoken (If the card has been stored))
+    rows:
+    - - failed
+      - “You have a process that is still in progress, you can try it again after it is completed”. or
+        a different error message.
+      - 'No'
+    - - wait_callback
+      - Checking Payment, Wait for Notification.
+      - 'Yes'
+    - - success
+      - Successful Payment.
+      - 'Yes'
+- path: en/direkt-api/direkt-api-2-adim
+  url: https://dev.paytr.com/en/direkt-api/direkt-api-2-adim
+  language: en
+  digest: c63d990fe358018b
+  tables:
+  - under: Direct API Step 2
+    columns:
+    - Field name
+    - Mandatory
+    - Token
+    - Description
+    rows:
+    - - merchant_oid
+      - 'Yes'
+      - 'Yes'
+      - 'Merchant order id: The unique order ID set for the transaction and sent in STEP 1'
+    - - status
+      - 'Yes'
+      - 'Yes'
+      - The result of the payment (‘success’ or ‘failed’)
+    - - total_amount
+      - 'Yes'
+      - 'Yes'
+      - 'Total amount collected from the user(Multiplied by 100: e.g. 34.56 => 3456).If the transaction
+        is successful, the payment amount returns zero (0) if the transaction is unsuccessful.(Note: The
+        amount collected may be more than the "payment_amount" value you sent in STEP 1 in cases such
+        as installment payments, alternative payment methods, etc.)'
+    - - hash
+      - Evet
+      - Evet
+      - The hash value generated to check the received values are intact for security purposes (See the
+        sample codes for the calculation)
+    - - failed_reason_code
+      - 'No'
+      - 'Yes'
+      - Sent if payment is not approved(See codes and description on the table below)
+    - - failed_reason_msg
+      - 'No'
+      - 'Yes'
+      - Explains why the payment is not approved (Only in Turkish for now)(See codes and description on
+        the table below)
+    - - test_mode
+      - 'Yes'
+      - 'Yes'
+      - Sent as 1 in test mode or while running a test in live mode.
+    - - payment_type
+      - 'Yes'
+      - 'Yes'
+      - Indicates the method which the customer used to complete the payment. 'card' or 'eft'.
+    - - currency
+      - 'Yes'
+      - 'No'
+      - Indicates the currency of payment. 'TL', 'USD', 'EUR', 'GBP', 'RUB
+    - - payment_amount
+      - 'Yes'
+      - 'No'
+      - 'The "payment_amount" value that is sent in STEP 1(Multiplied by 100: e.g. 34.56 => 3456'
+    - - installment_count
+      - 'Yes'
+      - 'No'
+      - Number of installments made in the transaction
+  - under: Direct API Step 2
+    columns:
+    - failed_reason_code
+    - failed_reason_msg
+    - Description
+    rows:
+    - - '0'
+      - VARIOUS (READ DESCRIPTION)
+      - 'Detailed error message on why the payment was not approved (For example: Card limit / balance
+        is insufficient).'
+    - - '1'
+      - Authentication not performed. Please try again and complete the process
+      - The customer did not enter the mobile number in the authentication step
+    - - '2'
+      - Authentication failed. Please try again and enter the correct password.
+      - The customer did not enter the correct password for authentication.
+    - - '3'
+      - Not approved after the security checks.
+      - The customer's transaction failed to pass security checks.
+    - - '6'
+      - The customer refused to pay and left the checkout page.
+      - The customer did not complete the transaction in the processing time (request_exp_date value defined
+        in STEP 1) or the customer closed the payment page and ended the transaction.
+    - - '8'
+      - Installment payment cannot be made by this card.
+      - The installment payment method selected by the customer is not allowed with the card used
+    - - '9'
+      - There is no authorization to process this card.
+      - Your store does not have transaction authorization for the card the customer is using.
+    - - '10'
+      - 3D Secure must be used for this transaction.
+      - The customer must pay with 3D Secure for this type of transaction.
+    - - '11'
+      - Security alert. Check your trading customer.
+      - There is fraud detection in the customer's transaction. For your safety, check the customer's
+        transactions.
+    - - '99'
+      - 'Operation failed: Technical integration error.'
+      - Response to return if there is a technical integration error. (if debug_on value is 0)
+- path: en/direkt-api/kart-saklama-api/kayitli-kart-listesi
+  url: https://dev.paytr.com/en/direkt-api/kart-saklama-api/kayitli-kart-listesi
+  language: en
+  digest: ec5117ddb0fdfc33
+  tables:
+  - under: List Card
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - utoken
+      - User specific token notified to you by PAYTR system in post-payment payment notification.
+      - 'Yes'
+      - '-'
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: List Card
+    columns:
+    - Variable / Type
+    - Compulsory
+    - Explanation
+    rows:
+    - - merchant_id (integer)
+      - 'Yes'
+      - 'Store Number: Store number given to you by PAYTR'
+    - - utoken (string)
+      - 'Yes'
+      - 'User Token: User specific token notified to you by PAYTR system in post-payment notification'
+    - - paytr_token (string)
+      - 'Yes'
+      - 'PayTR Token: It is the value that you will create to make sure that the request comes from you
+        and that the content has not changed (You should look at the sample codes regarding the calculation)'
+  - under: List Card
+    columns:
+    - Variable / Type
+    - Explanation
+    - Possible / Sample Values
+    rows:
+    - - status (string)
+      - 'Status: Returns an error in the event of an error, not an operation when successful'
+      - error
+    - - err_msg (string)
+      - 'Error Message: If the request is unsuccessful, the error reason is returned in err_msg'
+      - 'Example: Connection error occurred'
+    - - ctoken (string)
+      - 'Card Token: Token that identifies the user''s registered card'
+      - ''
+    - - last_4 (string)
+      - 'Last 4: Last 4 digits of the registered card'
+      - ''
+    - - require_cvv (string)
+      - The require_cvv parameter of the card selected by the user is checked, and if it is 1, the field
+        to enter CVV is displayed.
+      - 0 or 1
+    - - month (string)
+      - 'Month: Month information of the card''s expiration date'
+      - 'Example: 05'
+    - - year (string)
+      - 'Year: Year information of the card''s expiration date'
+      - 'Example: 28'
+    - - c_bank (string)
+      - 'Bank: The bank of the card'
+      - 'Example: Yapı Kredi'
+    - - c_name
+      - 'Name Surname: Name surname entered by the user during card registration'
+      - ''
+    - - c_brand (string)
+      - Card Program Partnership Name
+      - 'Example: maximum, bonus,world etc.'
+    - - c_type (string)
+      - Card Program Partnership Name
+      - credit or debit
+    - - businessCard (string)
+      - 'Company Card: Information whether the card is a company card'
+      - y / n
+    - - initial (string)
+      - 'Card Scheme: 2 and 5 MasterCard, 3 Amex, 4 VISA, 9 TROY'
+      - 2,3,4,5,9
+    - - schema (string)
+      - 'Card Scheme: If it is not known which scheme the card belongs to, answer returns as OTHER.'
+      - VISA, MASTERCARD, AMEX, TROY, etc.
+- path: en/direkt-api/kart-saklama-api/kayitli-kart-silme
+  url: https://dev.paytr.com/en/direkt-api/kart-saklama-api/kayitli-kart-silme
+  language: en
+  digest: 1cfcfadf6a35ecdd
+  tables:
+  - under: Delete Card
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - utoken
+      - 'User Token: User specific token notified to you by PAYTR system in post-payment notification'
+      - 'Yes'
+      - '-'
+    - - ctoken
+      - Token information on your user's card from the CAPI LIST service
+      - 'Yes'
+      - '-'
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: Delete Card
+    columns:
+    - Variable / Type
+    - Compulsory
+    - Explanation
+    rows:
+    - - merchant_id (integer)
+      - 'Yes'
+      - 'Store Number: Store number given to you by PAYTR'
+    - - utoken (string)
+      - 'Yes'
+      - 'User Token: User specific token notified to you by PAYTR system in post-payment notification'
+    - - paytr_token (string)
+      - 'Yes'
+      - 'PayTR Token: It is the value that you will create to make sure that the request comes from you
+        and that the content has not changed (You should look at the sample codes regarding the calculation)'
+    - - ctoken (string)
+      - 'Yes'
+      - 'Card Token: The token that identifies the user''s registered card.'
+  - under: Delete Card
+    columns:
+    - Variable / Type
+    - Explanation
+    - Possible / Sample Values
+    rows:
+    - - status (string)
+      - 'Status: Indicates that the card deletion request made was successful or failed.'
+      - success or error
+    - - err_msg (string)
+      - 'Error Message: If the request is unsuccessful, the error reason is returned in err_msg'
+      - 'Example: No card or previously deleted'
+- path: en/direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme
+  url: https://dev.paytr.com/en/direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme
+  language: en
+  digest: 5bc1db9a40db0288
+  tables:
+  - under: Recurring Payment
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant ID: Your Merchant ID provided by PayTR'
+      - 'Yes'
+    - - paytr_token (string)
+      - 'Paytr_token: It is used to ensure that the request comes from you and the content did not change'
+      - 'Yes'
+      - Please check the sample codes for calculation
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification - on STEP 2'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters
+    - - payment_amount (double), decimal (.) and two digits after the point
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - 'For example: 100.99 or 150 or 1500.35'
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card')
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - card_type(string)
+      - Card type (For installment transactions)
+      - 'No'
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world, saglamkart
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL(or TRY), EUR, USDD (TL is assumed if not sent)
+    - - client_lang(string)
+      - Language to be used on payment process
+      - 'No'
+      - tr for Turkish or en for English (tr is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For recurring payment send this value as 1
+      - 'Yes'
+      - 0 or 1
+    - - non3d_test_failed
+      - If you need to test failed Non3D transaction send 1 (non_3d and test_mode values must be both
+        1)
+      - 'No'
+      - 0 or 1
+    - - merchant_ok_url(string)
+      - 'The page the user will be redirected to after successful payment (e.g. Order status / my orders
+        page)(Warning: the payment may not have been approved yet when the user reaches this page'
+      - 'Yes'
+      - Up to 400 characters
+    - - merchant_fail_url(string)
+      - The page that the user will be redirected to if something unexpected occurs
+      - 'Yes'
+      - Up to 400 characters
+    - - user_name (string)
+      - 'User name and surname: First and last name of the user that you have on your system or received
+        via the order form'
+      - 'Yes'
+      - Up to 60 characters
+    - - user_address (string)
+      - 'User address: The address of the user that you have on your system or received via the order
+        form'
+      - 'Yes'
+      - Up to 400 characters
+    - - user_phone (string)
+      - 'User phone number: The phone number of the user that you have on your system or received via
+        the order form'
+      - 'Yes'
+      - Up to 20 characters
+    - - user_basket (string)
+      - User basket/order contents
+      - 'Yes'
+      - JSON - Please check the sample codes for structure
+    - - debug_on (int)
+      - 'Display errors: If the value is 1, when wrong or incomplete information is transmitted to the
+        API, error message is displayed on the page.'
+      - 'No'
+      - 0 or 1(Be sure to send 1 to detect errors during the integration and testing process)
+    - - utoken(string)
+      - 'User Token: User specific token notified to you by PAYTR system in post-payment notification'
+      - 'Yes'
+      - '-'
+    - - ctoken(string)
+      - 'Card Token: The token that identifies the user''s registered card'
+      - 'Yes'
+      - '-'
+    - - recurring_payment(int)
+      - 'Recurring:After sending a payment request, the response in JSON format returns directly to the
+        request result without redirecting to the successful or unsuccessful page according to the result
+        of the transaction. In addition; Details of the transaction are sent to the defined Notification
+        URL address. The values that the status field returned as a result of sync mode can receive are
+        “failed”, “wait_callback” and “success”Note: The Non3D authorization must be turned on in your
+        store for this operation.'
+      - 'No'
+      - 0 or 1 (A request must be sent to us in order for the relevant authorization to be defined to
+        the store. If it is approved by our units, the authorization will be defined to the store.)
+  - under: Recurring Payment
+    columns:
+    - status
+    - msg (description)
+    - try_again
+    rows:
+    - - failed
+      - '"The card was closed by the bank. Do not send transactions again with this card.” or a different
+        error message.'
+      - 'false'
+    - - failed
+      - You have an ongoing transaction, you can try again after it is completed
+      - 'true'
+    - - wait_callback
+      - Checking Payment, Wait for Notification.
+      - '-'
+    - - success
+      - Successful Payment
+      - '-'
+- path: en/direkt-api/kart-saklama-api/kayitli-karttan-odeme
+  url: https://dev.paytr.com/en/direkt-api/kart-saklama-api/kayitli-karttan-odeme
+  language: en
+  digest: d49c854ee1c76d0d
+  tables:
+  - under: Payment By Registered Card
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant ID: Your Merchant ID (Mağaza no) provided by PayTR'
+      - 'Yes'
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters
+    - - payment_amount(integer)
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - Brackets only send as dot (.)
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card', 'card_points')
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL, EUR, USD, GBP, RUB (TL is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For Non3D transactions send this value as 1
+      - 'Yes'
+      - 0 or 1
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: Payment By Registered Card
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant ID: Your Merchant ID provided by PayTR'
+      - 'Yes'
+    - - paytr_token (string)
+      - 'Paytr_token: It is used to ensure that the request comes from you and the content did not change'
+      - 'Yes'
+      - Please check the sample codes for calculation
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card', 'card_points')
+    - - require_cvv
+      - The require_cvv parameter of the card selected by the user is checked, and if it is 1, the field
+        to enter CVV is displayed.
+      - Yes(The explanation should be read carefully)
+      - '-'
+    - - payment_amount (double), decimal (.) and two digits after the point
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - 'For example: 100.99 or 150 or 1500.35'
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - card_type(string)
+      - Card type (For installment transactions)
+      - 'No'
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world, saglamkart
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL(or TRY), EUR, USDD (TL is assumed if not sent)
+    - - client_lang(string)
+      - Language to be used on payment process
+      - 'No'
+      - tr for Turkish or en for English (tr is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For Non3D transactions send this value as 1
+      - 'Yes'
+      - 0 or 1
+    - - non3d_test_failed
+      - If you need to test failed Non3D transaction send 1 (non_3d and test_mode values must be both
+        1)
+      - 'No'
+      - 0 or 1
+    - - merchant_ok_url(string)
+      - 'The page the user will be redirected to after successful payment (e.g. Order status / my orders
+        page)(Warning: the payment may not have been approved yet when the user reaches this page'
+      - 'Yes'
+      - Up to 400 characters
+    - - merchant_fail_url(string)
+      - The page that the user will be redirected to if something unexpected occurs
+      - 'Yes'
+      - Up to 400 characters
+    - - user_name (string)
+      - 'User name and surname: First and last name of the user that you have on your system or received
+        via the order form'
+      - 'Yes'
+      - Up to 60 characters
+    - - user_address (string)
+      - 'User address: The address of the user that you have on your system or received via the order
+        form'
+      - 'Yes'
+      - Up to 400 characters
+    - - user_phone (string)
+      - 'User phone number: The phone number of the user that you have on your system or received via
+        the order form'
+      - 'Yes'
+      - Up to 20 characters
+    - - user_basket (string)
+      - User basket/order contents
+      - 'Yes'
+      - JSON - Please check the sample codes for structure
+    - - debug_on (int)
+      - 'Display errors: If the value is 1, when wrong or incomplete information is transmitted to the
+        API, error message is displayed on the page.'
+      - 'No'
+      - 0 or 1(Be sure to send 1 to detect errors during the integration and testing process)
+    - - utoken
+      - 'User Token: User specific token notified to you by PAYTR system in post-payment notification'
+      - Yes(The explanation should be read carefully)
+      - '-'
+    - - ctoken
+      - Token information on your user's card from the CAPI LIST service
+      - 'Yes'
+- path: en/direkt-api/kart-saklama-api/yeni-kart-ekleme
+  url: https://dev.paytr.com/en/direkt-api/kart-saklama-api/yeni-kart-ekleme
+  language: en
+  digest: 6a9ca2ac5e7c3ab6
+  tables:
+  - under: New Card
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant ID: Your Merchant ID (Mağaza no) provided by PayTR'
+      - 'Yes'
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters
+    - - payment_amount(integer)
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - Brackets only send as dot (.)
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card')
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL, EUR, USD, GBP, RUB (TL is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For Non3D transactions send this value as 1
+      - 'Yes'
+      - 0 or 1
+  - under: New Card
+    columns:
+    - Variable / Type
+    - Explanation
+    rows:
+    - - utoken (string)
+      - 'User Token: Token created by PAYTR that is specific to the user on your site. You must match
+        this token with the user who traded on your system.'
+  - under: New Card
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant ID: Your Merchant ID provided by PayTR'
+      - 'Yes'
+    - - paytr_token (string)
+      - 'Paytr_token: It is used to ensure that the request comes from you and the content did not change'
+      - 'Yes'
+      - Please check the sample codes for calculation
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction.(Note: Order number is posted
+        back within callback notification'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; the user registered with on your system or you received
+        via the order form'
+      - 'Yes'
+      - Up to 100 characters
+    - - payment_amount (double), decimal (.) and two digits after the point
+      - 'Payment amount: The total amount of the order.'
+      - 'Yes'
+      - 'For example: 100.99 or 150 or 1500.35'
+    - - payment_type(string)
+      - Payment type
+      - 'Yes'
+      - ('card')
+    - - installment_count(int)
+      - Installment count
+      - 'Yes'
+      - 0, 2, 3, 4, 5, 6, 7, 8, 9, 10,11,12
+    - - card_type(string)
+      - Card type (For installment transactions)
+      - 'No'
+      - advantage, axess, combo, bonus, cardfinans, maximum, paraf, world, saglamkart
+    - - currency(string)
+      - Currency
+      - 'No'
+      - TL(or TRY), EUR, USDD (TL is assumed if not sent)
+    - - client_lang(string)
+      - Language to be used on payment process
+      - 'No'
+      - tr for Turkish or en for English (tr is assumed if not sent)
+    - - test_mode
+      - When the merchant is in live mode, it can be sent as 1 to run a test
+      - 'No'
+      - 0 or 1
+    - - non_3d
+      - For Non3D transactions send this value as 1
+      - 'Yes'
+      - 0 or 1
+    - - non3d_test_failed
+      - If you need to test failed Non3D transaction send 1 (non_3d and test_mode values must be both
+        1)
+      - 'No'
+      - 0 or 1
+    - - cc_owner(string)
+      - Card holder name
+      - 'Yes'
+      - Up to 50 characters
+    - - card_number(string)
+      - Card number
+      - 'Yes'
+      - Up to 16 characters
+    - - expiry_month(string)
+      - Card expiry date (Month)
+      - 'Yes'
+      - 1, 2, 3, .. , 11, 12
+    - - expiry_year(string)
+      - Card expiry date (Year)
+      - 'Yes'
+      - 20, 21, 22,…
+    - - cvv(string)
+      - Card security code
+      - 'Yes'
+      - Up to 4 characters
+    - - merchant_ok_url(string)
+      - 'The page the user will be redirected to after successful payment (e.g. Order status / my orders
+        page)(Warning: the payment may not have been approved yet when the user reaches this page'
+      - 'Yes'
+      - Up to 400 characters
+    - - merchant_fail_url(string)
+      - The page that the user will be redirected to if something unexpected occurs
+      - 'Yes'
+      - Up to 400 characters
+    - - user_name (string)
+      - 'User name and surname: First and last name of the user that you have on your system or received
+        via the order form'
+      - 'Yes'
+      - Up to 60 characters
+    - - user_address (string)
+      - 'User address: The address of the user that you have on your system or received via the order
+        form'
+      - 'Yes'
+      - Up to 400 characters
+    - - user_phone (string)
+      - 'User phone number: The phone number of the user that you have on your system or received via
+        the order form'
+      - 'Yes'
+      - Up to 20 characters
+    - - user_basket (string)
+      - User basket/order contents
+      - 'Yes'
+      - JSON - Please check the sample codes for structure
+    - - debug_on (int)
+      - 'Display errors: If the value is 1, when wrong or incomplete information is transmitted to the
+        API, error message is displayed on the page.'
+      - 'No'
+      - 0 or 1(Be sure to send 1 to detect errors during the integration and testing process)
+    - - utoken
+      - 'User Token: User specific token notified to you by PAYTR system in post-payment notification'
+      - Yes(The explanation should be read carefully)
+      - '-'
+    - - store_card
+      - If a card is registered on the system for the first time on behalf of the user, only the “store_card”
+        parameter is sent in the post content.If the user has a previously defined card in the system
+        and wants to register a new card, the parameters “utoken” and “store_card” must be sent together
+        in the POST content.
+      - Yes(The explanation should be read carefully)
+      - 1 or 0
+- path: en/direkt-api/taksit-sorgulama
+  url: https://dev.paytr.com/en/direkt-api/taksit-sorgulama
+  language: en
+  digest: 2aa3820c4abb9753
+  tables:
+  - under: 4.2 Installment Rates Service
+    columns:
+    - Field name / Type
+    - Explanation
+    - Compulsory
+    - Limitations
+    rows:
+    - - merchant_id
+      - 'Merchant Number: Merchant number given to you by PayTR'
+      - 'Yes'
+      - '-'
+    - - request_id
+      - 'Request ID: With a maximum of 32 characters.'
+      - 'Yes'
+      - '-'
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: 4.2 Installment Rates Service
+    columns:
+    - Field name / Type
+    - Explanation
+    rows:
+    - - merchant_id
+      - 'Merchant Number: Merchant number given to you by PayTR'
+    - - merchant_key
+      - Merchant password
+    - - merchant_salt
+      - Merchant secret key
+    - - single_ratio
+      - 1 or 0 (Merchant should be sent 1 for single shot rate)
+    - - abroad_ratio
+      - 1 or 0 (Merchant should be sent 1 for overseas single shot rate)
+  - under: 4.2 Installment Rates Service
+    columns:
+    - Field name / Type
+    - Explanation
+    rows:
+    - - status
+      - Database operations are performed if it returns Success
+    - - request_id
+      - Request ID of up to 32 characters (string). Returns in response
+    - - err_msg
+      - 'Returns an error message (Example: "Required field value is invalid or not sent:")'
+    - - max_inst_non_bus
+      - Maximum number of installments defined in your store
+    - - rates
+      - Rates of the number of installments defined in your store are returned in array format according
+        to card type (axess, world, maximum, cardfinans, paraf, advantage, combo, bonus)
+- path: en/direkt-api/test-kart-bilgileri
+  url: https://dev.paytr.com/en/direkt-api/test-kart-bilgileri
+  language: en
+  digest: 719d43a1e642de98
+  tables:
+  - under: Test Card Information
+    columns:
+    - Card information
+    - Values
+    - Description
+    rows:
+    - - Card Name
+      - PAYTR TEST
+      - You can send it any way you want.
+    - - Cart No
+      - 4355 0843 5508 4358
+      - This value is required.
+    - - Expiration
+      - 12 / 30
+      - You can send it any way you want.
+    - - CVV
+      - '000'
+      - This value is required
+  - under: Test Card Information
+    columns:
+    - Card information
+    - Values
+    - Description
+    rows:
+    - - Card Name
+      - PAYTR TEST
+      - You can send it any way you want.
+    - - Cart No
+      - 5406 6754 0667 5403
+      - This value is required.
+    - - Expiration
+      - 12 / 30
+      - You can send it any way you want.
+    - - CVV
+      - '000'
+      - This value is required.
+  - under: Test Card Information
+    columns:
+    - Card information
+    - Values
+    - Description
+    rows:
+    - - Card Name
+      - PAYTR TEST
+      - You can send it any way you want.
+    - - Cart No
+      - 9792 0303 9444 0796
+      - This value is required.
+    - - Expiration
+      - 12 / 30
+      - You can send it any way you want.
+    - - CVV
+      - '000'
+      - This value is required.
+- path: en/durum-sorgu
+  url: https://dev.paytr.com/en/durum-sorgu
+  language: en
+  digest: 3eebf75b1b28ef41
+  tables:
+  - under: Status Inquiry API
+    columns:
+    - Field name / Type
+    - Explanation
+    rows:
+    - - merchant_id
+      - Store Number
+    - - merchant_key
+      - Store Password
+    - - merchant_salt
+      - Store secret key
+    - - merchant_oid
+      - Order Number
+  - under: Status Inquiry API
+    columns:
+    - Field name / Type
+    - Explanation
+    - Values
+    rows:
+    - - Status(string)
+      - 'Status: Result of query'
+      - success or error
+    - - payment_amount(string)
+      - 'Payment Amount: Amount information for the order.'
+      - 10,8
+    - - payment_total(string)
+      - 'Payment Total: The amount paid by the customer for the order.'
+      - 10,8
+    - - payment_date(integer)
+      - 'Payment Date: Transaction date.'
+      - 2021-01-01 (YYYY-MM-DD)
+    - - currency(string)
+      - Currency
+      - TL(or TRY), EUR, USD, GBP, RUB
+    - - net_tutar (string)
+      - 'Net Amount : The amount remaining after the deduction'
+      - '0.76'
+    - - kesinti_tutari (string)
+      - Amount deducted for trading
+      - '0.24'
+    - - payment_amount(string)
+      - 'Payment Amount: Amount information for the order.'
+      - 10,8
+    - - payment_total(string)
+      - 'Payment Total: The amount paid by the customer for the order.'
+      - 10,8
+    - - payment_date(integer)
+      - 'Payment Date: Transaction date.'
+      - 2021-01-0123:59:59(YYYY-MM-DDhh:mm:ss)
+    - - currency(string)
+      - currency unit
+      - TL(orTRY),EUR,USD,GBP,RUB
+    - - taksit(string)
+      - 'Installments: If the transaction is made in installments, the number of installments'
+      - 0,2,3,4,5,6,7,8,9,10,11,12
+    - - kart_marka(string)
+      - The brand of the card being transacted
+      - Etc.WORD,BONUS,ETC.
+    - - masked_pan(string)
+      - Date of execution of the transaction
+      - Etc.455359AAA6747
+    - - odeme_tipi(string)
+      - What type of payment is made
+      - CART or EFT
+    - - test_mode(string)
+      - The procedure is performed in a test or live environment
+      - 0 or 1
+    - - returns(Array)
+      - 'Returns: If there is a refund in the order, the value is returned.'
+    - - err_no
+      - 'err_no: error number.'
+      - '004'
+    - - err_msg
+      - 'err_msg: error message.'
+      - Failed to find successful payment with merchant_oid
+  - under: Status Inquiry API
+    columns:
+    - Field name / Type
+    - Explanation
+    rows:
+    - - merchant_id
+      - Store Number
+    - - merchant_key
+      - Store Password
+    - - merchant_salt
+      - Store secret key
+    - - merchant_oid
+      - Order Number
+  - under: Status Inquiry API
+    columns:
+    - Field name / Type
+    - Explanation
+    - Values
+    rows:
+    - - Status(string)
+      - 'Status: Result of query'
+      - success or error
+    - - net_tutar (string)
+      - 'Net Amount : The amount remaining after the deduction'
+      - '0.76'
+    - - kesinti_tutari (string)
+      - Amount deducted for trading
+      - '0.24'
+    - - payment_amount(string)
+      - 'Payment Amount: Amount information for the order.'
+      - 10,8
+    - - payment_total(string)
+      - 'Payment Total: The amount paid by the customer for the order.'
+      - 10,8
+    - - payment_date(integer)
+      - 'Payment Date: Transaction date.'
+      - 2021-01-0123:59:59(YYYY-MM-DDhh:mm:ss)
+    - - currency(string)
+      - currency unit
+      - TL(orTRY),EUR,USD,GBP,RUB
+    - - taksit(string)
+      - 'Installments: If the transaction is made in installments, the number of installments'
+      - 0,2,3,4,5,6,7,8,9,10,11,12
+    - - kart_marka(string)
+      - The brand of the card being transacted
+      - Etc.WORD,BONUS,ETC.
+    - - masked_pan(string)
+      - Date of execution of the transaction
+      - Etc.455359AAA6747
+    - - odeme_tipi(string)
+      - What type of payment is made
+      - CART or EFT
+    - - test_mode(string)
+      - The procedure is performed in a test or live environment
+      - 0 or 1
+    - - payment_amount(string)
+      - 'Payment Amount: Amount information for the order.'
+      - 10,8
+    - - payment_total(string)
+      - 'Payment Total: The amount paid by the customer for the order.'
+      - 10,8
+    - - payment_date(integer)
+      - 'Payment Date: Transaction date.'
+      - 2021-01-01 23:59:59 (YYYY-MM-DD hh:mm:ss)
+    - - currency(string)
+      - Currency
+      - TL(or TRY), EUR, USD, GBP, RUB
+    - - returns(string)
+      - 'Returns: If there is a refund in the order, the value is returned.'
+    - - err_no
+      - 'err_no: error number.'
+      - '004'
+    - - err_msg
+      - 'err_msg: error message.'
+      - Failed to find successful payment with merchant_oid
+    - - submerchant_payments
+      - ''
+- path: en/havale-eft-iframe-api/havale-eft-iframe-api-1-adim
+  url: https://dev.paytr.com/en/havale-eft-iframe-api/havale-eft-iframe-api-1-adim
+  language: en
+  digest: 5783e400ef033887
+  tables:
+  - under: Transfer/EFT iFrame API Step 1
+    columns:
+    - Field name / type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - merchant_id (string)
+      - 'Merchant ID: Your Merchant ID (Mağaza no) provided by PayTR'
+      - 'Yes'
+      - ''
+    - - user_ip (string)
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - 'Yes'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid (string)
+      - 'Merchant order id: The unique order id you set for the transaction. (Note: Order number is posted
+        back within callback notification - on STEP 2)'
+      - 'Yes'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'User email address: The email address which; a) the user registered with on your system b) or
+        you received via the order form'
+      - 'Yes'
+      - Up to 100 characters
+    - - payment_amount(integer)
+      - 'Payment amount: The total amount of the order. (Multiply the amount by 100)'
+      - 'Yes'
+      - For example, 3456 should be sent for 34.56 (34.56 100 = 3456)
+    - - paytr_token(string)
+      - 'PayTR Token: It is the value that you will create to make sure that the request comes from you
+        and that the content has not changed'
+      - 'Yes'
+      - (You should look at the sample codes regarding the calculation)
+    - - user_name
+      - 'User name and surname: In case of sending, Name-Surname information is filled in the payment
+        notification form in the IFrame and cannot be changed.'
+      - 'No'
+      - Up to 30 characters
+    - - user_phone
+      - User phone number:In case of sending, phone information is filled in the payment notification
+        form in the IFrame and cannot be changed.
+      - 'No'
+      - 11 characters, numeric
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('eft')
+    - - tc_no_last5
+      - TC Number Last 5 digits:In case of sending, TC Number Last 5 digits information is filled in the
+        payment notification form in the IFrame and cannot be changed.
+      - 'No'
+      - 5 characters, numeric
+    - - bank
+      - Bank:In case of sending, the bank cannot be selected in the IFrame, only the sent bank is displayed.
+      - 'No'
+      - isbank, akbank, denizbank, finansbank,halkbank, ptt, teb, vakifbank, yapikredi,ziraat one of these
+        options
+    - - test_mode
+      - The store can be sent as 1 to perform a test transaction while in live mode
+      - 'No'
+      - 0 or 1
+    - - debug_on (int)
+      - 'Error return: 1 must be sent to return an error message if incorrect or incomplete information
+        is transmitted'
+      - 'No'
+      - 0 or 1
+    - - timeout_limit(int)
+      - If a non-zero value is sent, the payment must be completed within this period (You can use it
+        for security purposes in case there is a price update in your system during payment)
+      - Hayır
+      - In minutes (defined as 30 minutes if not sent)
+  - under: Transfer/EFT iFrame API Step 1
+    columns:
+    - Field name
+    - Description
+    rows:
+    - - merchant_oid
+      - 'Merchant order id: The unique order id you set for the transaction'
+    - - status
+      - Result of the payment transaction(success/failed)
+    - - total_amount
+      - 'Total amount collected from the user (Multiplied by 100: e.g. 34.56 => 3456)'
+    - - hash
+      - The hash value generated to check the received values are intact for security purposes
+    - - failed_reason_code
+      - Sent if payment is not approved
+    - - failed_reason_msg
+      - Explains why the payment is not approved
+    - - test_mode
+      - Sent as 1 in test mode or while running a test in live mode
+- path: en/havale-eft-iframe-api/havale-eft-iframe-api-2-adim
+  url: https://dev.paytr.com/en/havale-eft-iframe-api/havale-eft-iframe-api-2-adim
+  language: en
+  digest: 3bac90260ebdfe88
+  tables:
+  - under: Transfer/EFT iFrame API Step 2
+    columns:
+    - failed_reason_code
+    - failed_reason_msg
+    - Description
+    rows:
+    - - '4'
+      - Transfer/EFT payment could not be detected
+      - The payment could not be reached with the information specified by the customer in the payment
+        notification form
+    - - '5'
+      - Transfer/EFT payment amount is insufficient.Please notify as much as the amount you send
+      - Since the amount sent by the customer to the bank is less than the shopping amount (payment_amount),
+        approval has not been given.
+    - - '6'
+      - The customer refused to pay and left the checkout page.
+      - The customer did not complete the transaction in the processing time (timeout_limit value defined
+        in STEP 1) or the customer closed the payment page and ended the transaction.
+    - - '7'
+      - Your notification has not been received, please wait for your previous notification to be checked.
+      - While the Customer had a payment notification that had not yet been checked, made a notification
+        again
+    - - '41'
+      - The first name and last name in the notification do not match the Transfer/EFT Payment
+      - The Name and Surname entered by the customer while making the notification did not match the Name
+        and Surname in the bank records
+    - - '42'
+      - The transfer / EFT payment does not match the TCKN in the notification
+      - The TCKN entered by the customer while making the notification did not match the TCKN in the bank
+        records
+    - - '43'
+      - This Transfer/EFT payment has been previously approved
+      - A check made after the customer's notification showed that this payment was previously reported
+        and approved
+    - - '44'
+      - This Transfer/EFT payment has been refunded
+      - A check after the customer's notification showed that this payment had been refunded earlier
+    - - '45'
+      - Only one of the two different Name-Surnames on the receipt is written
+      - A check made after the customer's notification showed that only one of the two first and last
+        names written on the receipt was entered
+  - under: Transfer/EFT iFrame API Step 2
+    columns:
+    - Field name
+    - Description
+    rows:
+    - - hash
+      - 'Hash: Hash information indicating the accuracy of the notification'
+    - - status
+      - 'Status: The "info" value comes in for the interim notification'
+    - - merchant_oid
+      - 'Merchant order id: The order number you sent when starting the Transfer/EFT Transfer notification'
+    - - bank
+      - Bank:The bank where the Transfer/EFT Transfer notification is made
+- path: en/iade-api
+  url: https://dev.paytr.com/en/iade-api
+  language: en
+  digest: 1aadd3d30fa56683
+  tables:
+  - under: Refund API
+    columns:
+    - Variable / Type
+    - Explanation
+    - Mandatory
+    rows:
+    - - merchant_id (string)
+      - 'Store Number: Store number given to you by PAYTR'
+      - 'Yes'
+    - - merchant_oid (string)
+      - 'Order Number: The order number of the transaction you want to return'
+      - 'Yes'
+    - - return_amount(integer)
+      - 'Refund Amount: The amount you wish to return for the relevant order. (Only a period (.) should
+        be sent as delimiter. E.g.: 10.25'
+      - 'Yes'
+    - - merchant_salt (string)
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+    - - merchant_key(integer)
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+  - under: Refund API
+    columns:
+    - Variable / Type
+    - Explanation
+    - Mandatory
+    rows:
+    - - merchant_id (integer)
+      - 'Store Number: Store number given to you by PAYTR'
+      - 'Yes'
+    - - merchant_oid (string)
+      - 'Order Number: The order number of the transaction you want to return'
+      - 'Yes'
+    - - return_amount(integer)
+      - 'Refund Amount: The amount you wish to return for the relevant order. (Only a period (.) should
+        be sent as delimiter. E.g.: 10.25'
+      - 'Yes'
+    - - paytr_token (string)
+      - 'PayTR Token: It is the value that you will create to make sure that the request comes from you
+        and that the content has not changed (You should look at the sample codes regarding the calculation)'
+      - 'Yes'
+    - - reference_no
+      - 'Reference No: Returns from Status Query service if transmitted.(up to 64 character, Alphanumeric))'
+      - 'No'
+  - under: Refund API
+    columns:
+    - Values
+    - Explanation
+    rows:
+    - - status
+      - If the return request is successful, success returns
+    - - is_test
+      - Returns 1 if the return request is for testing
+    - - merchant_oid
+      - Order number for which a return request was made
+    - - return_amount
+      - Amount made for a refund
+    - - reference_no
+      - Reference number, if submitted
+- path: en/iframe-api/iframe-api-1-adim
+  url: https://dev.paytr.com/en/iframe-api/iframe-api-1-adim
+  language: en
+  digest: f1dc59b507d6b2bf
+  tables:
+  - under: iFrame API Step 1
+    columns:
+    - Value/Type
+    - Mandatory
+    - Token
+    - Description
+    - Limitation
+    rows:
+    - - merchant_id(string)
+      - 'Yes'
+      - 'Yes'
+      - 'Merchant ID: Your Merchant ID (Mağaza no) provided by PayTR'
+      - ''
+    - - user_ip (string)
+      - 'Yes'
+      - 'Yes'
+      - 'User ip: User IP received during the request (Important: Make sure you send the external IP address
+        when you run tests on your local machine)'
+      - Up to 39 characters (ipv4)
+    - - merchant_oid(string)
+      - 'Yes'
+      - 'Yes'
+      - 'Merchant order id: The unique order id you set for the transaction. (Note: Order number is posted
+        back within callback notification - on STEP 2)'
+      - Up to 64 characters, Alpha numeric
+    - - email (string)
+      - 'Yes'
+      - 'Yes'
+      - 'User email address: The email address which; a) the user registered with on your system b) or
+        you received via the order form'
+      - Up to 100 characters and Must not contain Turkish characters
+    - - payment_amount(integer)
+      - 'Yes'
+      - 'Yes'
+      - 'Payment amount: The total amount of the order. (Multiply the amount by 100)'
+      - '* For example, 3456 should be sent for 34.56 (34.56 100 = 3456)**'
+    - - currency(string)
+      - Evet
+      - Evet
+      - Currency
+      - TL (or TRY), EUR, USD, GBP, RUB (TL is assumed if not sent)
+    - - user_basket(string)
+      - 'Yes'
+      - 'Yes'
+      - User basket/order contents
+      - Please check the sample codes for structure
+    - - no_installment(int)
+      - 'Yes'
+      - 'Yes'
+      - 'Do not display the installment option: If you send as 1, the installment options are not displayed
+        (example usage: installment ban for mobile phone sales)'
+      - 0 veya 1
+    - - max_installment(int)
+      - 'Yes'
+      - 'Yes'
+      - 'Maximum number of installments: Specifies the maximum number of installments to be displayed
+        (example usage: up to 4 installments is allowed for jewellery expenditures)'
+      - 0,2,3,4,5,6,7,8,9,10,11,12 If zero (0) is sent, the maximum available installment number is used
+    - - paytr_token(string)
+      - 'Yes'
+      - 'No'
+      - 'Paytr_token: It is used to ensure that the request comes from you and the content did not change'
+      - Please check the sample codes for calculation
+    - - user_name(string)
+      - 'Yes'
+      - 'No'
+      - 'User name and surname: First and last name of the user that you have on your system or received
+        via the order form'
+      - Up to 60 characters
+    - - user_address(string)
+      - 'Yes'
+      - 'No'
+      - 'User address: The address of the user that you have on your system or received via the order
+        form'
+      - Up to 400 characters
+    - - user_phone(string)
+      - 'Yes'
+      - 'No'
+      - 'User phone number: The phone number of the user that you have on your system or received via
+        the order form'
+      - Up to 20 characters
+    - - merchant_ok_url
+      - 'Yes'
+      - 'No'
+      - 'The page the user will be redirected to after successful payment (e.g. Order status / my orders
+        page) (Warning: the payment may not have been approved yet when the user reaches this page)'
+      - Up to 400 characters
+    - - merchant_fail_url
+      - 'Yes'
+      - 'No'
+      - The page that the user will be redirected to if something unexpected occurs
+      - Up to 400 characters
+    - - test_mode
+      - 'No'
+      - 'Yes'
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - 0 veya 1
+    - - debug_on (int)
+      - 'No'
+      - 'No'
+      - 'Display errors: If the value is 1, when wrong or incomplete information is transmitted to the
+        API, error message is displayed on the page'
+      - 0 or 1 (Be sure to send 1 to detect errors during the integration and testing process)
+    - - timeout_limit(int)
+      - 'No'
+      - 'No'
+      - If a value other than zero is sent, payment must be completed within that time. (e.g. You can
+        use it for security purposes in case of price updates etc.)
+      - In minutes (30 minutes is assumed if not sent)
+    - - lang(string)
+      - 'No'
+      - 'No'
+      - Language to be used on pages during payment process
+      - tr for Turkish or en for English (tr is assumed if not sent)
+- path: en/iframe-api/iframe-api-2-adim
+  url: https://dev.paytr.com/en/iframe-api/iframe-api-2-adim
+  language: en
+  digest: 0f287baf33588296
+  tables:
+  - under: iFrame API Step 2
+    columns:
+    - Field name
+    - Success
+    - Failed
+    - Description
+    rows:
+    - - merchant_oid
+      - 'Yes'
+      - 'Yes'
+      - 'Merchant order id: The unique order ID set for the transaction and sent in STEP 1.'
+    - - status
+      - 'Yes'
+      - 'Yes'
+      - The result of the payment (‘success’ or ‘failed’)
+    - - total_amount
+      - 'Yes'
+      - 'Yes'
+      - 'Total amount collected from the user (Multiplied by 100: e.g. 34.56 => 3456) (Note: The amount
+        collected may be more than the "payment_amount" value you sent in STEP 1 in cases such as installment
+        payments, alternative payment methods, etc.)'
+    - - hash
+      - 'Yes'
+      - 'Yes'
+      - The hash value generated to check the received values are intact for security purposes (See the
+        sample codes for the calculation)
+    - - failed_reason_code
+      - 'No'
+      - 'Yes'
+      - Sent if payment is not approved (See codes and description on the table below)
+    - - failed_reason_msg
+      - 'No'
+      - 'Yes'
+      - Explains why the payment is not approved (Only in Turkish for now) (See codes and description
+        on the table below)
+    - - test_mode
+      - 'No'
+      - 'No'
+      - Sent as 1 in test mode or while running a test in live mode
+    - - payment_type
+      - 'Yes'
+      - 'Yes'
+      - Indicates the method which the customer used to complete the payment. 'card' or 'eft'.
+    - - currency
+      - 'Yes'
+      - 'No'
+      - Indicates the currency of payment. 'TL', 'USD', 'EUR', 'GBP', 'RUB
+    - - payment_amount
+      - 'Yes'
+      - 'No'
+      - 'The "payment_amount" value that is sent in STEP 1 (Multiplied by 100: e.g. 34.56 => 3456)'
+  - under: iFrame API Step 2
+    columns:
+    - failed_reason_code
+    - failed_reason_msg
+    - Description
+    rows:
+    - - '0'
+      - VARIOUS (READ DESCRIPTION)
+      - 'Detailed error message on why the payment was not approved (For example: Card limit / balance
+        is insufficient)'
+    - - '1'
+      - Authentication not performed. Please try again and complete the process
+      - The customer did not enter the mobile number in the authentication step
+    - - '2'
+      - The customer did not enter the mobile number in the authentication step
+      - The customer did not enter the correct password for authentication
+    - - '3'
+      - Not approved after the security checks
+      - The customer's transaction failed to pass security checks
+    - - '6'
+      - The customer refused to pay and left the checkout page.
+      - The customer did not complete the transaction in the processing time (timeout_limit value defined
+        in STEP 1) or the customer closed the payment page and ended the transaction.
+    - - '8'
+      - Installment payment cannot be made by this card
+      - The installment payment method selected by the customer is not allowed with the card used
+    - - '9'
+      - There is no authorization to process this card
+      - Your store does not have transaction authorization for the card the customer is using
+    - - '10'
+      - 3D Secure must be used for this transaction
+      - The customer must pay with 3D Secure for this type of transaction
+    - - '11'
+      - Security alert. Check your trading customer
+      - There is fraud detection in the customer's transaction. For your safety, check the customer's
+        transactions
+    - - '99'
+      - 'Operation failed: Technical integration error'
+      - Response to return if there is a technical integration error. (if debug_on value is 0)
+- path: en/link-api/link-api-create
+  url: https://dev.paytr.com/en/link-api/link-api-create
+  language: en
+  digest: e264f2c5067065df
+  tables:
+  - under: Link API Create
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - name (string)
+      - Product or Service Name
+      - 'Yes'
+      - Description of the product or service. (Minimum 4 and maximum 200 characters required)
+    - - price (string)
+      - Payment Amount
+      - 'Yes'
+      - For example, 3456 should be sent for 34.56 (34.56 * 100 = 3456)
+    - - currency (string)
+      - Currency
+      - 'Yes'
+      - TL, EUR, USD, GBP, RUB ((If the value is null, TL is accepted))
+    - - max_installment (string)
+      - 'Maximum number of installments: Specifies the maximum number of installments to be displayed
+        (example usage: up to 4 installments is allowed for jewellery expenditures)'
+      - 'Yes'
+      - It can be sent between 2 and 12. If 1 is sent, individual cards cannot be used for installments
+    - - link_type(integer)
+      - Link Type
+      - 'Yes'
+      - 'For product sale: product For invoice / current collection: collection'
+    - - lang(string)
+      - Language to be used on the pages during the payment process
+      - 'Yes'
+      - tr for Turkish or en for English (If it is sent null, tr will be valid)
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: Link API Create
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant number: Merchant number given to you by PayTR'
+      - 'Yes'
+      - '-'
+    - - name (string)
+      - Product or Service Name
+      - 'Yes'
+      - Description of the product or service. (Minimum 4 and maximum 200 characters required)
+    - - price (string)
+      - Payment Amount
+      - 'Yes'
+      - For example, 3456 should be sent for 34.56 (34.56 * 100 = 3456)
+    - - currency (string)
+      - Currency
+      - 'Yes'
+      - TL, EUR, USD, GBP, RUB ((If the value is null, TL is accepted))
+    - - max_installment (string)
+      - 'Maximum number of installments: Specifies the maximum number of installments to be displayed
+        (example usage: up to 4 installments is allowed for jewellery expenditures)'
+      - 'Yes'
+      - It can be sent between 2 and 12. If 1 is sent, individual cards cannot be used for installments
+    - - link_type(integer)
+      - Link Type
+      - 'Yes'
+      - 'For product sale: product For invoice / current collection: collection'
+    - - lang(string)
+      - Language to be used on the pages during the payment process
+      - 'Yes'
+      - tr for Turkish or en for English (If it is sent null, tr will be valid)
+    - - get_qr
+      - QR code returns in base64 format, it needs to be converted to image format and used.
+      - 'No'
+      - 1 or 0 can be sent. 1 must be sent to receive a QR code response.
+    - - paytr_token(string)
+      - 'paytr_token: This value is the one you need to create to make sure the request is coming from
+        you and that the values it contains have not changed'
+      - 'Yes'
+      - Please check the sample codes for calculation
+    - - min_count (integer)
+      - Minimum quantity limit.(it is required if link type is product)
+      - 'No'
+      - It can be at least 1
+    - - email(string)
+      - E-mail address (it is required if link type is collection)
+      - 'No'
+      - It can contain up to 100 characters and Must not contain Turkish characters
+    - - max_count(integer)
+      - Stock quantity (It can only be used in product type. It set the stock quantity of Link and if
+        it is not sent, the stock limit is not applied. When the payment is made as much as the stock
+        number, the link is closed
+      - 'No'
+      - It can be at least 1.
+    - - pft (integer)
+      - 'Installment Cash Price setting (optional).All installment options up to the highest number sent
+        are set as Installments to Cash Price. ATTENTION: Installment commissions will be deducted from
+        you in all payment'
+      - 'No'
+      - It can be sent ​​between 2-12.
+    - - expiry_date
+      - Link expiration date
+      - 'No'
+      - 'Link''s expiration date. If not sent, it remains open until deleted. Example format: 2021-05-31
+        17:00:00'
+    - - callback_link
+      - The URL where the result of the link payment will be sent
+      - 'No'
+      - 'Must start with http: // or https: //, not contain localhost and port.'
+    - - callback_id
+      - Notification ID to return in notification. This field is required when the callback_link is sent.
+      - 'No'
+      - It can be alphanumeric and up to 64 characters.
+    - - debug_on
+      - Error message (Be sure to send 1 to detect errors during the integration and testing process).
+      - 'No'
+      - 0 or 1
+  - under: Link API Create
+    columns:
+    - Description
+    - Field name / Type
+    - Values
+    rows:
+    - - Response
+      - status (string)
+      - success, error or failed
+    - - Unique link id
+      - id (string)
+      - 'Example: NB2Zlz3'
+    - - Link
+      - status (string)
+      - 'Example: https://www.paytr.com/link/NB2Zlz3'
+    - - Request description (in case of error)
+      - reason (string)
+      - 'Example: Required field value is invalid or not sent (Link API - create): price'
+- path: en/link-api/link-api-delete
+  url: https://dev.paytr.com/en/link-api/link-api-delete
+  language: en
+  digest: 4804ab8071f64a06
+  tables:
+  - under: Link API Delete
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - id (integer)
+      - Link API Returned value from Create method
+      - 'Yes'
+      - '-'
+    - - merchant_id(integer)
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: Link API Delete
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant number: Merchant number given to you by PayTR'
+      - 'Yes'
+      - '-'
+    - - id (integer)
+      - 'ID: It is the value returned in the create method.'
+      - 'Yes'
+      - '-'
+    - - debug_on(int)
+      - Error message (Send as 1 for integration and test errors)
+      - 'No'
+      - 0(closed) or 1(open
+    - - paytr_token(string)
+      - 'paytr_token: This value is the one you need to create to make sure the request is coming from
+        you and that the values it contains have not changed'
+      - 'Yes'
+      - Please check the sample codes for calculation
+  - under: Link API Delete
+    columns:
+    - Description
+    - Field name / Type
+    - Values
+    rows:
+    - - Response
+      - status (string)
+      - success, error or failed
+    - - Request description (in case of error)
+      - reason (string)
+      - 'Example: Invalid id or link has already been deleted'
+- path: en/link-api/linkle-api-callback
+  url: https://dev.paytr.com/en/link-api/linkle-api-callback
+  language: en
+  digest: a8bfc264dd72faff
+  tables:
+  - under: Link API Callback
+    columns:
+    - Field Name
+    - Description
+    rows:
+    - - hash
+      - The hash value created for security purposes to check the accuracy of the values sent from the
+        PayTR system. ( See the sample codes for the calculation.)
+    - - merchant_oid
+      - Order reference number generated by PayTR.
+    - - status
+      - If the payment is successful, it gets value as success. (In Link API, there is no callback for
+        unsuccessful payments).
+    - - total_amount
+      - 'Total amount charged from customer (The total amount multiplied by 100 is sent. 34.56 =>3456)
+        (Not: For example, if the payment is made in installments, the amount will be different from payment_amount.)'
+    - - payment_amount
+      - It is the "payment_amount" value that you send in the 1st step.(The total amount multiplied by
+        100 is sent. 34.56 => 3456)
+    - - payment_type
+      - This value indicates which payment method the customer used to pay. ( card, bex etc. )
+    - - currency
+      - It indicates which currency is used for payment. (‘TL’, ‘USD’, ‘EUR’, ‘GBP’, ‘RUB’)
+    - - callback_id
+      - Callback_id from create service
+    - - merchant_id
+      - Your PayTR merchant number.
+    - - test_mode
+      - If your merchant is in test mode, it returns as 1
+- path: en/link-api/linkle-api-sms-and-email
+  url: https://dev.paytr.com/en/link-api/linkle-api-sms-and-email
+  language: en
+  digest: 01df54ca7a0c015f
+  tables:
+  - under: Link API SMS&EMAIL
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - id (integer)
+      - Link API Returned value from Create method
+      - 'Yes'
+      - '-'
+    - - merchant_id(integer)
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - cell_phone(integer)
+      - Phone number to which you want to send the link
+      - 'Yes'
+      - Number to send SMS. Must start with 05 and have 11 digits
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: Link API SMS&EMAIL
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant number: Merchant number given to you by PayTR'
+      - 'Yes'
+      - '-'
+    - - id (integer)
+      - It is the value returned in the create method.
+      - 'Yes'
+      - '-'
+    - - cell_phone(integer)
+      - Phone number you want to send the link to
+      - 'Yes'
+      - The number to send the SMS. Must start with 05 and have 11 digits.
+    - - debug_on(int)
+      - Error message (Send as 1 for integration and test errors)
+      - 'No'
+      - 0(closed) or 1(open)
+    - - paytr_token(string)
+      - 'paytr_token: This value is the one you need to create to make sure the request is coming from
+        you and that the values it contains have not changed.'
+      - Evet
+      - HPlease check the sample codes for calculation
+  - under: Link API SMS&EMAIL
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations & Notes
+    rows:
+    - - id (integer)
+      - Link API Returned value from Create method
+      - 'Yes'
+      - '-'
+    - - merchant_id(integer)
+      - Merchant Number
+      - 'Yes'
+      - 'Merchant number: Merchant number given to you by PayTR'
+    - - email(string)
+      - Email information you want to send the link to
+      - 'Yes'
+      - It can contain up to 100 characters
+    - - merchant_salt
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+    - - merchant_key
+      - A value specific to your store, which you can access through the PayTR Merchant Panel > Information
+        page.
+      - 'Yes'
+      - '-'
+  - under: Link API SMS&EMAIL
+    columns:
+    - Field name / Type
+    - Description
+    - Mandatory
+    - Limitations
+    rows:
+    - - merchant_id (integer)
+      - 'Merchant number: Merchant number given to you by PayTR'
+      - 'Yes'
+      - '-'
+    - - id (integer)
+      - It is the value returned in the create method.
+      - 'Yes'
+      - '-'
+    - - email (string)
+      - Email information you want to send the link to
+      - 'Yes'
+      - It can contain up to 100 characters
+    - - debug_on(int)
+      - Error message (Send as 1 for integration and test errors)
+      - 'No'
+      - 0(closed) or 1(open)
+    - - paytr_token(string)
+      - 'paytr_token: This value is the one you need to create to make sure the request is coming from
+        you and that the values it contains have not changed.'
+      - Evet
+      - HPlease check the sample codes for calculation
+  - under: Link API SMS&EMAIL
+    columns:
+    - Description
+    - Field name / Type
+    - Values
+    rows:
+    - - Response
+      - status (string)
+      - success, error or failed
+    - - Request description (in case of error)
+      - reason (string)
+      - 'Example: Process failed. Invalid id'
+- path: havale-eft-iframe-api/havale-eft-iframe-api-1-adim
+  url: https://dev.paytr.com/havale-eft-iframe-api/havale-eft-iframe-api-1-adim
+  language: tr
+  digest: 2980208179e2e213
+  tables:
+  - under: Havale/EFT iFrame API 1. Adım
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (string)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+      - ''
+    - - user_ip (string)
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası(Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - Evet
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid (string)
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz benzersiz sipariş numarası.(Not: Sipariş
+        no ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - Evet
+      - En fazla 64 karakter,Alfa numerik
+    - - email (string)
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - Evet
+      - En fazla 100 karakter ve Türkçe karakter içermemeli
+    - - payment_amount(integer)
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı'
+      - Evet
+      - Ayraç olarak yalnızca nokta(.) gönderilmelidir
+    - - paytr_token(string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız içinoluşturacağınız
+        değerdir'
+      - Evet
+      - Nasıl hesaplanacağı ile ilgili lütfen örnek kodları inceleyin
+    - - user_name
+      - 'Ad-Soyad: Gönderilmesi durumunda IFrame içerisinde bulunan ödeme bildirim formunda Ad-Soyad bilgisi
+        dolu gelir ve değiştirilemez'
+      - Hayır
+      - En fazla 30 karakter
+    - - user_phone
+      - 'Telefon: Gönderilmesi durumunda IFrame içerisinde bulunan ödeme bildirim formunda Telefon bilgisi
+        dolu gelir ve değiştirilemez'
+      - Hayır
+      - 11 karakter, numerik
+    - - payment_type(string)
+      - Ödeme tipi
+      - Evet
+      - ('eft')
+    - - tc_no_last5
+      - 'TC No Son 5 hane: Gönderilmesi durumunda IFrame içerisinde bulunan ödeme bildirim formunda TCNo
+        Son 5 hane dolu gelir ve değiştirilemezi'
+      - Hayır
+      - 5 karakter numerik
+    - - bank
+      - 'Banka: Gönderilmesi durumunda IFrame içerisinde banka seçimi yapılamaz, yalnızca gönderilen banka
+        görüntülenir.'
+      - Hayır
+      - isbank, akbank, denizbank, finansbank,halkbank, ptt, teb, vakifbank, yapikredi,ziraat seçeneklerinden
+        bir tanesi
+    - - test_mode
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - Hayır
+      - 0 veya 1
+    - - debug_on (int)
+      - 'Hata döndür: Yanlış veya eksik bilgi iletilmesi durumunda hata mesajı döndürülmesi için 1 gönderilmelidir'
+      - Hayır
+      - 0 veya 1
+    - - timeout_limit(int)
+      - Sıfırdan farklı bir değer gönderilmesi durumunda, ödeme işlemi bu süre içerisinde tamamlanmalıdır
+        (Ödeme sırasında sisteminizde fiyat güncellemesi olması durumuna karşı güvenlik amaçlı kullanabilirsiniz)
+      - Hayır
+      - Dakika cinsinden (Gönderilmemesi durumunda 30 dakika olarak tanımlanır)
+  - under: Havale/EFT iFrame API 1. Adım
+    columns:
+    - Alan adı
+    - Açıklama
+    rows:
+    - - merchant_oid
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz sipariş numarası'
+    - - status
+      - Ödeme işleminin sonucu(success/failed)
+    - - total_amount
+      - Ödeme tutarı (100 ile çarpılmış hali gönderilir. 34.56 TL => 3456)
+    - - hash
+      - Üye işyerinin, PayTR sisteminden gönderilen değerleri kontrol edebilmesi için güvenlik amaçlı
+        oluşturulan hash
+    - - failed_reason_code
+      - Ödeme bildiriminin onaylanmaması durumunda gönderilir
+    - - failed_reason_msg
+      - Ödeme bildiriminin neden onaylanmadığı mesajını içerir
+    - - test_mode
+      - Mağazanız test modunda iken veya canlı modda yapılan test işlemlerde 1 olarak gönderilir.
+- path: havale-eft-iframe-api/havale-eft-iframe-api-2-adim
+  url: https://dev.paytr.com/havale-eft-iframe-api/havale-eft-iframe-api-2-adim
+  language: tr
+  digest: 1a644e70fef4f628
+  tables:
+  - under: Havale/EFT iFrame API 2. Adım
+    columns:
+    - failed_reason_code
+    - failed_reason_msg
+    - Açıklama
+    rows:
+    - - '4'
+      - Havale/EFT ödemesi tespit edilemedi.
+      - Ödeme bildirimi formunda müşterinin belirtmiş olduğu bilgiler ile ödemeye ulaşılamamıştır
+    - - '5'
+      - Havale/EFT ödeme tutarı yetersiz. Lütfen gönderdiğiniz tutar kadar bildirim yapın.
+      - Müşterinin bankaya gönderdiği tutar, alışveriş tutarından (payment_amount) az olduğundan onay
+        verilmemiştir.
+    - - '6'
+      - Müşteri ödeme yapmaktan vazgeçti ve ödeme sayfasından ayrıldı.
+      - Müşteri, kendisine tanınmış olan işlem süresinde (1. ADIM’da tanımlanan timeout_limit değeri)
+        işlemini tamamlamadı veya müşteri ödeme sayfasını kapatarak işlemi sonlandırdı.
+    - - '7'
+      - Bildiriminiz alınmadı, lütfen önceki bildiriminizin kontrolünün sonuçlanmasını bekleyin.
+      - Müşteri henüz kontrolü sonuçlanmamış bir ödeme bildirimi bulunurken, tekrar bildirim yaptı.
+    - - '41'
+      - Havale/EFT ödemesi ile bildirimdeki Ad Soyadı uyuşmuyor.
+      - Müşterinin bildirim yaparken girdiği Ad Soyadı ile banka kayıtlarındaki Ad Soyadı uyuşmadı.
+    - - '42'
+      - Havale/EFT ödemesi ile bildirimdeki TCKN uyuşmuyor.
+      - Müşterinin bildirim yaparken girdiği TCKN ile banka kayıtlarındaki TCKN uyuşmadı.
+    - - '43'
+      - Bu Havale/EFT ödemesi daha önce onaylanmış.
+      - Müşterinin bildirimi sonrası yapılan kontrolde, bu ödemenin daha önce bildirilip onay aldığı görüldü.
+    - - '44'
+      - Bu Havale/EFT ödemesi iade edilmiş.
+      - Müşterinin bildirimi sonrası yapılan kontrolde, bu ödemenin daha önce iade edildiği görüldü.
+    - - '45'
+      - Dekonttaki iki farklı Ad-Soyadından yalnızca birisi yazılmış
+      - Müşterinin bildirimi sonrası yapılan kontrolde,dekontta yazan iki Ad Soyadı bilgisinden yalnızca
+        birisinin girildiği görüldü
+  - under: Havale/EFT iFrame API 2. Adım
+    columns:
+    - Alan Adı
+    - Açıklama
+    rows:
+    - - hash
+      - 'Hash: Bildirimin doğruluğunu belirten hash bilgisi'
+    - - status
+      - 'Durum: Ara bildirim için “info” değeri gelir'
+    - - merchant_oid
+      - 'Sipariş numarası: EFT/Havale bildirimin başlatırken gönderdiğiniz sipariş numarası'
+    - - bank
+      - 'Banka: EFT/Havale bildirimin yapıldığı banka'
+- path: iade-api
+  url: https://dev.paytr.com/iade-api
+  language: tr
+  digest: 4b822fced0be42fc
+  tables:
+  - under: İade API Entegrasyonu
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    rows:
+    - - merchant_id (string)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+    - - merchant_oid (string)
+      - 'Sipariş No: İade işlemini gerçekleştirmek istediğiniz sipariş numarası'
+      - Evet
+    - - return_amount(integer)
+      - 'İade Tutarı: Belirtilen sipariş için iade etmek istediğiniz tutar (Ayraç olarak yalnızca bir
+        nokta (.) gönderilmelidir. Örnek: 10.25)'
+      - Evet
+    - - merchant_salt (string)
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+    - - merchant_key(integer)
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+  - under: İade API Entegrasyonu
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+    - - merchant_oid (string)
+      - 'Sipariş No: İade işlemini gerçekleştirmek istediğiniz sipariş numarası'
+      - Evet
+    - - return_amount(integer)
+      - 'İade Tutarı: Belirtilen sipariş için iade etmek istediğiniz tutar (Ayraç olarak yalnızca bir
+        nokta (.) gönderilmelidir. Örnek: 10.25)'
+      - Evet
+    - - paytr_token (string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir.'
+      - Evet
+    - - reference_no
+      - 'Referans No: İletilmesi durumunda, Durum Sorgu servisinden döner,Alfa numerik'
+      - Hayır
+  - under: İade API Entegrasyonu
+    columns:
+    - Değişkenler
+    - Açıklamalar
+    rows:
+    - - status
+      - İade talebi başarılı ise success döner
+    - - is_test
+      - İade talebi test işlem içinse 1 döner
+    - - merchant_oid
+      - İade talebi yapılan sipariş numarası
+    - - return_amount
+      - İade talebi yapılan tutar
+    - - reference_no
+      - Gönderildi ise referans numarası
+- path: iframe-api/iframe-api-1-adim
+  url: https://dev.paytr.com/iframe-api/iframe-api-1-adim
+  language: tr
+  digest: 3773de1f3095db7a
+  tables:
+  - under: iFrame API 1. Adım
+    columns:
+    - Alan adı / tipi
+    - Zorunlu
+    - Token
+    - Açıklama
+    - Kısıtlar
+    rows:
+    - - merchant_id(string)
+      - Evet
+      - Evet
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+      - ''
+    - - user_ip (string)
+      - Evet
+      - Evet
+      - 'Müşteri ip: İstek anında aldığınız müşteri ip numarası(Önemli: Lokal makinenizde yapacağınız
+        denemelerde mutlaka dış IP adresini gönderdiğinizden emin olun)'
+      - En fazla 39 karakter (ipv4)
+    - - merchant_oid(string)
+      - Evet
+      - Evet
+      - 'Mağaza sipariş no: Satış işlemi içinbelirlediğiniz benzersiz sipariş numarası.(Not: Sipariş no
+        ödeme sonuç bildirimi esnasında geri dönen değerler arasındadır)'
+      - En fazla 64 karakter,Alfa numerik
+    - - email (string)
+      - Evet
+      - Evet
+      - 'Müşteri eposta adresi: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        eposta adresi'
+      - En fazla 100 karakter ve Türkçe karakter içermemeli
+    - - payment_amount(integer)
+      - Evet
+      - Evet
+      - 'Ödeme tutarı: Siparişe ait toplam ödeme tutarı.(Tutarı 100 ile çarparak göndermelisiniz)'
+      - 'Örn: 34.56 için 3456gönderilmelidir.(34.56 * 100 = 3456)'
+    - - currency(string)
+      - Evet
+      - Evet
+      - Para birimi
+      - TL(veya TRY), EUR, USD, GBP,RUB (Boş ise TL kabul edilir)
+    - - user_basket(string)
+      - Evet
+      - Evet
+      - 'Sepet içeriği: Müşterinin siparişindeki ürün/hizmet bilgilerini içermelidir'
+      - Nasıl bir yapıda olacağı ile ilgili olarak örnek kodlara bakmalısınız
+    - - no_installment(int)
+      - Evet
+      - Evet
+      - 'Taksit görüntülenmesin: Eğer 1 olarak gönderilirse taksit seçenekleri gösterilmez(Örn. cep telefonu
+        için taksit yasağı vardır)'
+      - 0 veya 1
+    - - max_installment(int)
+      - Evet
+      - Evet
+      - 'En fazla taksit sayısı: Gösterilecek en fazlataksit sayısını belirler (Örn. kuyum harcamalarında
+        en fazla 4 taksit uygulamasıvardır)'
+      - 0,2,3,4,5,6,7,8,9,10,11,12 Sıfır (0) gönderilmesi durumunda yürürlükteki en fazla izin verilen
+        taksit geçerli olur
+    - - paytr_token(string)
+      - Evet
+      - Hayır
+      - 'paytr_token: İsteğin sizden geldiğine veiçeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız
+    - - user_name(string)
+      - Evet
+      - Hayır
+      - 'Müşteri adı ve soyadı: Müşterinin sisteminizde kayıtlı olan veya form aracılığıyla aldığınız
+        adı ve soyadı'
+      - En fazla 60 karakter
+    - - user_address(string)
+      - Evet
+      - Hayır
+      - 'Müşteri adresi: Müşterinin sipariş sırasında ilettiği adresi'
+      - En fazla 400 karakter
+    - - user_phone(string)
+      - Evet
+      - Hayır
+      - 'Müşteri telefon numarası: Müşterinin sipariş sırasında ilettiği telefon numarası'
+      - En fazla 20 karakter
+    - - merchant_ok_url
+      - Evet
+      - Hayır
+      - Müşterinin başarılı ödeme sonrası yönlendirileceği sayfa (Örn. Siparişlerim takip sayfası)
+      - En fazla 400 karakter
+    - - merchant_fail_url
+      - Evet
+      - Hayır
+      - Müşterinin ödemesi sırasında beklenmeyen bir hatada yönlendirileceği sayfa
+      - En fazla 400 karakter
+    - - test_mode
+      - Hayır
+      - Evet
+      - Mağaza canlı modda iken test işlem yapmak için 1 olarak gönderilebilir
+      - 0 veya 1
+    - - debug_on (int)
+      - Hayır
+      - Hayır
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - 0 veya 1
+    - - timeout_limit(int)
+      - Hayır
+      - Hayır
+      - Sıfırdan farklı bir değer gönderilmesi durumunda, ödeme işlemi bu süre içerisinde tamamlanmalıdır.
+        (Ödeme sırasındasisteminizde fiyat güncellemesi olmasıdurumuna karşı güvenlik amaçlı kullanabilirsiniz)
+      - Dakika cinsinden(Gönderilmemesi durumunda 30 dakika olarak tanımlanır)
+    - - lang(string)
+      - Hayır
+      - Hayır
+      - Ödeme sürecinde sayfalarda kullanılacak dil
+      - Türkçe için tr veya İngilizce içinen(Boş gönderilirse tr geçerli olur)
+- path: iframe-api/iframe-api-2-adim
+  url: https://dev.paytr.com/iframe-api/iframe-api-2-adim
+  language: tr
+  digest: 058294b596f6fc7b
+  tables:
+  - under: iFrame API 2. Adım
+    columns:
+    - Alan Adı
+    - Zorunlu
+    - Token
+    - Açıklama
+    rows:
+    - - merchant_oid
+      - Evet
+      - Evet
+      - 'Mağaza sipariş no: Satış işlemi için belirlediğiniz ve 1. ADIM’da gönderdiğiniz sipariş numarası'
+    - - status
+      - Evet
+      - Evet
+      - Ödeme işleminin sonucu (success veya failed)
+    - - total_amount
+      - Evet
+      - Evet
+      - 'Müşteriden tahsil edilen toplam tutar (100 ile çarpılmış hali gönderilir. 34.56 => 3456)(Not:
+        Müşteri vade farklı taksit seçtiği vb. durumlarda, 1. ADIM’da gönderdiğiniz “payment_amount” değerinden
+        daha yüksek olabilir)'
+    - - hash
+      - Evet
+      - Evet
+      - PayTR sisteminden gönderilen değerlerin doğruluğunu kontrol etmeniz için güvenlik amaçlı oluşturulan
+        hash değeri (Hesaplama ile ilgili olarak örnek kodlara bakmalısınız)
+    - - failed_reason_code
+      - Hayır
+      - Evet
+      - 'Ödemenin onaylanmaması durumunda gönderilir (Bkz: 2. Adım İçin Hata Kodları ve Açıklamaları Tablosu)'
+    - - failed_reason_msg
+      - Hayır
+      - Evet
+      - 'Ödemenin neden onaylanmadığı mesajını içerir (Bkz: 2. Adım İçin Hata Kodları ve Açıklamaları
+        Tablosu)'
+    - - test_mode
+      - Hayır
+      - Hayır
+      - Mağazanız test modunda iken veya canlı modda yapılan test işlemlerde 1 olarak gönderilir
+    - - payment_type
+      - Evet
+      - Evet
+      - 'Ödeme şekli: Müşterinin hangi ödeme şekli ile ödemesini tamamladığını belirtir.''card'' veya
+        ''eft'' değerlerini alır.'
+    - - currency
+      - Evet
+      - Hayır
+      - 'Para birimi: Ödemenin hangi para birimi üzerinden yapıldığını belirtir. ‘TL’, ‘USD’,‘EUR’, ‘GBP’,
+        ‘RUB’ değerlerinden birini alır'
+    - - payment_amount
+      - Evet
+      - Hayır
+      - 'Sipariş tutarı: 1. ADIM’da gönderdiğiniz “payment_amount” değeridir.(100 ile çarpılmış hali gönderilir.
+        34.56 => 3456)'
+  - under: iFrame API 2. Adım
+    columns:
+    - failed_reason_code
+    - failed_reason_msg
+    - Açıklama
+    rows:
+    - - '0'
+      - DEĞİŞKEN (AÇIKLAMAYI OKUYUN)
+      - 'Ödemenin neden onaylanmadığına ilişkin, detaylı hata mesajı (Örneğin: Kartın limiti / bakiyesi
+        yetersiz).'
+    - - '1'
+      - Kimlik Doğrulama yapılmadı. Lütfen tekrar deneyin ve işlemi tamamlayın.
+      - Müşteri, kimlik doğrulama adımında cep telefonu numarasını girmedi.
+    - - '2'
+      - Kimlik Doğrulama başarısız. Lütfen tekrar deneyin ve şifreyi doğru girin.
+      - Müşteri, cep telefonuna gelen şifreyi doğru girmedi.
+    - - '3'
+      - Güvenlik kontrolü sonrası onay verilmedi veya kontrol yapılamadı.
+      - Müşterinin işlemi PayTR tarafından güvenlik kontrolünden geçemedi veya kontrol yapılamadı.
+    - - '6'
+      - Müşteri ödeme yapmaktan vazgeçti ve ödeme sayfasından ayrıldı.
+      - Müşteri, kendisine tanınmış olan işlem süresinde (1.ADIM’da tanımlanan timeout_limit değeri) işlemini
+        tamamlamadı veya müşteri ödeme sayfasını kapatarak işlemi sonlandırdı.
+    - - '8'
+      - Bu karta taksit yapılamamaktadır.
+      - Müşterinin kullanmakta olduğu kart ile seçmiş olduğu taksitli ödeme yöntemi kullanılamaz.
+    - - '9'
+      - Bu kart ile işlem yetkisi bulunmamaktadır.
+      - Müşterinin kullanmakta olduğu kart için mağazanızın işlem yetkisi bulunmuyor.
+    - - '10'
+      - Bu işlemde 3D Secure kullanılmalıdır.
+      - Müşteri, yapmış olduğu işlemde 3D Secure ile ödeme yapmalıdır.
+    - - '11'
+      - Güvenlik uyarısı. İşlem yapan müşterinizi kontrol edin.
+      - Müşterinin işleminde fraud tespiti bulunuyor. Güvenliğiniz için müşterinin işlemlerini kontrol
+        edin.
+    - - '99'
+      - 'İşlem başarısız: Teknik entegrasyon hatası.'
+      - Teknik entegrasyon hatası varsa dönülecektir. (debug_on değeri 0 ise)
+- path: link-api/link-api-create
+  url: https://dev.paytr.com/link-api/link-api-create
+  language: tr
+  digest: a7af2f9c83cc462d
+  tables:
+  - under: Link API Create ile Link API Oluşturma
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - name (string)
+      - Ürün veya hizmet adı
+      - Evet
+      - Ürün / Hizmetin açıklaması. En az 4 en fazla 200 karakter.
+    - - price (string)
+      - Ödeme tutarı
+      - Evet
+      - 14.45 TL için 14.45 * 100 = 1445 (100 ile çarpılmış ve integer olarak gönderilmelidir.) Esnek
+        link için minimum ödeme tutarını temsil eder.
+    - - currency (string)
+      - Para birimi
+      - Evet
+      - TL, EUR, USD, GBP, RUB (Boş ise TL kabul edilir)
+    - - max_installment (string)
+      - 'En fazla taksit sayısı: Gösterilecek en fazla taksit sayısını belirler (Örn. kuyum harcamalarında
+        en fazla 4 taksit uygulaması vardır)'
+      - Evet
+      - 2 – 12 arası gönderilebilir. 1 gönderilirse bireysel kartlarla taksitli işlem yapılamaz.
+    - - link_type(integer)
+      - Link Tipi
+      - Evet
+      - 'Ürün hizmet satışı için: product Fatura/Cari tahsilat için: collection Esneklink için:flex'
+    - - lang(string)
+      - Ödeme sürecinde sayfalarda kullanılacak dil
+      - Evet
+      - Türkçe için tr veya İngilizce için en (Boş gönderilirse tr geçerli olur)
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Link API Create ile Link API Oluşturma
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+      - '-'
+    - - name (string)
+      - Ürün veya hizmet adı
+      - Evet
+      - Ürün / Hizmetin açıklaması. En az 4 en fazla 200 karakter.
+    - - user_name(string)
+      - Esneklink ödeme yapan kişi ad-soyad bilgisi
+      - Hayır
+    - - price (string)
+      - Ödeme tutarı
+      - Evet
+      - 14.45 TL için 14.45 * 100 = 1445 (100 ile çarpılmış ve integer olarak gönderilmelidir.)
+    - - flex_max_price
+      - Esneklink için maksimum ödeme tutarı
+      - Esneklink için Evet
+      - '-'
+    - - currency (string)
+      - Para birimi
+      - Evet
+      - TL, EUR, USD, GBP, RUB (Boş ise TL kabul edilir)
+    - - max_installment (string)
+      - 'En fazla taksit sayısı: Gösterilecek en fazla taksit sayısını belirler (Örn. kuyum harcamalarında
+        en fazla 4 taksit uygulaması vardır)'
+      - Evet
+      - 2 – 12 arası gönderilebilir. 1 gönderilirse bireysel kartlarla taksitli işlem yapılamaz.
+    - - lang(string)
+      - Ödeme sürecinde sayfalarda kullanılacak dil
+      - Evet
+      - Türkçe için tr veya İngilizce için en (Boş gönderilirse tr geçerli olur)
+    - - get_qr
+      - QR kod oluşturabilmeniz için PNG formatında Base64 kodu döner.
+      - Hayır
+      - 1 veya 0 gönderilebilir. QR kod yanıtı alabilmek için 1 gönderilmelidir.
+    - - link_type(integer)
+      - Link Tipi
+      - Evet
+      - 'Ürün hizmet satışı için: product Fatura/Cari tahsilat için: collection'
+    - - paytr_token(string)
+      - 'paytr_token: İsteğin sizden geldiğine ve içeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir.'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız
+    - - min_count (integer)
+      - Alt adet limiti (Link tipi product ise zorunlu)
+      - Hayır
+      - En az 1 olabilir.
+    - - email(string)
+      - Eposta adresi (Link tipi collection ise zorunlu)
+      - Hayır
+      - En fazla 100 karakter ve Türkçe karakter içermemeli
+    - - max_count(integer)
+      - Stok adedi (Yalnızca product tipinde kullanılabilir. Link'in stok adedini belirler ve gönderilmezse
+        stok limiti uygulanmaz. Stok adedi kadar ödeme yapıldığında link pasif olur)
+      - Hayır
+      - En az 1 olabilir
+    - - pft(integer)
+      - Peşin Fiyatına Taksit ayarı (isteğe bağlı).Gönderilen en yüksek sayıya kadar olan tüm taksit seçenekleri
+        Peşin Fiyatına Taksit olarak ayarlanır
+      - Hayır
+      - '2-12 arasındaki değerleri alabilir.DİKKAT: Peşin Fiyatına Taksit olarak belirlediğiniz taksit
+        sayıları için yapılan tüm ödeme işlemlerinde, taksit komisyonları sizden kesilecektir.'
+    - - expiry_date
+      - Linkin son kullanma tarihi
+      - Hayır
+      - 'Ödeme Link''inin son kullanma tarihi. Gönderilmezse, sürekli açık kalır. Örnek Format: “2021-05-31
+        17:00:00”'
+    - - callback_link
+      - Ödeme sonucunun gönderileceği URL
+      - Hayır
+      - http:// ya da https:// ile başlamalı, localhost olmamalı ve port içermemelidir.
+    - - callback_id
+      - Bildirimde dönülecek ID (callback_link gönderildiğinde bu alanında gönderilmesi zorunludur.)
+      - Hayır
+      - Alfanumerik ve en fazla 64 karakter olabilir.
+    - - debug_on
+      - Hata mesajı (Entegrasyon ve test sürecinde hataları tespit etmek için 1 gönderin).
+      - Hayır
+      - 0 veya 1
+  - under: Link API Create ile Link API Oluşturma
+    columns:
+    - Açıklama
+    - Alan adı / tipi
+    - Değerler
+    rows:
+    - - İstek sonucu
+      - status (string)
+      - success, error veya failed
+    - - Benzersiz link tanımlayıcı
+      - id (string)
+      - 'Örnek: NB2Zlz3'
+    - - Link
+      - status (string)
+      - 'Örnek: https://www.paytr.com/link/NB2Zlz3'
+    - - İstek açıklaması (hata durumunda)
+      - reason (string)
+      - 'Örnek: Zorunlu alan degeri gecersiz veya gonderilmedi (Link API - create): price'
+- path: link-api/link-api-delete
+  url: https://dev.paytr.com/link-api/link-api-delete
+  language: tr
+  digest: bc17db42851a1b81
+  tables:
+  - under: Link API Delete ile Ödeme Linklerini Silme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - id (integer)
+      - Link API Create metodundan dönülen değer
+      - Evet
+    - - merchant_id(integer)
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Link API Delete ile Ödeme Linklerini Silme
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (integer)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+      - '-'
+    - - id (integer)
+      - Link API Create metodundan dönülen değer(Toplu silme için "," ile ayrılarak maksimum 10 adet iletilebilir)
+      - Evet
+      - '-'
+    - - debug_on(int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Evet
+      - 0 veya 1
+    - - paytr_token(string)
+      - 'paytr_token: İsteğin sizden geldiğine veiçeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız.
+  - under: Link API Delete ile Ödeme Linklerini Silme
+    columns:
+    - Açıklama
+    - Alan adı / tipi
+    - Değerler
+    rows:
+    - - İstek sonucu
+      - status (string)
+      - success, error veya failed
+    - - İstek açıklaması (hata durumunda)
+      - reason (string)
+      - 'Örnek: Zorunlu alan degeri gecersiz veya gonderilmedi (Link API - create): price'
+    - - Toplu silme durumunda başarılı silinen linkler
+      - success_deletes (array)
+      - success_deletes => Array (0) => XXXX (1) => YYYY
+    - - Toplu silme durumunda başarılı silinen linkler
+      - failed_deletes (array)
+      - failed_deletes => Array ( (0) => XXXX (1) => YYYY
+- path: link-api/linkle-api-callback
+  url: https://dev.paytr.com/link-api/linkle-api-callback
+  language: tr
+  digest: 7214d0ea75cd02e3
+  tables:
+  - under: Link API Callback Servisi
+    columns:
+    - Alan Adı
+    - Açıklama
+    rows:
+    - - hash
+      - PayTR sisteminden gönderilen değerlerin doğruluğunu kontrol etmeniz için güvenlik amaçlı oluşturulan
+        hash değeri (Hesaplama ile ilgili olarak örnek kodlara bakmalısınız)
+    - - merchant_oid
+      - PayTR tarafından oluşturulan sipariş referans numarası.
+    - - status
+      - Başarılı ödeme sonucunda success değeri döner (Link API'de başarısız ödemeler için bildirim yapılmaz).
+    - - total_amount
+      - 'Müşteriden tahsil edilen toplam tutar. (100 ile çarpılmış hali gönderilir. 34.56 => 3456) (Not:
+        Müşteri vade farklı taksit seçtiği vb. durumlarda, 1. ADIM’da gönderdiğiniz “payment_amount” değerinden
+        daha yüksek olabilir)'
+    - - payment_amount
+      - 'Sipariş tutarı: 1. ADIM’da gönderdiğiniz “payment_amount” değeridir. (100 ile çarpılmış hali
+        gönderilir. 34.56 => 3456)'
+    - - payment_type
+      - Müşterinin hangi ödeme şekli ile ödemesini tamamladığını belirtir. Örn. card, bex vb. değerleri
+        alır.
+    - - currency
+      - 'Para birimi: Ödemenin hangi para birimi üzerinden yapıldığını belirtir. TL, USD, EUR, GBP, RUB
+        değerlerinden birini alır.'
+    - - callback_id
+      - Link oluşturmada (create) ilettiğiniz callbak_id bilgisi.
+    - - merchant_id
+      - PayTR mağaza numaranız.
+    - - test_mode
+      - Mağazanız test modunda iken veya canlı modda yapılan test işlemlerde 1 olarak gönderilir
+- path: link-api/linkle-api-sms-and-email
+  url: https://dev.paytr.com/link-api/linkle-api-sms-and-email
+  language: tr
+  digest: 15bc1ac7cba7b259
+  tables:
+  - under: Link API SMS ve Email
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - id (integer)
+      - Link API Create metodundan dönülen değer
+      - Evet
+      - '-'
+    - - merchant_id(integer)
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - cell_phone(integer)
+      - Linki göndermek istediğini telefon numarası
+      - Evet
+      - SMS gönderilecek numara. 05 ile başlamalı ve 11 hane olmalıdır
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Link API SMS ve Email
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (string)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+      - '-'
+    - - id (integer)
+      - Link API Create metodundan dönülen değer
+      - Evet
+      - '-'
+    - - cell_phone(integer)
+      - Linki göndermek istediğini telefon numarası
+      - Evet
+      - SMS gönderilecek numara. 05 ile başlamalı ve 11 hane olmalıdır
+    - - debug_on(int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Evet
+      - 0 veya 1
+    - - paytr_token(string)
+      - 'paytr_token: İsteğin sizden geldiğine veiçeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız.
+  - under: Link API SMS ve Email
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - id (integer)
+      - Link API Create metodundan dönülen değer
+      - Evet
+      - '-'
+    - - merchant_id(integer)
+      - Ödeme tutarı
+      - Evet
+      - 'Mağaza no: PayTR tarafından size verilen Mağaza numarası'
+    - - email(string)
+      - Linki göndermek istediğini eposta bilgisi
+      - Evet
+      - En fazla 100 karakter
+    - - merchant_salt
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+    - - merchant_key
+      - PayTR Mağaza Paneli > Destek & Kurulum > Entegrasyon Bilgileri sayfası üzerinden ulaşabileceğiniz,
+        mağazanıza özgü değer.
+      - Evet
+      - '-'
+  - under: Link API SMS ve Email
+    columns:
+    - Alan adı / tipi
+    - Açıklama
+    - Zorunlu
+    - Kısıtlar
+    rows:
+    - - merchant_id (string)
+      - 'Mağaza No: PayTR tarafından size verilen Mağaza numarası'
+      - Evet
+      - '-'
+    - - id (integer)
+      - Link API Create metodundan dönülen değer
+      - Evet
+      - '-'
+    - - email(string)
+      - Linki göndermek istediğini eposta bilgisi
+      - Evet
+      - En fazla 100 karakter
+    - - debug_on(int)
+      - 'Hata döndür: PayTR’a yanlış veya eksik bilgi iletilmesi durumunda sistemden hata mesajı döndürülmesi
+        için 1 gönderilmelidir'
+      - Evet
+      - 0 veya 1
+    - - paytr_token(string)
+      - 'paytr_token: İsteğin sizden geldiğine veiçeriğin değişmediğine emin olmamız için oluşturacağınız
+        değerdir'
+      - Evet
+      - Hesaplama ile ilgili olarak örnek kodlara bakmalısınız.
+  - under: Link API SMS ve Email
+    columns:
+    - Açıklama
+    - Alan adı / tipi
+    - Değerler
+    rows:
+    - - İstek sonucu
+      - status (string)
+      - success, error veya failed
+    - - İstek açıklaması (hata durumunda)
+      - reason (string)
+      - 'Örnek: Zorunlu alan degeri gecersiz veya gonderilmedi (Link API - create): price'

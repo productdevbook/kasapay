@@ -89,6 +89,13 @@ def main() -> int:
     failures = 0
     for document in documents:
         relative = document.relative_to(ROOT)
+        first = yaml.safe_load(document.read_text(encoding="utf-8"))
+        # PayTR publishes no API description, so specs/paytr/ holds a record of
+        # their documentation instead. It is not OpenAPI and does not pretend to
+        # be; validating it as OpenAPI would only fail.
+        if not isinstance(first, dict) or "openapi" not in first:
+            print(f"skip {relative}  (not an OpenAPI document)")
+            continue
         if validate is not None:
             try:
                 spec, _ = read_from_filename(str(document))
