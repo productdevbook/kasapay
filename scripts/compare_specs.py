@@ -160,11 +160,15 @@ def main() -> int:
         parser.print_usage(sys.stderr)
         return 1
 
+    considered = {provider_of(shown) for shown, _, _ in pairs}
+    spoke_for = set()
     lost_total = gained_total = 0
     for shown, (old_path, old_rev), (new_path, new_rev) in pairs:
         before, after_doc = load(old_path, old_rev), load(new_path, new_rev)
         if not before or not after_doc:
             continue
+        if fields(before) or fields(after_doc):
+            spoke_for.add(provider_of(shown))
         lost, gained, gone = compare(before, after_doc)
         lost_total += len(lost) + len(gone)
         gained_total += len(gained)
@@ -183,7 +187,32 @@ def main() -> int:
                 print(f"  {entry}")
 
     print(f"\n{gained_total} field(s) gained, {lost_total} lost")
+    # Silence about a provider is not the same as nothing having moved there,
+    # and a reader will take it that way unless it is said. PayTR publishes no
+    # API description for this to walk, and Mollie's is licensed so that no
+    # copy of it can be kept here — `specs/mollie/<date>.meta.json` and its two
+    # hashes are what say that one moved.
+    silent = sorted(
+        provider
+        for provider in providers()
+        if provider not in spoke_for
+        and (provider in considered or not any((SPECS / provider).rglob("*.yaml")))
+    )
+    if silent:
+        print(
+            f"no field-level comparison for: {', '.join(silent)} — nothing under specs/ "
+            "that both sides carry as an API description"
+        )
     return 1 if lost_total else 0
+
+
+def providers() -> list[str]:
+    """Every provider `specs/` holds anything for."""
+    return sorted(p.name for p in SPECS.iterdir() if p.is_dir())
+
+
+def provider_of(document: pathlib.Path) -> str:
+    return document.relative_to(SPECS).parts[0]
 
 
 if __name__ == "__main__":

@@ -2,3 +2,8 @@
 junit.xml
 
 __pycache__/
+
+# Mollie licenses their OpenAPI document CC-BY-NC-SA-4.0 and this repository is
+# MIT, so the subset fetch_mollie.py can write stays out of the tree.
+# specs/mollie/<date>.meta.json is what is kept.
+specs/mollie/*.yaml

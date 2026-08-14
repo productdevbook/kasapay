@@ -1,0 +1,764 @@
+//! The Mollie client.
+
+use std::collections::BTreeMap;
+use std::fmt;
+use std::sync::Arc;
+use std::time::Duration;
+
+use kasapay_core::{
+    Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Money, NextAction,
+    OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
+};
+use url::Url;
+
+use crate::MOLLIE;
+use crate::convert;
+use crate::id::{CaptureId, RefundId};
+use crate::wire;
+
+/// The order reference travels as payment metadata under this key.
+///
+/// Mollie has no field of its own for the merchant's order number — their
+/// `orderId` belongs to the separate Orders API — so it goes in `metadata` and
+/// comes back out here.
+pub const ORDER_METADATA_KEY: &str = "kasapay_order";
+
+/// Where the client points and what it authenticates with.
+#[derive(Debug, Clone)]
+pub struct Config {
+    base_url: Box<str>,
+    api_key: Secret,
+    timeout: Duration,
+}
+
+impl Config {
+    /// Mollie's only base.
+    ///
+    /// There is no separate sandbox host. A key beginning `test_` puts every
+    /// request it makes into test mode and a key beginning `live_` does not,
+    /// so which mode a client is in is a property of the credential rather
+    /// than of the address.
+    pub const BASE: &'static str = "https://api.mollie.com";
+    /// How long a request waits before it is given up on.
+    pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+    /// Points at Mollie with the given API key.
+    #[must_use]
+    pub fn new(api_key: Secret) -> Self {
+        Self::at(Self::BASE, api_key).unwrap_or_else(|_| unreachable!("the base constant parses"))
+    }
+
+    /// Points at an arbitrary base — a mock server in tests, mostly.
+    pub fn at(base_url: &str, api_key: Secret) -> Result<Self, url::ParseError> {
+        let trimmed = base_url.trim_end_matches('/');
+        Url::parse(trimmed)?;
+        Ok(Self {
+            base_url: trimmed.into(),
+            api_key,
+            timeout: Self::DEFAULT_TIMEOUT,
+        })
+    }
+
+    /// Changes how long a request waits, from [`Config::DEFAULT_TIMEOUT`].
+    #[must_use]
+    pub const fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+}
+
+/// Takes payments through Mollie's hosted checkout.
+///
+/// Cloning shares one connection pool.
+#[derive(Debug, Clone)]
+pub struct Mollie {
+    inner: Arc<Inner>,
+}
+
+#[derive(Debug)]
+struct Inner {
+    http: reqwest::Client,
+    config: Config,
+}
+
+impl Mollie {
+    /// Builds a client with its own HTTP connection pool.
+    pub fn new(config: Config) -> Result<Self, reqwest::Error> {
+        let http = reqwest::Client::builder().timeout(config.timeout).build()?;
+        Ok(Self::with_http(http, config))
+    }
+
+    /// Builds a client over an HTTP client the caller already has.
+    #[must_use]
+    pub fn with_http(http: reqwest::Client, config: Config) -> Self {
+        Self {
+            inner: Arc::new(Inner { http, config }),
+        }
+    }
+
+    /// Opens a payment Mollie will **hold** rather than take, for a later
+    /// [`capture`](Provider::capture).
+    ///
+    /// The same call as [`Provider::charge`] with `captureMode: manual` on it.
+    /// It is a separate method because it has to be: Mollie decides at
+    /// creation whether a payment is captured automatically, and
+    /// [`ChargeRequest`] has no field that says so. A payment opened by
+    /// `charge` is captured the moment the payer finishes, and asking to
+    /// capture it afterwards is Mollie's own 422.
+    ///
+    /// Not every payment method holds funds — Mollie documents manual capture
+    /// for cards and for a handful of pay-later methods — so a payer who picks
+    /// another one on the checkout page is why this can answer a payment that
+    /// ends up captured outright.
+    pub async fn authorize(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        self.create(request, Some("manual")).await
+    }
+
+    /// Takes funds an authorisation is holding, and answers Mollie's own
+    /// capture object.
+    ///
+    /// [`Provider::capture`] is this call with the answer folded into a
+    /// [`Charge`]; this one keeps the capture's own identifier, which is not a
+    /// payment id and will not fit where one goes.
+    ///
+    /// `amount` of `None` captures the full authorised amount. `Some` captures
+    /// part of it, and Mollie allows more than one capture against a payment
+    /// up to what was authorised.
+    pub async fn capture_payment(
+        &self,
+        payment: &PaymentId,
+        amount: Option<Money>,
+    ) -> Result<Capture, Error> {
+        let amount = amount
+            .map(|money| {
+                money.require_positive().map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidRequest,
+                        MOLLIE,
+                        "a capture takes an amount above zero, or None for the lot",
+                    )
+                    .with_source(e)
+                })?;
+                convert::amount_out(money)
+            })
+            .transpose()?;
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                &format!("/v2/payments/{}/captures", payment.as_str()),
+                Some(&wire::CreateCapture { amount }),
+                None,
+            )
+            .await?;
+        let capture: wire::Capture = parse(&raw, "a capture")?;
+        Capture::read(&capture, raw)
+    }
+
+    /// Gives money back off a payment.
+    ///
+    /// Mollie requires the amount: there is no "refund the rest" request, so a
+    /// caller that means a full refund sends what
+    /// [`Charge::amount`](kasapay_core::Charge::amount) said. Partial refunds
+    /// are allowed and may be repeated up to what was captured.
+    ///
+    /// A refund is not instant and Mollie says so in its own status — a fresh
+    /// one is `queued` or `pending`, not `refunded`. [`Refund::state`] is that
+    /// status; nothing on the payment's [`Status`] changes for a refund at
+    /// all.
+    ///
+    /// **Retrying this without an idempotency key can refund twice.** Mollie
+    /// names partial refunds as one of the three cases where a replayed
+    /// request is harmful. There is no idempotency key on this signature
+    /// because [`ChargeRequest`] is what carries one and a refund has no
+    /// request object; read the refunds back before sending another.
+    pub async fn refund(&self, payment: &PaymentId, amount: Money) -> Result<Refund, Error> {
+        let amount = amount.require_positive().map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                MOLLIE,
+                "a refund takes an amount above zero",
+            )
+            .with_source(e)
+        })?;
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                &format!("/v2/payments/{}/refunds", payment.as_str()),
+                Some(&wire::CreateRefund {
+                    amount: convert::amount_out(amount)?,
+                }),
+                None,
+            )
+            .await?;
+        let refund: wire::Refund = parse(&raw, "a refund")?;
+        Refund::read(&refund, raw)
+    }
+
+    /// Releases the whole remaining hold on an authorised payment.
+    ///
+    /// This is what [`Provider::cancel`] would be if the trait could express
+    /// it, and it cannot: **Mollie answers `202 Accepted` with no body at
+    /// all**, so there is no charge to hand back and nothing that says the
+    /// hold is gone. Mollie is explicit that it will try and that the issuing
+    /// bank decides if and when the money is released.
+    ///
+    /// So `Ok(())` means Mollie accepted the request. Read the payment back
+    /// with [`Provider::charge_status`] to learn what became of it: a released
+    /// payment with no captures on it becomes `canceled`, and one with a
+    /// successful capture becomes `paid`.
+    ///
+    /// [`Provider::cancel`] is Mollie's other call, `DELETE /v2/payments/{id}`,
+    /// which withdraws a payment the payer has not finished. A payment that is
+    /// already authorised is not cancelled that way, and Mollie answers 422 for
+    /// it.
+    pub async fn release_authorization(&self, payment: &PaymentId) -> Result<(), Error> {
+        self.send(
+            reqwest::Method::POST,
+            &format!("/v2/payments/{}/release-authorization", payment.as_str()),
+            None::<&()>,
+            None,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    async fn create(
+        &self,
+        request: &ChargeRequest,
+        capture_mode: Option<&'static str>,
+    ) -> Result<Charge, Error> {
+        // Before a socket opens: a currency Mollie does not take, sent, is a
+        // payment in a currency nobody chose.
+        let amount = convert::amount_out(request.amount)?;
+
+        let required = |field: &str, also: &str| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                MOLLIE,
+                format!("Mollie requires {field} on every payment; set ChargeRequest::{also}"),
+            )
+        };
+        let description = request
+            .description
+            .as_deref()
+            .ok_or_else(|| required("a description", "description"))?;
+        let redirect_url = request
+            .return_url
+            .as_ref()
+            .ok_or_else(|| required("somewhere to send the payer back to", "return_url"))?;
+
+        let mut metadata: BTreeMap<&str, &str> = request
+            .metadata
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_str()))
+            .collect();
+        // Last, so a caller's own key of this name cannot shadow the order.
+        metadata.insert(ORDER_METADATA_KEY, request.order.as_str());
+
+        let body = wire::CreatePayment {
+            amount,
+            description,
+            redirect_url: redirect_url.as_str(),
+            capture_mode,
+            customer_id: request.customer.as_deref(),
+            metadata,
+        };
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                "/v2/payments",
+                Some(&body),
+                request.idempotency_key.as_ref(),
+            )
+            .await?;
+        let payment: wire::Payment = parse(&raw, "a payment")?;
+        into_charge(&payment, raw)
+    }
+
+    async fn send<B: serde::Serialize>(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<&B>,
+        idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Raw, Error> {
+        let url = format!("{}{path}", self.inner.config.base_url);
+        let mut request = self
+            .inner
+            .http
+            .request(method, &url)
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.inner.config.api_key.expose()),
+            )
+            .header("Accept", "application/hal+json");
+        if let Some(key) = idempotency {
+            request = request.header("Idempotency-Key", key.as_str());
+        }
+        if let Some(body) = body {
+            let payload = serde_json::to_string(body).map_err(|e| {
+                Error::new(ErrorKind::InvalidRequest, MOLLIE, "request is not JSON").with_source(e)
+            })?;
+            request = request
+                .header("Content-Type", "application/json")
+                .body(payload);
+        }
+
+        let response = request
+            .send()
+            .await
+            .map_err(|e| transport_error(&e).with_source(e))?;
+        let status = response.status();
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| transport_error(&e).with_source(e))?;
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        if status.is_success() {
+            Ok(Raw::from_text(text))
+        } else {
+            Err(refused(status, &text))
+        }
+    }
+}
+
+/// Reads one of Mollie's objects out of a body that was already accepted.
+fn parse<T: serde::de::DeserializeOwned>(raw: &Raw, what: &str) -> Result<T, Error> {
+    serde_json::from_str(raw.as_str()).map_err(|e| {
+        Error::new(
+            ErrorKind::Malformed,
+            MOLLIE,
+            format!("{what} was not the JSON Mollie documents"),
+        )
+        .with_source(e)
+    })
+}
+
+/// A payment, as Mollie sent it.
+fn into_charge(payment: &wire::Payment, raw: Raw) -> Result<Charge, Error> {
+    let missing = |field: &str| {
+        Error::new(
+            ErrorKind::Malformed,
+            MOLLIE,
+            format!("a payment carried no {field}"),
+        )
+    };
+    let id = payment.id.as_deref().ok_or_else(|| missing("id"))?;
+    let amount = convert::money(
+        payment.amount.as_ref().ok_or_else(|| missing("amount"))?,
+        "a payment",
+    )?;
+    let status = convert::status(payment.status.as_deref().ok_or_else(|| missing("status"))?);
+
+    // Mollie drops `_links.checkout` once a payment is decided. Reading it
+    // only while the payment can still move keeps a settled charge from
+    // answering "send the payer somewhere" if it ever sends one anyway.
+    let next_action = match payment.links.as_ref().and_then(|links| {
+        links
+            .checkout
+            .as_ref()
+            .and_then(|link| link.href.as_deref())
+            .filter(|_| status.is_open())
+    }) {
+        Some(href) => Some(NextAction::Redirect {
+            url: Url::parse(href).map_err(|e| {
+                Error::new(
+                    ErrorKind::Malformed,
+                    MOLLIE,
+                    "the checkout address is not a URL",
+                )
+                .with_source(e)
+            })?,
+            // Mollie wants nothing back. The payer returns to the merchant's
+            // own `redirectUrl` carrying whatever the merchant put on it, and
+            // the payment is read by its id.
+            continuation: None,
+        }),
+        None => None,
+    };
+
+    Ok(Charge {
+        id: Some(PaymentId::issued(id)),
+        order: payment
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get(ORDER_METADATA_KEY))
+            .and_then(serde_json::Value::as_str)
+            .map(OrderRef::new),
+        amount,
+        // Mollie's `amount` is what the payer is charged and what the order
+        // came to at once: there is no instalment surcharge and no second
+        // figure. `lines` is a basket, not a different total.
+        order_amount: None,
+        status,
+        next_action,
+        provider: MOLLIE,
+        raw,
+    })
+}
+
+/// What Mollie's HTTP status means.
+///
+/// Mollie's error object carries `status`, `title`, `detail` and sometimes
+/// `field`, and **no machine-readable code of any kind** — so
+/// [`Error::code`](kasapay_core::Error::code) is `None` for every failure this
+/// crate reports, and the field that caused one is named in the message
+/// instead.
+fn refused(status: reqwest::StatusCode, text: &str) -> Error {
+    let kind = match status.as_u16() {
+        401 | 403 => ErrorKind::Auth,
+        // 410 is Mollie's answer for an object that has been removed.
+        404 | 410 => ErrorKind::NotFound,
+        429 => ErrorKind::RateLimited,
+        // Including the 503 Mollie answers when a payment method's own
+        // supplier is down, which is the one worth retrying.
+        500..=599 => ErrorKind::Provider,
+        _ => ErrorKind::InvalidRequest,
+    };
+    let body: Option<wire::ErrorBody> = serde_json::from_str(text).ok();
+    let message = match body {
+        Some(body) => {
+            let detail = body
+                .detail
+                .or(body.title)
+                .unwrap_or_else(|| format!("Mollie answered {status} with no detail"));
+            match body.field {
+                Some(field) => format!("{detail} (field: {field})"),
+                None => detail,
+            }
+        }
+        None => format!("HTTP {status}: {text}"),
+    };
+    Error::new(kind, MOLLIE, message)
+}
+
+fn transport_error(error: &reqwest::Error) -> Error {
+    let kind = if error.is_decode() {
+        ErrorKind::Malformed
+    } else {
+        ErrorKind::Transport
+    };
+    Error::new(kind, MOLLIE, error.to_string())
+}
+
+/// One capture Mollie has taken off an authorised payment.
+///
+/// Its identifier is a [`CaptureId`] rather than a
+/// [`PaymentId`](kasapay_core::PaymentId): `cpt_…` and `tr_…` are both
+/// Mollie's own strings and neither belongs in the other's call, so the
+/// compiler is what keeps them apart.
+#[derive(Debug, Clone)]
+pub struct Capture {
+    /// Mollie's identifier for this capture — `cpt_…`.
+    pub id: CaptureId,
+    /// The payment it was taken off.
+    pub payment: PaymentId,
+    /// How much was taken.
+    pub amount: Money,
+    /// Where the capture stands. A fresh one is usually
+    /// [`CaptureState::Pending`].
+    pub state: CaptureState,
+    /// Mollie's own answer, kept whole.
+    pub raw: Raw,
+}
+
+impl Capture {
+    /// The capture as a [`Charge`], which is what [`Provider::capture`] hands back.
+    ///
+    /// **This is built from the capture, not from the payment.** Its
+    /// [`amount`](Charge::amount) is what was captured rather than what was
+    /// authorised, which is what the trait asks for, and its
+    /// [`raw`](Charge::raw) is the capture object. Its
+    /// [`status`](Charge::status) is the capture's, so a capture Mollie has
+    /// accepted and not yet settled is [`Status::Pending`] even though the
+    /// payment it belongs to still reads `authorized`.
+    #[must_use]
+    pub fn into_charge(self) -> Charge {
+        Charge {
+            id: Some(self.payment),
+            // The capture carries none of the payment's metadata, so the order
+            // reference is not on this answer. `charge_status` has it.
+            order: None,
+            amount: self.amount,
+            order_amount: None,
+            status: self.state.status(),
+            next_action: None,
+            provider: MOLLIE,
+            raw: self.raw,
+        }
+    }
+
+    fn read(capture: &wire::Capture, raw: Raw) -> Result<Self, Error> {
+        let missing = |field: &str| {
+            Error::new(
+                ErrorKind::Malformed,
+                MOLLIE,
+                format!("a capture carried no {field}"),
+            )
+        };
+        Ok(Self {
+            id: CaptureId::issued(capture.id.as_deref().ok_or_else(|| missing("id"))?),
+            payment: PaymentId::issued(
+                capture
+                    .payment_id
+                    .as_deref()
+                    .ok_or_else(|| missing("paymentId"))?,
+            ),
+            amount: convert::money(
+                capture.amount.as_ref().ok_or_else(|| missing("amount"))?,
+                "a capture",
+            )?,
+            state: CaptureState::from(capture.status.as_deref().ok_or_else(|| missing("status"))?),
+            raw,
+        })
+    }
+}
+
+/// Where one of Mollie's captures stands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CaptureState {
+    /// Accepted and not settled.
+    Pending,
+    /// The money has been taken.
+    Succeeded,
+    /// It will not be taken.
+    Failed,
+    /// A state Mollie has started returning since this was written.
+    Other(Box<str>),
+}
+
+impl CaptureState {
+    /// How this reads as a payment's [`Status`].
+    #[must_use]
+    pub fn status(&self) -> Status {
+        match self {
+            Self::Succeeded => Status::Captured,
+            Self::Failed => Status::Failed,
+            Self::Pending | Self::Other(_) => Status::Pending,
+        }
+    }
+}
+
+impl From<&str> for CaptureState {
+    fn from(value: &str) -> Self {
+        match value {
+            "pending" => Self::Pending,
+            "succeeded" => Self::Succeeded,
+            "failed" => Self::Failed,
+            other => Self::Other(other.into()),
+        }
+    }
+}
+
+impl fmt::Display for CaptureState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Pending => f.write_str("pending"),
+            Self::Succeeded => f.write_str("succeeded"),
+            Self::Failed => f.write_str("failed"),
+            Self::Other(state) => f.write_str(state),
+        }
+    }
+}
+
+/// One refund Mollie has taken off a payment.
+#[derive(Debug, Clone)]
+pub struct Refund {
+    /// Mollie's identifier for this refund — `re_…`.
+    pub id: RefundId,
+    /// The payment it came off.
+    pub payment: PaymentId,
+    /// How much went back.
+    pub amount: Money,
+    /// Where the refund stands. A fresh one is [`RefundState::Queued`] or
+    /// [`RefundState::Pending`], never `Refunded`.
+    pub state: RefundState,
+    /// Mollie's own answer, kept whole.
+    pub raw: Raw,
+}
+
+impl Refund {
+    fn read(refund: &wire::Refund, raw: Raw) -> Result<Self, Error> {
+        let missing = |field: &str| {
+            Error::new(
+                ErrorKind::Malformed,
+                MOLLIE,
+                format!("a refund carried no {field}"),
+            )
+        };
+        Ok(Self {
+            id: RefundId::issued(refund.id.as_deref().ok_or_else(|| missing("id"))?),
+            payment: PaymentId::issued(
+                refund
+                    .payment_id
+                    .as_deref()
+                    .ok_or_else(|| missing("paymentId"))?,
+            ),
+            amount: convert::money(
+                refund.amount.as_ref().ok_or_else(|| missing("amount"))?,
+                "a refund",
+            )?,
+            state: RefundState::from(refund.status.as_deref().ok_or_else(|| missing("status"))?),
+            raw,
+        })
+    }
+}
+
+/// Where one of Mollie's refunds stands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RefundState {
+    /// Waiting for the balance to cover it.
+    Queued,
+    /// Accepted and not yet sent to the bank.
+    Pending,
+    /// On its way to the payer.
+    Processing,
+    /// The money is back with the payer.
+    Refunded,
+    /// It will not be sent.
+    Failed,
+    /// Withdrawn before it was sent.
+    Canceled,
+    /// A state Mollie has started returning since this was written.
+    Other(Box<str>),
+}
+
+impl From<&str> for RefundState {
+    fn from(value: &str) -> Self {
+        match value {
+            "queued" => Self::Queued,
+            "pending" => Self::Pending,
+            "processing" => Self::Processing,
+            "refunded" => Self::Refunded,
+            "failed" => Self::Failed,
+            "canceled" => Self::Canceled,
+            other => Self::Other(other.into()),
+        }
+    }
+}
+
+impl fmt::Display for RefundState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Queued => f.write_str("queued"),
+            Self::Pending => f.write_str("pending"),
+            Self::Processing => f.write_str("processing"),
+            Self::Refunded => f.write_str("refunded"),
+            Self::Failed => f.write_str("failed"),
+            Self::Canceled => f.write_str("canceled"),
+            Self::Other(state) => f.write_str(state),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl Provider for Mollie {
+    fn id(&self) -> ProviderId {
+        MOLLIE
+    }
+
+    /// Opens a payment and hands back where to send the payer.
+    ///
+    /// The answer is [`Status::RequiresAction`] with a
+    /// [`NextAction::Redirect`] to Mollie's hosted checkout, whose
+    /// `continuation` is `None` — Mollie wants no token back, only the payment
+    /// id, which is on the charge.
+    ///
+    /// Two of [`ChargeRequest`]'s optional fields are not optional here.
+    /// Mollie requires a `description` and a `redirectUrl`, and a request
+    /// carrying neither is [`ErrorKind::InvalidRequest`] before a socket
+    /// opens rather than a 422 from Mollie.
+    ///
+    /// `ChargeRequest::customer` is sent as Mollie's `customerId`, which is a
+    /// `cst_…` they issued; anything else is their 422.
+    ///
+    /// The payment is captured automatically. [`Mollie::authorize`] is the one
+    /// that holds the funds instead.
+    async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        self.create(request, None).await
+    }
+
+    async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                &format!("/v2/payments/{}", id.as_str()),
+                None::<&()>,
+                None,
+            )
+            .await?;
+        let payment: wire::Payment = parse(&raw, "a payment")?;
+        into_charge(&payment, raw)
+    }
+
+    /// Takes funds an authorisation is holding.
+    ///
+    /// [`Mollie::capture_payment`] is the same call keeping Mollie's own
+    /// capture object, and [`Capture::into_charge`] says what this answer is
+    /// built from — the capture, not the payment.
+    ///
+    /// Mollie holds funds only for a payment opened with `captureMode: manual`,
+    /// which is [`Mollie::authorize`] rather than [`Provider::charge`].
+    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
+        self.capture_payment(id, amount)
+            .await
+            .map(Capture::into_charge)
+    }
+
+    /// Withdraws a payment the payer has not finished.
+    ///
+    /// Mollie's `DELETE /v2/payments/{id}`, which answers the cancelled
+    /// payment. Whether a payment can be cancelled at all depends on the
+    /// method the payer chose, and Mollie says which on the payment's own
+    /// `isCancelable` — readable from [`Charge::raw`].
+    ///
+    /// **This is not how an authorised payment is released.** That is
+    /// [`Mollie::release_authorization`], and it is a different call because
+    /// Mollie answers it with no body at all. Cancelling a payment that is
+    /// already authorised, or already paid, is Mollie's 422 and arrives as
+    /// [`ErrorKind::InvalidRequest`].
+    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::DELETE,
+                &format!("/v2/payments/{}", id.as_str()),
+                None::<&()>,
+                None,
+            )
+            .await?;
+        let payment: wire::Payment = parse(&raw, "a payment")?;
+        into_charge(&payment, raw)
+    }
+
+    /// Mollie separates authorisation from capture, captures partially, and
+    /// refunds partially and repeatedly.
+    ///
+    /// `separate_capture` is about Mollie rather than about a particular
+    /// payment: it is true because Mollie will hold funds, and
+    /// [`Mollie::authorize`] is what asks it to. A payment opened by
+    /// [`Provider::charge`] is captured outright, and capturing it afterwards
+    /// fails — the same way it does for a Stripe intent that already
+    /// succeeded.
+    ///
+    /// **`saved_instruments` is false, and Mollie does have a vault.** Their
+    /// version of a saved instrument is a mandate — `mdt_…`, held against a
+    /// customer, charged with `sequenceType: recurring` — and this crate
+    /// implements no call that sends one. So the answer a checkout needs is
+    /// "do not offer use-my-saved-card here", which is what false says.
+    /// Nothing about the mandate itself stands in the way if it is added
+    /// later: like iyzico's `cardToken` it is half a name, and the other half
+    /// is the payer that
+    /// [`ChargeRequest::customer`](kasapay_core::ChargeRequest::customer)
+    /// already carries.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            separate_capture: true,
+            partial_capture: true,
+            partial_refund: true,
+            repeated_refund: true,
+            saved_instruments: false,
+        }
+    }
+}

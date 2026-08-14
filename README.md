@@ -3,7 +3,7 @@
 One payment API in Rust, over any payment provider.
 
 Write against one trait; the provider becomes a deployment decision. Stripe,
-iyzico and PayTR ship today — PayPal, Adyen, Mollie, Param, Craftgate and the
+iyzico, PayTR and Mollie ship today — PayPal, Adyen, Param, Craftgate and the
 rest are the same shape, and a provider outside this repository is a
 first-class one: implement `Provider`, name it with `ProviderId::new`.
 
@@ -46,6 +46,7 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-stripe` | over [`async-stripe`](https://github.com/arlyon/async-stripe) |
 | `kasapay-iyzico` | three iyzico APIs: `in_store`, `terminal` and `classic` |
 | `kasapay-paytr` | PayTR's hosted form, status, refund, payment notice |
+| `kasapay-mollie` | Mollie's Payments API: hosted checkout, holds, captures, refunds |
 
 **The shared trait is `charge`, `charge_status`, `capture` and `cancel`**, with
 `capabilities()` saying which of them a provider actually does — iyzico's
@@ -94,6 +95,15 @@ the Terminal API's fourteen.
 - iyzico's In-Store settles in lira only and requires `customer` and
   `return_url`. Ask it for USD and you get `ErrorKind::Unsupported` before a
   socket opens.
+- **Mollie takes neither lira nor Kuwaiti dinar**, which is to say the home
+  currency of the two Turkish providers here and the one currency with three
+  decimal places. Same answer, same place: `Unsupported`, before a socket
+  opens. It also requires a description and a return address on every payment,
+  both of which `ChargeRequest` calls optional, and it decides at creation
+  whether a payment is captured or held — so a hold is `Mollie::authorize`
+  rather than `charge`, and releasing one is `release_authorization` rather
+  than `cancel`, because Mollie answers that call `202` with no body for a
+  trait method that has to return a `Charge`.
 - The hosted checkout form does **not** go through `Provider::charge`. It needs
   a buyer's identity number, two addresses and an itemised basket, none of
   which belongs in `ChargeRequest`. The trait can express what every provider
@@ -151,12 +161,18 @@ and a panic mid-checkout is worse than a `Result` somebody has to read.
 
 ## Specs
 
-`specs/` records what each provider said its API was, dated. Neither iyzico nor
-PayTR publishes an OpenAPI file: iyzico's is reassembled from the fragments
-embedded in their documentation, and PayTR's is a record of their field tables —
-including which fields enter the token hash, which is what signs a request.
+`specs/` records what each provider said its API was, dated. Stripe and Mollie
+publish an OpenAPI file; iyzico's is reassembled from the fragments embedded in
+their documentation, and PayTR's is a record of their field tables — including
+which fields enter the token hash, which is what signs a request.
 
-A weekly job refetches all three and opens a PR when anything moved. A lost
+**Mollie's is recorded without a copy of it.** Theirs is licensed
+CC-BY-NC-SA-4.0 and this repository is MIT, and a non-commercial share-alike
+file inside an MIT tree is a restriction on exactly the people this licence
+invites. So `specs/mollie/` holds a dated meta and two hashes, and
+`scripts/fetch_mollie.py --write-document` is how you read the document itself.
+
+A weekly job refetches all four and opens a PR when anything moved. A lost
 field is the line to read first: a provider withdrawing one and the script
 dropping one look identical in a diff, and only one of those is fine —
 [`specs/README.md`](specs/README.md).
@@ -170,9 +186,10 @@ credentials, no network.
 ## Examples
 
 `crates/kasapay/examples/` — a Stripe charge and refund, an iyzico hosted
-checkout form end to end, an iyzico Link sold and taken down, and a PayTR
-hosted payment with the notice it posts back. All four compile in CI, so they
-cannot drift from the API the way a README snippet can.
+checkout form end to end, an iyzico Link sold and taken down, a PayTR hosted
+payment with the notice it posts back, and a Mollie payment beside a Mollie
+hold. All five compile in CI, so they cannot drift from the API the way a
+README snippet can.
 
 ```sh
 STRIPE_SECRET_KEY=sk_test_… cargo run -p kasapay --features stripe --example stripe_charge

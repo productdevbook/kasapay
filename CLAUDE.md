@@ -104,6 +104,11 @@ adapter in someone else's repository has to be able to build one.
 generated from it. Refetch with `python3 scripts/merge_iyzico.py` and
 `python3 scripts/fetch_stripe.py`; the weekly job does the same and opens a PR.
 
+One of the four keeps no copy of the description. Mollie licenses theirs
+CC-BY-NC-SA and this repository is MIT, so `specs/mollie/` is a dated meta and
+two hashes; `scripts/fetch_mollie.py --write-document` writes the document
+itself to a gitignored path when somebody needs to read it. Do not commit one.
+
 iyzico's side is a sweep of their entire documentation site in both languages —
 96 operations across 11 groups, one file each, grouped by API path rather than
 by documentation URL. `kasapay-iyzico` implements four of them. Before adding an
@@ -127,3 +132,11 @@ response has no `paymentStatus`, so `fraudStatus` is what
 `into_saved_card_charge` reads — 0 is `Pending`, -1 is `Failed`, anything else
 is `Captured`. What has not been seen is whether a fraud rejection arrives as
 `status: "failure"` or as a success carrying -1.
+
+Two things about Mollie, both read off their prose rather than an example.
+`Provider::cancel` is `DELETE /v2/payments/{id}`, and the crate documents an
+authorised payment as their 422 there — their words are that releasing a hold
+is what `release-authorization` is for, not that the delete refuses one. And
+yen goes on the wire as `1200` with no decimal point, because their
+multicurrency table gives JPY zero decimal places; no example anywhere shows a
+payment in a currency that has none.

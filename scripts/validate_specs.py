@@ -38,35 +38,44 @@ STRING_KEYS = frozenset(
 )
 
 
-def declared_types(node, found: set[str], in_security: bool = False) -> set[str]:
-    """Every `type` in the document, skipping `securitySchemes`.
+def opaque(key: str) -> bool:
+    """Whether what sits under this key is data rather than OpenAPI.
 
-    A security scheme's `type` is `http` or `apiKey`, which are correct there
-    and meaningless as schema types.
+    Three things below a key of these names are not OpenAPI and must not be
+    read as it. A security scheme's `type` is `http` or `apiKey`. An example's
+    contents are a provider's own payload, and Mollie's carries a field
+    literally called `type` holding `application/hal+json`. A vendor extension
+    is by definition outside the specification — Mollie's
+    `x-speakeasy-pagination` also holds a `type`.
     """
+    return key in {"securitySchemes", "example", "examples"} or key.startswith("x-")
+
+
+def declared_types(node, found: set[str], in_data: bool = False) -> set[str]:
+    """Every `type` in the document, skipping what [`opaque`] covers."""
     if isinstance(node, dict):
         declared = node.get("type")
-        if isinstance(declared, str) and not in_security:
+        if isinstance(declared, str) and not in_data:
             found.add(declared)
         for key, value in node.items():
-            declared_types(value, found, in_security or key == "securitySchemes")
+            declared_types(value, found, in_data or opaque(key))
     elif isinstance(node, list):
         for value in node:
-            declared_types(value, found, in_security)
+            declared_types(value, found, in_data)
     return found
 
 
-def blank_strings(node, found: list[str], trail: str = "") -> list[str]:
+def blank_strings(node, found: list[str], trail: str = "", in_data: bool = False) -> list[str]:
     """Every key OpenAPI wants a string for that carries a null instead."""
     if isinstance(node, dict):
         for key, value in node.items():
             where = f"{trail}/{key}"
-            if value is None and key in STRING_KEYS:
+            if value is None and key in STRING_KEYS and not in_data:
                 found.append(where)
-            blank_strings(value, found, where)
+            blank_strings(value, found, where, in_data or opaque(key))
     elif isinstance(node, list):
         for index, value in enumerate(node):
-            blank_strings(value, found, f"{trail}[{index}]")
+            blank_strings(value, found, f"{trail}[{index}]", in_data)
     return found
 
 

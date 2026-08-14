@@ -1,0 +1,199 @@
+//! Mollie, behind kasapay's [`Provider`](kasapay_core::Provider) trait.
+//!
+//! Mollie hosts the checkout, so no card data crosses this process.
+//! [`Provider::charge`](kasapay_core::Provider::charge) opens a payment and
+//! answers a [`Charge`](kasapay_core::Charge) carrying the address to send the
+//! payer to; [`charge_status`](kasapay_core::Provider::charge_status) reads it
+//! back by the `tr_…` identifier Mollie issued.
+//!
+//! Over Mollie's [Payments API], from
+//! [their own OpenAPI document](https://github.com/mollie/openapi), which
+//! `specs/mollie/` dates and records without keeping a copy of — theirs is
+//! licensed CC-BY-NC-SA and this workspace is MIT.
+//!
+//! # Amounts are decimal strings, and are still not floats
+//!
+//! Mollie writes money as `{"currency": "EUR", "value": "10.00"}`. The value is
+//! a string on purpose — their own document says to send it "as a string and
+//! not as a float, to ensure the correct number of decimals are passed" — and
+//! it is written here from [`Money`](kasapay_core::Money)'s integer count of
+//! minor units. `10.00` and never `10.0`; `1200` and never `1200.00` for yen,
+//! which Mollie documents as having no decimal places at all.
+//!
+//! # Mollie takes neither lira nor Kuwaiti dinar
+//!
+//! It settles in twenty-seven currencies, kasapay names nine, and the overlap
+//! is seven: USD, EUR, GBP, JPY, RUB, CHF and NOK. A charge in TRY or KWD is
+//! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) **before a
+//! socket opens**, rather than a request with a currency Mollie will not read.
+//!
+//! Mollie's OpenAPI document enumerates no currencies at all — `currency` is
+//! described there as "a three-character ISO 4217 currency code" and nothing
+//! more — so the list comes from their
+//! [multicurrency page](https://docs.mollie.com/docs/multicurrency), which is
+//! also where the decimal places come from.
+//!
+//! # `charge` needs two fields `ChargeRequest` calls optional
+//!
+//! Mollie requires a `description` and a `redirectUrl` on every payment. Both
+//! are `Option` on [`ChargeRequest`](kasapay_core::ChargeRequest), and a
+//! request missing either is
+//! [`ErrorKind::InvalidRequest`](kasapay_core::ErrorKind::InvalidRequest)
+//! here, before anything is sent.
+//!
+//! # A hold is [`Mollie::authorize`], not `charge`
+//!
+//! Mollie decides at creation whether a payment is captured automatically or
+//! held, and `ChargeRequest` has no field that says which. So
+//! [`Provider::charge`](kasapay_core::Provider::charge) opens a payment that is
+//! captured the moment the payer finishes, and [`Mollie::authorize`] opens the
+//! same payment with `captureMode: manual` for a later
+//! [`capture`](kasapay_core::Provider::capture).
+//!
+//! # Cancelling and releasing are two different calls
+//!
+//! [`Provider::cancel`](kasapay_core::Provider::cancel) withdraws a payment the
+//! payer has not finished — Mollie's `DELETE /v2/payments/{id}`, which answers
+//! the cancelled payment.
+//!
+//! Releasing a hold is [`Mollie::release_authorization`], and it is not on the
+//! trait because it cannot be: **Mollie answers it `202 Accepted` with no body**,
+//! and says outright that whether the hold actually lifts is the issuing bank's
+//! decision. There is no [`Charge`](kasapay_core::Charge) to return, so that
+//! call returns `Ok(())` and the payment is read back afterwards.
+//!
+//! # The webhook carries no signature, so the id must be fetched
+//!
+//! Mollie does not post the payment. It posts one form field — `id=tr_…` — to
+//! the `webhookUrl` the payment was created with, and **nothing that proves the
+//! request came from Mollie**: no signature, no shared secret, no timestamp.
+//!
+//! So the body of a webhook is not information. It is a prompt to call
+//! [`charge_status`](kasapay_core::Provider::charge_status) with that id and
+//! believe the answer, which arrives over TLS from Mollie's own host. Two
+//! things follow for whoever writes the handler, and neither is done by this
+//! crate:
+//!
+//! - **Act on nothing in the request but the id.** An amount, a status or an
+//!   order reference posted to that address is whatever the sender typed.
+//! - **A `tr_…` this merchant does not know is not an error to shout about.**
+//!   Anybody can post any id, and Mollie itself answers
+//!   [`ErrorKind::NotFound`](kasapay_core::ErrorKind::NotFound) for one that is
+//!   not on this account.
+//!
+//! Answer 200 either way. Mollie retries a webhook that does not, and a
+//! handler that returns 500 while it works out what to do is one Mollie will
+//! call again.
+//!
+//! Verifying a signature there is nothing to verify is not what this crate is
+//! missing — [`kasapay_core`] has no webhook type yet, and Mollie would have
+//! nothing to put in one.
+//!
+//! # Nothing here says a payment was refunded
+//!
+//! Mollie's payment statuses have no refunded state: a fully refunded payment
+//! still reads `paid`. Mollie does answer the figures directly, though, which
+//! is more than the other adapters in this workspace get — `amountRefunded`,
+//! `amountRemaining` and `amountCaptured` sit on the payment, and
+//! [`Charge::raw`](kasapay_core::Charge::raw) is where they are read:
+//!
+//! ```
+//! use kasapay_core::{Currency, Money, Raw};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // As Mollie answers a payment of 10.00 EUR with 5.95 of it given back.
+//! let raw = Raw::from_text(
+//!     r#"{"amount":{"currency":"EUR","value":"10.00"},
+//!         "amountRefunded":{"currency":"EUR","value":"5.95"},
+//!         "amountRemaining":{"currency":"EUR","value":"4.05"}}"#,
+//! );
+//!
+//! let refunded = raw
+//!     .text_at("/amountRefunded/value")
+//!     .ok_or("no refunds on this payment")?;
+//! assert_eq!(Money::parse(&refunded, Currency::Eur)?.minor_units(), 595);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Retrying
+//!
+//! Safe with a key.
+//! [`ChargeRequest::idempotency_key`](kasapay_core::ChargeRequest::idempotency_key)
+//! is sent as Mollie's `Idempotency-Key` header, and Mollie answers a cached
+//! copy of the first response to the same key for an hour. Mollie's own advice
+//! is that retrying most requests is harmless anyway — a payment set up twice
+//! leaves one of the two to expire — and names partial refunds as one of the
+//! three cases where it is not.
+//!
+//! [`Mollie::refund`] takes no key, so a refund that timed out is read back
+//! rather than replayed.
+//!
+//! # An error from Mollie has no code
+//!
+//! Their error object is `status`, `title`, `detail` and sometimes `field`, and
+//! nothing machine-readable beyond the HTTP status. So
+//! [`Error::code`](kasapay_core::Error::code) is `None` for every failure this
+//! crate reports, where PayTR's `err_no` and iyzico's `errorCode` are not, and
+//! the offending field is named in the message instead.
+//!
+//! # What is not here
+//!
+//! Mollie's API is eighty-seven paths and this crate maps five of them. Not
+//! modelled, and reachable through [`Charge::raw`](kasapay_core::Charge::raw)
+//! or not at all: payment methods and the `method` field, `lines` and the
+//! addresses that go with them, `statusReason` — which Mollie documents as
+//! point-of-sale only — subscriptions, customers, payment links, chargebacks,
+//! settlements, and Mollie Connect. Listing refunds is not here either: that
+//! call paginates, and half a list is worse than none.
+//!
+//! **Charging a card Mollie already holds is not here**, which is why
+//! [`Capabilities::saved_instruments`](kasapay_core::Capabilities::saved_instruments)
+//! is false. Mollie's saved instrument is a mandate — `mdt_…`, held against a
+//! customer and charged with `sequenceType: recurring` — and no call in this
+//! crate sends one. That is a boundary of the adapter rather than of Mollie,
+//! and the capability says so the way a checkout needs to hear it.
+//!
+//! # Example
+//!
+//! ```no_run
+//! use kasapay_core::{ChargeRequest, Currency, Money, NextAction, OrderRef, Provider, Secret};
+//! use kasapay_mollie::{Config, Mollie};
+//!
+//! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+//! let mollie = Mollie::new(Config::new(Secret::new(std::env::var("MOLLIE_API_KEY")?)))?;
+//!
+//! let request = ChargeRequest::builder(
+//!     OrderRef::new("ord-2026-0001"),
+//!     Money::parse("10.00", Currency::Eur)?,
+//! )
+//! .description("Order #12345")
+//! .return_url("https://webshop.example/order/12345".parse()?)
+//! .build()?;
+//!
+//! let charge = mollie.charge(&request).await?;
+//! if let Some(NextAction::Redirect { url, .. }) = &charge.next_action {
+//!     println!("send the payer to {url}");
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [Payments API]: https://docs.mollie.com/reference/create-payment
+
+mod client;
+mod convert;
+pub mod id;
+mod wire;
+
+use kasapay_core::ProviderId;
+
+/// Mollie.
+pub const MOLLIE: ProviderId = ProviderId::new("mollie");
+
+#[doc(inline)]
+pub use crate::client::{
+    Capture, CaptureState, Config, Mollie, ORDER_METADATA_KEY, Refund, RefundState,
+};
+#[doc(inline)]
+pub use crate::id::{CaptureId, RefundId};

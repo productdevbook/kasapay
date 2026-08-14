@@ -52,6 +52,7 @@ impl ErrorKind {
     /// | Stripe | safe — `ChargeRequest::idempotency_key` is sent as `Idempotency-Key` |
     /// | iyzico | **not documented safe** — it refuses an idempotency key, and does not say what a reused `orderId` does |
     /// | PayTR | **not documented safe** — no idempotency mechanism is documented for opening a payment |
+    /// | Mollie | safe — `ChargeRequest::idempotency_key` is sent as `Idempotency-Key`, and Mollie replays the first answer for an hour |
     ///
     /// Where it is not safe, read the payment back with
     /// [`Provider::charge_status`](crate::Provider::charge_status) before

@@ -17,6 +17,7 @@ categories = ["api-bindings", "web-programming"]
 [workspace.dependencies]
 kasapay-core = { version = "0.0.1", path = "crates/kasapay-core" }
 kasapay-iyzico = { version = "0.0.1", path = "crates/kasapay-iyzico" }
+kasapay-mollie = { version = "0.0.1", path = "crates/kasapay-mollie" }
 kasapay-paytr = { version = "0.0.1", path = "crates/kasapay-paytr" }
 kasapay-stripe = { version = "0.0.1", path = "crates/kasapay-stripe" }
 
