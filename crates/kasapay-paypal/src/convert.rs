@@ -124,8 +124,9 @@ pub(crate) fn order_status(status: &str) -> Status {
 pub(crate) fn capture_status(status: &str) -> Status {
     match status {
         "COMPLETED" | "PARTIALLY_REFUNDED" | "REFUNDED" => Status::Captured,
-        "PENDING" => Status::Pending,
         "DECLINED" | "FAILED" => Status::Failed,
+        // "PENDING", and anything PayPal starts sending that this build has
+        // not met, both read as open rather than settled.
         _ => Status::Pending,
     }
 }

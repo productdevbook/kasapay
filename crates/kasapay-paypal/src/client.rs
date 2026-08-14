@@ -608,9 +608,9 @@ fn refused(status: reqwest::StatusCode, text: &str) -> Error {
     let kind = match status.as_u16() {
         401 | 403 => ErrorKind::Auth,
         404 => ErrorKind::NotFound,
-        422 => ErrorKind::InvalidRequest,
         429 => ErrorKind::RateLimited,
         500..=599 => ErrorKind::Provider,
+        // 422 — PayPal's UNPROCESSABLE_ENTITY — falls through to here too.
         _ => ErrorKind::InvalidRequest,
     };
     let body: Option<wire::ErrorBody> = serde_json::from_str(text).ok();
