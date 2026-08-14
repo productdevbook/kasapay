@@ -10,11 +10,18 @@
 //! Every other provider here gives a payment its own identifier. PayTR names a
 //! payment by **the merchant's own order reference** — the `merchant_oid` sent
 //! when it was opened — and that is what reads it back, refunds it, and
-//! arrives on the payment notice. So a [`PaymentId`](kasapay_core::PaymentId)
-//! from this crate is the caller's own string handed back to them.
+//! arrives on the payment notice.
+//!
+//! So a [`PaymentId`](kasapay_core::PaymentId) from this crate says so:
+//! [`payment_id`] builds one out of an [`OrderRef`](kasapay_core::OrderRef),
+//! and its [`source`](kasapay_core::PaymentId::source) is
+//! [`IdSource::Derived`](kasapay_core::IdSource::Derived) naming `merchant_oid`
+//! rather than claiming PayTR issued anything.
 //!
 //! It follows that an order reference must never be reused, and that two
-//! payments for one order need two references.
+//! payments for one order need two references: nothing else keeps two payments
+//! apart here, and a caller writing this identifier into a unique index is
+//! relying on their own discipline rather than PayTR's guarantee.
 //!
 //! # A failed payment is an error, not a status
 //!
@@ -118,6 +125,6 @@ mod wire;
 #[doc(inline)]
 pub use crate::card::{CardDetails, CardKind, CardScheme};
 #[doc(inline)]
-pub use crate::client::{Config, PAYTR, PayTr, RefundRecord};
+pub use crate::client::{Config, PAYTR, PayTr, RefundRecord, payment_id};
 #[doc(inline)]
 pub use crate::signing::Credentials;

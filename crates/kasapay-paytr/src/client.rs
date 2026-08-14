@@ -18,6 +18,23 @@ use crate::signing::Credentials;
 /// PayTR.
 pub const PAYTR: ProviderId = ProviderId::new("paytr");
 
+/// The field PayTR names a payment by, since it issues no identifier of its own.
+const NAMED_BY: &[&str] = &["merchant_oid"];
+
+/// How PayTR names the payment opened against an order reference.
+///
+/// PayTR issues no identifier for a payment: `merchant_oid` — the reference the
+/// merchant chose and sent — is what reads it back, refunds it and arrives on
+/// the payment notice. So the identifier here is
+/// [`IdSource::Derived`](kasapay_core::IdSource::Derived), and what its
+/// uniqueness rests on is whatever the merchant does about reusing a reference.
+///
+/// This is what [`Provider::charge_status`] takes for this provider.
+#[must_use]
+pub fn payment_id(order: &OrderRef) -> PaymentId {
+    PaymentId::derived(order.as_str(), NAMED_BY)
+}
+
 /// Where the client points and what it signs with.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -186,9 +203,7 @@ impl PayTr {
 
         let url = format!("{}/odeme/guvenli/{form_token}", self.inner.config.base_url);
         Ok(Charge {
-            // PayTR has no id of its own; the merchant's order reference is
-            // what every later call names the payment by.
-            id: PaymentId::new(payment.order.as_str()),
+            id: Some(payment_id(&payment.order)),
             order: Some(payment.order.clone()),
             amount: payment.amount,
             // Nothing is charged yet, so the surcharge is not known: the
@@ -445,6 +460,8 @@ impl Provider for PayTr {
     }
 
     /// Reads a payment back by the order reference it was opened with.
+    ///
+    /// [`payment_id`] builds what this takes out of an [`OrderRef`].
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         let token = self
             .inner
@@ -496,9 +513,12 @@ impl Provider for PayTr {
             .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))?
             .filter(|order| *order != amount);
 
+        let order = OrderRef::new(id.as_str());
         Ok(Charge {
-            id: id.clone(),
-            order: Some(OrderRef::new(id.as_str())),
+            // Rebuilt rather than echoed: what came in may claim PayTR issued
+            // it, and PayTR issues nothing.
+            id: Some(payment_id(&order)),
+            order: Some(order),
             amount,
             order_amount,
             // A durum-sorgu that answers success means the payment succeeded;

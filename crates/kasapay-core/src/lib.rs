@@ -20,6 +20,20 @@
 //! authorisation — so [`Provider::capabilities`] says which, and it says so
 //! before there is a payment to ask about.
 //!
+//! # Identifiers
+//!
+//! [`OrderRef`] is the caller's own reference for an order, and [`PaymentId`]
+//! is how the provider names the payment that came of it. They are not the same
+//! string even where they carry the same characters: PayTR issues no identifier
+//! at all and names a payment by the `merchant_oid` it was sent, so its
+//! [`PaymentId::source`] is [`IdSource::Derived`] and says which field that is.
+//! A caller relying on an identifier being unique — writing it into a unique
+//! index, keying a retry on it — is relying on the provider's guarantee or on
+//! their own, and `source` is what tells the two apart.
+//!
+//! [`Charge::id`] is an `Option` for the provider that has not named the
+//! payment yet, and never an empty string.
+//!
 //! # Amounts
 //!
 //! [`Money`] counts minor units. There is no `f64` anywhere in this crate,
@@ -38,8 +52,8 @@ mod secret;
 
 #[doc(inline)]
 pub use crate::charge::{
-    Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, IdempotencyKey, NextAction,
-    OrderRef, PaymentId, Status,
+    Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, IdSource, IdempotencyKey,
+    NextAction, OrderRef, PaymentId, Status,
 };
 #[doc(inline)]
 pub use crate::error::{Error, ErrorKind};

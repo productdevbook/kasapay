@@ -10,6 +10,29 @@ all are the kind 0.0.x exists to make.
 
 ### Breaking
 
+- **`PaymentId::new` is gone; an identifier says where it came from.**
+  `PaymentId::issued(x)` is one the provider issued, and
+  `PaymentId::derived(x, &["field"])` one kasapay composed because the provider
+  issues none — PayTR has no payment id at all and names a payment by the
+  `merchant_oid` the merchant chose. `PaymentId::source` reads the answer back
+  as an `IdSource`, so a caller writing an identifier into a unique index can
+  tell the provider's guarantee from their own. Every `PaymentId::new(x)`
+  becomes `PaymentId::issued(x)`; for PayTR it becomes
+  `kasapay_paytr::payment_id(&order)`, and the same string as before goes on
+  the wire either way.
+
+- **`Charge::id` is an `Option<PaymentId>`.** A payment nothing has named yet —
+  an iyzico checkout form the payer has not finished — was a `PaymentId` with
+  an empty string in it, which reads as a handle to a payment nobody made.
+  Logging it is `charge.id.as_ref()`, passing it on is one `ok_or`, and a
+  provider that names a payment by nothing at all now has somewhere honest to
+  say so.
+
+- **`classic::Reversal::payment` is an `Option<PaymentId>`**, for the same
+  reason: iyzico documents a `paymentId` on a refund, a transaction refund and
+  a cancel alike, and an answer that carries none is `None` rather than an
+  identifier with nothing in it.
+
 - **`classic::Client::refund`, `refund_transaction` and `cancel` take a
   `reason`.** `Option<&classic::Reason>`, and `None` sends what they sent
   before — every existing call keeps its meaning by gaining one argument.
@@ -52,6 +75,11 @@ all are the kind 0.0.x exists to make.
   A link priced in `RUB`, `CHF` or `NOK` cannot be built: iyzico takes those and
   `Currency` has no name for them. One read back in them has `price: None` and
   the amount still in `raw`.
+
+- **`kasapay_paytr::payment_id`**, which builds what PayTR reads a payment back
+  by out of the order reference it was opened with. It is the one call that
+  knows PayTR names payments by `merchant_oid`, so a caller never writes that
+  field name and never passes their own reference off as PayTR's.
 
 - **`PayTr::bin_details`**, PayTR's BIN service: the bank, network, company-card
   flag, non-3-D permission and instalment programme behind the first 6 or 8

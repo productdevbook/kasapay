@@ -102,6 +102,12 @@ pub trait Provider: fmt::Debug + Send + Sync {
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error>;
 
     /// Reads a charge back.
+    ///
+    /// `id` is a [`Charge::id`] this provider produced. A provider that names a
+    /// payment by nothing at all — no identifier of its own and nothing to
+    /// compose one from — answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// accepting an identifier it cannot honour.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error>;
 
     /// Takes funds an authorisation is only holding.

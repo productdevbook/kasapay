@@ -32,29 +32,79 @@ impl fmt::Display for OrderRef {
     }
 }
 
-/// The provider's own identifier for a payment.
+/// Whose uniqueness an identifier rests on.
 ///
-/// Opaque on purpose: Stripe issues `pi_…`, iyzico a 64-bit integer, and
-/// nothing outside the adapter should read either.
+/// One question, asked of every identifier kasapay hands back: did the provider
+/// give us this, or did we make it up? A caller writing an identifier into a
+/// unique index — so a second webhook delivery collides instead of shipping
+/// twice — is relying on somebody's guarantee, and the two answers are worth
+/// very different things.
+///
+/// Exhaustive on purpose. There is no third answer, and an adapter that adds
+/// one has invented a guarantee nobody made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum IdSource {
+    /// The provider issued it, and it is unique because they say so.
+    Provider,
+    /// kasapay composed it out of the named fields, because the provider issues
+    /// none of its own. It is unique exactly as far as those fields are.
+    Derived(&'static [&'static str]),
+}
+
+/// How a payment is named at the provider.
+///
+/// Opaque on purpose: Stripe issues `pi_…`, iyzico a 64-bit integer, PayTR
+/// nothing at all, and nothing outside the adapter should read any of them.
+///
+/// [`PaymentId::source`] is what separates an identifier the provider
+/// guaranteed from one kasapay assembled out of what the caller sent. Both
+/// address the payment; only one of them is unique by anybody's promise, and
+/// [`Display`](fmt::Display) writes the text alone because that is what goes
+/// into a request.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PaymentId(Box<str>);
+pub struct PaymentId {
+    key: Box<str>,
+    source: IdSource,
+}
 
 impl PaymentId {
-    /// Wraps an identifier as the provider gave it.
-    pub fn new(value: impl Into<Box<str>>) -> Self {
-        Self(value.into())
+    /// Wraps an identifier the provider issued.
+    pub fn issued(value: impl Into<Box<str>>) -> Self {
+        Self {
+            key: value.into(),
+            source: IdSource::Provider,
+        }
+    }
+
+    /// Wraps an identifier kasapay composed, naming the fields it came from.
+    ///
+    /// For a provider that issues none of its own: PayTR names a payment by
+    /// the `merchant_oid` the merchant chose and sent. `from` is what the
+    /// value's uniqueness actually rests on, and a caller reads it back
+    /// through [`PaymentId::source`].
+    pub fn derived(value: impl Into<Box<str>>, from: &'static [&'static str]) -> Self {
+        Self {
+            key: value.into(),
+            source: IdSource::Derived(from),
+        }
     }
 
     /// The identifier as text.
     #[must_use]
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.key
+    }
+
+    /// Whose uniqueness this identifier rests on.
+    #[must_use]
+    pub const fn source(&self) -> IdSource {
+        self.source
     }
 }
 
 impl fmt::Display for PaymentId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.key)
     }
 }
 
@@ -158,8 +208,18 @@ pub enum NextAction {
 /// outside this workspace has to be able to build one.
 #[derive(Debug, Clone)]
 pub struct Charge {
-    /// The provider's identifier for the payment.
-    pub id: PaymentId,
+    /// How the provider names this payment, where it names it at all.
+    ///
+    /// `None` is a payment nothing identifies yet — an iyzico checkout form the
+    /// payer has not finished has no `paymentId` — and it is `None` rather than
+    /// an empty string so that it cannot be handed back as a handle and quietly
+    /// read as a payment nobody made. A provider that never issues one and has
+    /// nothing to compose one from answers `None` here always, and
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) to
+    /// [`Provider::charge_status`](crate::Provider::charge_status).
+    ///
+    /// Read [`PaymentId::source`] before writing one into a unique index.
+    pub id: Option<PaymentId>,
     /// The order reference the charge was created against, when the provider kept it.
     pub order: Option<OrderRef>,
     /// What the payer is charged. The money that moves.
@@ -310,7 +370,7 @@ pub enum ChargeRequestError {
 
 #[cfg(test)]
 mod tests {
-    use super::{ChargeRequest, ChargeRequestError, OrderRef};
+    use super::{ChargeRequest, ChargeRequestError, OrderRef, PaymentId};
     use crate::money::{Currency, Money};
 
     fn ten_lira() -> Money {
@@ -342,6 +402,15 @@ mod tests {
         .build()
         .expect_err("zero is not chargeable");
         assert!(matches!(err, ChargeRequestError::Amount(_)));
+    }
+
+    #[test]
+    fn an_identifier_we_composed_is_not_one_the_provider_issued() {
+        let issued = PaymentId::issued("ord-1");
+        let composed = PaymentId::derived("ord-1", &["merchant_oid"]);
+        assert_eq!(issued.as_str(), composed.as_str());
+        assert_ne!(issued, composed);
+        assert_ne!(issued.source(), composed.source());
     }
 
     #[test]

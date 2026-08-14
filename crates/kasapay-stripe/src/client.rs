@@ -318,7 +318,7 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
         })?;
 
     Ok(Charge {
-        id: PaymentId::new(intent.id.as_str()),
+        id: Some(PaymentId::issued(intent.id.as_str())),
         order,
         amount,
         // Stripe has no basket at the PaymentIntent level, so there is nothing

@@ -93,7 +93,7 @@ async fn charge_sends_the_amount_currency_and_order_reference() {
         .await
         .expect("the intent is created");
 
-    assert_eq!(charge.id, PaymentId::new("pi_kasapay1"));
+    assert_eq!(charge.id, Some(PaymentId::issued("pi_kasapay1")));
     assert_eq!(charge.amount.minor_units(), 1999);
     assert_eq!(charge.amount.currency(), Currency::Usd);
     assert_eq!(charge.status, Status::RequiresAction);
@@ -246,7 +246,7 @@ async fn charge_status_reads_an_intent_back() {
         .await;
 
     let charge = client(&server)
-        .charge_status(&PaymentId::new("pi_kasapay1"))
+        .charge_status(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect("the intent reads back");
 
@@ -264,7 +264,7 @@ async fn capture_without_an_amount_takes_the_lot() {
         .await;
 
     let charge = client(&server)
-        .capture(&PaymentId::new("pi_kasapay1"), None)
+        .capture(&PaymentId::issued("pi_kasapay1"), None)
         .await
         .expect("the authorisation is taken");
 
@@ -285,7 +285,7 @@ async fn a_partial_capture_reports_what_was_taken_not_what_was_authorised() {
 
     let charge = client(&server)
         .capture(
-            &PaymentId::new("pi_kasapay1"),
+            &PaymentId::issued("pi_kasapay1"),
             Some(Money::parse("12.00", Currency::Usd).expect("valid amount")),
         )
         .await
@@ -302,7 +302,7 @@ async fn a_capture_of_nothing_is_refused_before_a_socket_opens() {
 
     let error = client(&server)
         .capture(
-            &PaymentId::new("pi_kasapay1"),
+            &PaymentId::issued("pi_kasapay1"),
             Some(Money::from_minor_units(0, Currency::Usd)),
         )
         .await
@@ -336,7 +336,7 @@ async fn a_partial_refund_sends_minor_units_and_the_intent() {
 
     let refund = client(&server)
         .refund(
-            &PaymentId::new("pi_kasapay1"),
+            &PaymentId::issued("pi_kasapay1"),
             Some(Money::parse("5.00", Currency::Usd).expect("valid amount")),
         )
         .await
@@ -358,7 +358,7 @@ async fn a_full_refund_sends_no_amount_at_all() {
         .await;
 
     let refund = client(&server)
-        .refund(&PaymentId::new("pi_kasapay1"), None)
+        .refund(&PaymentId::issued("pi_kasapay1"), None)
         .await
         .expect("the refund goes through");
 
@@ -382,7 +382,7 @@ async fn refunding_in_a_currency_the_payment_was_not_in_is_caught() {
 
     let error = client(&server)
         .refund(
-            &PaymentId::new("pi_kasapay1"),
+            &PaymentId::issued("pi_kasapay1"),
             Some(Money::parse("5.00", Currency::Try).expect("valid amount")),
         )
         .await
@@ -403,7 +403,7 @@ async fn an_unknown_refund_state_is_kept_rather_than_dropped() {
 
     let refund = client(&server)
         .refund(
-            &PaymentId::new("pi_kasapay1"),
+            &PaymentId::issued("pi_kasapay1"),
             Some(Money::parse("5.00", Currency::Usd).expect("valid amount")),
         )
         .await
@@ -444,14 +444,14 @@ async fn refunds_asks_for_the_ones_off_this_payment_and_nothing_else() {
         .await;
 
     let refunds = client(&server)
-        .refunds(&PaymentId::new("pi_kasapay1"))
+        .refunds(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect("the refunds read back");
 
     assert_eq!(refunds.len(), 2);
     // Newest first, the order Stripe answers in.
     assert_eq!(&*refunds[0].id, "re_kasapay2");
-    assert_eq!(refunds[0].payment, PaymentId::new("pi_kasapay1"));
+    assert_eq!(refunds[0].payment, PaymentId::issued("pi_kasapay1"));
     assert_eq!(refunds[1].amount.minor_units(), 500);
     assert_eq!(refunds[1].status, RefundState::Succeeded);
 }
@@ -472,7 +472,7 @@ async fn how_much_of_a_payment_came_back_is_its_refunds_summed() {
         .await;
 
     let refunds = client(&server)
-        .refunds(&PaymentId::new("pi_kasapay1"))
+        .refunds(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect("the refunds read back");
 
@@ -516,7 +516,7 @@ async fn refunds_follows_the_cursor_rather_than_stopping_at_the_first_page() {
         .await;
 
     let refunds = client(&server)
-        .refunds(&PaymentId::new("pi_kasapay1"))
+        .refunds(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect("both pages read back");
 
@@ -535,7 +535,7 @@ async fn a_payment_nothing_has_come_off_has_an_empty_list_rather_than_an_error()
         .await;
 
     let refunds = client(&server)
-        .refunds(&PaymentId::new("pi_kasapay1"))
+        .refunds(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect("no refunds is an answer, not a failure");
     assert!(refunds.is_empty());
@@ -551,7 +551,7 @@ async fn cancelling_an_uncaptured_payment_reads_it_back_as_canceled() {
         .await;
 
     let charge = client(&server)
-        .cancel(&PaymentId::new("pi_kasapay1"))
+        .cancel(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect("the payment is withdrawn");
     assert_eq!(charge.status, Status::Canceled);
@@ -574,7 +574,7 @@ async fn cancelling_a_captured_payment_is_refused() {
         .await;
 
     let error = client(&server)
-        .cancel(&PaymentId::new("pi_kasapay1"))
+        .cancel(&PaymentId::issued("pi_kasapay1"))
         .await
         .expect_err("captured money is refunded, not cancelled");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);

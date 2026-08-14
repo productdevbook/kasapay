@@ -419,7 +419,7 @@ async fn a_finished_form_reports_the_payment() {
         .expect("the form reads back");
 
     assert_eq!(charge.status, Status::Captured);
-    assert_eq!(charge.id.as_str(), "12345678");
+    assert_eq!(charge.id, Some(PaymentId::issued("12345678")));
     assert_eq!(charge.amount.minor_units(), 14_990);
     assert_eq!(
         charge.order.map(|o| o.as_str().to_owned()),
@@ -476,6 +476,9 @@ async fn a_form_the_payer_has_not_finished_is_still_pending() {
         .expect("the query worked");
     assert_eq!(charge.status, Status::Pending);
     assert!(charge.status.is_open());
+    // iyzico has issued no paymentId yet, and an empty one would be a handle
+    // to a payment nobody made.
+    assert_eq!(charge.id, None);
 }
 
 #[tokio::test]
@@ -609,14 +612,14 @@ async fn a_refund_takes_an_amount_back_and_is_verified() {
 
     let reversal = client(&server)
         .refund(
-            &PaymentId::new("12345678"),
+            &PaymentId::issued("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
             None,
         )
         .await
         .expect("the refund goes through");
 
-    assert_eq!(reversal.payment.as_str(), "12345678");
+    assert_eq!(reversal.payment, Some(PaymentId::issued("12345678")));
     assert_eq!(reversal.amount.minor_units(), 5000);
     assert_eq!(reversal.host_reference.as_deref(), Some("host-ref-1"));
 }
@@ -640,7 +643,7 @@ async fn a_forged_refund_is_refused() {
 
     let error = client(&server)
         .refund(
-            &PaymentId::new("12345678"),
+            &PaymentId::issued("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
             None,
         )
@@ -665,7 +668,7 @@ async fn iyzicos_own_retryable_flag_decides_whether_a_failure_is_worth_repeating
 
     let error = client(&server)
         .refund(
-            &PaymentId::new("12345678"),
+            &PaymentId::issued("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
             None,
         )
@@ -692,7 +695,7 @@ async fn a_refund_iyzico_will_never_accept_is_not_retryable() {
 
     let error = client(&server)
         .refund(
-            &PaymentId::new("12345678"),
+            &PaymentId::issued("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
             None,
         )
@@ -724,7 +727,7 @@ async fn a_cancel_is_accepted_unsigned_because_iyzico_does_not_sign_it() {
     // The default client requires a signature everywhere else; cancel is the
     // one operation iyzico documents no signature for.
     let reversal = client(&server)
-        .cancel(&PaymentId::new("12345678"), None)
+        .cancel(&PaymentId::issued("12345678"), None)
         .await
         .expect("the cancel goes through");
     assert_eq!(reversal.amount.minor_units(), 14_990);
@@ -790,7 +793,7 @@ async fn a_reason_and_its_description_both_go_out_on_a_refund() {
     let reason = Reason::new(ReasonCode::BuyerRequest).describe("returned unopened");
     let reversal = client(&server)
         .refund(
-            &PaymentId::new("12345678"),
+            &PaymentId::issued("12345678"),
             Money::parse("50.00", Currency::Try).expect("valid amount"),
             Some(&reason),
         )
@@ -822,7 +825,7 @@ async fn a_reason_without_a_description_sends_no_description_field() {
 
     let reversal = client(&server)
         .cancel(
-            &PaymentId::new("12345678"),
+            &PaymentId::issued("12345678"),
             Some(&Reason::new(ReasonCode::Fraud)),
         )
         .await
@@ -899,7 +902,7 @@ async fn the_classic_client_answers_charge_status_through_the_shared_trait() {
     let provider: Box<dyn kasapay_core::Provider> = Box::new(client(&server));
     // The id is the form's token, which is what start_checkout_form put there.
     let charge = provider
-        .charge_status(&PaymentId::new("cf-token-1"))
+        .charge_status(&PaymentId::issued("cf-token-1"))
         .await
         .expect("the payment reads back");
     assert_eq!(charge.status, Status::Captured);

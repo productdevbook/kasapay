@@ -70,6 +70,12 @@ says so: the classic cancel, and every one of iyzilink's seven.
 
 ## Where providers differ, it says so
 
+- `Charge::id` — how the provider names the payment, and `PaymentId::source`
+  says whose uniqueness that rests on. Stripe and iyzico issue their own;
+  PayTR issues none and names a payment by the `merchant_oid` the merchant
+  sent, so the identifier says it was derived from that field rather than
+  passing a caller's own string off as the provider's. It is `None` where
+  nothing has named the payment yet.
 - `Charge::raw` — the provider's own answer, kept whole.
 - `Stripe::client` — the `async-stripe` client itself, for calls kasapay
   does not make.

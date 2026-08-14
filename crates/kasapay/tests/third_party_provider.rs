@@ -45,7 +45,7 @@ impl Provider for Kumbara {
             .with_code("KMB-CUR"));
         }
         Ok(Charge {
-            id: PaymentId::new(format!("kmb_{}", request.order)),
+            id: Some(PaymentId::issued(format!("kmb_{}", request.order))),
             order: Some(request.order.clone()),
             amount: request.amount,
             order_amount: None,
@@ -64,7 +64,7 @@ impl Provider for Kumbara {
         let settled = seen.iter().any(|s| s == id.as_str());
         seen.push(id.as_str().to_owned());
         Ok(Charge {
-            id: id.clone(),
+            id: Some(id.clone()),
             order: None,
             amount: Money::from_minor_units(1000, Currency::Try),
             order_amount: None,
@@ -81,7 +81,7 @@ impl Provider for Kumbara {
 
     async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
         Ok(Charge {
-            id: id.clone(),
+            id: Some(id.clone()),
             order: None,
             amount: amount.unwrap_or_else(|| Money::from_minor_units(1000, Currency::Try)),
             order_amount: None,
@@ -94,7 +94,7 @@ impl Provider for Kumbara {
 
     async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
         Ok(Charge {
-            id: id.clone(),
+            id: Some(id.clone()),
             order: None,
             amount: Money::from_minor_units(1000, Currency::Try),
             order_amount: None,
@@ -165,15 +165,10 @@ async fn a_caller_can_hold_one_behind_the_trait_object() {
 
     for provider in &providers {
         let charge = provider.charge(&request).await.expect("charge succeeds");
-        let first = provider
-            .charge_status(&charge.id)
-            .await
-            .expect("status reads");
+        let id = charge.id.expect("kumbara names every payment it opens");
+        let first = provider.charge_status(&id).await.expect("status reads");
         assert_eq!(first.status, Status::Pending);
-        let second = provider
-            .charge_status(&charge.id)
-            .await
-            .expect("status reads");
+        let second = provider.charge_status(&id).await.expect("status reads");
         assert_eq!(second.status, Status::Captured);
         assert!(!second.status.is_open());
     }
@@ -185,7 +180,7 @@ async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them()
     assert!(kumbara.capabilities().separate_capture);
     assert!(!kumbara.capabilities().partial_refund);
 
-    let id = PaymentId::new("kmb_ord-1");
+    let id = PaymentId::issued("kmb_ord-1");
     let captured = kumbara
         .capture(
             &id,
@@ -199,4 +194,77 @@ async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them()
     let canceled = kumbara.cancel(&id).await.expect("the hold is released");
     assert_eq!(canceled.status, Status::Canceled);
     assert!(!canceled.status.is_open());
+}
+
+/// A provider that names a payment by nothing at all.
+///
+/// Cash on delivery: no identifier of its own, and nothing sent to it that
+/// could stand in for one. `Charge::id` is `None` and there is no reading a
+/// payment back — the order reference is all anybody has.
+#[derive(Debug)]
+struct Yastik;
+
+impl Yastik {
+    const ID: ProviderId = ProviderId::new("yastik");
+
+    fn unnamed() -> Error {
+        Error::new(
+            ErrorKind::Unsupported,
+            Self::ID,
+            "yastik names a payment by nothing; reconcile against the order reference",
+        )
+    }
+}
+
+#[async_trait]
+impl Provider for Yastik {
+    fn id(&self) -> ProviderId {
+        Self::ID
+    }
+
+    async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        Ok(Charge {
+            id: None,
+            order: Some(request.order.clone()),
+            amount: request.amount,
+            order_amount: None,
+            status: Status::Pending,
+            next_action: None,
+            provider: Self::ID,
+            raw: Raw::default(),
+        })
+    }
+
+    async fn charge_status(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Self::unnamed())
+    }
+
+    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+        Err(Self::unnamed())
+    }
+
+    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Self::unnamed())
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::default()
+    }
+}
+
+#[tokio::test]
+async fn a_provider_that_names_a_payment_by_nothing_can_be_written() {
+    let request = ChargeRequest::builder(OrderRef::new("ord-1"), ten_lira())
+        .build()
+        .expect("valid request");
+
+    let charge = Yastik.charge(&request).await.expect("the cash is taken");
+    assert_eq!(charge.id, None);
+    assert_eq!(charge.order.as_ref().map(OrderRef::as_str), Some("ord-1"));
+
+    let error = Yastik
+        .charge_status(&PaymentId::issued("ord-1"))
+        .await
+        .expect_err("there is no payment to read back");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
