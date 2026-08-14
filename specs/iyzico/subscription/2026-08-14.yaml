@@ -655,32 +655,32 @@ paths:
       - $ref: '#/components/parameters/AuthHeader3'
       - $ref: '#/components/parameters/ContentTypeHeader6'
       - name: subscriptionReferenceCode
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: string
         description: Reference code of the subscription to query.
       - name: customerReferenceCode
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: string
         description: Customer reference code.
       - name: pricingPlanReferenceCode
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: string
         description: Reference code of the pricing plan used in the subscription.
       - name: parent
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: string
         description: Parent reference code used for matching in subscription updates.
       - name: subscriptionStatus
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: string
           enum:
@@ -692,26 +692,26 @@ paths:
           - EXPIRED
         description: Subscription status filter.
       - name: startDate
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: integer
         description: Subscription start date.
       - name: endDate
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: integer
         description: Subscription end date (epoch ms).
       - name: page
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: integer
         description: Page number.
       - name: count
-        in: path
-        required: true
+        in: query
+        required: false
         schema:
           type: integer
         description: Number of records per page.

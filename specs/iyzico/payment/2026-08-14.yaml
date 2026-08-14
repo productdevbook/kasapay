@@ -2077,9 +2077,9 @@ components:
                     type: string
                     description: Amount resulting from the conversion rate.
                     format: decimal
-          currency:
-            type: string
-            description: Currency of the payment.
+              currency:
+                type: string
+                description: Currency of the payment.
         authCode:
           type: string
           description: Authorization code returned by the bank.

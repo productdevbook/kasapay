@@ -115,22 +115,59 @@ def repair(node, in_security: bool = False):
     return node
 
 
-def repair_schema_dialect(node):
+# Everything OpenAPI 3.0 allows on a Schema Object. Anything else sitting next
+# to `items` on an array is a property the fragment's author indented one level
+# too high.
+SCHEMA_KEYWORDS = frozenset(
+    """$ref additionalProperties allOf anyOf default deprecated description discriminator
+    enum example exclusiveMaximum exclusiveMinimum externalDocs format items maxItems maxLength
+    maxProperties maximum minItems minLength minProperties minimum multipleOf not nullable oneOf
+    pattern properties readOnly required title type uniqueItems writeOnly xml""".split()
+)
+
+
+def repair_array_siblings(schema: dict) -> list[str]:
+    """Moves a property that landed beside `items` into `items.properties`."""
+    moved = []
+    items = schema.get("items")
+    if schema.get("type") != "array" or not isinstance(items, dict):
+        return moved
+    for key in [k for k in schema if k not in SCHEMA_KEYWORDS and not k.startswith("x-")]:
+        stray = schema.pop(key)
+        if isinstance(items.get("properties"), dict):
+            items["properties"].setdefault(key, stray)
+            moved.append(key)
+    return moved
+
+
+def repair_schema_dialect(node, path_template: str = "", notes: list[str] | None = None):
     """Fixes OpenAPI 3.0 violations the fragments carry.
 
-    Three recur, and all three come from iyzico rather than from this script:
+    All of them come from iyzico rather than from this script:
 
     - `enum` sitting on a Parameter Object, where 3.0 wants it inside `schema`
-    - `required: false` on a path parameter, which 3.0 forbids
+    - `in: path` on a parameter the path has no placeholder for
     - `oneOf: [{type: string}, {type: null}]`, which is 3.1's way of saying
       nullable and not a thing in 3.0
+    - a property indented beside `items` rather than inside it
     """
+    notes = [] if notes is None else notes
     if isinstance(node, dict):
+        for key in repair_array_siblings(node):
+            notes.append(f"moved `{key}` into the array's items, where it was indented beside them")
         if "name" in node and "in" in node:
             if "enum" in node and isinstance(node.get("schema"), dict):
                 node["schema"].setdefault("enum", node.pop("enum"))
             if node.get("in") == "path":
-                node["required"] = True
+                if f"{{{node['name']}}}" in path_template:
+                    node["required"] = True
+                else:
+                    node["in"] = "query"
+                    node.setdefault("required", False)
+                    notes.append(
+                        f"parameter `{node['name']}` said in: path for a path with no such"
+                        " placeholder, read as a query parameter"
+                    )
         one_of = node.get("oneOf")
         if isinstance(one_of, list):
             kept = [m for m in one_of if not (isinstance(m, dict) and m.get("type") == "null")]
@@ -142,11 +179,11 @@ def repair_schema_dialect(node):
                 else:
                     node["oneOf"] = kept
         for value in list(node.values()):
-            repair_schema_dialect(value)
+            repair_schema_dialect(value, path_template, notes)
     elif isinstance(node, list):
         for value in node:
-            repair_schema_dialect(value)
-    return node
+            repair_schema_dialect(value, path_template, notes)
+    return notes
 
 
 def rename_refs(node, renames: dict[tuple[str, str], str]):
@@ -241,7 +278,10 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
 
     for source, fragment in found:
         repair(fragment)
-        repair_schema_dialect(fragment)
+        for template, _ in fragment.get("paths", {}).items():
+            notes.extend(
+                f"{source}: {n}" for n in repair_schema_dialect(fragment, template, [])
+            )
         prefix = base_path(fragment)
 
         # Every component section, not just schemas: a fragment that keeps its

@@ -71,6 +71,16 @@ is wrong. Three have already.
 - A response with no `description`, which OpenAPI requires. Filled in by status
   class — "Successful, per iyzico's example response" — so it is obvious the
   text is ours rather than theirs.
+- `enum` on a Parameter Object, which belongs inside its `schema` in 3.0.
+- `in: path` on a parameter the path has no placeholder for. Read as a query
+  parameter, which is what it is.
+- `oneOf: [{type: string}, {type: null}]` — 3.1's spelling of nullable.
+- A property indented beside `items` rather than inside them. Moved in rather
+  than dropped, since dropping loses a documented field.
+- One `operationId` reused across two operations.
+
+Every one of those is recorded in the dated index against the page it came
+from, so a repair is never silent.
 - Paths are prefixed with the base path from the fragment's own `servers`, so
   `/payment/init` under a `/v3/in-store` server becomes
   `/v3/in-store/payment/init` and does not collide with another product's.
