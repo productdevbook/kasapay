@@ -27,6 +27,7 @@ jobs:
           set -euo pipefail
           python3 scripts/merge_iyzico.py
           python3 scripts/fetch_stripe.py
+          python3 scripts/fetch_paytr.py
       - name: The refetched specs must still be valid
         run: python3 scripts/validate_specs.py --strict
       - name: What the refetch changed about the fields the specs carry

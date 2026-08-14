@@ -28,9 +28,21 @@ Each operation keeps an `x-iyzico-source` pointing at the page it came from.
 
 The docs exist in Turkish and English and they do not cover the same endpoints.
 The whole In-Store v3 API is documented **only in Turkish**; the In-Store OAuth
-refresh **only in English**. So both are swept, the union is the coverage, and
-where an endpoint appears in each the English fragment wins so the prose in
-`specs/` is readable by anyone. The index lists what was Turkish-only.
+refresh **only in English**. So both are swept and the union is the coverage.
+The index lists what was Turkish-only.
+
+Where an endpoint appears in each, the two are not the same fragment in two
+languages. They differ in substance: the cancel-and-refund page carries `reason`
+and `description` only in Turkish, and the In-Store refund field is
+`refundAmount` in one language and `refundPrice` in the other. So the fragment
+documenting the most fields is the base — English breaking a tie, because its
+prose is what most readers get — and every field any other fragment documents
+and the base lacks is grafted onto it. Each graft is named in the index.
+
+Grafting is per operation rather than per page, because pages overlap without
+matching: the checkout form's own page describes initialising *and* querying
+while a second page describes only the query, and the two disagree about where
+`currency` sits.
 
 Grouping comes from the API path rather than the documentation URL, because the
 same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
@@ -61,8 +73,11 @@ which carries no fragment and so is not in `specs/` at all.
 
 ### Validation
 
-`scripts/validate_specs.py` checks every document against the OpenAPI schema and
-against a list of types that are not OpenAPI's. CI runs it on every push and
+`scripts/validate_specs.py` checks every OpenAPI document against the OpenAPI
+schema, against a list of types that are not OpenAPI's, and against a null
+sitting where a string belongs — which is what a fragment carries when its
+author left the field blank. A document that is not OpenAPI, such as the PayTR
+record, is skipped by name rather than failed. CI runs it on every push and
 again after each weekly refetch, because these files are assembled by a script
 and every bug in that script lands here as a document that looks plausible and
 is wrong. Three have already.
@@ -113,6 +128,29 @@ fragments, at `/v2/in-store/user-info/list`, `/v2/in-store/payment` and
 `/v2/in-store/payment/refund`. None of those are in `specs/` for want of a
 fragment to sweep. `kasapay-iyzico` speaks v3.
 
+## PayTR — `specs/paytr/`
+
+PayTR publishes no machine-readable description of any kind, so this is not one.
+`scripts/fetch_paytr.py` sweeps the API pages listed in their sitemap, in both
+languages, and records the field table from each:
+
+    <YYYY-MM-DD>.yaml   every documented field, per page
+    latest.yaml         symlink to the newest
+
+A row is the field's name and type, whether it is mandatory, **whether it enters
+the token hash**, its description and its constraints. That third column is why
+this file exists: the hash is what signs a request, and a field silently
+entering or leaving it is a signing failure that reads like bad credentials.
+
+**The order of the rows is not the order of the hash.** The iFrame API's table
+lists `currency` fifth; PayTR's own sample code signs it ninth, after
+`max_installment`, which is what `kasapay-paytr` does. The table says which
+fields are signed. Only their sample code says in what order, and nothing
+machine-readable says either.
+
+Each page also carries a digest over its tables rather than over the page, so a
+changed footer is not reported as a changed API.
+
 ## Stripe — `specs/stripe/`
 
     <YYYY-MM-DD>.meta.json   the API version, and a hash of the full upstream spec
@@ -133,5 +171,11 @@ reading when a mapping looks wrong.
     pip install pyyaml
     python3 scripts/merge_iyzico.py    # writes today's date
     python3 scripts/fetch_stripe.py
+    python3 scripts/fetch_paytr.py
 
-Both take an optional `YYYY-MM-DD` argument.
+All three take an optional `YYYY-MM-DD` argument.
+
+    python3 scripts/compare_specs.py --against-git origin/main
+
+says what a change did to the fields the specs carry — which a diff of a few
+thousand reordered YAML lines does not.
