@@ -213,3 +213,58 @@ pub(crate) struct CheckoutResultResponse {
     pub(crate) conversation_id: Option<String>,
     pub(crate) signature: Option<String>,
 }
+
+/// `POST /v2/payment/refund` — an amount off a payment.
+#[derive(Debug, Serialize)]
+pub(crate) struct RefundRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    #[serde(rename = "paymentId")]
+    pub(crate) payment_id: &'a str,
+    pub(crate) price: String,
+    pub(crate) currency: &'a str,
+}
+
+/// `POST /payment/refund` — an amount off one line of a payment.
+#[derive(Debug, Serialize)]
+pub(crate) struct RefundTransactionRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    #[serde(rename = "paymentTransactionId")]
+    pub(crate) payment_transaction_id: &'a str,
+    pub(crate) price: String,
+    pub(crate) currency: &'a str,
+}
+
+/// `POST /payment/cancel`.
+#[derive(Debug, Serialize)]
+pub(crate) struct CancelRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    #[serde(rename = "paymentId")]
+    pub(crate) payment_id: &'a str,
+}
+
+/// The answer to either refund, and to a cancel.
+#[derive(Debug, Deserialize)]
+pub(crate) struct ReversalResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "paymentId")]
+    pub(crate) payment_id: Option<String>,
+    pub(crate) price: Option<String>,
+    pub(crate) currency: Option<String>,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: Option<String>,
+    #[serde(rename = "hostReference")]
+    pub(crate) host_reference: Option<String>,
+    /// iyzico's own word on whether a failed reversal is worth sending again.
+    pub(crate) retryable: Option<bool>,
+    pub(crate) signature: Option<String>,
+}

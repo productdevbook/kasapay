@@ -307,6 +307,137 @@ impl Client {
         }
     }
 
+    /// Takes an amount back off a payment.
+    ///
+    /// `/v2/payment/refund`, which refunds against the payment as a whole. Use
+    /// [`Client::refund_transaction`] to take it off one line of a basket
+    /// instead — a shop refunding one returned item of three wants that one.
+    ///
+    /// Repeated partial refunds are normal and iyzico allows them up to the
+    /// amount captured.
+    pub async fn refund(&self, payment: &PaymentId, amount: Money) -> Result<Reversal, Error> {
+        let body = wire::RefundRequest {
+            locale: "tr",
+            conversation_id: payment.as_str(),
+            payment_id: payment.as_str(),
+            price: amount.to_decimal_string(),
+            currency: amount.currency().code(),
+        };
+        let (response, raw) = self
+            .post::<_, wire::ReversalResponse>("/v2/payment/refund", &body)
+            .await?;
+        self.into_reversal(response, raw, true)
+    }
+
+    /// Takes an amount back off one line of a payment.
+    ///
+    /// `paymentTransactionId` names the line, and comes from the payment's own
+    /// `itemTransactions`. It is not the payment id.
+    pub async fn refund_transaction(
+        &self,
+        transaction: &str,
+        amount: Money,
+    ) -> Result<Reversal, Error> {
+        let body = wire::RefundTransactionRequest {
+            locale: "tr",
+            conversation_id: transaction,
+            payment_transaction_id: transaction,
+            price: amount.to_decimal_string(),
+            currency: amount.currency().code(),
+        };
+        let (response, raw) = self
+            .post::<_, wire::ReversalResponse>("/payment/refund", &body)
+            .await?;
+        self.into_reversal(response, raw, true)
+    }
+
+    /// Voids a payment outright, before it settles.
+    ///
+    /// Same-day only, and all of it — there is no partial cancel. After
+    /// settlement the answer is a refund instead.
+    ///
+    /// # Not signed
+    ///
+    /// iyzico's cancel response carries no `signature`, so unlike a refund it
+    /// cannot be shown to have come from them. A forged one would say a
+    /// payment was voided when it was not. Read
+    /// [`Client::charge_status`](Client::checkout_result) afterwards if that
+    /// matters to the caller's ledger.
+    pub async fn cancel(&self, payment: &PaymentId) -> Result<Reversal, Error> {
+        let body = wire::CancelRequest {
+            locale: "tr",
+            conversation_id: payment.as_str(),
+            payment_id: payment.as_str(),
+        };
+        let (response, raw) = self
+            .post::<_, wire::ReversalResponse>("/payment/cancel", &body)
+            .await?;
+        self.into_reversal(response, raw, false)
+    }
+
+    /// Reads a refund or cancel, verifying it where iyzico signs it.
+    fn into_reversal(
+        &self,
+        response: wire::ReversalResponse,
+        raw: Raw,
+        signed: bool,
+    ) -> Result<Reversal, Error> {
+        if matches!(response.status.as_deref(), Some(s) if !s.eq_ignore_ascii_case("success")) {
+            // iyzico says itself whether this is worth sending again, so the
+            // kind follows their word rather than a guess about the message.
+            let kind = if response.retryable == Some(true) {
+                ErrorKind::Provider
+            } else {
+                ErrorKind::InvalidRequest
+            };
+            let error = Error::new(
+                kind,
+                PROVIDER,
+                response
+                    .error_message
+                    .unwrap_or_else(|| "iyzico refused the reversal".to_owned()),
+            );
+            return Err(match response.error_code {
+                Some(code) => error.with_code(code),
+                None => error,
+            });
+        }
+
+        let price = response.price.clone().unwrap_or_default();
+        if signed {
+            self.check_signature(
+                response.signature.as_deref(),
+                &[
+                    response.payment_id.as_deref().unwrap_or_default(),
+                    signature::signed_amount(&price),
+                    response.currency.as_deref().unwrap_or_default(),
+                    response.conversation_id.as_deref().unwrap_or_default(),
+                ],
+            )?;
+        }
+
+        let currency = response
+            .currency
+            .as_deref()
+            .map_or(Ok(Currency::Try), str::parse)
+            .map_err(|e: kasapay_core::UnknownCurrency| {
+                Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
+            })?;
+        let amount = if price.is_empty() {
+            Money::from_minor_units(0, currency)
+        } else {
+            Money::parse(&price, currency)
+                .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
+        };
+
+        Ok(Reversal {
+            payment: PaymentId::new(response.payment_id.unwrap_or_default()),
+            amount,
+            host_reference: response.host_reference.map(String::into_boxed_str),
+            raw,
+        })
+    }
+
     /// Lists the cards stored against a user key.
     ///
     /// No card number goes either way: the request carries the user key and
@@ -559,6 +690,19 @@ fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Res
         provider: PROVIDER,
         raw,
     })
+}
+
+/// Money taken back off a payment, by a refund or a cancel.
+#[derive(Debug, Clone)]
+pub struct Reversal {
+    /// The payment it came off.
+    pub payment: PaymentId,
+    /// How much was taken back.
+    pub amount: Money,
+    /// The bank's own reference, for reconciling against a statement.
+    pub host_reference: Option<Box<str>>,
+    /// iyzico's own response, untouched.
+    pub raw: Raw,
 }
 
 /// A card iyzico holds for a user, named by a token rather than a number.
