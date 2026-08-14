@@ -42,6 +42,10 @@ pub(crate) fn amount(minor_units: i64, from: &stripe_types::Currency) -> Result<
 /// `RequiresPaymentMethod` and `RequiresConfirmation` land on
 /// [`Status::RequiresAction`] with `RequiresAction` itself: from the caller's
 /// side all three say the same thing — stalled until the payer acts.
+#[expect(
+    clippy::match_same_arms,
+    reason = "naming Processing is worth more than folding it into the wildcard"
+)]
 pub(crate) fn status(status: &stripe_shared::PaymentIntentStatus) -> Status {
     use stripe_shared::PaymentIntentStatus as S;
     match status {
@@ -51,9 +55,10 @@ pub(crate) fn status(status: &stripe_shared::PaymentIntentStatus) -> Status {
         S::RequiresAction | S::RequiresConfirmation | S::RequiresPaymentMethod => {
             Status::RequiresAction
         }
-        // Unknown is a status Stripe added since this build of async-stripe;
-        // pending is the only safe reading of one we cannot name.
-        S::Processing | S::Unknown(_) => Status::Pending,
+        S::Processing => Status::Pending,
+        // A status Stripe added since this build of async-stripe. Pending is
+        // the only safe reading of one we cannot name.
+        _ => Status::Pending,
     }
 }
 
