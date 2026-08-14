@@ -7,11 +7,11 @@
 //!
 //! | | [`in_store`] | the rest |
 //! |---|---|---|
-//! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | ordinary card payments, subscriptions, marketplace, card storage, pay-by-link |
-//! | Where | [`in_store`] | [`classic`], with [`iyzilink`] and [`subscription`] over the same client |
+//! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | ordinary card payments, subscriptions, marketplace, card storage, pay-by-link, mass payout |
+//! | Where | [`in_store`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
 //! | Authentication | three plain headers | [`IYZWSv2`](Credentials) request signing |
 //! | Currency | Turkish lira only | several |
-//! | Implemented here | four of twelve operations | twenty-five of eighty-four |
+//! | Implemented here | four of twelve operations | thirty-one of eighty-four |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
 //! likely reason for the split. Whether the plain headers are the current
@@ -41,21 +41,24 @@
 //! security scheme means the fragment was silent, not that the endpoint is
 //! open.
 //!
-//! Ninety-six operations across eleven groups. Twenty-nine are implemented.
+//! Ninety-six operations across eleven groups. Thirty-five are implemented.
 //!
 //! # Not every response is signed
 //!
 //! iyzico signs the money-moving ones and this crate refuses a signature that
 //! does not match. It does not sign all of them: the classic cancel carries no
-//! signature, [`iyzilink`] documents none on any of its seven, and
-//! [`subscription`] documents none on any of its twenty-four. Each module says
-//! which of its calls are checked and which are only as trustworthy as the
-//! connection they arrived over.
+//! signature, [`iyzilink`] documents none on any of its seven,
+//! [`subscription`] documents none on any of its twenty-four, and [`mass`]
+//! documents none on any of its six — including the ones that report where
+//! money that has already left got to. Each module says which of its calls are
+//! checked and which are only as trustworthy as the connection they arrived
+//! over.
 
 pub mod classic;
 mod errors;
 pub mod in_store;
 pub mod iyzilink;
+pub mod mass;
 mod signing;
 pub mod subscription;
 
