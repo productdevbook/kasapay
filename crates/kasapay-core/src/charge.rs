@@ -76,6 +76,33 @@ impl IdempotencyKey {
 }
 
 /// Where a payment stands.
+///
+/// # Not every provider can produce every one of these
+///
+/// A caller that branches on a status a provider never sends has written a
+/// branch that never runs, and the compiler cannot say so. What each adapter
+/// can actually produce, from reading their mappings:
+///
+/// | | `Pending` | `RequiresAction` | `Authorized` | `Captured` | `Failed` | `Canceled` |
+/// |---|---|---|---|---|---|---|
+/// | Stripe | yes | yes | yes | yes | **no** | yes |
+/// | iyzico `in_store` | yes | yes | no | yes | yes | yes |
+/// | iyzico `classic` | yes | yes | no | yes | yes | no |
+/// | PayTR | no | yes | no | yes | **no** | no |
+///
+/// The two marked **no** are worth knowing about.
+///
+/// **Stripe never reports `Failed`.** A PaymentIntent whose card was declined
+/// goes back to `requires_payment_method`, which arrives here as
+/// [`Status::RequiresAction`] — and that is honest, because the payer can try
+/// another card. A caller waiting for `Failed` from Stripe waits forever.
+///
+/// **PayTR reports only two.** Its status query answers a payment that
+/// happened or an error, so a failed payment is an `Err` rather than a
+/// `Charge` with a status. Read the error rather than the status there.
+///
+/// Each adapter's own documentation says the same thing where a reader will
+/// meet it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Status {

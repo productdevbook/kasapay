@@ -14,6 +14,11 @@
 //!   carrying the `client_secret` for Stripe.js.
 //! - [`Stripe::refund`] gives money back, and [`Stripe::cancel`] withdraws a
 //!   payment that was never captured. Neither is on the shared trait yet.
+//! - **A declined card is not [`Status::Failed`](kasapay_core::Status::Failed).**
+//!   Stripe puts such a PaymentIntent back to `requires_payment_method`, which
+//!   arrives as [`Status::RequiresAction`](kasapay_core::Status::RequiresAction)
+//!   — honest, because the payer can try another card, but a caller waiting
+//!   for `Failed` from Stripe waits forever.
 //! - Anything this crate does not model is reachable through
 //!   [`Stripe::client`], which hands back the `async-stripe` client itself.
 //!
