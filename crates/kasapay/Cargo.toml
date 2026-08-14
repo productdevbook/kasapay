@@ -35,6 +35,10 @@ name = "iyzico_checkout"
 required-features = ["iyzico"]
 
 [[example]]
+name = "iyzico_link"
+required-features = ["iyzico"]
+
+[[example]]
 name = "paytr_payment"
 required-features = ["paytr"]
 
