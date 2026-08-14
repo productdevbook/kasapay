@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use kasapay_core::{
     Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Secret, Status,
+    Provider, ProviderId, Raw, Secret, Status,
 };
 use url::Url;
 
@@ -135,7 +135,7 @@ impl Iyzico {
     async fn send<T: serde::de::DeserializeOwned>(
         &self,
         request: reqwest::RequestBuilder,
-    ) -> Result<(T, serde_json::Value), Error> {
+    ) -> Result<(T, Raw), Error> {
         let response = self
             .authenticated(request)
             .send()
@@ -149,10 +149,8 @@ impl Iyzico {
         if !status.is_success() {
             return Err(http_error(status, &body));
         }
-        let raw: serde_json::Value = serde_json::from_slice(&body).map_err(|e| {
-            Error::new(ErrorKind::Malformed, PROVIDER, "response was not JSON").with_source(e)
-        })?;
-        let typed = serde_json::from_value(raw.clone()).map_err(|e| {
+        let text = String::from_utf8_lossy(&body).into_owned();
+        let typed = serde_json::from_slice(&body).map_err(|e| {
             Error::new(
                 ErrorKind::Malformed,
                 PROVIDER,
@@ -160,7 +158,7 @@ impl Iyzico {
             )
             .with_source(e)
         })?;
-        Ok((typed, raw))
+        Ok((typed, Raw::from_text(text)))
     }
 
     /// Reads the encrypted result iyzico posts to the callback address.
@@ -362,7 +360,7 @@ fn failed(response_status: Option<&str>) -> bool {
 
 fn session_into_charge(
     response: wire::SessionResponse,
-    raw: serde_json::Value,
+    raw: Raw,
     order: Option<OrderRef>,
     amount: Option<Money>,
 ) -> Result<Charge, Error> {
@@ -417,7 +415,7 @@ fn session_into_charge(
 fn decrypted_into_charge(
     payment: &PaymentId,
     response: wire::DecryptResponse,
-    raw: serde_json::Value,
+    raw: Raw,
 ) -> Result<Charge, Error> {
     if failed(response.status.as_deref()) {
         let message = response
@@ -477,10 +475,7 @@ fn decrypted_into_charge(
     })
 }
 
-fn query_into_charge(
-    response: wire::PaymentQueryResponse,
-    raw: serde_json::Value,
-) -> Result<Charge, Error> {
+fn query_into_charge(response: wire::PaymentQueryResponse, raw: Raw) -> Result<Charge, Error> {
     if failed(response.status.as_deref()) {
         let message = response
             .error_message

@@ -7,6 +7,7 @@ use url::Url;
 
 use crate::money::{Money, MoneyError};
 use crate::provider::ProviderId;
+use crate::raw::Raw;
 
 /// Our own reference for an order, chosen by the caller.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -145,7 +146,7 @@ pub struct Charge {
     /// The provider's own response, untouched.
     ///
     /// The escape hatch: everything kasapay does not model is still here.
-    pub raw: serde_json::Value,
+    pub raw: Raw,
 }
 
 /// A charge to create.

@@ -16,7 +16,6 @@ kasapay-iyzico = { workspace = true, optional = true }
 kasapay-stripe = { workspace = true, optional = true }
 
 [dev-dependencies]
-serde_json.workspace = true
 tokio.workspace = true
 
 [features]

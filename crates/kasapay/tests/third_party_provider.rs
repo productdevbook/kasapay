@@ -15,7 +15,7 @@ use std::sync::Mutex;
 
 use kasapay::{
     Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Status, async_trait,
+    Provider, ProviderId, Raw, Status, async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -54,7 +54,7 @@ impl Provider for Kumbara {
                 continuation: Some("kmb-session".into()),
             }),
             provider: Self::ID,
-            raw: serde_json::json!({ "provider": "kumbara" }),
+            raw: Raw::from_text(r#"{"provider":"kumbara"}"#),
         })
     }
 
@@ -73,7 +73,7 @@ impl Provider for Kumbara {
             },
             next_action: None,
             provider: Self::ID,
-            raw: serde_json::Value::Null,
+            raw: Raw::default(),
         })
     }
 }
