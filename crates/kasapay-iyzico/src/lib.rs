@@ -17,6 +17,18 @@
 //! mechanism or a legacy one iyzico has not said, and this crate does not
 //! guess.
 //!
+//! # Retrying a charge is not documented as safe
+//!
+//! iyzico offers no idempotency key — [`in_store`] refuses one outright with
+//! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) rather than
+//! accepting one it cannot honour — and does not document what a reused
+//! `orderId` or `conversationId` does.
+//!
+//! So [`Error::is_retryable`](kasapay_core::Error::is_retryable) can be true
+//! for a failure whose retry might take the money twice. A bank timeout is
+//! exactly that case: nobody knows whether the first attempt went through.
+//! Read the payment back before sending it again.
+//!
 //! # Where the types come from
 //!
 //! iyzico publishes no OpenAPI document. The ones in `specs/iyzico/` are

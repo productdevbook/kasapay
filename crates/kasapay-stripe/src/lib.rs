@@ -22,6 +22,12 @@
 //! - Anything this crate does not model is reachable through
 //!   [`Stripe::client`], which hands back the `async-stripe` client itself.
 //!
+//! # Retrying
+//!
+//! Safe. `ChargeRequest::idempotency_key` is sent as Stripe's
+//! `Idempotency-Key`, so replaying a charge with the same key takes the money
+//! once. Without a key, a retry is a second charge.
+//!
 //! # Example
 //!
 //! ```no_run
