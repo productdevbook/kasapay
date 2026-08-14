@@ -1,0 +1,227 @@
+//! PayTR against a mock server, and the four hashes it signs with.
+
+#![allow(
+    clippy::expect_used,
+    reason = "a fixture that cannot be built is a failed test"
+)]
+
+use kasapay_core::{Currency, ErrorKind, Money, NextAction, OrderRef, PaymentId, Provider, Status};
+use kasapay_paytr::{Config, Credentials, PayTr, payment};
+use serde_json::json;
+use wiremock::matchers::{body_string_contains, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+fn credentials() -> Credentials {
+    Credentials::new("merchant-1", "merchant-key", "merchant-salt")
+}
+
+fn client(server: &MockServer) -> PayTr {
+    let config = Config::at(&server.uri(), credentials())
+        .expect("valid base")
+        .test_mode();
+    PayTr::new(config).expect("client builds")
+}
+
+fn payment() -> payment::Payment {
+    payment::Payment::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        payment::Payer {
+            email: "ayse@example.test".into(),
+            ip: "203.0.113.7".into(),
+            name: "Ayse Yilmaz".into(),
+            address: "Bagdat Cad. 1".into(),
+            phone: "+905350000000".into(),
+            success_url: "https://merchant.test/ok".parse().expect("valid url"),
+            failure_url: "https://merchant.test/no".parse().expect("valid url"),
+        },
+    )
+    .item(payment::BasketItem {
+        name: "Kahve".into(),
+        price: Money::parse("149.90", Currency::Try).expect("valid amount"),
+        quantity: 1,
+    })
+    .build()
+    .expect("valid payment")
+}
+
+#[tokio::test]
+async fn opening_a_payment_signs_the_documented_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/api/get-token"))
+        // Minor units, as PayTR wants: 149.90 goes as 14990.
+        .and(body_string_contains("payment_amount=14990"))
+        .and(body_string_contains("merchant_oid=ord-1"))
+        // Lira is TL to PayTR, not TRY.
+        .and(body_string_contains("currency=TL"))
+        // Computed independently from PayTR's own formula.
+        .and(body_string_contains(urlencoding(
+            "fYtW58G/x2bj+w89dUrab6MyxiTd9WMUHZC/cN6fP1o=",
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "token": "form-token-1",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .start_payment(&payment())
+        .await
+        .expect("the payment opens");
+
+    assert_eq!(charge.status, Status::RequiresAction);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+    // PayTR has no id of its own: the order reference is the payment.
+    assert_eq!(charge.id.as_str(), "ord-1");
+    match charge.next_action.expect("a form to send the payer to") {
+        NextAction::Redirect { url, continuation } => {
+            assert!(url.as_str().ends_with("/odeme/guvenli/form-token-1"));
+            assert_eq!(continuation.as_deref(), Some("form-token-1"));
+        }
+        other => panic!("expected a redirect, got {other:?}"),
+    }
+}
+
+/// What `reqwest`'s form encoder does to a base64 token.
+fn urlencoding(value: &str) -> String {
+    value
+        .replace('+', "%2B")
+        .replace('/', "%2F")
+        .replace('=', "%3D")
+}
+
+#[tokio::test]
+async fn a_refused_token_carries_paytrs_own_error_number() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/api/get-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failed",
+            "reason": "gecersiz paytr_token",
+            "err_no": "007",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .start_payment(&payment())
+        .await
+        .expect_err("a refused token is not a payment");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.code(), Some("007"));
+}
+
+#[tokio::test]
+async fn reading_a_payment_back_names_it_by_the_order_reference() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .and(body_string_contains("merchant_oid=ord-1"))
+        .and(body_string_contains(urlencoding(
+            "S/fQPpCh73HbzZKzjIYGi8Cp7IBtQ0uAP0VjUA+l2ho=",
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payment_amount": "149.90",
+            "currency": "TL",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .charge_status(&PaymentId::new("ord-1"))
+        .await
+        .expect("the payment reads back");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+    assert_eq!(charge.amount.currency(), Currency::Try);
+}
+
+#[tokio::test]
+async fn a_payment_paytr_does_not_know_is_not_found() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failed",
+            "err_no": "010",
+            "reason": "islem bulunamadi",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .charge_status(&PaymentId::new("ord-nope"))
+        .await
+        .expect_err("no such payment");
+    assert_eq!(error.kind(), ErrorKind::NotFound);
+}
+
+#[tokio::test]
+async fn starting_a_payment_through_the_shared_trait_is_refused_with_the_way_out() {
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("PayTR needs more than a ChargeRequest carries");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert!(error.to_string().contains("start_payment"));
+}
+
+#[test]
+fn a_payment_notice_verifies_against_paytrs_hash() {
+    // The salt sits between the order reference and the outcome here, unlike
+    // every other call, which is the mistake this test exists to catch.
+    let hash = "bGOjbiyL0EfGqNehYd/+AxWSZyvFgfp4Uc+KUiqnfsc=";
+    assert!(credentials().verify_callback(hash, "ord-1", "success", "14990"));
+
+    // A notice claiming ten times the amount, with the hash left alone.
+    assert!(!credentials().verify_callback(hash, "ord-1", "success", "149900"));
+    assert!(!credentials().verify_callback(hash, "ord-2", "success", "14990"));
+    assert!(!credentials().verify_callback(hash, "ord-1", "failed", "14990"));
+}
+
+#[test]
+fn a_payment_needs_an_email_a_payer_ip_and_a_basket() {
+    let payer = || payment::Payer {
+        email: "ayse@example.test".into(),
+        ip: "203.0.113.7".into(),
+        name: "Ayse Yilmaz".into(),
+        address: "Bagdat Cad. 1".into(),
+        phone: "+905350000000".into(),
+        success_url: "https://merchant.test/ok".parse().expect("valid url"),
+        failure_url: "https://merchant.test/no".parse().expect("valid url"),
+    };
+    let amount = Money::parse("149.90", Currency::Try).expect("valid amount");
+    let item = || payment::BasketItem {
+        name: "Kahve".into(),
+        price: amount,
+        quantity: 1,
+    };
+
+    assert_eq!(
+        payment::Payment::builder(OrderRef::new("ord-1"), amount, payer())
+            .build()
+            .expect_err("no basket"),
+        payment::PaymentError::EmptyBasket
+    );
+    let mut without_ip = payer();
+    without_ip.ip = "".into();
+    assert_eq!(
+        payment::Payment::builder(OrderRef::new("ord-1"), amount, without_ip)
+            .item(item())
+            .build()
+            .expect_err("PayTR refuses a token without the payer's IP"),
+        payment::PaymentError::NoPayerIp
+    );
+}

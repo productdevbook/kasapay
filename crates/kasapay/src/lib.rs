@@ -49,6 +49,9 @@ pub use kasapay_core::{
 #[cfg(feature = "iyzico")]
 #[doc(inline)]
 pub use kasapay_iyzico as iyzico;
+#[cfg(feature = "paytr")]
+#[doc(inline)]
+pub use kasapay_paytr as paytr;
 #[cfg(feature = "stripe")]
 #[doc(inline)]
 pub use kasapay_stripe as stripe;
