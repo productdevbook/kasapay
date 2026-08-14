@@ -138,21 +138,36 @@ impl IdempotencyKey {
 /// | Stripe | yes | yes | yes | yes | **no** | yes |
 /// | iyzico `in_store` | yes | yes | no | yes | yes | yes |
 /// | iyzico `classic` | yes | yes | no | yes | yes | no |
-/// | PayTR | no | yes | no | yes | **no** | no |
+/// | PayTR | no | yes | no | yes | notice only | no |
 ///
-/// The two marked **no** are worth knowing about.
+/// Two of those cells are worth knowing about.
 ///
 /// **Stripe never reports `Failed`.** A PaymentIntent whose card was declined
 /// goes back to `requires_payment_method`, which arrives here as
 /// [`Status::RequiresAction`] — and that is honest, because the payer can try
 /// another card. A caller waiting for `Failed` from Stripe waits forever.
 ///
-/// **PayTR reports only two.** Its status query answers a payment that
-/// happened or an error, so a failed payment is an `Err` rather than a
-/// `Charge` with a status. Read the error rather than the status there.
+/// **PayTR reports a refusal only on the payment notice.** Its status query
+/// answers a payment that succeeded or an error, so `Failed` comes from
+/// `Notice::charge` and never from `charge_status`. Worse, that error is the
+/// same for a payment PayTR refused and an order it has never heard of —
+/// `ErrorKind::NotFound` either way, because PayTR sends nothing that
+/// separates them.
 ///
 /// Each adapter's own documentation says the same thing where a reader will
 /// meet it.
+///
+/// # Nothing here says a payment was refunded
+///
+/// No provider reports one as a status. Stripe's PaymentIntent stays
+/// `succeeded` with the refunds beside it, PayTR lists them on the payment,
+/// and iyzico's In-Store receipt sets a flag on a payment that is still
+/// captured. A variant only one of them could ever produce would be a branch
+/// that never runs for the others.
+///
+/// So "how much of this has gone back" is the adapter's own refunds — Stripe's
+/// and PayTR's both answer a list — summed with [`Money::checked_add`] and
+/// compared against [`Charge::amount`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Status {
