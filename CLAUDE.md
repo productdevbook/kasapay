@@ -24,6 +24,21 @@ the colon, no full stop.
 The body says why, not what — the diff already says what. Measurements, run
 ids and PR numbers belong here rather than in code comments.
 
+## Actions are pinned to commits
+
+Every `uses:` in `.github/workflows` names a full commit SHA, with the tag it
+came from in a trailing comment. A tag is a mutable pointer: whoever owns the
+action can move it, and `release.yml` holds the crates.io publish token while
+`spec-drift.yml` can write to the repository.
+
+Two of them read their own ref name to decide what to install —
+`dtolnay/rust-toolchain` and `taiki-e/install-action` — so pinning the ref
+means passing `toolchain:` or `tool:` explicitly. Pinning without that
+silently installs the wrong thing.
+
+To update one: resolve the new tag to its commit and change both the SHA and
+the comment.
+
 ## Dependencies
 
 `deny.toml` says what the tree may contain: permissive licences only, no

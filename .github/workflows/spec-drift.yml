@@ -17,8 +17,8 @@ jobs:
   refetch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
       - run: pip install pyyaml openapi-spec-validator
@@ -30,7 +30,7 @@ jobs:
       - name: The refetched specs must still be valid
         run: python3 scripts/validate_specs.py --strict
       - name: Open a pull request if anything moved
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           branch: spec-drift
           title: "specs: upstream API descriptions moved"
