@@ -67,7 +67,10 @@
 //! ```
 
 mod client;
+mod signing;
 mod wire;
 
 #[doc(inline)]
 pub use crate::client::{Config, Iyzico};
+#[doc(inline)]
+pub use crate::signing::Credentials;
