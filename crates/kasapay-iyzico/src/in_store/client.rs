@@ -395,6 +395,7 @@ fn session_into_charge(
         id: PaymentId::new(payment_id.to_string()),
         order,
         amount: amount.unwrap_or_else(|| Money::from_minor_units(0, Currency::Try)),
+        order_amount: None,
         status: if next_action.is_some() {
             Status::RequiresAction
         } else {

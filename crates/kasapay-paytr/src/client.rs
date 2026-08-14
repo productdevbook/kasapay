@@ -190,6 +190,9 @@ impl PayTr {
             id: PaymentId::new(payment.order.as_str()),
             order: Some(payment.order.clone()),
             amount: payment.amount,
+            // Nothing is charged yet, so the surcharge is not known: the
+            // status query is what reports the pair.
+            order_amount: None,
             status: Status::RequiresAction,
             next_action: Some(NextAction::Redirect {
                 url: Url::parse(&url).map_err(|e| {
@@ -436,11 +439,19 @@ impl Provider for PayTr {
             .transpose()
             .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))?
             .unwrap_or_else(|| Money::from_minor_units(0, currency));
+        let order_amount = response
+            .payment_amount
+            .as_deref()
+            .map(|value| Money::parse(value, currency))
+            .transpose()
+            .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))?
+            .filter(|order| *order != amount);
 
         Ok(Charge {
             id: id.clone(),
             order: Some(OrderRef::new(id.as_str())),
             amount,
+            order_amount,
             // A durum-sorgu that answers success means the payment succeeded;
             // a failed or unstarted one is a failure status with a reason.
             status: Status::Captured,

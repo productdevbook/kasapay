@@ -227,6 +227,7 @@ impl Client {
             id: PaymentId::new(token.as_str()),
             order: Some(form.order.clone()),
             amount: form.paid_price,
+            order_amount: (form.price != form.paid_price).then_some(form.price),
             status: Status::RequiresAction,
             next_action: Some(NextAction::Redirect {
                 url: Url::parse(&page).map_err(|e| {
@@ -673,6 +674,13 @@ fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Res
         .transpose()
         .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
         .unwrap_or_else(|| Money::from_minor_units(0, currency));
+    let order_amount = response
+        .price
+        .as_deref()
+        .map(|price| Money::parse(price, currency))
+        .transpose()
+        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
+        .filter(|basket| *basket != amount);
 
     let status = match response.payment_status.as_deref() {
         Some("SUCCESS") => Status::Captured,
@@ -686,6 +694,7 @@ fn into_checkout_charge(response: wire::CheckoutResultResponse, raw: Raw) -> Res
         id: PaymentId::new(response.payment_id.unwrap_or_default()),
         order: response.basket_id.map(kasapay_core::OrderRef::new),
         amount,
+        order_amount,
         status,
         next_action: None,
         provider: PROVIDER,

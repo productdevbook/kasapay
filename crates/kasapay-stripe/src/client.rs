@@ -251,6 +251,9 @@ fn into_charge(intent: &stripe_shared::PaymentIntent) -> Result<Charge, Error> {
         id: PaymentId::new(intent.id.as_str()),
         order,
         amount,
+        // Stripe has no basket at the PaymentIntent level, so there is nothing
+        // to say here rather than something equal.
+        order_amount: None,
         status,
         next_action,
         provider: convert::PROVIDER,

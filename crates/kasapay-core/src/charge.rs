@@ -135,8 +135,19 @@ pub struct Charge {
     pub id: PaymentId,
     /// The order reference the charge was created against, when the provider kept it.
     pub order: Option<OrderRef>,
-    /// The amount.
+    /// What the payer is charged. The money that moves.
+    ///
+    /// Not always what the goods came to: an instalment surcharge lands here
+    /// and not on the basket. This is the figure that reconciles against a
+    /// bank statement.
     pub amount: Money,
+    /// What the goods came to, when the provider reports it separately and it
+    /// differs from [`Charge::amount`].
+    ///
+    /// `None` does not mean the two are equal — it means this provider does
+    /// not say. Stripe has no basket at all at the payment level, so it never
+    /// answers; iyzico's `price` and PayTR's `payment_amount` do.
+    pub order_amount: Option<Money>,
     /// Where it stands.
     pub status: Status,
     /// What the payer must do next, if anything.

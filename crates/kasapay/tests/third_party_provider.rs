@@ -48,6 +48,7 @@ impl Provider for Kumbara {
             id: PaymentId::new(format!("kmb_{}", request.order)),
             order: Some(request.order.clone()),
             amount: request.amount,
+            order_amount: None,
             status: Status::RequiresAction,
             next_action: Some(NextAction::Redirect {
                 url: "https://kumbara.test/approve".parse().expect("valid url"),
@@ -66,6 +67,7 @@ impl Provider for Kumbara {
             id: id.clone(),
             order: None,
             amount: Money::from_minor_units(1000, Currency::Try),
+            order_amount: None,
             status: if settled {
                 Status::Captured
             } else {
