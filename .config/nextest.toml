@@ -1,0 +1,13 @@
+[profile.default]
+failure-output = "immediate-final"
+fail-fast = false
+
+[profile.ci]
+failure-output = "immediate-final"
+fail-fast = false
+retries = 0
+status-level = "skip"
+final-status-level = "slow"
+
+[profile.ci.junit]
+path = "junit.xml"

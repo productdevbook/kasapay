@@ -1,0 +1,14 @@
+{
+  "source": "https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md",
+  "fetched": "2026-08-14",
+  "upstream_sha256": "0e8d484495c2d9daff8d00c68a37767e663b26bb82a13a7099adf01f4f09ca0c",
+  "operations": [
+    "DELETE /user",
+    "GET /payment/query",
+    "GET /user/list",
+    "POST /crypt/decrypt",
+    "POST /payment/init",
+    "POST /payment/refund",
+    "POST /user"
+  ]
+}

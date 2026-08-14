@@ -1,0 +1,25 @@
+[package]
+name = "kasapay-stripe"
+description = "Stripe adapter for kasapay, over the async-stripe client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+kasapay-core.workspace = true
+async-stripe.workspace = true
+async-stripe-core.workspace = true
+async-stripe-shared.workspace = true
+async-stripe-types.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,52 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# The minimum edition 2024 needs. Raised only when something here stops
+# compiling on it, never to follow the current stable.
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/productdevbook/kasapay"
+authors = ["kasapay contributors"]
+keywords = ["payments", "stripe", "iyzico"]
+categories = ["api-bindings", "web-programming"]
+
+[workspace.dependencies]
+kasapay-core = { version = "0.1.0", path = "crates/kasapay-core" }
+kasapay-iyzico = { version = "0.1.0", path = "crates/kasapay-iyzico" }
+kasapay-stripe = { version = "0.1.0", path = "crates/kasapay-stripe" }
+
+async-trait = "0.1.92"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["raw_value"] }
+thiserror = "2.0.20"
+tracing = "0.1.44"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls-tls"] }
+url = "2.5.8"
+
+# The 1.0 line is a prerelease but it is the maintained one: rc.8 is newer than
+# 0.41 and it is what the weekly OpenAPI regeneration lands on. Pinned exactly
+# because a prerelease may break between candidates.
+async-stripe = { version = "=1.0.0-rc.8", default-features = false, features = ["rustls-tls-native"] }
+async-stripe-core = { version = "=1.0.0-rc.8", default-features = false, features = ["payment_intent"] }
+async-stripe-shared = { version = "=1.0.0-rc.8", default-features = false }
+async-stripe-types = { version = "=1.0.0-rc.8", default-features = false }
+
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+wiremock = "0.6.5"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+unwrap_used = "warn"
+expect_used = "warn"

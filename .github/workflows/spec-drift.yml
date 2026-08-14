@@ -1,0 +1,41 @@
+name: Spec drift
+
+# Refetches each provider's API description and opens a pull request when it
+# has moved. A red diff here is the early warning that an adapter is about to
+# be wrong; nothing is applied automatically.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install pyyaml
+      - name: Refetch the specs under today's date
+        run: |
+          set -euo pipefail
+          python3 scripts/merge_iyzico.py
+          python3 scripts/fetch_stripe.py
+      - name: Open a pull request if anything moved
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: spec-drift
+          title: "specs: upstream API descriptions moved"
+          commit-message: "specs: refetch provider API descriptions"
+          body: |
+            The scheduled refetch found a change in at least one provider's API
+            description. Read the diff under `specs/` before merging: a changed
+            operation or schema is a change the adapters may need.
+          labels: specs
+          delete-branch: true
