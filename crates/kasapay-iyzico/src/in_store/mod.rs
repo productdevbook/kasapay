@@ -31,7 +31,7 @@
 //!
 //! **v3.** iyzico documents the operation twice, and the two are not two
 //! versions of one endpoint to choose between: they belong to two separate
-//! integrations, App2App V2 and App2App V3, each with its own documentation
+//! integrations, `App2App V2` and `App2App V3`, each with its own documentation
 //! section and its own paths. Only `/crypt/decrypt` is spelled the same in
 //! both. Everything else differs — V2 lists users at
 //! `/v2/in-store/user-info/list` and starts a payment at `/v2/in-store/payment`,
