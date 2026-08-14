@@ -30,7 +30,7 @@ url = "2.5.8"
 # The 1.0 line is a prerelease but it is the maintained one: rc.8 is newer than
 # 0.41 and it is what the weekly OpenAPI regeneration lands on. Pinned exactly
 # because a prerelease may break between candidates.
-async-stripe = { version = "=1.0.0-rc.8", default-features = false, features = ["rustls-tls-native"] }
+async-stripe = { version = "=1.0.0-rc.8", default-features = false, features = ["rustls-tls-native", "rustls-aws-lc-rs"] }
 async-stripe-core = { version = "=1.0.0-rc.8", default-features = false, features = ["payment_intent"] }
 async-stripe-shared = { version = "=1.0.0-rc.8", default-features = false }
 async-stripe-types = { version = "=1.0.0-rc.8", default-features = false }
