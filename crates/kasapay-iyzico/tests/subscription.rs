@@ -84,7 +84,7 @@ fn product() -> serde_json::Value {
     })
 }
 
-fn envelope(data: serde_json::Value) -> serde_json::Value {
+fn envelope(data: &serde_json::Value) -> serde_json::Value {
     json!({
         "status": "success",
         "systemTime": 1_770_000_000_000_i64,
@@ -117,7 +117,7 @@ async fn creating_a_product_sends_the_documented_body_and_reads_it_back() {
             "name": "A Dergisi",
             "description": "Aylık dergi",
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(product())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&product())))
         .mount(&server)
         .await;
 
@@ -159,7 +159,7 @@ async fn a_product_with_no_description_sends_none() {
     Mock::given(method("POST"))
         .and(path("/v2/subscription/products"))
         .and(body_json(json!({ "locale": "tr", "name": "B Dergisi" })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(product())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&product())))
         .mount(&server)
         .await;
 
@@ -269,7 +269,7 @@ async fn reading_a_product_names_the_reference_in_the_path_and_sends_no_body() {
     Mock::given(method("GET"))
         .and(path(format!("/v2/subscription/products/{PRODUCT}")))
         .and(query_param("locale", "tr"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(product())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&product())))
         .mount(&server)
         .await;
 
@@ -291,7 +291,7 @@ async fn an_update_replaces_the_name_and_the_description() {
             "name": "A Dergisi Premium",
             "description": "Aylık dergi, ekli içerikle",
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(product())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&product())))
         .mount(&server)
         .await;
 
@@ -349,7 +349,7 @@ async fn creating_a_plan_names_the_product_in_the_path_and_in_the_body() {
             "recurrenceCount": 12,
             "trialPeriodDays": 14,
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(plan())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&plan())))
         .mount(&server)
         .await;
 
@@ -385,7 +385,7 @@ async fn a_plan_charged_every_other_week_says_so() {
             "paymentIntervalCount": 2,
             "planPaymentType": "RECURRING",
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(plan())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&plan())))
         .mount(&server)
         .await;
 
@@ -415,7 +415,7 @@ async fn a_plan_update_carries_a_name_and_a_trial_and_nothing_else() {
             "name": "A Dergisi aylık (yeni)",
             "trialPeriodDays": 30,
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(plan())))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&plan())))
         .mount(&server)
         .await;
 
@@ -473,7 +473,7 @@ async fn reading_a_plan_takes_the_price_iyzico_sent_as_a_number() {
     Mock::given(method("GET"))
         .and(path(format!("/v2/subscription/pricing-plans/{PLAN}")))
         .and(query_param("locale", "tr"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(body)))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&body)))
         .mount(&server)
         .await;
 
@@ -492,7 +492,7 @@ async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
     body["currencyCode"] = json!("RUB");
     Mock::given(method("GET"))
         .and(path(format!("/v2/subscription/pricing-plans/{PLAN}")))
-        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(body)))
+        .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&body)))
         .mount(&server)
         .await;
 
