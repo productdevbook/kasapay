@@ -1,0 +1,24 @@
+name: Audit
+
+# A vulnerability advisory lands against a dependency tree that has not
+# changed, so the check on push is not enough on its own: a release that was
+# clean when it merged is not clean forever. This is the same check on a
+# clock, and it opens nothing and merges nothing — it fails, and somebody
+# looks.
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories

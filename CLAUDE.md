@@ -24,6 +24,14 @@ the colon, no full stop.
 The body says why, not what — the diff already says what. Measurements, run
 ids and PR numbers belong here rather than in code comments.
 
+## Dependencies
+
+`deny.toml` says what the tree may contain: permissive licences only, no
+wildcard versions, nothing from outside crates.io, and no known vulnerability.
+CI checks it on every push, and `audit.yml` checks the advisories again daily —
+an advisory lands against a tree that has not changed, so a clean run at merge
+time does not stay clean.
+
 ## Changelog
 
 `CHANGELOG.md` is kept by hand. A change that would make somebody's code stop

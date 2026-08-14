@@ -1,0 +1,42 @@
+# What this workspace will accept from its dependency tree.
+#
+# Read by cargo-deny in CI, on every push and again on a schedule — an
+# advisory lands against a tree that has not changed, so a green run today
+# says nothing about tomorrow.
+
+[graph]
+all-features = true
+
+[advisories]
+# A known vulnerability in anything reachable from a payments library is a
+# release blocker, not a warning.
+yanked = "deny"
+
+# Spelled the way cargo-deny spells it: a config key is an identifier, not
+# prose, and the rest of this repository writes British English.
+[licenses]
+# Permissive only. Anything copyleft in the tree is a decision for a person to
+# make, not for a resolver to make quietly.
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+]
+
+[bans]
+multiple-versions = "warn"
+# A wildcard version is an unreviewable dependency: it can become anything.
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

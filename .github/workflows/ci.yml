@@ -64,6 +64,15 @@ jobs:
       - run: pip install pyyaml openapi-spec-validator
       - run: python3 scripts/validate_specs.py --strict
 
+  dependencies:
+    name: dependencies are sound and permissively licensed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources
+
   features:
     name: every feature combination compiles
     runs-on: ubuntu-latest
