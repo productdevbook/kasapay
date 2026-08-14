@@ -163,6 +163,46 @@ impl Iyzico {
         Ok((typed, raw))
     }
 
+    /// Reads the encrypted result iyzico posts to the callback address.
+    ///
+    /// This is how an In-Store payment finishes. [`Provider::charge`] hands
+    /// back a [`NextAction::Redirect`] whose `continuation` is the
+    /// `paymentSessionToken`; when the payer is done, iyzico posts an
+    /// encrypted `data` blob to the `x-callback-url`, and this is what opens
+    /// it. Without it a caller has no supported way to learn the outcome
+    /// except to poll [`Provider::charge_status`].
+    ///
+    /// The `payment` argument is the [`PaymentId`] from the charge that
+    /// started this. The decrypted body does not carry one — it has a
+    /// `recordId`, which is a different identifier and not the one
+    /// `charge_status` or `refund` accept.
+    ///
+    /// # Which version
+    ///
+    /// This calls `/crypt/decrypt` under the configured base, so `/v3` for the
+    /// default configuration. iyzico also documents the same operation under
+    /// `/v2/in-store` with identical request and response bodies; whether that
+    /// is the deprecated one or the live one is not settled — see the crate
+    /// docs. Point [`Config::new`] at the v2 base to reach it.
+    pub async fn decrypt_callback(
+        &self,
+        payment: &PaymentId,
+        data: &str,
+        session_token: &str,
+    ) -> Result<Charge, Error> {
+        let body = wire::DecryptRequest {
+            data,
+            payment_session_token: session_token,
+        };
+        let request = self
+            .inner
+            .http
+            .post(self.endpoint("crypt/decrypt")?)
+            .json(&body);
+        let (response, raw) = self.send::<wire::DecryptResponse>(request).await?;
+        decrypted_into_charge(payment, response, raw)
+    }
+
     /// Cancels or refunds a payment, in whole or in part.
     ///
     /// Like [`Provider::charge`], this only starts the flow: the payer
@@ -363,6 +403,75 @@ fn session_into_charge(
             Status::Pending
         },
         next_action,
+        provider: PROVIDER,
+        raw,
+    })
+}
+
+/// Reads a decrypted callback as a [`Charge`].
+///
+/// The receipt's three approval flags are the only thing saying which operation
+/// the callback reports on. A refund's outcome has nowhere to go in [`Status`],
+/// which has no refunded variant, so a refunded payment stays [`Status::Captured`]
+/// and the flags are left on [`Charge::raw`].
+fn decrypted_into_charge(
+    payment: &PaymentId,
+    response: wire::DecryptResponse,
+    raw: serde_json::Value,
+) -> Result<Charge, Error> {
+    if failed(response.status.as_deref()) {
+        let message = response
+            .error_message
+            .unwrap_or_else(|| "iyzico refused to decrypt the callback".to_owned());
+        let error = Error::new(ErrorKind::InvalidRequest, PROVIDER, message);
+        return Err(match response.error_code {
+            Some(code) => error.with_code(code),
+            None => error,
+        });
+    }
+    let transaction = response
+        .operation
+        .as_ref()
+        .and_then(|o| o.transaction.as_ref())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                "a decrypted callback carried no transaction",
+            )
+        })?;
+
+    let currency = transaction
+        .currency_code
+        .as_deref()
+        .map_or(Ok(Currency::Try), str::parse)
+        .map_err(|e: kasapay_core::UnknownCurrency| {
+            Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
+        })?;
+    let amount = transaction
+        .amount
+        .as_ref()
+        .map(|n| Money::parse(&n.to_string(), currency))
+        .transpose()
+        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
+        .unwrap_or_else(|| Money::from_minor_units(0, currency));
+
+    let receipt = transaction.receipt.as_ref();
+    let flag = |f: fn(&wire::SettledReceipt) -> Option<bool>| receipt.and_then(f).unwrap_or(false);
+    let status = if flag(|r| r.void_approved) {
+        Status::Canceled
+    } else if flag(|r| r.approved) || flag(|r| r.refund_approved) {
+        Status::Captured
+    } else {
+        Status::Failed
+    };
+
+    Ok(Charge {
+        id: payment.clone(),
+        order: None,
+        amount,
+        status,
+        next_action: None,
         provider: PROVIDER,
         raw,
     })
