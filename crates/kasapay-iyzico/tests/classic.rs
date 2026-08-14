@@ -754,3 +754,58 @@ async fn refunding_one_line_of_a_basket_names_the_transaction_not_the_payment() 
         .expect_err("no such transaction");
     assert_eq!(error.code(), Some("5092"));
 }
+
+#[tokio::test]
+async fn the_classic_client_answers_charge_status_through_the_shared_trait() {
+    use kasapay_core::Provider as _;
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .and(body_json(json!({ "locale": "tr", "token": "cf-token-1" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            "currency": "TRY",
+            "token": "cf-token-1",
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
+        })))
+        .mount(&server)
+        .await;
+
+    // A caller holding Arc<dyn Provider> can read a classic payment back.
+    let provider: Box<dyn kasapay_core::Provider> = Box::new(client(&server));
+    // The id is the form's token, which is what start_checkout_form put there.
+    let charge = provider
+        .charge_status(&PaymentId::new("cf-token-1"))
+        .await
+        .expect("the payment reads back");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(provider.id(), kasapay_core::ProviderId::IYZICO);
+}
+
+#[tokio::test]
+async fn the_classic_client_refuses_to_start_a_payment_through_the_trait() {
+    use kasapay_core::Provider as _;
+
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("the hosted form needs more than a ChargeRequest carries");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    assert!(error.to_string().contains("start_checkout_form"));
+}

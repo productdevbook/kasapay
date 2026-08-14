@@ -17,6 +17,13 @@
 //! - [`Client::refund`] and [`Client::refund_transaction`] — take money back
 //! - [`Client::cancel`] — void a payment before it settles
 //!
+//! [`Client`] implements [`Provider`](kasapay_core::Provider), but only half
+//! of it: `charge_status` reads a payment back, and `charge` answers
+//! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) because
+//! the hosted form needs more than `ChargeRequest` carries. That is the line
+//! the shared trait sits on — it can say what happened to a payment, and not
+//! how to start one.
+//!
 //! The checkout form is how most integrations should take a payment here:
 //! iyzico hosts the form and collects the card, so nothing sensitive crosses
 //! the caller's server.
