@@ -168,6 +168,60 @@ async fn a_refused_card_becomes_a_decline() {
 
     assert_eq!(error.kind(), ErrorKind::Declined);
     assert!(!error.is_retryable());
+    // The specific reason, which is what a shop shows the shopper — not the
+    // general `card_declined`.
+    assert_eq!(error.code(), Some("insufficient_funds"));
+    // Stripe's own sentence, not a Debug dump of their error struct.
+    assert!(
+        error.to_string().contains("insufficient funds"),
+        "unhelpful message: {error}"
+    );
+}
+
+#[tokio::test]
+async fn a_decline_with_no_decline_code_falls_back_to_the_general_one() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents"))
+        .respond_with(ResponseTemplate::new(402).set_body_json(json!({
+            "error": {
+                "type": "card_error",
+                "code": "expired_card",
+                "message": "Your card has expired.",
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .charge(&charge_request())
+        .await
+        .expect_err("an expired card is not a charge");
+    assert_eq!(error.kind(), ErrorKind::Declined);
+    assert_eq!(error.code(), Some("expired_card"));
+}
+
+#[tokio::test]
+async fn stripes_own_fault_is_retryable_whatever_the_status() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents"))
+        .respond_with(ResponseTemplate::new(500).set_body_json(json!({
+            "error": {
+                "type": "api_error",
+                "message": "An unexpected error occurred.",
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .charge(&charge_request())
+        .await
+        .expect_err("Stripe failed on its own side");
+    assert_eq!(error.kind(), ErrorKind::Provider);
+    assert!(error.is_retryable());
+    assert!(error.to_string().contains("unexpected error"));
 }
 
 #[tokio::test]
