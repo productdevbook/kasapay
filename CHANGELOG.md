@@ -21,6 +21,11 @@ both are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay-paytr`, a third provider.** PayTR's hosted form, status query,
+  refund and payment-notice verification. It has no payment id of its own — a
+  payment is named by the merchant's order reference — so that reference must
+  never be reused.
+
 - Two examples under `crates/kasapay/examples/`, built by CI so they cannot
   drift from the API.
 - `classic::Client` implements `Provider` for reading: `charge_status` takes

@@ -2,10 +2,10 @@
 
 One payment API in Rust, over any payment provider.
 
-Write against one trait; the provider becomes a deployment decision. Stripe and
-iyzico ship today — PayPal, Adyen, Mollie, PayTR, Param, Craftgate and the rest
-are the same shape, and a provider outside this repository is a first-class one:
-implement `Provider`, name it with `ProviderId::new`.
+Write against one trait; the provider becomes a deployment decision. Stripe,
+iyzico and PayTR ship today — PayPal, Adyen, Mollie, Param, Craftgate and the
+rest are the same shape, and a provider outside this repository is a
+first-class one: implement `Provider`, name it with `ProviderId::new`.
 
 ```toml
 kasapay = { version = "0.0.1", features = ["stripe", "iyzico"] }
@@ -45,6 +45,7 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-core` | `Money`, `Charge`, `Error`, `Provider`. No network, no HTTP client |
 | `kasapay-stripe` | over [`async-stripe`](https://github.com/arlyon/async-stripe) |
 | `kasapay-iyzico` | two iyzico APIs: `in_store` and `classic` |
+| `kasapay-paytr` | PayTR's hosted form, status, refund, payment notice |
 
 **The shared trait is `charge` and `charge_status`.** Refunds, capture and
 webhooks live on the providers for now — they enter the trait once more than
