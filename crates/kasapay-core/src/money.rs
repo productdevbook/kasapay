@@ -410,13 +410,19 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::neg_cmp_op_on_partial_ord,
+        reason = "asserting that both directions are false is the whole test"
+    )]
     fn two_currencies_have_no_order_in_either_direction() {
         let lira = Money::parse("10.00", Currency::Try).expect("valid");
         let dollars = Money::parse("10.00", Currency::Usd).expect("valid");
         assert!(lira.partial_cmp(&dollars).is_none());
+        // Checking only one direction would pass for a type that had silently
+        // become totally ordered.
         assert!(!(lira < dollars));
         assert!(!(lira >= dollars));
-        assert!(lira != dollars);
+        assert_ne!(lira, dollars);
     }
 
     #[test]
