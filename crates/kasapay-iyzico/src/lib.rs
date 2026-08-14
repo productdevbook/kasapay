@@ -1,22 +1,23 @@
 //! iyzico, behind kasapay's [`Provider`](kasapay_core::Provider) trait.
 //!
-//! # Two APIs, not one
+//! # Three APIs, not one
 //!
-//! iyzico runs two that barely resemble each other, and which one a merchant
-//! uses decides everything about how their code looks.
+//! iyzico runs three that barely resemble each other, and which one a merchant
+//! uses decides everything about how their code looks — including how it
+//! authenticates, because no two of them do it the same way.
 //!
-//! | | [`in_store`] | the rest |
-//! |---|---|---|
-//! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | ordinary card payments, subscriptions, marketplace, card storage, pay-by-link, mass payout |
-//! | Where | [`in_store`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
-//! | Authentication | three plain headers | [`IYZWSv2`](Credentials) request signing |
-//! | Currency | Turkish lira only | several |
-//! | Implemented here | four of twelve operations | thirty-one of eighty-four |
+//! | | [`in_store`] | [`terminal`] | the rest |
+//! |---|---|---|---|
+//! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | a cash register driving a physical POS device over the counter | ordinary card payments, subscriptions, marketplace, card storage, pay-by-link, mass payout |
+//! | Where | [`in_store`] | [`terminal`] | [`classic`], with [`iyzilink`], [`subscription`] and [`mass`] over the same client |
+//! | Authentication | three plain headers | an OAuth2 bearer token that expires | [`IYZWSv2`](Credentials) request signing |
+//! | Currency | Turkish lira only | lira, dollars, euro | several |
+//! | Implemented here | four of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | thirty-one of seventy |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
-//! likely reason for the split. Whether the plain headers are the current
-//! mechanism or a legacy one iyzico has not said, and this crate does not
-//! guess.
+//! likely reason [`in_store`] does not. Whether its plain headers are the
+//! current mechanism or a legacy one iyzico has not said, and this crate does
+//! not guess.
 //!
 //! # Retrying a charge is not documented as safe
 //!
@@ -41,18 +42,23 @@
 //! security scheme means the fragment was silent, not that the endpoint is
 //! open.
 //!
-//! Ninety-six operations across eleven groups. Thirty-five are implemented.
+//! Ninety-six operations across eleven groups. Forty-two are implemented.
+//!
+//! Grouping is by path, which is why three of [`terminal`]'s belong to a group
+//! named after another product: its login sits at `/in-store/oauth2/…` and is
+//! filed with In-Store's twelve. `specs/README.md` says why it is the Terminal
+//! API's all the same.
 //!
 //! # Not every response is signed
 //!
 //! iyzico signs the money-moving ones and this crate refuses a signature that
 //! does not match. It does not sign all of them: the classic cancel carries no
 //! signature, [`iyzilink`] documents none on any of its seven,
-//! [`subscription`] documents none on any of its twenty-four, and [`mass`]
-//! documents none on any of its six — including the ones that report where
-//! money that has already left got to. Each module says which of its calls are
-//! checked and which are only as trustworthy as the connection they arrived
-//! over.
+//! [`subscription`] documents none on any of its twenty-four, [`mass`] none on
+//! any of its six — including the ones that report where money that has
+//! already left got to — and [`terminal`] none on any of its fourteen. Each
+//! module says which of its calls are checked and which are only as
+//! trustworthy as the connection they arrived over.
 
 pub mod classic;
 mod errors;
@@ -61,6 +67,7 @@ pub mod iyzilink;
 pub mod mass;
 mod signing;
 pub mod subscription;
+pub mod terminal;
 
 #[doc(inline)]
 pub use crate::signing::Credentials;

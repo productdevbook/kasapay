@@ -110,6 +110,55 @@ all are the kind 0.0.x exists to make.
   `Status`'s per-provider table, in the crate documentation, and in the error's
   own message.
 
+- **`kasapay_iyzico::terminal`, iyzico's Terminal API: the OAuth2 login and
+  four of the fourteen `terminal-host` operations.** A cash register driving a
+  physical POS device over the counter — `terminal::Client::pay`, `payment`,
+  `refund` and `void`, the VUK 509 payment lifecycle. No shopper, no browser,
+  no callback: a call returns when somebody has presented a card to the
+  terminal named by `deviceUniqueId`, which is why `Config::DEFAULT_TIMEOUT`
+  here is ninety seconds where the rest of the crate waits thirty.
+
+  **The first module in this crate with an authentication of its own.**
+  `terminal::Login` performs iyzico's OAuth2 flow — `/authorize` for a
+  single-use auth code, `/token` for a bearer token, `/token/refresh` to renew
+  one — and `terminal::Client` sends the token it is given. Those three paths
+  begin `/in-store/oauth2/`, and they are the Terminal API's rather than
+  In-Store's; `specs/README.md` and the module documentation both say how that
+  was established. A caller supplies four secrets, in two pairs: the
+  `client_id` and `client_secret` iyzico issues, and the `username` and
+  `password` of the till.
+
+  **The client does not refresh the token by itself, and that is the design.**
+  It reports an expired one as `ErrorKind::Auth` — iyzico's `100311` — rather
+  than fetching another and replaying the request, because replaying
+  `Client::pay` means putting a terminal back into its card-reading state for a
+  sale that may already have been taken. `Token::expires_within` and
+  `Client::set_access_token` are what a caller renews with; the latter takes
+  `&self`, so a background task and a till can hold the same client.
+
+  The other ten operations are not here. Nine are VUK 507, which iyzico says
+  outright must not be used in the same integration as VUK 509 — a fiscal cash
+  register with sale line items, VAT groups and the buyer's tax number, not a
+  fallback within this. The tenth is VUK 509's end of day, which settles rather
+  than pays. The module documentation lists all ten with the reason for each.
+
+  **iyzico documents no response signature for any of the fourteen**, in either
+  language, so nothing here is verified — the same position `iyzilink` and
+  `subscription` are in. Terminal API refusals do not use the classic error
+  codes either: they carry an `errorGroup` beside a `380`-series code, and this
+  reads both, falling back to the classic table for the one group that forwards
+  it.
+
+  A transaction in anything but `TRY`, `USD` or `EUR` cannot be built. And
+  `terminal::Payment` is deliberately not a `Charge`: iyzico does not echo
+  `salesType` on the answer, so a successful sale and a successful
+  pre-authorisation are the same bytes, and `Captured` against `Authorized`
+  would be a guess about money that is either taken or only held.
+
+  None of it has been checked against a live account — there is no Terminal API
+  sandbox without a merchant agreement and a Pavo device. The module
+  documentation names the three things worth checking first.
+
 - **`kasapay_iyzico::mass`, all six iyzico Mass Payout operations.** Money
   going out rather than coming in: create a payout of many recipients,
   authorize it, cancel one that has not been authorized, read the merchant's

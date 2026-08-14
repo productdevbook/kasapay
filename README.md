@@ -44,7 +44,7 @@ synchronously, so kasapay does not pretend to.
 | `kasapay` | facade; providers behind features |
 | `kasapay-core` | `Money`, `Charge`, `Error`, `Provider`. No network, no HTTP client |
 | `kasapay-stripe` | over [`async-stripe`](https://github.com/arlyon/async-stripe) |
-| `kasapay-iyzico` | two iyzico APIs: `in_store` and `classic` |
+| `kasapay-iyzico` | three iyzico APIs: `in_store`, `terminal` and `classic` |
 | `kasapay-paytr` | PayTR's hosted form, status, refund, payment notice |
 
 **The shared trait is `charge`, `charge_status`, `capture` and `cancel`**, with
@@ -54,12 +54,15 @@ caller planning a checkout needs to know that before it has a payment. Refunds,
 webhooks and saved cards live on the providers for now — they enter the trait
 once more than two providers have been written against them, not before.
 
-**iyzico** is two APIs that barely resemble each other. `in_store` is the
-counter flow, authenticated with plain headers, lira only. `classic` is
-everything else, signed with `IYZWSv2`: the hosted checkout form, refunds,
-cancel, stored cards, BIN lookup — with `iyzilink`, pay-by-link, and
-`subscription`, the products and plans a recurring charge is sold out of, over
-the same client. Twenty-nine of iyzico's ninety-six documented operations, and
+**iyzico** is three APIs that barely resemble each other, and no two of them
+authenticate the same way. `in_store` is the counter flow, three plain headers,
+lira only. `terminal` is a cash register driving a physical POS device: an
+OAuth2 bearer token that expires, and a call that returns when somebody has
+presented a card. `classic` is everything else, signed with `IYZWSv2`: the
+hosted checkout form, refunds, cancel, stored cards, BIN lookup — with
+`iyzilink`, pay-by-link, `subscription`, the products and plans a recurring
+charge is sold out of, and `mass`, money going out rather than coming in, over
+the same client. Forty-two of iyzico's ninety-six documented operations, and
 none of them touches a card number.
 
 **Every iyzico response iyzico signs is verified.** They sign the money-moving
@@ -67,8 +70,9 @@ ones with an HMAC over selected fields of the reply, and kasapay refuses one
 that does not match — or one that carries no signature at all, unless you say
 otherwise. A forged callback is how a shop ships against a payment that never
 happened. Where they sign nothing there is nothing to check, and the module
-says so: the classic cancel, every one of iyzilink's seven, and every one of
-subscription's twenty-four.
+says so: the classic cancel, every one of iyzilink's seven, every one of
+subscription's twenty-four, every one of mass payout's six, and every one of
+the Terminal API's fourteen.
 
 ## Where providers differ, it says so
 
