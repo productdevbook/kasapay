@@ -1,6 +1,7 @@
 //! The In-Store API client and its [`Provider`] implementation.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use kasapay_core::{
     Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, OrderRef, PaymentId,
@@ -19,9 +20,16 @@ pub struct Config {
     api_key: Secret,
     secret_key: Secret,
     merchant_id: Secret,
+    timeout: Duration,
 }
 
 impl Config {
+    /// How long a request waits before it is given up on.
+    ///
+    /// A checkout typically holds a database transaction open across this call,
+    /// so a provider that never answers is a locked cart rather than a slow one.
+    pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
     /// The production base, `https://api.iyzipay.com/v3/in-store`.
     pub const PRODUCTION: &'static str = "https://api.iyzipay.com/v3/in-store/";
     /// The sandbox base, `https://sandbox-api.iyzipay.com/v3/in-store`.
@@ -62,7 +70,15 @@ impl Config {
             api_key: api_key.into(),
             secret_key: secret_key.into(),
             merchant_id: merchant_id.into(),
+            timeout: Self::DEFAULT_TIMEOUT,
         })
+    }
+
+    /// Changes how long a request waits, from [`Config::DEFAULT_TIMEOUT`].
+    #[must_use]
+    pub const fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
     }
 }
 
@@ -83,10 +99,14 @@ struct Inner {
 impl Iyzico {
     /// Builds a client with its own HTTP connection pool.
     pub fn new(config: Config) -> Result<Self, reqwest::Error> {
-        Ok(Self::with_http(reqwest::Client::builder().build()?, config))
+        let http = reqwest::Client::builder().timeout(config.timeout).build()?;
+        Ok(Self::with_http(http, config))
     }
 
     /// Builds a client over an HTTP client the caller already has.
+    ///
+    /// The caller's own timeout applies; [`Config::timeout`] is ignored here,
+    /// because a client that already has one should not have it overridden.
     #[must_use]
     pub fn with_http(http: reqwest::Client, config: Config) -> Self {
         Self {
