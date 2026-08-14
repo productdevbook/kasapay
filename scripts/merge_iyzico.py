@@ -500,12 +500,26 @@ def main() -> None:
         bodies = list(pool.map(fetch, urls))
 
     every: list[tuple[str, dict]] = []
+    page_notes: list[str] = []
     for url, body in zip(urls, bodies, strict=True):
-        every.extend((url, fragment) for fragment in fragments(body))
+        found = list(fragments(body))
+        every.extend((url, fragment) for fragment in found)
+        # A page whose fragments disagree about which version of the API they
+        # belong to. iyzico's In-Store V3 page carries one fragment declaring a
+        # v2 server beside six declaring v3, which is how /v2/in-store/crypt/decrypt
+        # reached this file. Both are kept — the disagreement is theirs — but a
+        # reader deciding which path to call should know it is there.
+        bases = {base_path(fragment) for fragment in found}
+        if len(bases) > 1:
+            page_notes.append(
+                f"{url}: fragments on one page declare different servers "
+                f"({', '.join(sorted(b or '/' for b in bases))}), all kept"
+            )
 
     # Deduplicate across languages before grouping, or the same operation lands
     # in two groups under two names.
     every, language_notes = combine_languages(every)
+    language_notes = page_notes + language_notes
 
     by_area: dict[str, list[tuple[str, dict]]] = {}
     for source, fragment in every:
