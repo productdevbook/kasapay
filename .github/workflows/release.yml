@@ -1,0 +1,48 @@
+name: Release
+
+# Publishes to crates.io from CI, never from a developer's machine. Runs only
+# when a tag is pushed, so a release is always a deliberate act.
+#
+# Needs a CARGO_REGISTRY_TOKEN repository secret with publish-new-crates and
+# publish-update scopes.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Package and verify without publishing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # A dependency has to exist on crates.io before the crate that names it
+      # can be published, so the order here is the dependency order.
+      - name: Package every crate
+        run: |
+          set -euo pipefail
+          for crate in kasapay-core kasapay-iyzico kasapay-stripe kasapay; do
+            cargo package -p "$crate" --allow-dirty
+          done
+
+      - name: Publish
+        if: github.event_name == 'push' || inputs.dry_run == false
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          for crate in kasapay-core kasapay-iyzico kasapay-stripe kasapay; do
+            cargo publish -p "$crate"
+          done
