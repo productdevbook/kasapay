@@ -213,10 +213,15 @@ impl Client {
         callback_url: &Url,
     ) -> Result<Charge, Error> {
         let numeric = numeric_payment_id(payment_id)?;
+        // The same value under both names iyzico documents for it. See
+        // wire::RefundRequest for why.
+        let refund_amount = amount.map(decimal_number).transpose()?;
+        let refund_price = amount.map(decimal_number).transpose()?;
         let body = wire::RefundRequest {
             user_id,
             payment_id: numeric,
-            refund_amount: amount.map(decimal_number).transpose()?,
+            refund_amount,
+            refund_price,
         };
         let request = self
             .inner
