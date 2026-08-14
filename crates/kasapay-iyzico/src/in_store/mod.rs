@@ -29,6 +29,18 @@
 //! `/v2/in-store` with identical bodies, and does not say which is current.
 //! This crate calls whichever the configured base points at.
 //!
+//! # What a status query can say
+//!
+//! `/payment/query` documents no status field, so
+//! [`charge_status`](kasapay_core::Provider::charge_status) reads the
+//! receipt's approval flags: an approved or refundable payment is
+//! [`Captured`](kasapay_core::Status::Captured) and anything else is
+//! [`Pending`](kasapay_core::Status::Pending). **A refused payment is
+//! therefore indistinguishable from one the payer has not finished.** The
+//! decrypted callback does distinguish them, and is the better source.
+//!
+//! This mapping has not been checked against a live account.
+//!
 //! # Authentication
 //!
 //! Three plain headers — `x-api-key`, `x-secret-key`, `x-merchant-id` — rather

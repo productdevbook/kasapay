@@ -16,6 +16,19 @@
 //! It follows that an order reference must never be reused, and that two
 //! payments for one order need two references.
 //!
+//! # A failed payment is an error, not a status
+//!
+//! PayTR's status query answers a payment that happened, or an error saying it
+//! does not know one. So
+//! [`charge_status`](kasapay_core::Provider::charge_status) here produces only
+//! [`Status::Captured`](kasapay_core::Status::Captured) — never
+//! [`Failed`](kasapay_core::Status::Failed) — and a payment that was refused
+//! comes back as [`ErrorKind::NotFound`](kasapay_core::ErrorKind::NotFound).
+//!
+//! The payment notice is where a refusal is actually reported: it carries
+//! `status=failed` with a reason. Poll the status query to confirm a success;
+//! read the notice to learn about a failure.
+//!
 //! # The payment notice
 //!
 //! PayTR does not wait for the payer to come back. It posts the outcome to the
