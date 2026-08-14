@@ -58,7 +58,8 @@ pub enum Signed {
 impl Signed {
     /// The field names this endpoint signs, in order.
     ///
-    /// Only useful for reading; [`verify`] takes the values themselves.
+    /// Only useful for reading; [`Credentials::verify_response`] takes the
+    /// values themselves, in this order.
     #[must_use]
     pub const fn fields(self) -> &'static [&'static str] {
         match self {
