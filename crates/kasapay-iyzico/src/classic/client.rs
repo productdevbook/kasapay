@@ -16,7 +16,10 @@ const PROVIDER: ProviderId = ProviderId::IYZICO;
 /// Where the classic client points and what it signs with.
 #[derive(Debug, Clone)]
 pub struct Config {
-    base_url: Url,
+    /// Held as text, not as a `Url`: `Url`'s own rendering puts a trailing
+    /// slash back on a bare authority, and `{base}{path}` then signs
+    /// `//payment/bin/check` while the server sees `/payment/bin/check`.
+    base_url: Box<str>,
     credentials: Credentials,
     timeout: Duration,
 }
@@ -48,8 +51,10 @@ impl Config {
     /// A trailing slash is trimmed: the signature covers the path alone, and
     /// `//payment/bin/check` would sign something the server never sees.
     pub fn new(base_url: &str, credentials: Credentials) -> Result<Self, url::ParseError> {
+        let trimmed = base_url.trim_end_matches('/');
+        Url::parse(trimmed)?;
         Ok(Self {
-            base_url: Url::parse(base_url.trim_end_matches('/'))?,
+            base_url: trimmed.into(),
             credentials,
             timeout: Self::DEFAULT_TIMEOUT,
         })
