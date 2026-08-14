@@ -10,7 +10,7 @@
 //! | What it is | the counter-side flow: a till starts a payment, the payer finishes it in iyzico's app | ordinary card payments, subscriptions, marketplace, card storage |
 //! | Authentication | three plain headers | [`IYZWSv2`](Credentials) request signing |
 //! | Currency | Turkish lira only | several |
-//! | Implemented here | four of twelve operations | none yet — the signing is in place |
+//! | Implemented here | four of twelve operations | one of eighty-four |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
 //! likely reason for the split. Whether the plain headers are the current
@@ -30,6 +30,7 @@
 //!
 //! Ninety-six operations across eleven groups. Four are implemented.
 
+pub mod classic;
 pub mod in_store;
 mod signing;
 
