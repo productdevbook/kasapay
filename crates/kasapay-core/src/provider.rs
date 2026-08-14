@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::charge::{Charge, ChargeRequest, PaymentId};
 use crate::error::Error;
+use crate::money::Money;
 
 /// Names a provider.
 ///
@@ -37,6 +38,40 @@ impl fmt::Display for ProviderId {
     }
 }
 
+/// What a provider will do, asked before there is a payment to ask it about.
+///
+/// This and [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) answer
+/// different questions and both have to exist. This one is for planning: a
+/// checkout deciding whether to offer authorise-now-capture-later needs the
+/// answer before it has a payment. `Unsupported` is for enforcement, and stays
+/// the thing that actually refuses the call.
+///
+/// **A capability that says yes and a call that then fails is a bug in the
+/// adapter**, and so is the reverse. An adapter's tests are where that is
+/// held to.
+///
+/// Every field is public and the struct is open, for the same reason
+/// [`Charge`] is: an adapter in someone else's repository has to be able to
+/// build one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct Capabilities {
+    /// Funds can be held at authorisation and taken later by
+    /// [`Provider::capture`].
+    ///
+    /// False says the provider takes the money at authorisation and has no
+    /// capture step — not that capture failed. Distinguishing those two is the
+    /// whole reason this type exists.
+    pub separate_capture: bool,
+    /// [`Provider::capture`] accepts an amount below the one authorised.
+    ///
+    /// Only meaningful where `separate_capture` is true.
+    pub partial_capture: bool,
+    /// A payment can be refunded for less than it was captured for.
+    pub partial_refund: bool,
+    /// A payment can be refunded more than once, up to what was captured.
+    pub repeated_refund: bool,
+}
+
 /// Marks an implementation of [`Provider`] so its `async fn`s compile.
 ///
 /// Re-exported because the version has to match the one this trait was defined
@@ -64,4 +99,32 @@ pub trait Provider: fmt::Debug + Send + Sync {
 
     /// Reads a charge back.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error>;
+
+    /// Takes funds an authorisation is only holding.
+    ///
+    /// A shop authorises when the order is placed and captures when the parcel
+    /// leaves. `amount` of `None` takes the lot; `Some` takes part of it, which
+    /// is what a partial shipment needs, and requires
+    /// [`Capabilities::partial_capture`].
+    ///
+    /// The returned [`Charge`] carries the amount that was captured, not the
+    /// amount that was authorised.
+    ///
+    /// Capture has no inverse. Captured money is refunded, not un-captured.
+    ///
+    /// A provider whose [`Capabilities::separate_capture`] is false took the
+    /// money at authorisation and answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) here.
+    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error>;
+
+    /// Releases an authorisation that will never be taken.
+    ///
+    /// Cancelling a payment whose funds are already captured is
+    /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest) rather
+    /// than a silent success: giving that money back is a refund, a different
+    /// act with a different entry in the ledger.
+    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error>;
+
+    /// What this provider will do, before there is a payment to ask about.
+    fn capabilities(&self) -> Capabilities;
 }

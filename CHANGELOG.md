@@ -5,10 +5,16 @@ order releases happen, newest first.
 
 ## Unreleased
 
-Two changes break code written against 0.0.1. Both are cheap to follow and
-both are the kind 0.0.x exists to make.
+Three changes break code written against 0.0.1. All are cheap to follow and
+all are the kind 0.0.x exists to make.
 
 ### Breaking
+
+- **`Provider` gains `capture`, `cancel` and `capabilities`, none with a
+  default.** A provider outside this workspace has to answer all three. No
+  default on purpose: an adapter that cannot capture has to say so rather than
+  inherit an answer that happens to be wrong for it, and a capability that says
+  yes over a call that then fails is a bug in the adapter.
 
 - **`Charge` carries `order_amount`.** `Charge::amount` now means what the
   payer is charged, and `order_amount` what the goods came to — they differ
@@ -29,6 +35,11 @@ both are the kind 0.0.x exists to make.
 - A dependency audit. `deny.toml` refuses a known vulnerability, a non-permissive
   licence, a wildcard version or a source outside crates.io, checked on every
   push and again daily — an advisory lands against a tree that has not changed.
+
+- **`Stripe::capture`, whole or partial.** Stripe leaves `amount` at what was
+  authorised and reports a partial capture in `amount_received`, so
+  `Charge::amount` reads the latter where the two differ — the trait promises
+  the amount captured.
 
 - **`kasapay-paytr`, a third provider.** PayTR's hosted form, status query,
   refund and payment-notice verification. It has no payment id of its own — a

@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, PaymentId, Provider,
-    ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Money, NextAction, PaymentId,
+    Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -882,6 +882,44 @@ impl Provider for Client {
     /// `id` for exactly this call.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         self.checkout_result(id.as_str()).await
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: the hosted form captures as it takes.
+    ///
+    /// iyzico documents no authorisation the classic API holds for a later
+    /// call to take, and [`Capabilities::separate_capture`] says so before a
+    /// caller gets this far.
+    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the classic API takes the money when the payer finishes the form and \
+             documents no capture step",
+        ))
+    }
+
+    /// Always [`ErrorKind::Unsupported`]: a void answers a `Reversal`, not a charge.
+    ///
+    /// [`Client::cancel`] is the call, and what it returns is what iyzico
+    /// signs — or does not sign, which is the reason it cannot be flattened
+    /// into a [`Charge`] here.
+    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "voiding a classic payment answers a Reversal rather than a charge; \
+             call Client::cancel",
+        ))
+    }
+
+    /// No separate capture, and refunds the way iyzico documents them.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            separate_capture: false,
+            partial_capture: false,
+            partial_refund: true,
+            repeated_refund: true,
+        }
     }
 }
 
