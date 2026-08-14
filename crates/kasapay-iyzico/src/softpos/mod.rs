@@ -29,7 +29,7 @@
 //! # This client does not renew its own session
 //!
 //! [`Client`] sends the `Session-Key` it was given and reports a refusal as
-//! [`ErrorKind::Auth`](kasapay_core::ErrorKind::Auth) rather than quietly
+//! [`kasapay_core::ErrorKind::Auth`] rather than quietly
 //! fetching another session and retrying — the same choice
 //! [`crate::terminal::Client`] makes about its bearer token, for the same
 //! reason: a sale already sent to a payer's phone is not safe to retry on
