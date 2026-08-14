@@ -297,7 +297,7 @@ fn random_key() -> String {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| since.as_nanos() as u64);
+        .map_or(0, |since| since.as_nanos());
     let count = COUNTER.fetch_add(1, Ordering::Relaxed);
     format!("{nanos}{count}")
 }
