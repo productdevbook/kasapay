@@ -205,14 +205,24 @@ impl Client {
             .delete(self.endpoint("user")?)
             .json(&wire::UserRequest { user_id });
         let (response, _) = self.send::<wire::DeleteUserResponse>(request).await?;
-        match user_refused(
+        if let Some(error) = user_refused(
             response.status.as_deref(),
             response.error_message,
             response.error_code,
             "iyzico refused to forget the user",
         ) {
-            Some(error) => Err(error),
-            None => Ok(()),
+            return Err(error);
+        }
+        // iyzico echoes the user it deleted. A different one coming back means
+        // something other than what was asked for is gone, which is worth an
+        // error rather than a silent success.
+        match response.user_id.as_deref() {
+            Some(deleted) if deleted != user_id => Err(Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                format!("asked iyzico to forget {user_id} and it answered {deleted}"),
+            )),
+            _ => Ok(()),
         }
     }
 

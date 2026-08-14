@@ -651,3 +651,23 @@ async fn a_refused_user_carries_iyzicos_code() {
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.code(), Some("5201"));
 }
+
+#[tokio::test]
+async fn forgetting_a_different_user_than_was_asked_for_is_an_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path("/v3/in-store/user"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            // Not the one that was asked for.
+            "userId": "kasiyer-9",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .forget_user("kasiyer-7")
+        .await
+        .expect_err("a different user coming back is not a success");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
