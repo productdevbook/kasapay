@@ -9,10 +9,6 @@ servers:
   description: Production
 - url: https://sandbox-api.iyzipay.com
   description: Sandbox
-security:
-- ApiKeyAuth: []
-  SecretKeyAuth: []
-  MerchantIdAuth: []
 tags:
 - name: Ön Provizyon
   description: Ön provizyon işlemleri (başlatma/kapama/iptal)
@@ -722,19 +718,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse3'
       x-iyzico-source: https://docs.iyzico.com/en/advanced/refund-and-cancel.md
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-    SecretKeyAuth:
-      type: apiKey
-      in: header
-      name: x-secret-key
-    MerchantIdAuth:
-      type: apiKey
-      in: header
-      name: x-merchant-id
   schemas:
     Address:
       type: object

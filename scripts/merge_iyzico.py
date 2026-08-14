@@ -174,17 +174,9 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
             {"url": PRODUCTION, "description": "Production"},
             {"url": SANDBOX, "description": "Sandbox"},
         ],
-        "security": [{"ApiKeyAuth": [], "SecretKeyAuth": [], "MerchantIdAuth": []}],
         "tags": [],
         "paths": {},
-        "components": {
-            "securitySchemes": {
-                "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "x-api-key"},
-                "SecretKeyAuth": {"type": "apiKey", "in": "header", "name": "x-secret-key"},
-                "MerchantIdAuth": {"type": "apiKey", "in": "header", "name": "x-merchant-id"},
-            },
-            "schemas": {},
-        },
+        "components": {"securitySchemes": {}, "schemas": {}},
     }
     notes: list[str] = []
     seen_tags: set[str] = set()
@@ -213,6 +205,15 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
         if renames:
             rename_refs(fragment, renames)
 
+        # Security is per fragment. Only 16 of the 96 declare a scheme at all,
+        # so anything global here would be invented rather than documented.
+        for name, scheme in fragment.get("components", {}).get("securitySchemes", {}).items():
+            held = spec["components"]["securitySchemes"].get(name)
+            if held is not None and held != scheme:
+                notes.append(f"security scheme {name} redefined by {source}, kept the first")
+                continue
+            spec["components"]["securitySchemes"][name] = scheme
+
         for tag in fragment.get("tags", []):
             if tag["name"] not in seen_tags:
                 seen_tags.add(tag["name"])
@@ -226,11 +227,26 @@ def merge(group: str, found: list[tuple[str, dict]]) -> tuple[dict, list[str]]:
                 # A stray `detail` key sits among `responses` on some operations.
                 operation.pop("detail", None)
                 operation.setdefault("x-iyzico-source", source)
+                if "security" not in operation and fragment.get("security"):
+                    operation["security"] = fragment["security"]
                 existing = spec["paths"].setdefault(full, {}).get(verb)
                 if existing is None:
                     spec["paths"][full][verb] = operation
                 elif existing != operation:
                     notes.append(f"{verb.upper()} {full} redefined by {source}, kept the first")
+
+    undeclared = sorted(
+        f"{verb.upper()} {path}"
+        for path, ops in spec["paths"].items()
+        for verb, op in ops.items()
+        if "security" not in op
+    )
+    if undeclared:
+        notes.append(
+            "no authentication documented by iyzico for: " + ", ".join(undeclared)
+        )
+    if not spec["components"]["securitySchemes"]:
+        del spec["components"]["securitySchemes"]
 
     spec["tags"].sort(key=lambda t: t["name"])
     spec["paths"] = dict(sorted(spec["paths"].items()))

@@ -9,10 +9,6 @@ servers:
   description: Production
 - url: https://sandbox-api.iyzipay.com
   description: Sandbox
-security:
-- ApiKeyAuth: []
-  SecretKeyAuth: []
-  MerchantIdAuth: []
 tags:
 - name: SoftPOS
 paths:
@@ -112,19 +108,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/initialize-payment.md
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-    SecretKeyAuth:
-      type: apiKey
-      in: header
-      name: x-secret-key
-    MerchantIdAuth:
-      type: apiKey
-      in: header
-      name: x-merchant-id
   schemas:
     CheckTransactionRequest:
       type: object

@@ -9,10 +9,6 @@ servers:
   description: Production
 - url: https://sandbox-api.iyzipay.com
   description: Sandbox
-security:
-- ApiKeyAuth: []
-  SecretKeyAuth: []
-  MerchantIdAuth: []
 tags:
 - name: GMU Payment
   description: GMU sale and transaction services
@@ -46,6 +42,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/TerminalFailureResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/end-of-day.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/eod:
     post:
       tags:
@@ -76,6 +74,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuEodResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/end-of-day.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/partial-payment/add-payment:
     post:
       tags:
@@ -106,6 +106,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuPaymentResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/partial-payment.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/partial-payment/complete:
     post:
       tags:
@@ -136,6 +138,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuPartialPaymentCompleteResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/partial-payment.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/partial-payment/start:
     post:
       tags:
@@ -166,6 +170,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/partial-payment.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/payment:
     post:
       tags:
@@ -196,6 +202,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuPaymentResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/payment/query-transaction-status:
     post:
       tags:
@@ -227,6 +235,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuQueryTransactionStatusResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/payment/refund:
     post:
       tags:
@@ -257,6 +267,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuRefundResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/void-refund.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/payment/refundable-sale-info:
     post:
       tags:
@@ -288,6 +300,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuRefundableSaleInfoResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/void-refund.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/gmu/payment/void:
     post:
       tags:
@@ -318,6 +332,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GmuVoidResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/void-refund.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/payment:
     post:
       tags:
@@ -347,6 +363,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/TerminalFailureResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/payment/query-transaction-status:
     post:
       tags:
@@ -375,6 +393,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/TerminalFailureResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/payment/refund:
     post:
       tags:
@@ -404,6 +424,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/TerminalFailureResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
   /v2/terminal-host/payment/void:
     post:
       tags:
@@ -432,20 +454,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/TerminalFailureResponse'
       x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
 components:
   securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-    SecretKeyAuth:
-      type: apiKey
-      in: header
-      name: x-secret-key
-    MerchantIdAuth:
-      type: apiKey
-      in: header
-      name: x-merchant-id
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer Token authentication is performed using the access token.
   schemas:
     AddedSaleItem:
       type: object
