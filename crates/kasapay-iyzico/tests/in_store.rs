@@ -245,6 +245,8 @@ async fn a_provider_that_never_answers_gives_up_rather_than_hanging() {
 }
 
 fn decrypted(approved: bool, refund_approved: bool, void_approved: bool) -> serde_json::Value {
+    // "0949" is what iyzico's own published response carries: ISO 4217's
+    // numeric code for lira, not "TRY".
     json!({
         "status": "success",
         "systemTime": 1_770_000_000_i64,
@@ -253,7 +255,7 @@ fn decrypted(approved: bool, refund_approved: bool, void_approved: bool) -> serd
                 "transactionDate": "2026-08-14 12:00:00",
                 "rrn": "622812345678",
                 "amount": 149.90,
-                "currencyCode": "TRY",
+                "currencyCode": "0949",
                 "maskedPan": "552879******0004",
                 "receipt": {
                     "approved": approved,
@@ -261,7 +263,8 @@ fn decrypted(approved: bool, refund_approved: bool, void_approved: bool) -> serd
                     "voidApproved": void_approved,
                     "schemaName": "MASTERCARD",
                 },
-            }
+            },
+            "paymentFailedResult": null,
         }
     })
 }
@@ -325,6 +328,64 @@ async fn a_callback_approving_nothing_is_a_failure() {
         .await
         .expect("the callback decrypts");
     assert_eq!(charge.status, Status::Failed);
+}
+
+#[tokio::test]
+async fn a_currency_code_is_read_as_a_number_or_as_letters() {
+    let server = MockServer::start().await;
+    let charge = decrypt(&server, decrypted(true, false, false))
+        .await
+        .expect("the callback decrypts");
+    assert_eq!(charge.amount.currency(), Currency::Try);
+
+    let mut body = decrypted(true, false, false);
+    body["inStoreCompleteOperation"]["transaction"]["currencyCode"] = json!("TRY");
+    let other = MockServer::start().await;
+    let charge = decrypt(&other, body).await.expect("the callback decrypts");
+    assert_eq!(charge.amount.currency(), Currency::Try);
+}
+
+#[tokio::test]
+async fn a_currency_this_api_does_not_settle_in_is_not_guessed_at() {
+    let server = MockServer::start().await;
+    let mut body = decrypted(true, false, false);
+    // 840 is USD. The In-Store API settles in lira, so this is a surprise
+    // rather than something to map.
+    body["inStoreCompleteOperation"]["transaction"]["currencyCode"] = json!("0840");
+
+    let error = decrypt(&server, body)
+        .await
+        .expect_err("an unrecognised currency code is not a charge");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
+#[tokio::test]
+async fn a_payment_the_payer_did_not_complete_is_a_failed_charge() {
+    let server = MockServer::start().await;
+    // The fields are those of iyzico's PaymentFailedResult schema, which sits
+    // beside `transaction` rather than inside it.
+    let charge = decrypt(
+        &server,
+        json!({
+            "status": "success",
+            "systemTime": 1_770_000_000_i64,
+            "inStoreCompleteOperation": {
+                "transaction": null,
+                "paymentFailedResult": {
+                    "transactionAmount": 149.90,
+                    "paymentResultText": "Odeme basarisiz",
+                    "screenMessageText": "ISLEM ONAYLANMADI",
+                    "date": "2026-08-14 12:00:00",
+                },
+            }
+        }),
+    )
+    .await
+    .expect("a refused payment is still a decrypted callback");
+
+    assert_eq!(charge.status, Status::Failed);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+    assert_eq!(charge.id.as_str(), "4242424242");
 }
 
 #[tokio::test]
