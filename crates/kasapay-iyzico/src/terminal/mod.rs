@@ -95,7 +95,7 @@
 //!
 //! `expires_in` in iyzico's own example is `7199` — two hours less a second.
 //! When it runs out, a call comes back as `100311`, "Access token expired!",
-//! which [`Client`] reports as [`ErrorKind::Auth`](kasapay_core::ErrorKind::Auth).
+//! which [`Client`] reports as [`ErrorKind::Auth`].
 //!
 //! [`Client`] does not refresh. It could — it has the token and knows what an
 //! expired one looks like — and it would then have to decide what to do with

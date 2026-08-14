@@ -470,8 +470,16 @@ mod tests {
 
     #[test]
     fn the_secrets_do_not_print_themselves() {
-        let held = token(None, SystemTime::now());
-        assert!(!format!("{held:?}").contains("access"));
+        // A value no field name could contain: the first draft of this test
+        // asserted on "access" and passed on the field name `access_token`
+        // rather than on the token.
+        let mut held = token(None, SystemTime::now());
+        held.access_token = Secret::new("eyJraWQ-not-in-any-log");
+        held.refresh_token = Some(Secret::new("eiHg-not-in-any-log-either"));
+
+        let printed = format!("{held:?}");
+        assert!(!printed.contains("not-in-any-log"), "{printed}");
+        assert!(printed.contains("Secret(***)"), "{printed}");
     }
 
     #[test]
