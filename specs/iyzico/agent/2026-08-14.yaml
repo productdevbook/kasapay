@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: iyzico — agent
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: Agent
+- name: Authorize
+paths:
+  /v1/agent/get_auth_key:
+    post:
+      summary: Authorize – get_auth_key
+      description: 'Generates a mobile session key (session_key).
+
+        Only servers whose IP addresses are defined by Paynet can call this service.
+
+        '
+      tags:
+      - Authorize
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - $ref: '#/components/parameters/PaynetMobileHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/create-session.md
+  /v1/agent/logout:
+    post:
+      summary: Logout
+      tags:
+      - Agent
+      parameters:
+      - $ref: '#/components/parameters/AuthorizationHeader'
+      - $ref: '#/components/parameters/PaynetMobileHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_key:
+                  type: string
+                  description: Session key
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object_name:
+                    type: string
+                    description: Object name
+                  code:
+                    type: integer
+                    description: Code
+                  message:
+                    type: string
+                    description: Message
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/end-session.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    AuthRequest:
+      type: object
+      required:
+      - agent_id
+      - user_id
+      properties:
+        agent_id:
+          type: string
+          description: Agent Id.
+        user_id:
+          type: string
+          description: User Id.
+    AuthResponse:
+      type: object
+      properties:
+        session_key:
+          type: string
+          description: Session key.
+        expired_date:
+          type: string
+          description: Expired date.
+        agent_id:
+          type: string
+          description: Agent Id.
+        company_code:
+          type: string
+          description: Company code.
+        user_id:
+          type: string
+          description: User Id.
+        user_unique_id:
+          type: string
+          description: User unique Id.
+        is_okc_inquiry:
+          type: boolean
+          description: ÖKC exemption result.
+        object_name:
+          type: string
+          description: Object name.
+        code:
+          type: integer
+          description: Code.
+        message:
+          type: string
+          description: Message.
+    ErrorResponse:
+      type: object
+      properties:
+        object_name:
+          type: string
+          description: Object name.
+        code:
+          type: integer
+          description: Code.
+        message:
+          type: string
+          description: Message.

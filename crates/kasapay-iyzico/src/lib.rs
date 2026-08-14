@@ -24,9 +24,10 @@
 //! documentation site, one file per product area, dated on the day they were
 //! taken. They record what was documented, not a contract iyzico offers.
 //!
-//! This crate covers `urunler/ceppos-app2app` only. iyzico has fifteen other
-//! product areas documented the same way — subscriptions, marketplace, mass
-//! payout, card storage — and none of them are implemented here yet.
+//! This crate covers four of the twelve operations under `specs/iyzico/in-store`.
+//! iyzico documents ninety-six across eleven groups — ordinary card payments,
+//! subscriptions, marketplace, mass payout, card storage — and none of the rest
+//! are implemented here yet.
 //!
 //! # Example
 //!

@@ -12,18 +12,29 @@ anything moved.
 iyzico publishes no OpenAPI file. Their documentation embeds one small OpenAPI
 fragment per endpoint, so `scripts/merge_iyzico.py` sweeps every page in
 [llms.txt](https://docs.iyzico.com/llms.txt), pulls the fragments out, and
-merges them into one document per product area:
+merges them into one document per part of the API:
 
-    <area>/<YYYY-MM-DD>.yaml   the area's whole API as one document
-    <area>/latest.yaml         symlink to the newest
-    <YYYY-MM-DD>.index.json    what was swept, every operation, every conflict
+    <group>/<YYYY-MM-DD>.yaml   that part of the API as one document
+    <group>/latest.yaml         symlink to the newest
+    <YYYY-MM-DD>.index.json     what was swept, every operation, every conflict
 
-As of 2026-08-14: 166 pages swept, 69 carrying fragments, 165 fragments,
-**155 operations across 16 areas** — payments, pre-auth, subscriptions,
-marketplace, mass payout, card storage, physical POS, CepPOS, PayPOS, links,
-reporting, instalment/BIN.
+As of 2026-08-14: 314 pages swept, **96 operations across 11 groups** —
+`payment`, `subscription`, `terminal-host`, `in-store`, `iyzilink`, `mass`,
+`cardstorage`, `softpos`, `onboarding`, `reporting`, `agent`.
 
 Each operation keeps an `x-iyzico-source` pointing at the page it came from.
+
+### Two languages, neither complete
+
+The docs exist in Turkish and English and they do not cover the same endpoints.
+The whole In-Store v3 API is documented **only in Turkish**; the In-Store OAuth
+refresh **only in English**. So both are swept, the union is the coverage, and
+where an endpoint appears in each the English fragment wins so the prose in
+`specs/` is readable by anyone. The index lists what was Turkish-only.
+
+Grouping comes from the API path rather than the documentation URL, because the
+same API is filed under `urunler/abonelik` in Turkish and `products/subscription`
+in English — grouping by page filed everything twice under two names.
 
 ### What the script repairs
 

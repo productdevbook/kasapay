@@ -1,0 +1,337 @@
+openapi: 3.0.3
+info:
+  title: iyzico — softpos
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+security:
+- ApiKeyAuth: []
+  SecretKeyAuth: []
+  MerchantIdAuth: []
+tags:
+- name: SoftPOS
+paths:
+  /v1/softpos/check_transaction:
+    post:
+      summary: Status Inquiry – check_transaction
+      tags:
+      - SoftPOS
+      parameters:
+      - name: Session-Key
+        in: header
+        required: true
+        description: Mobile session key
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckTransactionRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckTransactionResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/retrieve-payment.md
+  /v1/softpos/init_reversal_transaction:
+    post:
+      summary: Initiate Cancel / Refund
+      tags:
+      - SoftPOS
+      parameters:
+      - name: Session-Key
+        in: header
+        required: true
+        description: Mobile session key
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitReversalRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitReversalResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/refund-cancel.md
+  /v1/softpos/init_sale_transaction:
+    post:
+      summary: Start Sale – init_sale_transaction
+      tags:
+      - SoftPOS
+      parameters:
+      - name: Session-Key
+        in: header
+        required: true
+        description: Mobile session key
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitSaleRequest'
+      responses:
+        '200':
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitSaleResponse'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/paypos-app2app/paypos-app2app-integration/initialize-payment.md
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    SecretKeyAuth:
+      type: apiKey
+      in: header
+      name: x-secret-key
+    MerchantIdAuth:
+      type: apiKey
+      in: header
+      name: x-merchant-id
+  schemas:
+    CheckTransactionRequest:
+      type: object
+      required:
+      - payment_session_id
+      properties:
+        payment_session_id:
+          type: string
+    CheckTransactionResponse:
+      type: object
+      properties:
+        Data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        object_name:
+          type: string
+        code:
+          type: integer
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        object_name:
+          type: string
+          description: Object name.
+        code:
+          type: integer
+          description: Code.
+        message:
+          type: string
+          description: Message.
+    InitReversalRequest:
+      type: object
+      required:
+      - xact_id
+      properties:
+        xact_id:
+          type: string
+          description: The encrypted version of the transaction ID.
+        reference_no:
+          type: string
+          description: Reference number.
+        callback_url:
+          type: string
+          description: Callback url.
+          nullable: true
+    InitReversalResponse:
+      type: object
+      properties:
+        payment_session_id:
+          type: string
+          description: Payment session id.
+        deeplink_url:
+          type: string
+          description: Deeplink url.
+        encryption_key:
+          type: string
+          description: encryption key.
+        object_name:
+          type: string
+          description: Object name.
+        code:
+          type: integer
+          description: Code.
+        message:
+          type: string
+          description: Message.
+    InitSaleRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Amount.
+        add_commission:
+          type: boolean
+          description: Should the commission be added?
+        instalment:
+          type: integer
+          description: Installment.
+        card_holder_phone:
+          type: string
+          description: Card holder phone.
+        card_holder_mail:
+          type: string
+          description: Card holder mail.
+        description:
+          type: string
+          description: Description.
+        reference_no:
+          type: string
+          description: Reference number.
+        selected_agent_id:
+          type: string
+          description: Selected agent id.
+        callback_url:
+          type: string
+          description: Deeplink will take you back to the mobile application.
+    InitSaleResponse:
+      type: object
+      properties:
+        payment_session_id:
+          type: string
+          description: Payment session id.
+        deeplink_url:
+          type: string
+          description: Deeplink url.
+        encryption_key:
+          type: string
+          description: Encryption key.
+        object_name:
+          type: string
+          description: Object name.
+        code:
+          type: integer
+          description: Code.
+        message:
+          type: string
+          description: Message.
+    Transaction:
+      type: object
+      properties:
+        xact_id:
+          type: string
+          description: Encrypted transaction ID.
+        xact_date:
+          type: string
+          description: Transaction date.
+        transaction_type:
+          type: integer
+          description: Transaction type.
+        pos_type:
+          type: integer
+          description: POS type.
+        agent_id:
+          type: string
+          description: Merchant ID.
+        is_tds:
+          type: boolean
+          description: Is TDS applied?
+        bank_id:
+          type: string
+          description: Bank code.
+        instalment:
+          type: integer
+          description: Number of installments.
+        card_no:
+          type: string
+          description: Card number.
+        card_holder:
+          type: string
+          description: Cardholder name.
+        card_type:
+          type: string
+          description: Card type.
+        ratio:
+          type: number
+          description: Commission rate.
+        amount:
+          type: number
+          description: Transaction amount.
+        netAmount:
+          type: number
+          description: Net amount.
+        comission:
+          type: number
+          description: Commission amount.
+        comission_tax:
+          type: number
+          description: Commission tax.
+        currency:
+          type: string
+          description: Currency.
+        authorization_code:
+          type: string
+          description: Authorization code.
+        reference_code:
+          type: string
+          description: Reference code.
+        order_id:
+          type: string
+          description: Order number.
+        is_succeed:
+          type: boolean
+          description: Is the transaction successful?
+        xact_transaction_id:
+          type: string
+          description: Transaction ID.
+        email:
+          type: string
+          description: Email.
+        phone:
+          type: string
+          description: Phone number.
+        note:
+          type: string
+          description: Note.
+        agent_reference:
+          type: string
+          description: Merchant reference code.
+        object_name:
+          type: string
+          description: Object type.
+        code:
+          type: integer
+          description: Result code.
+        message:
+          type: string
+          description: Result message.
