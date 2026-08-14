@@ -161,11 +161,14 @@ pub(crate) struct VoidRequest<'a> {
 /// and `TerminalFailureResponse` share five fields — the failure adds
 /// `consumerErrorMessage` and drops the rest — so a body that is either reads
 /// here, and a refusal arriving with HTTP 200 is not mistaken for a payment.
+///
+/// One documented field is missing: `locale`, which echoes the language the
+/// request asked for. Nothing here reads it, and a caller who wants it has it
+/// in [`Payment::raw`](crate::terminal::Payment::raw).
 #[derive(Debug, Deserialize)]
 pub(crate) struct PaymentResponse {
     #[serde(rename = "conversationId")]
     pub(crate) conversation_id: Option<String>,
-    pub(crate) locale: Option<String>,
     #[serde(rename = "deviceUniqueId")]
     pub(crate) device_unique_id: Option<String>,
     #[serde(rename = "transactionReferenceId")]
