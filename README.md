@@ -93,7 +93,11 @@ subscription's twenty-four.
 - The hosted checkout form does **not** go through `Provider::charge`. It needs
   a buyer's identity number, two addresses and an itemised basket, none of
   which belongs in `ChargeRequest`. The trait can express what every provider
-  answers; it cannot express what each one demands.
+  answers; it cannot express what each one demands. It does not go through
+  `charge_status` either: an unfinished form has no payment id, only its own
+  `classic::FormToken`, and `classic::Client::checkout_result` is what takes
+  one. An identifier says what it names as well as who issued it, so handing
+  one to the other's call does not compile.
 
 ## Amounts
 

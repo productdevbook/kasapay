@@ -13,8 +13,8 @@
 use std::error::Error;
 
 use kasapay::iyzico::Credentials;
-use kasapay::iyzico::classic::{self, checkout};
-use kasapay::{Currency, Money, NextAction, OrderRef, PaymentId, Provider, Status};
+use kasapay::iyzico::classic::{self, FormToken, checkout};
+use kasapay::{Currency, Money, NextAction, OrderRef, Status};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -71,10 +71,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("send the payer to {url}");
     println!("keep this token: {token}");
 
-    // Later, when the payer comes back. `charge_status` takes the token,
-    // because until the form is finished there is no payment id — the finished
-    // charge is the first thing to carry one.
-    let settled = iyzipay.charge_status(&PaymentId::issued(&*token)).await?;
+    // Later, when the payer comes back. The token is what reads the form back;
+    // until it is finished there is no payment id, and the charge this answers
+    // is the first thing to carry one.
+    let settled = iyzipay.checkout_result(&FormToken::issued(token)).await?;
     match settled.status {
         Status::Captured => println!("paid {}", settled.amount),
         Status::Failed => println!("refused"),

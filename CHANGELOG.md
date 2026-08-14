@@ -28,6 +28,27 @@ all are the kind 0.0.x exists to make.
   `kasapay_paytr::payment_id(&order)`, and the same string as before goes on
   the wire either way.
 
+- **An identifier says what it names as well as who issued it.** `PaymentId` is
+  now `Id<kind::Payment>`, one kind of `kasapay_core::Id`, and iyzico's classic
+  API names a hosted checkout form by another: `classic::FormToken`. Both are
+  iyzico's own strings, so `PaymentId::source` could never separate them, and
+  handing a form's token to `refund` compiled and failed only against a live
+  account. Three things change for a caller. `classic::Client::checkout_result`
+  takes a `&classic::FormToken` rather than a `&str`, so
+  `checkout_result("cf-token-1")` becomes
+  `checkout_result(&FormToken::issued("cf-token-1"))`.
+  `classic::Client::start_checkout_form` leaves `Charge::id` `None`, because
+  iyzico has issued no payment id yet and the token is not one — it is where it
+  always was, in the redirect's `continuation`, and the charge that
+  `checkout_result` answers is the first to carry a payment id. And
+  `Provider::charge_status` on a `classic::Client` now answers
+  `ErrorKind::Unsupported`: the only read of a hosted form this crate
+  implements is by the form's own token, which that signature cannot take, so
+  the call is `checkout_result`. `PaymentId::issued`, `derived`, `as_str` and
+  `source` are unchanged; an adapter outside this workspace names a kind of its
+  own by implementing `IdKind` on a unit struct and writing one type alias over
+  `Id`.
+
 - **`Charge::id` is an `Option<PaymentId>`.** A payment nothing has named yet —
   an iyzico checkout form the payer has not finished — was a `PaymentId` with
   an empty string in it, which reads as a handle to a payment nobody made.
