@@ -63,6 +63,12 @@ both are the kind 0.0.x exists to make.
 
 ### Fixed
 
+- iyzico reported every refusal as a bad request. A declined card is now
+  `Declined` and a bank timeout is `Provider` and retryable, from iyzico's own
+  code list. Their `Retry` column is deliberately not used: it says `true` for
+  "Email is mandatory", which means the shopper can correct it, not that the
+  same request may succeed.
+
 - PayTR reported every refund refusal as a flat rejection. Two of its
   documented codes say to try again later — the refund service being locked,
   and an insufficient balance — and are now retryable, so a caller's retry
