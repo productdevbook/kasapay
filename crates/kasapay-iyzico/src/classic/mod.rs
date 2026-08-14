@@ -6,11 +6,18 @@
 //!
 //! # What is here
 //!
-//! Three operations, chosen because none of them touches a card number:
+//! Five operations, chosen because none of them touches a card number:
 //!
+//! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
+//!   send the payer to
+//! - [`Client::checkout_result`] — read what became of it
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
 //! - [`Client::forget_card`] — drop one of them
+//!
+//! The checkout form is how most integrations should take a payment here:
+//! iyzico hosts the form and collects the card, so nothing sensitive crosses
+//! the caller's server.
 //!
 //! Taking a payment through this API needs the card on the request, which
 //! `ChargeRequest` has nowhere to put and which drags PCI scope in with it.
@@ -36,6 +43,7 @@
 //! # }
 //! ```
 
+pub mod checkout;
 mod client;
 mod wire;
 
