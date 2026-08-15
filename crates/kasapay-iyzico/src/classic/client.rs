@@ -922,7 +922,8 @@ fn into_saved_card_charge(
     response: wire::PaymentResultResponse,
     raw: Raw,
 ) -> Result<Charge, Error> {
-    charge_from(response, raw, fraud_status(response.fraud_status))
+    let status = fraud_status(response.fraud_status);
+    charge_from(response, raw, status)
 }
 
 /// Reads iyzico's `fraudStatus` the way this crate has always read it.
