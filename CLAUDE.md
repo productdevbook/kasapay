@@ -141,6 +141,26 @@ authentication at all, and that absence is recorded rather than filled in — if
 an adapter needs to know how a request is signed, that comes from iyzico, not
 from `specs/`.
 
+## How a release happens
+
+One trigger, and it is a person's decision rather than an agent's: run the
+**Cut a release** workflow with a version, `dry_run` off. It bumps the version
+everywhere it is written, dates the changelog's `Unreleased` section, commits
+to `main` and pushes the tag. The tag starts **Release**, which packages every
+crate, publishes to crates.io in dependency order, and writes the release note
+from the changelog's own section for that version.
+
+So the release note is never written twice. What a release says is what the
+changelog already said, which is why the changelog is kept in terms of what a
+change costs a caller who upgrades rather than what was done.
+
+Two things it will refuse rather than guess: a version that already has a tag,
+and a changelog with no section to publish. Run it with `dry_run` on first —
+it shows the diff and checks both without committing anything.
+
+`cargo publish` never runs on a developer's machine. It runs from the tag, in
+CI, with a token that lives only as a repository secret.
+
 ## Unverified against a live API
 
 iyzico's `/payment/query` status mapping. The documented response body has no

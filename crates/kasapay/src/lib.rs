@@ -7,7 +7,7 @@
 //! re-exported here; the bundled adapters are behind features, one each.
 //!
 //! ```toml
-//! kasapay = { version = "0.0.1", features = ["stripe", "iyzico"] }
+//! kasapay = { version = "0.0.2", features = ["stripe", "iyzico"] }
 //! ```
 //!
 //! # The one thing to understand first
