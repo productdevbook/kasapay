@@ -238,8 +238,7 @@ async fn an_answer_that_is_not_a_payment_is_malformed() {
 }
 
 /// A payment settled in a currency `Currency` cannot name is refused on the
-/// way back as well as on the way out. Mollie takes twenty-seven and kasapay
-/// names nine.
+/// way back as well as on the way out.
 #[tokio::test]
 async fn a_payment_in_a_currency_kasapay_cannot_name_is_not_guessed_at() {
     let server = MockServer::start().await;
