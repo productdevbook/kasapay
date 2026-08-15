@@ -71,6 +71,32 @@
 //!
 //! This mapping has not been checked against a live account.
 //!
+//! # `/payment/query` is also documented as a `POST`
+//!
+//! Not implemented, and for the same shape of reason as the v2 `/crypt/decrypt`
+//! above rather than a new one. `specs/iyzico/in-store/latest.yaml` carries a
+//! `GET` and a `POST` at the same path: the `GET` — `queryPayment2`, what
+//! [`charge_status`](kasapay_core::Provider::charge_status) calls — comes from
+//! *In-Store API V3*, the page every other operation here is read from; the
+//! `POST` — `queryPayment` — comes from a different page, *App2App V3 →
+//! Sorgulama*, one of a small set of per-operation reference pages under the
+//! same `app2app-v3` directory as the correctly-versioned `/crypt/decrypt`
+//! page. Both name the identical three headers and the identical `paymentId`
+//! query parameter; what differs is the verb and the response's field
+//! casing — the `POST` answers `PascalCase` (`Amount`, `MaskedPan`,
+//! `IsRefundable`), where every other operation in this module, `GET`
+//! included, answers `camelCase`.
+//!
+//! Nothing pins down which of the two a live account actually answers to,
+//! and the `PascalCase` shape appears nowhere else in this API. The safer
+//! reading is that the reference page is the stale one — the guide page and
+//! this client agree with each other and with the rest of the API's casing —
+//! rather than that iyzico runs two payment-query implementations side by
+//! side. Implementing the `POST` on that guess would be a second query
+//! operation with no way to tell a caller which one to reach for, so it is
+//! left out; [`charge_status`](kasapay_core::Provider::charge_status) is the
+//! one this crate stands behind.
+//!
 //! # A partial refund carries its amount twice
 //!
 //! iyzico documents the field two ways and contradicts itself on one page: the

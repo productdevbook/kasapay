@@ -917,19 +917,32 @@ fn into_payment_charge(response: wire::PaymentResultResponse, raw: Raw) -> Resul
 /// `/payment/auth` answers no `paymentStatus`: a refusal is `status:
 /// "failure"`, which `refused` has already turned into an error by the time
 /// this runs, so what is left is a payment that went through. `fraudStatus` is
-/// the one thing that can still hold it up — iyzico documents 1 as approved, 0
-/// as under review and -1 as rejected, and a payment under review is money not
-/// yet taken rather than money taken.
+/// the one thing that can still hold it up — see [`fraud_status`].
 fn into_saved_card_charge(
     response: wire::PaymentResultResponse,
     raw: Raw,
 ) -> Result<Charge, Error> {
-    let status = match response.fraud_status {
+    charge_from(response, raw, fraud_status(response.fraud_status))
+}
+
+/// Reads iyzico's `fraudStatus` the way this crate has always read it.
+///
+/// iyzico documents 1 as approved, 0 as under review and -1 as rejected, and a
+/// payment under review is money not yet taken rather than money taken.
+/// `None` — no fraud check ran, or the field was simply absent — is read the
+/// same as approved, which is what a stored-card charge means by getting this
+/// far at all.
+///
+/// Shared with [`crate::reporting`], which answers the same three codes about
+/// a payment already made rather than one just taken. Its own `paymentStatus`
+/// cannot be folded in here the same way — see that module's documentation
+/// for why.
+pub(crate) const fn fraud_status(value: Option<i64>) -> Status {
+    match value {
         Some(0) => Status::Pending,
         Some(-1) => Status::Failed,
         _ => Status::Captured,
-    };
-    charge_from(response, raw, status)
+    }
 }
 
 /// The amounts, the order and the identifier, common to every payment answer.

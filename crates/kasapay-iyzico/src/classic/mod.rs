@@ -133,4 +133,4 @@ pub mod kind {
 /// [`Client::checkout_result`].
 pub type FormToken = Id<kind::Checkout>;
 
-pub(crate) use crate::classic::client::refused;
+pub(crate) use crate::classic::client::{fraud_status, refused};
