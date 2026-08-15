@@ -308,6 +308,58 @@ async fn reading_an_approved_order_back_answers_the_approval_link_again() {
 /// PayPal's `00_orders_capture` example: "Capture Order - PayPal Wallet as
 /// Payment Source". No top-level `status`; the capture's own status is what
 /// says the money moved.
+///
+/// `capture_order` passes no fallback (unlike `create_order`), so this is the
+/// one response body a capture test can use — a `purchase_units`-less answer
+/// like `created_order()` fails `resolve_amount` with no fallback to catch it.
+fn captured_order() -> serde_json::Value {
+    json!({
+        "id": "5O190127TN364715T",
+        "payment_source": {
+            "paypal": {
+                "name": { "given_name": "John", "surname": "Doe" },
+                "email_address": "customer@example.com",
+                "account_id": "QYR5Z8XDVJNXQ"
+            }
+        },
+        "purchase_units": [
+            {
+                "reference_id": "d9f80740-38f0-11e8-b467-0ed5f89f718b",
+                "shipping": {
+                    "address": {
+                        "address_line_1": "2211 N First Street",
+                        "address_line_2": "Building 17",
+                        "admin_area_2": "San Jose",
+                        "admin_area_1": "CA",
+                        "postal_code": "95131",
+                        "country_code": "US"
+                    }
+                },
+                "payments": {
+                    "captures": [
+                        {
+                            "id": "3C679366HH908993F",
+                            "status": "COMPLETED",
+                            "amount": { "currency_code": "USD", "value": "100.00" },
+                            "final_capture": true,
+                            "create_time": "2018-04-01T21:20:49Z",
+                            "update_time": "2018-04-01T21:20:49Z"
+                        }
+                    ]
+                }
+            }
+        ],
+        "payer": {
+            "name": { "given_name": "John", "surname": "Doe" },
+            "email_address": "customer@example.com",
+            "payer_id": "QYR5Z8XDVJNXQ"
+        },
+        "links": [
+            { "href": "https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T", "rel": "self", "method": "GET" }
+        ]
+    })
+}
+
 #[tokio::test]
 async fn capturing_an_order_reads_the_captures_own_status() {
     let server = MockServer::start().await;
@@ -315,51 +367,7 @@ async fn capturing_an_order_reads_the_captures_own_status() {
     Mock::given(method("POST"))
         .and(path("/v2/checkout/orders/5O190127TN364715T/capture"))
         .and(header("Authorization", format!("Bearer {ACCESS_TOKEN}")))
-        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
-            "id": "5O190127TN364715T",
-            "payment_source": {
-                "paypal": {
-                    "name": { "given_name": "John", "surname": "Doe" },
-                    "email_address": "customer@example.com",
-                    "account_id": "QYR5Z8XDVJNXQ"
-                }
-            },
-            "purchase_units": [
-                {
-                    "reference_id": "d9f80740-38f0-11e8-b467-0ed5f89f718b",
-                    "shipping": {
-                        "address": {
-                            "address_line_1": "2211 N First Street",
-                            "address_line_2": "Building 17",
-                            "admin_area_2": "San Jose",
-                            "admin_area_1": "CA",
-                            "postal_code": "95131",
-                            "country_code": "US"
-                        }
-                    },
-                    "payments": {
-                        "captures": [
-                            {
-                                "id": "3C679366HH908993F",
-                                "status": "COMPLETED",
-                                "amount": { "currency_code": "USD", "value": "100.00" },
-                                "final_capture": true,
-                                "create_time": "2018-04-01T21:20:49Z",
-                                "update_time": "2018-04-01T21:20:49Z"
-                            }
-                        ]
-                    }
-                }
-            ],
-            "payer": {
-                "name": { "given_name": "John", "surname": "Doe" },
-                "email_address": "customer@example.com",
-                "payer_id": "QYR5Z8XDVJNXQ"
-            },
-            "links": [
-                { "href": "https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T", "rel": "self", "method": "GET" }
-            ]
-        })))
+        .respond_with(ResponseTemplate::new(201).set_body_json(captured_order()))
         .mount(&server)
         .await;
 
@@ -385,7 +393,7 @@ async fn an_idempotency_key_travels_as_paypals_own_header_on_capture_too() {
             "PayPal-Request-Id",
             "9c47c9c4-7a2c-4e6b-9c5e-2f6c7d3e9a1b",
         ))
-        .respond_with(ResponseTemplate::new(201).set_body_json(created_order()))
+        .respond_with(ResponseTemplate::new(201).set_body_json(captured_order()))
         .mount(&server)
         .await;
 
