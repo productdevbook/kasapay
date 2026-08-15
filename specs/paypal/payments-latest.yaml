@@ -1,0 +1,3013 @@
+openapi: 3.0.4
+info:
+  title: Payments
+  description: Subset of https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/payments_payment_v2.json,
+    limited to the operations kasapay-paypal maps. PayPal's own document, under PayPal's own Apache-2.0
+    licence, cut down and otherwise unaltered.
+  version: '2.12'
+servers:
+- url: https://api-m.paypal.com
+  description: Server for https scheme.
+paths:
+  /v2/payments/captures/{capture_id}/refund:
+    post:
+      operationId: captures.refund
+      summary: Refund captured payment
+      description: Refunds a captured payment, by ID. For a full refund, include an empty payload in the
+        JSON request body. For a partial refund, include an <code>amount</code> object in the JSON request
+        body.
+      tags:
+      - captures
+      security:
+      - Oauth2:
+        - https://uri.paypal.com/services/payments/refund
+      parameters:
+      - name: capture_id
+        description: The PayPal-generated ID for the captured payment to refund.
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        examples:
+          captures_refund_200_idempotent_response:
+            summary: Refund Captured Payment - 200 idempotent response
+            description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+              in the request body. For a partial refund, include an `amount` object.
+            value: 2GG279541U471931P
+          captures_refund_empty_request:
+            summary: Refund Captured Payment with an empty request
+            description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+              in the request body. For a partial refund, include an `amount` object.
+            value: 7TK53561YB803214S
+          captures_refund_with_prefer_header:
+            summary: Refund Captured Payment
+            description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+              in the request body. For a partial refund, include an `amount` object.
+            value: 2GG279541U471931P
+      - $ref: '#/components/parameters/paypal_request_id'
+      - name: Prefer
+        description: The preferred server response upon successful completion of the request. Value is:<ul><li><code>return=minimal</code>.
+          The server returns a minimal response to optimize communication between the API caller and the
+          server. A minimal response includes the <code>id</code>, <code>status</code> and HATEOAS links.</li><li><code>return=representation</code>.
+          The server returns a complete resource representation, including the current state of the resource.</li></ul>
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+          default: return=minimal
+        examples:
+          captures_refund_200_idempotent_response:
+            summary: Refund Captured Payment - 200 idempotent response
+            description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+              in the request body. For a partial refund, include an `amount` object.
+            value: return=representation
+          captures_refund_with_prefer_header:
+            summary: Refund Captured Payment
+            description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+              in the request body. For a partial refund, include an `amount` object.
+            value: return=representation
+          captures_refund_empty_request:
+            summary: Refund Captured Payment with an empty request
+            description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+              in the request body. For a partial refund, include an `amount` object.
+            value: return=representation
+      - $ref: '#/components/parameters/authorization'
+      - $ref: '#/components/parameters/paypal_auth_assertion'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/refund_request'
+            examples:
+              captures_refund_200_idempotent_response:
+                summary: Refund Captured Payment - 200 idempotent response
+                description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+                  in the request body. For a partial refund, include an `amount` object.
+                value:
+                  amount:
+                    value: '1.00'
+                    currency_code: USD
+                  invoice_id: RefundInvoice-123
+                  custom_id: RefundCustom-123
+              captures_refund_empty_request:
+                summary: Refund Captured Payment with an empty request
+                description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+                  in the request body. For a partial refund, include an `amount` object.
+                value: {}
+              captures_refund_with_prefer_header:
+                summary: Refund Captured Payment
+                description: Refunds a captured payment, by ID. For a full refund, include an empty payload
+                  in the request body. For a partial refund, include an `amount` object.
+                value:
+                  amount:
+                    value: '10.99'
+                    currency_code: USD
+                  invoice_id: INVOICE-123
+                  note: Defective product
+      x-exampleFlows:
+      - title: Partial refund of a captured payment
+        description: Refunds a portion of a captured payment by ID. Includes an amount object in the request
+          body specifying the partial refund amount.
+        parameter_examples:
+        - parameters/@name=='capture_id'/examples/captures_refund
+        request_example: requestBody/content/application~1json/examples/captures_refund
+        response_example: responses/201/content/application~1json/examples/captures_refund
+      - title: Full refund with empty request body
+        description: Refunds the full amount of a captured payment by ID. Includes an empty payload in
+          the request body.
+        parameter_examples:
+        - parameters/@name=='capture_id'/examples/captures_refund_empty_request
+        - parameters/@name=='Prefer'/examples/captures_refund_empty_request
+        request_example: requestBody/content/application~1json/examples/captures_refund_empty_request
+        response_example: responses/201/content/application~1json/examples/captures_refund_empty_request
+      - title: Refund with Prefer header for full representation
+        description: Refunds a captured payment by ID with the Prefer header set to return=representation
+          to get the complete refund details in the response.
+        parameter_examples:
+        - parameters/@name=='capture_id'/examples/captures_refund_with_prefer_header
+        - parameters/@name=='Prefer'/examples/captures_refund_with_prefer_header
+        request_example: requestBody/content/application~1json/examples/captures_refund_with_prefer_header
+        response_example: responses/201/content/application~1json/examples/captures_refund_with_prefer_header
+      - title: Idempotent refund request (200 response)
+        description: Demonstrates an idempotent refund request where the same PayPal-Request-Id is used,
+          resulting in a 200 OK response with the existing refund details.
+        parameter_examples:
+        - parameters/@name=='capture_id'/examples/captures_refund_200_idempotent_response
+        - parameters/@name=='Prefer'/examples/captures_refund_200_idempotent_response
+        request_example: requestBody/content/application~1json/examples/captures_refund_200_idempotent_response
+        response_example: responses/200/content/application~1json/examples/captures_refund_200_idempotent_response
+      responses:
+        '200':
+          description: A successful request returns the HTTP <code>200 OK</code> status code and a JSON
+            response body that shows refund details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/refund'
+              examples:
+                captures_refund_200_idempotent_response:
+                  summary: Refund Captured Payment - 200 idempotent response
+                  description: Refunds a captured payment, by ID. For a full refund, include an empty
+                    payload in the request body. For a partial refund, include an `amount` object.
+                  value:
+                    id: 0K35355239430361V
+                    amount:
+                      currency_code: USD
+                      value: '1.00'
+                    seller_payable_breakdown:
+                      gross_amount:
+                        currency_code: USD
+                        value: '1.00'
+                      paypal_fee:
+                        currency_code: USD
+                        value: '0.00'
+                      net_amount:
+                        currency_code: USD
+                        value: '1.00'
+                      total_refunded_amount:
+                        currency_code: USD
+                        value: '11.00'
+                    invoice_id: RefundInvoice-14_10_2024_4_58_32_pm
+                    custom_id: RefundCustom-14_10_2024_4_58_32_pm
+                    status: COMPLETED
+                    create_time: '2024-10-14T14:58:34-07:00'
+                    update_time: '2024-10-14T14:58:34-07:00'
+                    links:
+                    - href: https://api.paypal.com/v2/payments/refunds/0K35355239430361V
+                      rel: self
+                      method: GET
+                    - href: https://api.paypal.com/v2/payments/captures/7TK53561YB803214S
+                      rel: up
+                      method: GET
+        '201':
+          description: A successful request returns the HTTP <code>201 Created</code> status code and
+            a JSON response body that shows refund details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/refund'
+              examples:
+                captures_refund_empty_request:
+                  summary: Refund Captured Payment with an empty request
+                  description: Refunds a captured payment, by ID. For a full refund, include an empty
+                    payload in the request body. For a partial refund, include an `amount` object.
+                  value:
+                    id: 58K15806CS993444T
+                    amount:
+                      currency_code: USD
+                      value: '89.00'
+                    seller_payable_breakdown:
+                      gross_amount:
+                        currency_code: USD
+                        value: '89.00'
+                      paypal_fee:
+                        currency_code: USD
+                        value: '0.00'
+                      net_amount:
+                        currency_code: USD
+                        value: '89.00'
+                      total_refunded_amount:
+                        currency_code: USD
+                        value: '100.00'
+                    invoice_id: OrderInvoice-10_10_2024_12_58_20_pm
+                    status: COMPLETED
+                    create_time: '2024-10-14T15:03:29-07:00'
+                    update_time: '2024-10-14T15:03:29-07:00'
+                    links:
+                    - href: https://api.msmaster.qa.paypal.com/v2/payments/refunds/58K15806CS993444T
+                      rel: self
+                      method: GET
+                    - href: https://api.msmaster.qa.paypal.com/v2/payments/captures/7TK53561YB803214S
+                      rel: up
+                      method: GET
+                captures_refund_with_prefer_header:
+                  summary: Refund Captured Payment
+                  description: Refunds a captured payment, by ID. For a full refund, include an empty
+                    payload in the request body. For a partial refund, include an `amount` object.
+                  value:
+                    id: 1JU08902781691411
+                    amount:
+                      value: '10.99'
+                      currency_code: USD
+                    status: COMPLETED
+                    note: Defective product
+                    seller_payable_breakdown:
+                      gross_amount:
+                        value: '10.99'
+                        currency_code: USD
+                      paypal_fee:
+                        value: '0'
+                        currency_code: USD
+                      net_amount:
+                        value: '10.99'
+                        currency_code: USD
+                      total_refunded_amount:
+                        value: '10.99'
+                        currency_code: USD
+                    invoice_id: INVOICE-123
+                    create_time: '2018-09-11T23:24:19Z'
+                    update_time: '2018-09-11T23:24:19Z'
+                    links:
+                    - rel: self
+                      method: GET
+                      href: https://api-m.paypal.com/v2/payments/refunds/1JU08902781691411
+                    - rel: up
+                      method: GET
+                      href: https://api-m.paypal.com/v2/payments/captures/2GG279541U471931P
+        '400':
+          description: The request failed because it is not well-formed or is syntactically incorrect
+            or violates schema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                capture_refund_400_invalid_request:
+                  summary: Refund Captured Payment - 400 Bad Request - Validation Error
+                  description: This code sample attempts to refund a captured payment, but the request
+                    fails because a validation error occurred.
+                  value:
+                    name: INVALID_REQUEST
+                    message: Request is not well-formed, syntactically incorrect, or violates schema
+                    debug_id: 78916e688cf7f
+                    details:
+                    - issue: INVALID_STRING_LENGTH
+                      field: /invoice_id
+                      value: Fm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinqFm67fYiinq
+                      description: The value of a field is either too short or too long.
+                      location: body
+                    links:
+                    - href: https://developer.paypal.com/docs/api/payments/v2/#error-INVALID_STRING_LENGTH
+                      rel: information_link
+        '401':
+          $ref: '#/components/responses/401_error_response'
+        '403':
+          $ref: '#/components/responses/403_error_response'
+        '404':
+          $ref: '#/components/responses/404_error_response'
+        '409':
+          description: The request failed because a previous call for the given resource is in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                captures_refund_409_conflict:
+                  summary: Refund Captured Payment - 409 Conflict - Operation in Progress Error
+                  description: This code sample attempts to refund a captured payment but the request
+                    fails because a previous call for the given resource is in progress.
+                  value:
+                    name: RESOURCE_CONFLICT
+                    debug_id: b1d1f06c7246c
+                    message: The server has detected a conflict while processing this request.
+                    details:
+                    - issue: PREVIOUS_REQUEST_IN_PROGRESS
+                      description: A previous request on this resource is currently in progress. Please
+                        wait for some time and try again. It is best to space out the initial and the
+                        subsequent request(s) to avoid receiving this error.
+        '422':
+          description: The request failed because it either is semantically incorrect or failed business
+            validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                captures_refund_422_amount_exceeded:
+                  summary: Refund Captured Payment - 422 Unprocessable Entity - Refund Amount Exceeded
+                    Error
+                  description: This code sample attempts to refund a captured payment, but the request
+                    fails because the refund amount has exceeded the capture amount.
+                  value:
+                    name: UNPROCCESSABLE_ENTITY
+                    message: The requested action could not be completed, is semantically incorrect, or
+                      failed business validation.
+                    debug_id: 90bff07028f7f
+                    details:
+                    - issue: REFUND_AMOUNT_EXCEEDED
+                      description: The refund amount must be less than or equal to the capture amount
+                        that has not yet been refunded.
+                captures_refund_422_transaction_disputed:
+                  summary: Refund Captured Payment - 422 Unprocessable Entity - Capture Disputed Partial
+                    Refund Error
+                  description: This code sample attempts to partially refund a captured payment, but the
+                    request fails because the captured payment is currently under dispute.
+                  value:
+                    name: UNPROCESSABLE_ENTITY
+                    message: The requested action could not be performed, semantically incorrect, or failed
+                      business validation.
+                    debug_id: 90bff07028f7f
+                    details:
+                    - issue: TRANSACTION_DISPUTED
+                      description: Partial refunds cannot be offered at this time because there is an
+                        open case on this transaction. Visit the PayPal Resolution Center to review this
+                        case.
+        '500':
+          $ref: '#/components/responses/500_error_response'
+        default:
+          $ref: '#/components/responses/default_response'
+      callbacks:
+        capture_refunded:
+          $ref: '#/components/callbacks/capture_refunded'
+  /v2/payments/authorizations/{authorization_id}/capture:
+    post:
+      operationId: authorizations.capture
+      summary: Capture authorized payment
+      description: Captures an authorized payment, by ID.
+      tags:
+      - authorizations
+      security:
+      - Oauth2:
+        - https://uri.paypal.com/services/payments/payment/authcapture
+      parameters:
+      - name: authorization_id
+        description: The PayPal-generated ID for the authorized payment to capture.
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        examples:
+          authorizations_capture:
+            summary: Capture Authorized Payment
+            description: Captures an authorized payment, by ID.
+            value: 0VF52814937998046
+          authorizations_capture_200_idempotent_response:
+            summary: Capture Authorized Payment - 200 idempotent response
+            description: Captures an authorized payment, by ID.
+            value: 6DR965477U7140544
+          authorizations_capture_empty_request:
+            summary: Capture Authorized Payment with an empty request
+            description: Captures an authorized payment, by ID.
+            value: 6DR965477U7140544
+          authorizations_capture_with_prefer_header:
+            summary: Capture Authorized Payment with Prefer Request Header
+            description: Captures an authorized payment, by ID. Includes the `Prefer` request header.
+            value: 0VF52814937998046
+      - $ref: '#/components/parameters/paypal_request_id'
+      - name: Prefer
+        description: The preferred server response upon successful completion of the request. Value is:<ul><li><code>return=minimal</code>.
+          The server returns a minimal response to optimize communication between the API caller and the
+          server. A minimal response includes the <code>id</code>, <code>status</code> and HATEOAS links.</li><li><code>return=representation</code>.
+          The server returns a complete resource representation, including the current state of the resource.</li></ul>
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+          default: return=minimal
+        examples:
+          authorizations_capture_200_idempotent_response:
+            summary: Capture Authorized Payment - 200 idempotent response
+            description: Captures an authorized payment, by ID.
+            value: return=representation
+          authorizations_capture_with_prefer_header:
+            summary: Capture Authorized Payment with Prefer Request Header
+            description: Captures an authorized payment, by ID. Includes the `Prefer` request header.
+            value: return=representation
+          authorizations_capture_empty_request:
+            summary: Capture Authorized Payment with an empty request
+            description: Captures an authorized payment, by ID.
+            value: return=representation
+      - $ref: '#/components/parameters/authorization'
+      - $ref: '#/components/parameters/paypal_auth_assertion'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/capture_request'
+            examples:
+              authorizations_capture:
+                summary: Capture Authorized Payment
+                description: Captures an authorized payment, by ID.
+                value:
+                  amount:
+                    value: '10.99'
+                    currency_code: USD
+                  invoice_id: INVOICE-123
+                  final_capture: true
+                  note_to_payer: If the ordered color is not available, we will substitute with a different
+                    color free of charge.
+                  soft_descriptor: Bob's Custom Sweaters
+              authorizations_capture_200_idempotent_response:
+                summary: Capture Authorized Payment - 200 idempotent response
+                description: Captures an authorized payment, by ID.
+                value:
+                  amount:
+                    value: '1.00'
+                    currency_code: USD
+                  invoice_id: CaptureInvoice-10142024
+                  final_capture: false
+              authorizations_capture_empty_request:
+                summary: Capture Authorized Payment with an empty request
+                description: Captures an authorized payment, by ID.
+                value: {}
+              authorizations_capture_with_prefer_header:
+                summary: Capture Authorized Payment with Prefer Request Header
+                description: Captures an authorized payment, by ID. Includes the `Prefer` request header.
+                value:
+                  amount:
+                    value: '10.99'
+                    currency_code: USD
+                  invoice_id: INVOICE-123
+                  final_capture: true
+      x-exampleFlows:
+      - title: Capture authorized payment
+        description: Captures an authorized payment by ID with specified amount and invoice details.
+        parameter_examples:
+        - parameters/@name=='authorization_id'/examples/authorizations_capture
+        request_example: requestBody/content/application~1json/examples/authorizations_capture
+        response_example: responses/201/content/application~1json/examples/authorizations_capture
+      - title: Capture authorized payment with empty request body
+        description: Captures the full authorized amount by ID with an empty request body, using default
+          values.
+        parameter_examples:
+        - parameters/@name=='authorization_id'/examples/authorizations_capture_empty_request
+        - parameters/@name=='Prefer'/examples/authorizations_capture_empty_request
+        request_example: requestBody/content/application~1json/examples/authorizations_capture_empty_request
+        response_example: responses/201/content/application~1json/examples/authorizations_capture_empty_request
+      - title: Capture with Prefer header for full representation
+        description: Captures an authorized payment by ID with the Prefer header set to return=representation
+          to get complete capture details in the response.
+        parameter_examples:
+        - parameters/@name=='authorization_id'/examples/authorizations_capture_with_prefer_header
+        - parameters/@name=='Prefer'/examples/authorizations_capture_with_prefer_header
+        request_example: requestBody/content/application~1json/examples/authorizations_capture_with_prefer_header
+        response_example: responses/201/content/application~1json/examples/authorizations_capture_with_prefer_header
+      - title: Idempotent capture request (200 response)
+        description: Demonstrates an idempotent capture request where the same PayPal-Request-Id is used,
+          resulting in a 200 OK response with existing capture details.
+        parameter_examples:
+        - parameters/@name=='authorization_id'/examples/authorizations_capture_200_idempotent_response
+        - parameters/@name=='Prefer'/examples/authorizations_capture_200_idempotent_response
+        request_example: requestBody/content/application~1json/examples/authorizations_capture_200_idempotent_response
+        response_example: responses/200/content/application~1json/examples/authorizations_capture_200_idempotent_response
+      responses:
+        '200':
+          description: A successful request returns the HTTP <code>200 OK</code> status code and a JSON
+            response body that shows captured payment details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/capture-2'
+              examples:
+                authorizations_capture_200_idempotent_response:
+                  summary: Capture Authorized Payment - 200 idempotent response
+                  description: Captures an authorized payment, by ID.
+                  value:
+                    id: 23T524207X938445J
+                    amount:
+                      currency_code: USD
+                      value: '100.00'
+                    final_capture: false
+                    seller_protection:
+                      status: ELIGIBLE
+                      dispute_categories:
+                      - ITEM_NOT_RECEIVED
+                      - UNAUTHORIZED_TRANSACTION
+                    seller_receivable_breakdown:
+                      gross_amount:
+                        currency_code: USD
+                        value: '1.00'
+                      paypal_fee:
+                        currency_code: USD
+                        value: '0.52'
+                      net_amount:
+                        currency_code: USD
+                        value: '0.48'
+                      exchange_rate: {}
+                    invoice_id: OrderInvoice-10_10_2024_12_58_20_pm
+                    status: COMPLETED
+                    create_time: '2024-10-14T21:29:26Z'
+                    update_time: '2024-10-14T21:29:26Z'
+                    links:
+                    - href: https://api-m.paypal.com/v2/payments/captures/23T524207X938445J
+                      rel: self
+                      method: GET
+                    - href: https://api-m.paypal.com/v2/payments/captures/23T524207X938445J/refund
+                      rel: refund
+                      method: POST
+                    - href: https://api-m.paypal.com/v2/payments/authorizations/6DR965477U7140544
+                      rel: up
+                      method: GET
+        '201':
+          description: A successful request returns the HTTP <code>201 Created</code> status code and
+            a JSON response body that shows captured payment details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/capture-2'
+              examples:
+                authorizations_capture:
+                  summary: Capture Authorized Payment
+                  description: Captures an authorized payment, by ID.
+                  value:
+                    id: 2GG279541U471931P
+                    status: COMPLETED
+                    links:
+                    - rel: self
+                      method: GET
+                      href: https://api-m.paypal.com/v2/payments/captures/2GG279541U471931P
+                    - rel: refund
+                      method: POST
+                      href: https://api-m.paypal.com/v2/payments/captures/2GG279541U471931P/refund
+                    - rel: up
+                      method: GET
+                      href: https://api-m.paypal.com/v2/payments/authorizations/0VF52814937998046
+                authorizations_capture_empty_request:
+                  summary: Capture Authorized Payment with an empty request
+                  description: Captures an authorized payment, by ID.
+                  value:
+                    id: 7TK53561YB803214S
+                    amount:
+                      currency_code: USD
+                      value: '100.00'
+                    final_capture: true
+                    seller_protection:
+                      status: ELIGIBLE
+                      dispute_categories:
+                      - ITEM_NOT_RECEIVED
+                      - UNAUTHORIZED_TRANSACTION
+                    seller_receivable_breakdown:
+                      gross_amount:
+                        currency_code: USD
+                        value: '100.00'
+                      paypal_fee:
+                        currency_code: USD
+                        value: '3.98'
+                      net_amount:
+                        currency_code: USD
+                        value: '96.02'
+                      exchange_rate: {}
+                    invoice_id: OrderInvoice-10_10_2024_12_58_20_pm
+                    status: PENDING
+                    status_details:
+                      reason: OTHER
+                    create_time: '2024-10-14T21:37:10Z'
+                    update_time: '2024-10-14T21:37:10Z'
+                    links:
+                    - href: https://api.msmaster.qa.paypal.com/v2/payments/captures/7TK53561YB803214S
+                      rel: self
+                      method: GET
+                    - href: https://api.msmaster.qa.paypal.com/v2/payments/captures/7TK53561YB803214S/refund
+                      rel: refund
+                      method: POST
+                    - href: https://api.msmaster.qa.paypal.com/v2/payments/authorizations/6DR965477U7140544
+                      rel: up
+                      method: GET
+                authorizations_capture_with_prefer_header:
+                  summary: Capture Authorized Payment with Prefer Request Header
+                  description: Captures an authorized payment, by ID. Includes the `Prefer` request header.
+                  value:
+                    id: 2GG279541U471931P
+                    status: COMPLETED
+                    status_details: {}
+                    amount:
+                      value: '10.99'
+                      currency_code: USD
+                    final_capture: true
+                    seller_protection:
+                      status: ELIGIBLE
+                      dispute_categories:
+                      - ITEM_NOT_RECEIVED
+                      - UNAUTHORIZED_TRANSACTION
+                    seller_receivable_breakdown:
+                      gross_amount:
+                        value: '10.99'
+                        currency_code: USD
+                      paypal_fee:
+                        value: '0.33'
+                        currency_code: USD
+                      net_amount:
+                        value: '10.66'
+                        currency_code: USD
+                    invoice_id: INV-123
+                    create_time: '2017-09-11T23:24:01Z'
+                    update_time: '2017-09-11T23:24:01Z'
+                    links:
+                    - rel: self
+                      method: GET
+                      href: https://api-m.paypal.com/v2/payments/captures/2GG279541U471931P
+                    - rel: refund
+                      method: POST
+                      href: https://api-m.paypal.com/v2/payments/captures/2GG279541U471931P/refund
+                    - rel: up
+                      method: GET
+                      href: https://api-m.paypal.com/v2/payments/authorizations/0VF52814937998046
+        '400':
+          description: The request failed because it is not well-formed or is syntactically incorrect
+            or violates schema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                authorizations_capture_400_validation_error:
+                  summary: Capture Authorized Payment - 400 Bad Request - Validation Error
+                  description: This code sample attempts to capture an authorized payment but the request
+                    fails because a validation error occurred.
+                  value:
+                    name: INVALID_REQUEST
+                    message: Request is not well-formed, syntactically incorrect, or violates schema.
+                    debug_id: 90bff07028f7f
+                    details:
+                    - field: /invoice_id
+                      value: ABCDEFGHIJKLMNOPQRSTUVXYZABCDEFGHIJKLMNOPQRSTUVXYZABCDEFGHIJKLMNOPQRSTUVXYZABCDEFGHIJKLMNOPQRSTUVXYZ_this_invoice_is_too_long
+                      issue: INVALID_STRING_MAX_LENGTH
+                      description: The value of a field is too long.
+        '401':
+          $ref: '#/components/responses/401_error_response'
+        '403':
+          $ref: '#/components/responses/403_error_response'
+        '404':
+          $ref: '#/components/responses/404_error_response'
+        '409':
+          description: The server has detected a conflict while processing this request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                authorizations_capture_409_conflict:
+                  summary: Capture Authorized Payment - 409 Conflict - Operation in Progress Error
+                  description: This code sample attempts to capture an authorized payment but the request
+                    fails because a previous call for the given resource is in progress.
+                  value:
+                    name: RESOURCE_CONFLICT
+                    debug_id: b1d1f06c7246c
+                    message: The server has detected a conflict while processing this request.
+                    details:
+                    - issue: PREVIOUS_REQUEST_IN_PROGRESS
+                      description: A previous request on this resource is currently in progress. Please
+                        wait for some time and try again. It is best to space out the initial and the
+                        subsequent request(s) to avoid receiving this error.
+        '422':
+          description: The request failed because it is semantically incorrect or failed business validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                authorizations_capture_422_amount_limit_exceeded:
+                  summary: Capture Authorized Payment - 422 Unprocessable Entity - Requested Amount Exceeds
+                    Limit Error
+                  description: This code sample attempts to capture an authorized payment but the request
+                    fails because the requested amount exceeds the allowable limit.
+                  value:
+                    name: UNPROCCESSABLE_ENTITY
+                    message: The requested action could not be completed, is semantically incorrect, or
+                      failed business validation.
+                    debug_id: 90bff07028f7f
+                    details:
+                    - field: /amount/value
+                      value: '10.99'
+                      issue: MAX_CAPTURE_AMOUNT_EXCEEDED
+                      description: Capture amount specified exceeded allowable limit. You can only capture
+                        up to the original authorization amount.
+                      location: body
+                authorizations_capture_422_expired:
+                  summary: Capture Authorized Payment - 422 Unprocessable Entity - Authorization Expired
+                    Error
+                  description: This code sample attempts to capture an authorized payment but the request
+                    fails because the authorization expired.
+                  value:
+                    name: UNPROCCESSABLE_ENTITY
+                    message: The requested action could not be completed, is semantically incorrect, or
+                      failed business validation.
+                    debug_id: 90bff07028f7f
+                    details:
+                    - issue: AUTHORIZATION_EXPIRED
+                      description: The authorization has expired.
+        '500':
+          $ref: '#/components/responses/500_error_response'
+        default:
+          $ref: '#/components/responses/default_response'
+      callbacks:
+        capture_completed:
+          $ref: '#/components/callbacks/capture_completed'
+        capture_declined:
+          $ref: '#/components/callbacks/capture_declined'
+        capture_pending_kyc_incomplete:
+          $ref: '#/components/callbacks/capture_pending_kyc_incomplete'
+components:
+  callbacks:
+    capture_completed:
+      captures/{$request.path.capture_id}:
+        post:
+          summary: Capture completed notification
+          description: Notification sent when the capture is completed.
+          operationId: captures.completed.callback
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  title: Capture Completed Event
+                  description: Webhook event notification for capture completed.
+                  properties:
+                    id:
+                      type: string
+                      description: The ID of the webhook event notification.
+                      minLength: 1
+                      maxLength: 255
+                      pattern: ^.*$
+                    event_version:
+                      type: string
+                      description: The version of the event.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    create_time:
+                      description: The date and time when the webhook event notification was created.
+                      allOf:
+                      - $ref: '#/components/schemas/date_time'
+                    resource_type:
+                      type: string
+                      description: The name of the resource related to the webhook notification event.
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^.*$
+                    resource_version:
+                      type: string
+                      description: The version of the resource.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    event_type:
+                      type: string
+                      description: The event that triggered the webhook event notification.
+                      enum:
+                      - PAYMENT.CAPTURE.COMPLETED
+                    summary:
+                      type: string
+                      description: A summary description for the event notification.
+                      minLength: 1
+                      maxLength: 500
+                      pattern: ^.*$
+                    resource:
+                      allOf:
+                      - $ref: '#/components/schemas/capture-2'
+                    links:
+                      type: array
+                      description: An array of request-related HATEOAS links.
+                      minItems: 1
+                      maxItems: 10
+                      items:
+                        $ref: '#/components/schemas/link_description-2'
+                examples:
+                  capture_completed:
+                    summary: Capture completed event
+                    description: Webhook notification when the capture is completed.
+                    value:
+                      id: WH-152442318H6474839-1HN0997948621344U
+                      event_version: '1.0'
+                      create_time: '2022-10-27T22:32:49.870Z'
+                      resource_type: capture
+                      resource_version: '2.0'
+                      event_type: PAYMENT.CAPTURE.COMPLETED
+                      summary: Payment completed for $ 10.0 USD
+                      resource:
+                        amount:
+                          value: '10.00'
+                          currency_code: USD
+                        seller_protection:
+                          dispute_categories:
+                          - ITEM_NOT_RECEIVED
+                          - UNAUTHORIZED_TRANSACTION
+                          status: ELIGIBLE
+                        supplementary_data:
+                          related_ids:
+                            order_id: 28U14622MW998902M
+                        update_time: '2022-10-27T22:32:45Z'
+                        create_time: '2022-10-27T22:32:45Z'
+                        final_capture: true
+                        seller_receivable_breakdown:
+                          paypal_fee:
+                            value: '0.84'
+                            currency_code: USD
+                          gross_amount:
+                            value: '10.00'
+                            currency_code: USD
+                          net_amount:
+                            value: '9.16'
+                            currency_code: USD
+                        links:
+                        - method: GET
+                          rel: self
+                          href: https://api-m.paypal.com/v2/payments/captures/27C890397M291943E
+                        - method: POST
+                          rel: refund
+                          href: https://api-m.paypal.com/v2/payments/captures/27C890397M291943E/refund
+                        - method: GET
+                          rel: up
+                          href: https://api-m.paypal.com/v2/checkout/orders/28U14622MW998902M
+                        id: 27C890397M291943E
+                        status: COMPLETED
+                      links:
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-152442318H6474839-1HN0997948621344U
+                        rel: self
+                        method: GET
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-152442318H6474839-1HN0997948621344U/resend
+                        rel: resend
+                        method: POST
+          responses:
+            '204':
+              description: Your server implementation should return this HTTP status code if the data
+                was received successfully.
+            '400':
+              description: Your server should return this HTTP status code if the request is malformed.
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/error'
+                  examples:
+                    invalid_request:
+                      summary: Invalid webhook request.
+                      description: Request with malformed data.
+                      value:
+                        name: INVALID_REQUEST
+                        debug_id: b1d1f06c7246c
+                        message: Request is not well-formed, syntactically incorrect, or violates schema.
+                        details:
+                        - field: /event_type
+                          location: body
+                          issue: INVALID_PARAMETER_SYNTAX
+                          description: The value of a field does not conform to the expected format.
+            '500':
+              $ref: '#/components/responses/500_error_response'
+    capture_declined:
+      captures/{$request.path.capture_id}/declined:
+        post:
+          summary: Capture declined notification
+          description: Notification sent when capture for authorization is declined.
+          operationId: captures.declined.callback
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  title: Capture Declined Event
+                  description: Webhook event notification for capture declined.
+                  properties:
+                    id:
+                      type: string
+                      description: The ID of the webhook event notification.
+                      minLength: 1
+                      maxLength: 255
+                      pattern: ^.*$
+                    event_version:
+                      type: string
+                      description: The version of the event.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    create_time:
+                      description: The date and time when the webhook event notification was created.
+                      allOf:
+                      - $ref: '#/components/schemas/date_time'
+                    resource_type:
+                      type: string
+                      description: The name of the resource related to the webhook notification event.
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^.*$
+                    resource_version:
+                      type: string
+                      description: The version of the resource.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    event_type:
+                      type: string
+                      description: The event that triggered the webhook event notification.
+                      enum:
+                      - PAYMENT.CAPTURE.DECLINED
+                    summary:
+                      type: string
+                      description: A summary description for the event notification.
+                      minLength: 1
+                      maxLength: 500
+                      pattern: ^.*$
+                    resource:
+                      allOf:
+                      - $ref: '#/components/schemas/capture-2'
+                    links:
+                      type: array
+                      description: An array of request-related HATEOAS links.
+                      minItems: 1
+                      maxItems: 10
+                      items:
+                        $ref: '#/components/schemas/link_description-2'
+                examples:
+                  capture_declined:
+                    summary: Capture declined event
+                    description: Webhook notification when capture for authorization is declined.
+                    value:
+                      id: WH-30Y09481LL7353048-6K675100AV972021E
+                      create_time: '2022-09-21T18:41:07.071Z'
+                      event_type: PAYMENT.CAPTURE.DECLINED
+                      event_version: '1.0'
+                      resource_type: capture
+                      resource_version: '2.0'
+                      summary: A payment capture for $ 50.0 USD was declined.
+                      resource:
+                        id: 40222075YX552741V
+                        status: DECLINED
+                        amount:
+                          currency_code: USD
+                          value: '50.00'
+                        final_capture: false
+                        seller_protection:
+                          status: ELIGIBLE
+                          dispute_categories:
+                          - ITEM_NOT_RECEIVED
+                          - UNAUTHORIZED_TRANSACTION
+                        disbursement_mode: INSTANT
+                        seller_receivable_breakdown:
+                          gross_amount:
+                            currency_code: USD
+                            value: '50.00'
+                          paypal_fee:
+                            currency_code: USD
+                            value: '2.24'
+                          net_amount:
+                            currency_code: USD
+                            value: '47.76'
+                        invoice_id: '1663785654'
+                        supplementary_data:
+                          related_ids:
+                            order_id: 6AY135578D653613P
+                            authorization_id: 3U5721406T774122W
+                        create_time: '2022-09-21T18:40:22Z'
+                        update_time: '2022-09-21T18:41:03Z'
+                        links:
+                        - href: https://api-m.paypal.com/v2/payments/captures/40222075YX552741V
+                          rel: self
+                          method: GET
+                        - href: https://api-m.paypal.com/v2/payments/authorizations/3U5721406T774122W
+                          rel: up
+                          method: GET
+                      links:
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-30Y09481LL7353048-6K675100AV972021E
+                        rel: self
+                        method: GET
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-30Y09481LL7353048-6K675100AV972021E/resend
+                        rel: resend
+                        method: POST
+          responses:
+            '204':
+              description: Your server implementation should return this HTTP status code if the data
+                was received successfully.
+            '400':
+              description: Your server should return this HTTP status code if the request is malformed.
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/error'
+                  examples:
+                    invalid_request:
+                      summary: Invalid webhook request.
+                      description: Request with malformed data.
+                      value:
+                        name: INVALID_REQUEST
+                        debug_id: b1d1f06c7246c
+                        message: Request is not well-formed, syntactically incorrect, or violates schema.
+                        details:
+                        - field: /event_type
+                          location: body
+                          issue: INVALID_PARAMETER_SYNTAX
+                          description: The value of a field does not conform to the expected format.
+            '500':
+              $ref: '#/components/responses/500_error_response'
+    capture_pending_kyc_incomplete:
+      captures/{$request.path.capture_id}/pending:
+        post:
+          summary: Capture pending KYC incomplete notification
+          description: Notification sent when capture a sale order for a merchant with incomplete KYC
+            status, and the partner is enabled for Progressive Onboarding.
+          operationId: captures.pending.kyc_incomplete.callback
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  title: Capture Pending KYC Incomplete Event
+                  description: Webhook event notification for capture pending due to incomplete KYC.
+                  properties:
+                    id:
+                      type: string
+                      description: The ID of the webhook event notification.
+                      minLength: 1
+                      maxLength: 255
+                      pattern: ^.*$
+                    event_version:
+                      type: string
+                      description: The version of the event.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    create_time:
+                      description: The date and time when the webhook event notification was created.
+                      allOf:
+                      - $ref: '#/components/schemas/date_time'
+                    resource_type:
+                      type: string
+                      description: The name of the resource related to the webhook notification event.
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^.*$
+                    resource_version:
+                      type: string
+                      description: The version of the resource.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    event_type:
+                      type: string
+                      description: The event that triggered the webhook event notification.
+                      enum:
+                      - PAYMENT.CAPTURE.PENDING
+                    summary:
+                      type: string
+                      description: A summary description for the event notification.
+                      minLength: 1
+                      maxLength: 500
+                      pattern: ^.*$
+                    resource:
+                      allOf:
+                      - $ref: '#/components/schemas/capture-2'
+                    links:
+                      type: array
+                      description: An array of request-related HATEOAS links.
+                      minItems: 1
+                      maxItems: 10
+                      items:
+                        $ref: '#/components/schemas/link_description-2'
+                examples:
+                  capture_pending_kyc_incomplete:
+                    summary: Capture pending KYC incomplete event
+                    description: Webhook notification when capture a sale order for a merchant with incomplete
+                      KYC status.
+                    value:
+                      id: WH-36845715LW9646800-7FJ097926K9003132
+                      event_version: '1.0'
+                      create_time: '2025-07-08T22:07:56.096Z'
+                      resource_type: capture
+                      resource_version: '2.0'
+                      event_type: PAYMENT.CAPTURE.PENDING
+                      summary: Payment pending for $ 80.0 USD
+                      resource:
+                        id: 30N459334R4656637
+                        amount:
+                          currency_code: USD
+                          value: '80.00'
+                        final_capture: true
+                        seller_protection:
+                          status: NOT_ELIGIBLE
+                        disbursement_mode: INSTANT
+                        status: PENDING
+                        status_details:
+                          reason: KYC_HOLD
+                        processor_response:
+                          avs_code: A
+                          cvv_code: S
+                          response_code: '0000'
+                        supplementary_data:
+                          related_ids:
+                            order_id: 9XF68199B43440616
+                        payee:
+                          merchant_id: 972Y8QJUSCK3W
+                        create_time: '2025-07-08T22:07:50Z'
+                        update_time: '2025-07-08T22:07:50Z'
+                        links:
+                        - href: https://msmaster1intdev52.dev52.cbf.dev.paypalinc.com:25137/v2/payments/captures/30N459334R4656637
+                          rel: self
+                          method: GET
+                        - href: https://msmaster1intdev52.dev52.cbf.dev.paypalinc.com:25137/v2/payments/captures/30N459334R4656637/refund
+                          rel: refund
+                          method: POST
+                        - href: https://msmaster1intdev52.dev52.cbf.dev.paypalinc.com:25137/v2/checkout/orders/9XF68199B43440616
+                          rel: up
+                          method: GET
+                        network_transaction_reference:
+                          id: '752835256460198'
+                          network: VISA
+                      links:
+                      - href: https://msmaster1intdev52.dev52.cbf.dev.paypalinc.com:14084/v1/notifications/webhooks-events/WH-36845715LW9646800-7FJ097926K9003132
+                        rel: self
+                        method: GET
+                      - href: https://msmaster1intdev52.dev52.cbf.dev.paypalinc.com:14084/v1/notifications/webhooks-events/WH-36845715LW9646800-7FJ097926K9003132/resend
+                        rel: resend
+                        method: POST
+          responses:
+            '204':
+              description: Your server implementation should return this HTTP status code if the data
+                was received successfully.
+            '400':
+              description: Your server should return this HTTP status code if the request is malformed.
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/error'
+                  examples:
+                    invalid_request:
+                      summary: Invalid webhook request.
+                      description: Request with malformed data.
+                      value:
+                        name: INVALID_REQUEST
+                        debug_id: b1d1f06c7246c
+                        message: Request is not well-formed, syntactically incorrect, or violates schema.
+                        details:
+                        - field: /event_type
+                          location: body
+                          issue: INVALID_PARAMETER_SYNTAX
+                          description: The value of a field does not conform to the expected format.
+            '500':
+              $ref: '#/components/responses/500_error_response'
+    capture_refunded:
+      captures/{$request.path.capture_id}/refunds:
+        post:
+          summary: Capture refunded notification
+          description: Notification sent when a capture is refunded.
+          operationId: captures.refunded.callback
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  title: Capture Refunded Event
+                  description: Webhook event notification for capture refunded.
+                  properties:
+                    id:
+                      type: string
+                      description: The ID of the webhook event notification.
+                      minLength: 1
+                      maxLength: 255
+                      pattern: ^.*$
+                    event_version:
+                      type: string
+                      description: The version of the event.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    create_time:
+                      description: The date and time when the webhook event notification was created.
+                      allOf:
+                      - $ref: '#/components/schemas/date_time'
+                    resource_type:
+                      type: string
+                      description: The name of the resource related to the webhook notification event.
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^.*$
+                    resource_version:
+                      type: string
+                      description: The version of the resource.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    event_type:
+                      type: string
+                      description: The event that triggered the webhook event notification.
+                      enum:
+                      - PAYMENT.CAPTURE.REFUNDED
+                    summary:
+                      type: string
+                      description: A summary description for the event notification.
+                      minLength: 1
+                      maxLength: 500
+                      pattern: ^.*$
+                    resource:
+                      allOf:
+                      - $ref: '#/components/schemas/refund'
+                    links:
+                      type: array
+                      description: An array of request-related HATEOAS links.
+                      minItems: 1
+                      maxItems: 10
+                      items:
+                        $ref: '#/components/schemas/link_description-2'
+                examples:
+                  capture_refunded:
+                    summary: Capture refunded event
+                    description: Webhook notification when a capture is refunded.
+                    value:
+                      id: WH-3UE850097C805102A-18305212AB1299210
+                      event_version: '1.0'
+                      create_time: '2022-10-27T22:34:27.088Z'
+                      resource_type: refund
+                      resource_version: '2.0'
+                      event_type: PAYMENT.CAPTURE.REFUNDED
+                      summary: A $ 5.0 USD capture payment was refunded
+                      resource:
+                        seller_payable_breakdown:
+                          total_refunded_amount:
+                            value: '5.00'
+                            currency_code: USD
+                          paypal_fee:
+                            value: '0.00'
+                            currency_code: USD
+                          gross_amount:
+                            value: '5.00'
+                            currency_code: USD
+                          net_amount:
+                            value: '5.00'
+                            currency_code: USD
+                        amount:
+                          value: '5.00'
+                          currency_code: USD
+                        update_time: '2022-10-27T15:34:22-07:00'
+                        create_time: '2022-10-27T15:34:22-07:00'
+                        invoice_id: '1666910062'
+                        links:
+                        - method: GET
+                          rel: self
+                          href: https://api-m.paypal.com/v2/payments/refunds/3NG36268BJ600681V
+                        - method: GET
+                          rel: up
+                          href: https://api-m.paypal.com/v2/payments/captures/27C890397M291943E
+                        id: 3NG36268BJ600681V
+                        note_to_payer: Defective product
+                        status: COMPLETED
+                      links:
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-3UE850097C805102A-18305212AB1299210
+                        rel: self
+                        method: GET
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-3UE850097C805102A-18305212AB1299210/resend
+                        rel: resend
+                        method: POST
+          responses:
+            '204':
+              description: Your server implementation should return this HTTP status code if the data
+                was received successfully.
+            '400':
+              description: Your server should return this HTTP status code if the request is malformed.
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/error'
+                  examples:
+                    invalid_request:
+                      summary: Invalid webhook request.
+                      description: Request with malformed data.
+                      value:
+                        name: INVALID_REQUEST
+                        debug_id: b1d1f06c7246c
+                        message: Request is not well-formed, syntactically incorrect, or violates schema.
+                        details:
+                        - field: /event_type
+                          location: body
+                          issue: INVALID_PARAMETER_SYNTAX
+                          description: The value of a field does not conform to the expected format.
+            '500':
+              $ref: '#/components/responses/500_error_response'
+  parameters:
+    authorization:
+      name: Authorization
+      in: header
+      description: Holds authorization information for external API calls.
+      required: false
+      schema:
+        $ref: '#/components/schemas/standard_header_schema'
+      examples:
+        bearer:
+          summary: Bearer authorization.
+          description: An authorization header with information for the Bearer authorization scheme. The
+            authorization parameter value is randomized for this example.
+          value: Bearer A21AAGHr9qtiRRXH4oYcQokQgV99rGqEIfgrr8xHCclP0OzmD9KVgg5ppIIg1jzJgQkV4wd02svIvBJyg6cLFJjFow_SjBhxQ
+    paypal_auth_assertion:
+      name: PayPal-Auth-Assertion
+      in: header
+      description: Header for an API client-provided JWT assertion that identifies the merchant. Establishing
+        the consent to act-on-behalf of a merchant is a prerequisite for using this header.
+      required: false
+      schema:
+        description: Header for an API client-provided JWT assertion that identifies the merchant. Establishing
+          the consent to act-on-behalf of a merchant is a prerequisite for using this header.
+        type: string
+        minLength: 1
+        maxLength: 10000
+        pattern: ^.*$
+      examples:
+        auth_assertion:
+          summary: An auth assertion.
+          description: A paypal-auth-assertion header with a randomized value.
+          value: eyJhbGciOiJub25lIn0.eyJlbWFpbCI6Im15QGVtYWlsLmNvbSJ9
+    paypal_request_id:
+      name: PayPal-Request-Id
+      in: header
+      description: A unique ID identifying the request header for idempotency purposes.
+      required: false
+      schema:
+        description: A unique ID identifying the request header for idempotency purposes.
+        type: string
+        minLength: 1
+        maxLength: 10000
+        pattern: ^.*$
+      examples:
+        request_id:
+          summary: A request id.
+          description: A paypal-request-id header with a randomized value.
+          value: 17e81d06-77ab-11e8-adc0-fa71639ebebc
+  responses:
+    401_error_response:
+      description: Unauthorized.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+          examples:
+            generic:
+              summary: Generic 'Unauthorized' error.
+              description: Example response for unauthorized request.
+              value:
+                name: AUTHENTICATION_FAILURE
+                debug_id: b1d1f06c7246c
+                message: Authentication failed due to missing Authorization header, or invalid authentication
+                  credentials.
+    403_error_response:
+      description: Forbidden.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+          examples:
+            generic:
+              summary: Generic 'Forbidden' error.
+              description: Example response for a forbidden request.
+              value:
+                name: NOT_AUTHORIZED
+                debug_id: b1d1f06c7246c
+                message: Authorization failed due to insufficient permissions.
+    404_error_response:
+      description: Not Found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+          examples:
+            generic:
+              summary: Generic 'Not Found' error.
+              description: Example response for a request to a resource that does not exist.
+              value:
+                name: RESOURCE_NOT_FOUND
+                debug_id: b1d1f06c7246c
+                message: The specified resource does not exist.
+    500_error_response:
+      description: Internal Server Error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+          examples:
+            generic:
+              summary: Generic internal server error.
+              description: Example response for a request that fails for reasons internal to the server.
+              value:
+                name: INTERNAL_SERVER_ERROR
+                debug_id: b1d1f06c7246c
+                message: An internal server error has occurred.
+    default_response:
+      description: Default response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+          examples:
+            generic:
+              summary: Default response.
+              description: Example catch all response, should not be encountered in practice.
+              value:
+                name: INTERNAL_SERVER_ERROR
+                debug_id: b1d1f06c7246c
+                message: An internal server error has occurred.
+  schemas:
+    account_id-2:
+      title: PayPal Account Identifier
+      description: The account identifier for a PayPal account.
+      type: string
+      minLength: 13
+      maxLength: 13
+      pattern: ^[2-9A-HJ-NP-Z]{13}$
+    activity_timestamps:
+      title: activity_timestamps
+      description: The date and time stamps that are common to authorized payment, captured payment, and
+        refund transactions.
+      type: object
+      properties:
+        create_time:
+          allOf:
+          - $ref: '#/components/schemas/date_time'
+          - description: The date and time when the transaction occurred, in [Internet date and time format](https://tools.ietf.org/html/rfc3339#section-5.6).
+            readOnly: true
+        update_time:
+          allOf:
+          - $ref: '#/components/schemas/date_time'
+          - description: The date and time when the transaction was last updated, in [Internet date and
+              time format](https://tools.ietf.org/html/rfc3339#section-5.6).
+            readOnly: true
+    amount_breakdown:
+      title: amount_breakdown
+      description: The breakdown of the amount. Breakdown provides details such as total item amount,
+        total tax amount, shipping, handling, insurance, and discounts, if any.
+      type: object
+      properties:
+        item_total:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The subtotal for all items. Required if the request includes `purchase_units[].items[].unit_amount`.
+              Must equal the sum of `(items[].unit_amount * items[].quantity)` for all items. <code>item_total.value</code>
+              can not be a negative number.
+        shipping:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The shipping fee for all items within a given `purchase_unit`. <code>shipping.value</code>
+              can not be a negative number.
+        handling:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The handling fee for all items within a given `purchase_unit`. <code>handling.value</code>
+              can not be a negative number.
+        tax_total:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The total tax for all items. Required if the request includes `purchase_units.items.tax`.
+              Must equal the sum of `(items[].tax * items[].quantity)` for all items. <code>tax_total.value</code>
+              can not be a negative number.
+        insurance:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The insurance fee for all items within a given `purchase_unit`. <code>insurance.value</code>
+              can not be a negative number.
+        shipping_discount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The shipping discount for all items within a given `purchase_unit`. <code>shipping_discount.value</code>
+              can not be a negative number.
+        discount:
+          allOf:
+          - $ref: '#/components/schemas/discount_with_breakdown'
+          - description: The discount for all items within a given `purchase_unit`. <code>discount.value</code>
+              can not be a negative number.
+    amount_with_breakdown:
+      title: amount_with_breakdown
+      description: The total order amount with an optional breakdown that provides details, such as the
+        total item amount, total tax amount, shipping, handling, insurance, and discounts, if any.<br/>If
+        you specify `amount.breakdown`, the amount equals `item_total` plus `tax_total` plus `shipping`
+        plus `handling` plus `insurance` minus `shipping_discount` minus discount.<br/>The amount must
+        be a positive number. For listed of supported currencies and decimal precision, see the PayPal
+        REST APIs <a href="/docs/integration/direct/rest/currency-codes/">Currency Codes</a>.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/money'
+      - type: object
+        properties:
+          breakdown:
+            $ref: '#/components/schemas/amount_breakdown'
+    capture:
+      title: capture
+      description: A captured payment.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/capture_status'
+      - type: object
+        properties:
+          id:
+            description: The PayPal-generated ID for the captured payment.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          amount:
+            allOf:
+            - $ref: '#/components/schemas/amount_with_breakdown'
+            - description: The amount for this captured payment.
+              readOnly: true
+          invoice_id:
+            description: The API caller-provided external invoice number for this order. Appears in both
+              the payer's transaction history and the emails that the payer receives.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          custom_id:
+            description: The API caller-provided external ID. Used to reconcile API caller-initiated transactions
+              with PayPal transactions. Appears in transaction and settlement reports.
+            type: string
+            minLength: 0
+            maxLength: 255
+            pattern: ^[\S\s]*$
+          network_transaction_reference:
+            allOf:
+            - $ref: '#/components/schemas/network_transaction'
+          seller_protection:
+            allOf:
+            - $ref: '#/components/schemas/seller_protection'
+            - readOnly: true
+          final_capture:
+            description: Indicates whether you can make additional captures against the authorized payment.
+              Set to `true` if you do not intend to capture additional payments against the authorization.
+              Set to `false` if you intend to capture additional payments against the authorization.
+            type: boolean
+            default: false
+            readOnly: true
+          seller_receivable_breakdown:
+            allOf:
+            - $ref: '#/components/schemas/seller_receivable_breakdown'
+            - readOnly: true
+          disbursement_mode:
+            allOf:
+            - $ref: '#/components/schemas/disbursement_mode'
+          links:
+            description: An array of related [HATEOAS links](/docs/api/reference/api-responses/#hateoas-links).
+            type: array
+            minItems: 0
+            maxItems: 32767
+            readOnly: true
+            items:
+              allOf:
+              - $ref: '#/components/schemas/link_description-2'
+              - title: link_description
+          processor_response:
+            allOf:
+            - $ref: '#/components/schemas/processor_response'
+            - description: An object that provides additional processor information for a direct credit
+                card transaction.
+      - allOf:
+        - $ref: '#/components/schemas/activity_timestamps'
+    capture-2:
+      title: Captured Payment
+      description: A captured payment.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/capture'
+      - type: object
+        properties:
+          supplementary_data:
+            allOf:
+            - $ref: '#/components/schemas/supplementary_data'
+            - description: An object that provides supplementary/additional data related to a payment
+                transaction.
+              readOnly: true
+          payee:
+            allOf:
+            - $ref: '#/components/schemas/payee_base'
+            - readOnly: true
+    capture_request:
+      title: Capture Request
+      description: Captures either a portion or the full authorized amount of an authorized payment.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/supplementary_purchase_data'
+      - type: object
+        properties:
+          amount:
+            allOf:
+            - $ref: '#/components/schemas/money'
+            - description: The amount to capture. To capture a portion of the full authorized amount,
+                specify an amount. If amount is not specified, the full authorized amount is captured.
+                The amount must be a positive number and in the same currency as the authorization against
+                which the payment is being captured.
+          invoice_id:
+            description: The API caller-provided external invoice number for this order. Appears in both
+              the payer's transaction history and the emails that the payer receives.
+            type: string
+            minLength: 0
+            maxLength: 127
+            pattern: ^[\S\s]*$
+          final_capture:
+            description: Indicates whether you can make additional captures against the authorized payment.
+              Set to `true` if you do not intend to capture additional payments against the authorization.
+              Set to `false` if you intend to capture additional payments against the authorization.
+            type: boolean
+            default: false
+          payment_instruction:
+            allOf:
+            - $ref: '#/components/schemas/payment_instruction'
+            - not:
+                required:
+                - payee_pricing_tier_id
+          note_to_payer:
+            description: An informational note about this settlement. Appears in both the payer's transaction
+              history and the emails that the payer receives.
+            type: string
+            minLength: 0
+            maxLength: 255
+            pattern: ^[\S\s]*$
+          soft_descriptor:
+            description: The payment descriptor on the payer's account statement.
+            type: string
+            minLength: 0
+            maxLength: 22
+            pattern: ^[\S\s]*$
+    capture_status:
+      title: capture_status
+      description: The status and status details of a captured payment.
+      type: object
+      properties:
+        status:
+          title: Capture Status
+          description: The status of the captured payment.
+          type: string
+          enum:
+          - COMPLETED
+          - DECLINED
+          - PARTIALLY_REFUNDED
+          - PENDING
+          - REFUNDED
+          - FAILED
+          readOnly: true
+        status_details:
+          allOf:
+          - $ref: '#/components/schemas/capture_status_details'
+          - description: The details of the captured payment status.
+            readOnly: true
+    capture_status_details:
+      title: capture_status_details
+      description: The details of the captured payment status.
+      type: object
+      properties:
+        reason:
+          title: Capture Incomplete Reason
+          description: The reason why the captured payment status is `PENDING` or `DENIED`.
+          type: string
+          enum:
+          - BUYER_COMPLAINT
+          - CHARGEBACK
+          - ECHECK
+          - INTERNATIONAL_WITHDRAWAL
+          - OTHER
+          - PENDING_REVIEW
+          - RECEIVING_PREFERENCE_MANDATES_MANUAL_ACTION
+          - REFUNDED
+          - TRANSACTION_APPROVED_AWAITING_FUNDING
+          - UNILATERAL
+          - VERIFICATION_REQUIRED
+          - DECLINED_BY_RISK_FRAUD_FILTERS
+    card_brand:
+      title: card_brand
+      description: The card network or brand. Applies to credit, debit, gift, and payment cards.
+      type: string
+      enum:
+      - VISA
+      - MASTERCARD
+      - DISCOVER
+      - AMEX
+      - SOLO
+      - JCB
+      - STAR
+      - DELTA
+      - SWITCH
+      - MAESTRO
+      - CB_NATIONALE
+      - CONFIGOGA
+      - CONFIDIS
+      - ELECTRON
+      - CETELEM
+      - CHINA_UNION_PAY
+      - DINERS
+      - ELO
+      - HIPER
+      - HIPERCARD
+      - RUPAY
+      - GE
+      - SYNCHRONY
+      - EFTPOS
+      - CARTE_BANCAIRE
+      - STAR_ACCESS
+      - PULSE
+      - NYCE
+      - ACCEL
+      - UNKNOWN
+    currency_code:
+      description: The [three-character ISO-4217 currency code](/api/rest/reference/currency-codes/) that
+        identifies the currency.
+      type: string
+      minLength: 3
+      maxLength: 3
+      pattern: ^[\S\s]*$
+    date_time:
+      description: The date and time, in [Internet date and time format](https://tools.ietf.org/html/rfc3339#section-5.6).
+        Seconds are required while fractional seconds are optional.<blockquote><strong>Note:</strong>
+        The regular expression provides guidance but does not reject all invalid dates.</blockquote>
+      type: string
+      minLength: 20
+      maxLength: 64
+      pattern: ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])[T,t]([0-1][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})$
+    disbursement_mode:
+      title: disbursement_mode
+      description: The funds that are held on behalf of the merchant.
+      type: string
+      enum:
+      - INSTANT
+      - DELAYED
+      default: INSTANT
+    discount_with_breakdown:
+      title: discount_with_breakdown
+      description: The discount amount and currency code. For list of supported currencies and decimal
+        precision, see the PayPal REST APIs <a href="/docs/integration/direct/rest/currency-codes/">Currency
+        Codes</a>.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/money'
+      - type: object
+    email:
+      title: email
+      description: The internationalized email address.<blockquote><strong>Note:</strong> Up to 64 characters
+        are allowed before and 255 characters are allowed after the <code>@</code> sign. However, the
+        generally accepted maximum length for an email address is 254 characters. The pattern verifies
+        that an unquoted <code>@</code> sign exists.</blockquote>
+      type: string
+      minLength: 3
+      maxLength: 254
+      pattern: ^.*(?:[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-zA-Z0-9-]*[a-zA-Z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\]).*$
+    error:
+      title: Error
+      description: The error details.
+      type: object
+      required:
+      - debug_id
+      - message
+      - name
+      properties:
+        name:
+          description: The human-readable, unique name of the error.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        message:
+          description: The message that describes the error.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        debug_id:
+          description: The PayPal internal ID. Used for correlation purposes.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        details:
+          description: An array of additional details about the error.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            allOf:
+            - $ref: '#/components/schemas/error_details'
+            - title: error_details
+        links:
+          description: An array of request-related [HATEOAS links](/api/rest/responses/#hateoas-links).
+          type: array
+          minItems: 0
+          maxItems: 32767
+          readOnly: true
+          items:
+            allOf:
+            - $ref: '#/components/schemas/link_description'
+            - title: link_description
+              readOnly: true
+    error_details:
+      title: Error Details
+      description: The error details. Required for client-side `4XX` errors.
+      type: object
+      required:
+      - issue
+      properties:
+        field:
+          description: The field that caused the error. If this field is in the body, set this value to
+            the field's JSON pointer value. Required for client-side errors.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        value:
+          description: The value of the field that caused the error.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        location:
+          description: The location of the field that caused the error. Value is `body`, `path`, or `query`.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+          default: body
+        issue:
+          description: The unique, fine-grained application-level error code.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        links:
+          description: An array of request-related [HATEOAS links](/api/rest/responses/#hateoas-links)
+            that are either relevant to the issue by providing additional information or offering potential
+            resolutions.
+          type: array
+          minItems: 1
+          maxItems: 4
+          readOnly: true
+          items:
+            allOf:
+            - $ref: '#/components/schemas/link_description'
+            - title: link_description
+              readOnly: true
+        description:
+          description: The human-readable description for an issue. The description can change over the
+            lifetime of an API, so clients must not depend on this value.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+    exchange_rate:
+      title: exchange_rate
+      description: The exchange rate that determines the amount to convert from one currency to another
+        currency.
+      type: object
+      readOnly: true
+      properties:
+        source_currency:
+          allOf:
+          - $ref: '#/components/schemas/currency_code'
+          - description: The source currency from which to convert an amount.
+        target_currency:
+          allOf:
+          - $ref: '#/components/schemas/currency_code'
+          - description: The target currency to which to convert an amount.
+        value:
+          description: The target currency amount. Equivalent to one unit of the source currency. Formatted
+            as integer or decimal value with one to 15 digits to the right of the decimal point.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+    link_description:
+      title: Link Description
+      description: The request-related [HATEOAS link](/api/rest/responses/#hateoas-links) information.
+      type: object
+      required:
+      - href
+      - rel
+      properties:
+        href:
+          description: The complete target URL. To make the related call, combine the method with this
+            [URI Template-formatted](https://tools.ietf.org/html/rfc6570) link. For pre-processing, include
+            the `$`, `(`, and `)` characters. The `href` is the key HATEOAS component that links a completed
+            call with a subsequent call.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        rel:
+          description: The [link relation type](https://tools.ietf.org/html/rfc5988#section-4), which
+            serves as an ID for a link that unambiguously describes the semantics of the link. See [Link
+            Relations](https://www.iana.org/assignments/link-relations/link-relations.xhtml).
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        method:
+          description: The HTTP method required to make the related call.
+          type: string
+          enum:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - HEAD
+          - CONNECT
+          - OPTIONS
+          - PATCH
+        title:
+          description: The link title.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        mediaType:
+          title: media_type
+          description: The media type, as defined by [RFC 2046](https://www.ietf.org/rfc/rfc2046.txt).
+            Describes the link target.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        encType:
+          title: enc_type
+          description: The media type in which to submit the request data.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+          default: application/json
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/link_schema'
+          - description: The schema that describes the request data.
+        targetSchema:
+          allOf:
+          - $ref: '#/components/schemas/link_schema'
+          - title: target_schema
+            description: The schema that describes the link target.
+    link_description-2:
+      title: Link Description
+      description: The request-related [HATEOAS link](/api/rest/responses/#hateoas-links) information.
+      type: object
+      required:
+      - href
+      - rel
+      properties:
+        href:
+          description: The complete target URL. To make the related call, combine the method with this
+            [URI Template-formatted](https://tools.ietf.org/html/rfc6570) link. For pre-processing, include
+            the `$`, `(`, and `)` characters. The `href` is the key HATEOAS component that links a completed
+            call with a subsequent call.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        rel:
+          description: The [link relation type](https://tools.ietf.org/html/rfc5988#section-4), which
+            serves as an ID for a link that unambiguously describes the semantics of the link. See [Link
+            Relations](https://www.iana.org/assignments/link-relations/link-relations.xhtml).
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        method:
+          description: The HTTP method required to make the related call.
+          type: string
+          enum:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - HEAD
+          - CONNECT
+          - OPTIONS
+          - PATCH
+        title:
+          description: The link title.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        mediaType:
+          title: media_type
+          description: The media type, as defined by [RFC 2046](https://www.ietf.org/rfc/rfc2046.txt).
+            Describes the link target.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        encType:
+          title: enc_type
+          description: The media type in which to submit the request data.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+          default: application/json
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/link_schema-2'
+          - description: The schema that describes the request data.
+        targetSchema:
+          allOf:
+          - $ref: '#/components/schemas/link_schema-2'
+          - title: target_schema
+            description: The schema that describes the link target.
+    link_schema:
+      title: Link Schema
+      description: The request data or link target.
+      type: object
+      properties:
+        additionalItems:
+          title: additional_items
+          description: Any additional items.
+          type: object
+        dependencies:
+          title: Dependencies
+          description: The dependencies.
+          type: object
+        items:
+          title: Items
+          description: An item.
+          type: object
+        definitions:
+          title: Definitions
+          description: Definitions.
+          type: object
+        patternProperties:
+          title: pattern_properties
+          description: The pattern properties.
+          type: object
+        properties:
+          title: Properties
+          description: The properties.
+          type: object
+        allOf:
+          title: all_of
+          description: An array of sub-schemas. The data must validate against all sub-schemas.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            title: all_of_item
+            description: A sub-schema against which the data must validate.
+            type: object
+        anyOf:
+          title: any_of
+          description: An array of sub-schemas. The data must validate against one or more sub-schemas.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            title: any_of_item
+            description: A sub-schema against which the data must validate.
+            type: object
+        oneOf:
+          title: one_of
+          description: An array of sub-schemas. The data must validate against one sub-schema.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            title: one_of_item
+            description: A sub-schema against which the data must validate.
+            type: object
+        not:
+          title: Not
+          description: Not.
+          type: object
+        links:
+          description: An array of links.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          readOnly: true
+          items:
+            title: link
+            description: A link.
+            type: object
+            readOnly: true
+        fragmentResolution:
+          title: fragment_resolution
+          description: The fragment resolution.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        media:
+          title: Media
+          description: The media type and context-encoding scheme.
+          type: object
+          properties:
+            type:
+              description: 'The media type. See [Multipurpose Internet Mail Extensions (MIME) Part Two:
+                Media Types](https://tools.ietf.org/html/rfc2046).'
+              type: string
+              minLength: 0
+              maxLength: 2147483647
+              pattern: ^[\S\s]*$
+            binaryEncoding:
+              title: binary_encoding
+              description: 'The content-encoding scheme. See [Multipurpose Internet Mail Extensions (MIME)
+                Part One: Format of Internet Message Bodies](https://tools.ietf.org/html/rfc2045).'
+              type: string
+              minLength: 0
+              maxLength: 2147483647
+              pattern: ^[\S\s]*$
+        pathStart:
+          title: path_start
+          description: To apply this schema to the instances' URIs, start the URIs with this value.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          format: uri
+    link_schema-2:
+      title: Link Schema
+      description: The request data or link target.
+      type: object
+      properties:
+        additionalItems:
+          title: additional_items
+          description: Any additional items.
+          type: object
+        dependencies:
+          title: Dependencies
+          description: Any Dependencies.
+          type: object
+        items:
+          title: Items
+          description: An item.
+          type: object
+        definitions:
+          title: Definitions
+          description: Definitions.
+          type: object
+        patternProperties:
+          title: pattern_properties
+          description: The pattern properties.
+          type: object
+        properties:
+          title: Properties
+          description: Properties.
+          type: object
+        allOf:
+          title: all_of
+          description: An array of sub-schemas. The data must validate against all sub-schemas.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            title: all_of_item
+            description: A sub-schema against which the data must validate.
+            type: object
+        anyOf:
+          title: any_of
+          description: An array of sub-schemas. The data must validate against one or more sub-schemas.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            title: any_of_item
+            description: A sub-schema against which the data must validate.
+            type: object
+        oneOf:
+          title: one_of
+          description: An array of sub-schemas. The data must validate against one sub-schema.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          items:
+            title: one_of_item
+            description: A sub-schema against which the data must validate.
+            type: object
+        not:
+          title: Not
+          description: Not.
+          type: object
+        links:
+          description: An array of links.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          readOnly: true
+          items:
+            title: link
+            description: A link.
+            type: object
+            readOnly: true
+        fragmentResolution:
+          title: fragment_resolution
+          description: The fragment resolution.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        media:
+          title: Media
+          description: The media type and context-encoding scheme.
+          type: object
+          properties:
+            type:
+              description: 'The media type. See [Multipurpose Internet Mail Extensions (MIME) Part Two:
+                Media Types](https://tools.ietf.org/html/rfc2046).'
+              type: string
+              minLength: 0
+              maxLength: 2147483647
+              pattern: ^[\S\s]*$
+            binaryEncoding:
+              title: binary_encoding
+              description: 'The content-encoding scheme. See [Multipurpose Internet Mail Extensions (MIME)
+                Part One: Format of Internet Message Bodies](https://tools.ietf.org/html/rfc2045).'
+              type: string
+              minLength: 0
+              maxLength: 2147483647
+              pattern: ^[\S\s]*$
+        pathStart:
+          title: path_start
+          description: To apply this schema to the instances' URIs, start the URIs with this value.
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          format: uri
+    money:
+      title: Money
+      description: The currency and amount for a financial transaction, such as a balance or payment due.
+      type: object
+      required:
+      - currency_code
+      - value
+      properties:
+        currency_code:
+          $ref: '#/components/schemas/currency_code'
+        value:
+          description: The value, which might be:<ul><li>An integer for currencies like `JPY` that are
+            not typically fractional.</li><li>A decimal fraction for currencies like `TND` that are subdivided
+            into thousandths.</li></ul>For the required number of decimal places for a currency code,
+            see [Currency Codes](/api/rest/reference/currency-codes/).
+          type: string
+          minLength: 0
+          maxLength: 32
+          pattern: ^((-?[0-9]+)|(-?([0-9]+)?[.][0-9]+))$
+    net_amount_breakdown_item:
+      title: net_amount_breakdown
+      description: The net amount. Returned when the currency of the refund is different from the currency
+        of the PayPal account where the merchant holds their funds.
+      type: object
+      properties:
+        payable_amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The net amount debited from the merchant's PayPal account.
+            readOnly: true
+        converted_amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The converted payable amount.
+            readOnly: true
+        exchange_rate:
+          allOf:
+          - $ref: '#/components/schemas/exchange_rate'
+          - description: The exchange rate that determines the amount that was debited from the merchant's
+              PayPal account.
+            readOnly: true
+    network_transaction:
+      title: network_transaction
+      description: Reference values used by the card network to identify a transaction.
+      type: object
+      properties:
+        id:
+          description: Transaction reference id returned by the scheme. For Visa and Amex, this is the
+            "Tran id" field in response. For MasterCard, this is the "BankNet reference id" field in response.
+            For Discover, this is the "NRID" field in response. The pattern we expect for this field from
+            Visa/Amex/CB/Discover is numeric, Mastercard/BNPP is alphanumeric and Paysecure is alphanumeric
+            with special character -.
+          type: string
+          minLength: 9
+          maxLength: 36
+          pattern: ^[a-zA-Z0-9-_@.:&+=*^'~#!$%()]+$
+        date:
+          description: The date that the transaction was authorized by the scheme. This field may not
+            be returned for all networks. MasterCard refers to this field as "BankNet reference date".
+            For some specific networks, such as MasterCard and Discover, this date field is mandatory
+            when the `previous_network_transaction_reference_id` is passed.
+          type: string
+          minLength: 4
+          maxLength: 4
+          pattern: ^[0-9]+$
+        network:
+          allOf:
+          - $ref: '#/components/schemas/card_brand'
+          - description: Name of the card network through which the transaction was routed.
+        acquirer_reference_number:
+          description: Reference ID issued for the card transaction. This ID can be used to track the
+            transaction across processors, card brands and issuing banks.
+          type: string
+          minLength: 1
+          maxLength: 36
+          pattern: ^[a-zA-Z0-9]+$
+    payee_base:
+      title: payee_base
+      description: The details for the merchant who receives the funds and fulfills the order. The merchant
+        is also known as the payee.
+      type: object
+      properties:
+        email_address:
+          allOf:
+          - $ref: '#/components/schemas/email'
+          - description: The email address of merchant.
+        merchant_id:
+          allOf:
+          - $ref: '#/components/schemas/account_id-2'
+          - description: The encrypted PayPal account ID of the merchant.
+    payment_instruction:
+      title: payment_instruction
+      description: Any additional payment instructions to be consider during payment processing. This
+        processing instruction is applicable for Capturing an order or Authorizing an Order.
+      type: object
+      properties:
+        platform_fees:
+          description: An array of various fees, commissions, tips, or donations. This field is only applicable
+            to merchants that been enabled for PayPal Complete Payments Platform for Marketplaces and
+            Platforms capability.
+          type: array
+          minItems: 0
+          maxItems: 1
+          items:
+            allOf:
+            - $ref: '#/components/schemas/platform_fee'
+            - title: platform_fee
+        disbursement_mode:
+          allOf:
+          - $ref: '#/components/schemas/disbursement_mode'
+          - description: The funds that are held payee by the marketplace/platform. This field is only
+              applicable to merchants that been enabled for PayPal Complete Payments Platform for Marketplaces
+              and Platforms capability.
+        payee_pricing_tier_id:
+          description: This field is only enabled for selected merchants/partners to use and provides
+            the ability to trigger a specific pricing rate/plan for a payment transaction. The list of
+            eligible 'payee_pricing_tier_id' would be provided to you by your Account Manager. Specifying
+            values other than the one provided to you by your account manager would result in an error.
+          type: string
+          minLength: 1
+          maxLength: 20
+          pattern: ^.*$
+        payee_receivable_fx_rate_id:
+          description: FX identifier generated returned by PayPal to be used for payment processing in
+            order to honor FX rate (for eligible integrations) to be used when amount is settled/received
+            into the payee account.
+          type: string
+          minLength: 1
+          maxLength: 4000
+          pattern: ^.*$
+    payment_instruction-2:
+      title: payment_instruction
+      description: Any additional payments instructions during refund payment processing. This object
+        is only applicable to merchants that have been enabled for PayPal Commerce Platform for Marketplaces
+        and Platforms capability. Please speak to your account manager if you want to use this capability.
+      type: object
+      properties:
+        platform_fees:
+          description: Specifies the amount that the API caller will contribute to the refund being processed.
+            The amount needs to be lower than platform_fees amount originally captured or the amount that
+            is remaining if multiple refunds have been processed. This field is only applicable to merchants
+            that have been enabled for PayPal Commerce Platform for Marketplaces and Platforms capability.
+            Please speak to your account manager if you want to use this capability.
+          type: array
+          minItems: 0
+          maxItems: 1
+          items:
+            allOf:
+            - $ref: '#/components/schemas/platform_fee'
+            - title: platform_fee
+              not:
+                required:
+                - payee
+    platform_fee:
+      title: platform_fee
+      description: The platform or partner fee, commission, or brokerage fee that is associated with the
+        transaction. Not a separate or isolated transaction leg from the external perspective. The platform
+        fee is limited in scope and is always associated with the original payment for the purchase unit.
+      type: object
+      required:
+      - amount
+      properties:
+        amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - title: amount
+            description: The fee for this transaction.
+        payee:
+          allOf:
+          - $ref: '#/components/schemas/payee_base'
+          - title: payee
+            description: The recipient of the fee for this transaction.
+    processor_response:
+      title: processor_response
+      description: The processor response information for payment requests, such as direct credit card
+        transactions.
+      type: object
+      properties:
+        avs_code:
+          description: The address verification code for Visa, Discover, Mastercard, or American Express
+            transactions.
+          type: string
+          enum:
+          - A
+          - B
+          - C
+          - D
+          - E
+          - F
+          - G
+          - I
+          - M
+          - N
+          - P
+          - R
+          - S
+          - U
+          - W
+          - X
+          - Y
+          - Z
+          - 'Null'
+          - '0'
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          readOnly: true
+        cvv_code:
+          description: The card verification value code for for Visa, Discover, Mastercard, or American
+            Express.
+          type: string
+          enum:
+          - E
+          - I
+          - M
+          - N
+          - P
+          - S
+          - U
+          - X
+          - All others
+          - '0'
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          readOnly: true
+        response_code:
+          description: Processor response code for the non-PayPal payment processor errors.
+          type: string
+          enum:
+          - '0000'
+          - 00N7
+          - '0100'
+          - 0390
+          - '0500'
+          - 0580
+          - 0800
+          - 0880
+          - 0890
+          - 0960
+          - 0R00
+          - '1000'
+          - 10BR
+          - '1300'
+          - '1310'
+          - '1312'
+          - '1317'
+          - '1320'
+          - '1330'
+          - '1335'
+          - '1340'
+          - '1350'
+          - '1352'
+          - '1360'
+          - '1370'
+          - '1380'
+          - '1382'
+          - '1384'
+          - '1390'
+          - '1393'
+          - '5100'
+          - '5110'
+          - '5120'
+          - '5130'
+          - '5135'
+          - '5140'
+          - '5150'
+          - '5160'
+          - '5170'
+          - '5180'
+          - '5190'
+          - '5200'
+          - '5210'
+          - '5400'
+          - '5500'
+          - '5650'
+          - '5700'
+          - '5710'
+          - '5800'
+          - '5900'
+          - '5910'
+          - '5920'
+          - '5930'
+          - '5950'
+          - '6300'
+          - '7600'
+          - '7700'
+          - '7710'
+          - '7800'
+          - '7900'
+          - '8000'
+          - '8010'
+          - '8020'
+          - '8030'
+          - '8100'
+          - '8110'
+          - '8220'
+          - '9100'
+          - '9500'
+          - '9510'
+          - '9520'
+          - '9530'
+          - '9540'
+          - '9600'
+          - PCNR
+          - PCVV
+          - PP06
+          - PPRN
+          - PPAD
+          - PPAB
+          - PPAE
+          - PPAG
+          - PPAI
+          - PPAR
+          - PPAU
+          - PPAV
+          - PPAX
+          - PPBG
+          - PPC2
+          - PPCE
+          - PPCO
+          - PPCR
+          - PPCT
+          - PPCU
+          - PPD3
+          - PPDC
+          - PPDI
+          - PPDV
+          - PPDT
+          - PPEF
+          - PPEL
+          - PPER
+          - PPEX
+          - PPFE
+          - PPFI
+          - PPFR
+          - PPFV
+          - PPGR
+          - PPH1
+          - PPIF
+          - PPII
+          - PPIM
+          - PPIT
+          - PPLR
+          - PPLS
+          - PPMB
+          - PPMC
+          - PPMD
+          - PPNC
+          - PPNL
+          - PPNM
+          - PPNT
+          - PPPH
+          - PPPI
+          - PPPM
+          - PPQC
+          - PPRE
+          - PPRF
+          - PPRR
+          - PPS0
+          - PPS1
+          - PPS2
+          - PPS3
+          - PPS4
+          - PPS5
+          - PPS6
+          - PPSC
+          - PPSD
+          - PPSE
+          - PPTE
+          - PPTF
+          - PPTI
+          - PPTR
+          - PPTT
+          - PPTV
+          - PPUA
+          - PPUC
+          - PPUE
+          - PPUI
+          - PPUP
+          - PPUR
+          - PPVC
+          - PPVE
+          - PPVT
+          readOnly: true
+        payment_advice_code:
+          description: The declined payment transactions might have payment advice codes. The card networks,
+            like Visa and Mastercard, return payment advice codes.
+          type: string
+          enum:
+          - '01'
+          - '02'
+          - '03'
+          - '04'
+          - '21'
+          - '22'
+          - '24'
+          - '25'
+          - '26'
+          - '27'
+          - '28'
+          - '29'
+          - '30'
+          - '40'
+          - '43'
+          readOnly: true
+    refund:
+      title: refund
+      description: The refund information.
+      type: object
+      allOf:
+      - allOf:
+        - $ref: '#/components/schemas/refund_status'
+      - title: Refund Properties
+        description: The detailed properties of the refund transaction, including identifiers, amounts,
+          breakdowns, and associated metadata.
+        type: object
+        properties:
+          id:
+            description: The PayPal-generated ID for the refund.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          amount:
+            allOf:
+            - $ref: '#/components/schemas/money'
+            - description: The amount that the payee refunded to the payer.
+              readOnly: true
+          invoice_id:
+            description: The API caller-provided external invoice number for this order. Appears in both
+              the payer's transaction history and the emails that the payer receives.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          custom_id:
+            description: The API caller-provided external ID. Used to reconcile API caller-initiated transactions
+              with PayPal transactions. Appears in transaction and settlement reports.
+            type: string
+            minLength: 1
+            maxLength: 255
+            pattern: ^[A-Za-z0-9-_.,]*$
+          acquirer_reference_number:
+            description: Reference ID issued for the card transaction. This ID can be used to track the
+              transaction across processors, card brands and issuing banks.
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: ^[a-zA-Z0-9]+$
+          note_to_payer:
+            description: The reason for the refund. Appears in both the payer's transaction history and
+              the emails that the payer receives.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          seller_payable_breakdown:
+            title: Seller Payable Breakdown
+            description: The breakdown of the refund.
+            type: object
+            readOnly: true
+            properties:
+              gross_amount:
+                allOf:
+                - $ref: '#/components/schemas/money'
+                - description: The amount that the payee refunded to the payer.
+                  readOnly: true
+              paypal_fee:
+                allOf:
+                - $ref: '#/components/schemas/money'
+                - description: The PayPal fee that was refunded to the payer in the currency of the transaction.
+                    This fee might not match the PayPal fee that the payee paid when the payment was captured.
+                  readOnly: true
+              paypal_fee_in_receivable_currency:
+                allOf:
+                - $ref: '#/components/schemas/money'
+                - description: The PayPal fee that was refunded to the payer in the receivable currency.
+                    Returned only in cases when the receivable currency is different from transaction
+                    currency. Example 'CNY'.
+                  readOnly: true
+              net_amount:
+                allOf:
+                - $ref: '#/components/schemas/money'
+                - description: The net amount that the payee's account is debited in the transaction currency.
+                    The net amount is calculated as <code>gross_amount</code> minus <code>paypal_fee</code>
+                    minus <code>platform_fees</code>.
+                  readOnly: true
+              net_amount_in_receivable_currency:
+                allOf:
+                - $ref: '#/components/schemas/money'
+                - description: The net amount that the payee's account is debited in the receivable currency.
+                    Returned only in cases when the receivable currency is different from transaction
+                    currency. Example 'CNY'.
+                  readOnly: true
+              platform_fees:
+                description: An array of platform or partner fees, commissions, or brokerage fees for
+                  the refund.
+                type: array
+                minItems: 0
+                maxItems: 1
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/platform_fee'
+                  - title: platform_fee
+              net_amount_breakdown:
+                description: An array of breakdown values for the net amount. Returned when the currency
+                  of the refund is different from the currency of the PayPal account where the payee holds
+                  their funds.
+                type: array
+                minItems: 0
+                maxItems: 32767
+                readOnly: true
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/net_amount_breakdown_item'
+                  - title: net_amount_breakdown_item
+              total_refunded_amount:
+                allOf:
+                - $ref: '#/components/schemas/money'
+                - description: The total amount refunded from the original capture to date. For example,
+                    if a payer makes a $100 purchase and was refunded $20 a week ago and was refunded
+                    $30 in this refund, the `gross_amount` is $30 for this refund and the `total_refunded_amount`
+                    is $50.
+          payer:
+            allOf:
+            - $ref: '#/components/schemas/payee_base'
+            - description: The details associated with the merchant for this transaction.
+              readOnly: true
+          links:
+            description: An array of related [HATEOAS links](/docs/api/reference/api-responses/#hateoas-links).
+            type: array
+            minItems: 0
+            maxItems: 32767
+            readOnly: true
+            items:
+              allOf:
+              - $ref: '#/components/schemas/link_description-2'
+              - title: link_description
+      - allOf:
+        - $ref: '#/components/schemas/activity_timestamps'
+    refund_request:
+      title: Refund Request
+      description: Refunds a captured payment, by ID. For a full refund, include an empty request body.
+        For a partial refund, include an <code>amount</code> object in the request body.
+      type: object
+      properties:
+        amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The amount to refund. To refund a portion of the captured amount, specify an
+              amount. If amount is not specified, an amount equal to <code>captured amount - previous
+              refunds</code> is refunded. The amount must be a positive number and in the same currency
+              as the one in which the payment was captured.
+        custom_id:
+          description: The API caller-provided external ID. Used to reconcile API caller-initiated transactions
+            with PayPal transactions. Appears in transaction and settlement reports. The pattern is defined
+            by an external party and supports Unicode.
+          type: string
+          minLength: 1
+          maxLength: 127
+          pattern: ^.*$
+        invoice_id:
+          description: The API caller-provided external invoice ID for this order. The pattern is defined
+            by an external party and supports Unicode.
+          type: string
+          minLength: 1
+          maxLength: 127
+          pattern: ^.*$
+        note_to_payer:
+          description: The reason for the refund. Appears in both the payer's transaction history and
+            the emails that the payer receives. The pattern is defined by an external party and supports
+            Unicode.
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: ^.*$
+        payment_instruction:
+          allOf:
+          - $ref: '#/components/schemas/payment_instruction-2'
+          - description: Any additional refund instructions to be set during refund payment processing.
+              This object is only applicable to merchants that have been enabled for PayPal Commerce Platform
+              for Marketplaces and Platforms capability. Please speak to your account manager if you want
+              to use this capability.
+    refund_status:
+      title: refund_status
+      description: The refund status with details.
+      type: object
+      properties:
+        status:
+          title: Refund Status With Details
+          description: The status of the refund.
+          type: string
+          enum:
+          - CANCELLED
+          - FAILED
+          - PENDING
+          - COMPLETED
+          readOnly: true
+        status_details:
+          allOf:
+          - $ref: '#/components/schemas/refund_status_details'
+          - description: The details of the refund status.
+            readOnly: true
+    refund_status_details:
+      title: refund_status_details
+      description: The details of the refund status.
+      type: object
+      properties:
+        reason:
+          title: Refund Incomplete Reason
+          description: The reason why the refund has the `PENDING` or `FAILED` status.
+          type: string
+          enum:
+          - ECHECK
+    related_ids:
+      title: Related Identifiers
+      description: Identifiers related to a specific resource.
+      type: object
+      properties:
+        order_id:
+          description: Order ID related to the resource.
+          type: string
+          minLength: 1
+          maxLength: 20
+          pattern: ^[A-Z0-9]+$
+        authorization_id:
+          description: Authorization ID related to the resource.
+          type: string
+          minLength: 1
+          maxLength: 20
+          pattern: ^[A-Z0-9]+$
+        capture_id:
+          description: Capture ID related to the resource.
+          type: string
+          minLength: 1
+          maxLength: 20
+          pattern: ^[A-Z0-9]+$
+    seller_protection:
+      title: seller_protection
+      description: The level of protection offered as defined by [PayPal Seller Protection for Merchants](https://www.paypal.com/us/webapps/mpp/security/seller-protection).
+      type: object
+      properties:
+        status:
+          title: Seller Protection Status
+          description: Indicates whether the transaction is eligible for seller protection. For information,
+            see [PayPal Seller Protection for Merchants](https://www.paypal.com/us/webapps/mpp/security/seller-protection).
+          type: string
+          enum:
+          - ELIGIBLE
+          - PARTIALLY_ELIGIBLE
+          - NOT_ELIGIBLE
+          readOnly: true
+        dispute_categories:
+          description: An array of conditions that are covered for the transaction.
+          type: array
+          minItems: 0
+          maxItems: 32767
+          readOnly: true
+          items:
+            title: dispute_category
+            description: The condition that is covered for the transaction.
+            type: string
+            enum:
+            - ITEM_NOT_RECEIVED
+            - UNAUTHORIZED_TRANSACTION
+    seller_receivable_breakdown:
+      title: Seller Receivable Breakdown
+      description: The detailed breakdown of the capture activity. This is not available for transactions
+        that are in pending state.
+      type: object
+      required:
+      - gross_amount
+      properties:
+        gross_amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The amount for this captured payment in the currency of the transaction.
+        paypal_fee:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The applicable fee for this captured payment in the currency of the transaction.
+        paypal_fee_in_receivable_currency:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The applicable fee for this captured payment in the receivable currency. Returned
+              only in cases the fee is charged in the receivable currency. Example 'CNY'.
+        net_amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The net amount that the payee receives for this captured payment in their PayPal
+              account. The net amount is computed as <code>gross_amount</code> minus the <code>paypal_fee</code>
+              minus the <code>platform_fees</code>.
+        receivable_amount:
+          allOf:
+          - $ref: '#/components/schemas/money'
+          - description: The net amount that is credited to the payee's PayPal account. Returned only
+              when the currency of the captured payment is different from the currency of the PayPal account
+              where the payee wants to credit the funds. The amount is computed as <code>net_amount</code>
+              times <code>exchange_rate</code>.
+        exchange_rate:
+          allOf:
+          - $ref: '#/components/schemas/exchange_rate'
+          - description: The exchange rate that determines the amount that is credited to the payee's
+              PayPal account. Returned when the currency of the captured payment is different from the
+              currency of the PayPal account where the payee wants to credit the funds.
+        platform_fees:
+          description: An array of platform or partner fees, commissions, or brokerage fees that associated
+            with the captured payment.
+          type: array
+          minItems: 0
+          maxItems: 1
+          items:
+            allOf:
+            - $ref: '#/components/schemas/platform_fee'
+            - title: platform_fee
+    standard_header_schema:
+      title: Schema Object for standard headers
+      description: Standard headers are generally less restrictive in structure due to historical precedent
+        across browsers, etc. This is a common schema for use in defining most standard headers.
+      type: string
+      minLength: 1
+      maxLength: 16000
+      pattern: ^.*$
+    supplementary_data:
+      title: Payment Supplementary Data
+      description: The supplementary data.
+      type: object
+      properties:
+        related_ids:
+          allOf:
+          - $ref: '#/components/schemas/related_ids'
+          - readOnly: true
+    supplementary_purchase_data:
+      title: Capture Identifier
+      description: The capture identification-related fields. Includes the invoice ID, custom ID, note
+        to payer, and soft descriptor.
+      type: object
+      properties:
+        invoice_id:
+          description: The API caller-provided external invoice number for this order. Appears in both
+            the payer's transaction history and the emails that the payer receives.
+          type: string
+          minLength: 1
+          maxLength: 127
+          pattern: ^.{1,127}$
+        note_to_payer:
+          description: An informational note about this settlement. Appears in both the payer's transaction
+            history and the emails that the payer receives.
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: ^.{1,255}$

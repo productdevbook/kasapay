@@ -1,5 +1,6 @@
 //! The PayPal client.
 
+use std::fmt;
 use std::sync::{Arc, PoisonError, RwLock};
 use std::time::{Duration, SystemTime};
 
@@ -11,6 +12,7 @@ use url::Url;
 
 use crate::PAYPAL;
 use crate::convert;
+use crate::id::{AuthorizationId, CaptureId, RefundId};
 use crate::wire;
 
 /// The one OAuth2 `grant_type` this crate ever sends.
@@ -188,6 +190,30 @@ impl PayPal {
     /// was is what [`Provider::charge_status`] is for. Left unset, PayPal
     /// falls back to whatever the merchant's own account is configured with.
     pub async fn create_order(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        self.create(request, "CAPTURE").await
+    }
+
+    /// Creates an order with `intent: AUTHORIZE`, for a later
+    /// [`PayPal::authorize_order`] rather than an immediate
+    /// [`PayPal::capture_order`].
+    ///
+    /// The same call as [`PayPal::create_order`] but for the intent that buys
+    /// a longer hold through PayPal's Authorizations resource — see the
+    /// crate docs for what changes and what does not. Everything
+    /// [`PayPal::create_order`]'s own documentation says about
+    /// `ChargeRequest::customer`, `::metadata` and `::return_url` applies
+    /// here too: this differs from that call only in the one field PayPal
+    /// reads to decide what a later capture does.
+    ///
+    /// **Still needs an explicit follow-up.** Creating the order does not
+    /// place the hold; [`PayPal::authorize_order`] does, once the payer has
+    /// approved it, the same two-step shape [`PayPal::create_order`] and
+    /// [`PayPal::capture_order`] already have for `intent: CAPTURE`.
+    pub async fn authorize(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        self.create(request, "AUTHORIZE").await
+    }
+
+    async fn create(&self, request: &ChargeRequest, intent: &'static str) -> Result<Charge, Error> {
         // Before a socket opens: a currency PayPal will not read.
         let amount = convert::amount_out(request.amount)?;
 
@@ -208,7 +234,7 @@ impl PayPal {
                 },
             });
         let body = wire::CreateOrder {
-            intent: "CAPTURE",
+            intent,
             purchase_units: [unit],
             payment_source,
         };
@@ -223,6 +249,51 @@ impl PayPal {
             .await?;
         let order: wire::Order = parse(&raw, "an order")?;
         into_charge(&order, raw, Some(request))
+    }
+
+    /// Places the hold an `intent: AUTHORIZE` order asks for, once the payer
+    /// has approved it.
+    ///
+    /// `POST /v2/checkout/orders/{id}/authorize`, sent with
+    /// `Prefer: return=representation` — every one of PayPal's own documented
+    /// examples for this call shows the full authorization, id and
+    /// `expiration_time` included, regardless of which `Prefer` value the
+    /// request carried, so this asks for the shape it actually reads.
+    ///
+    /// The answer is a [`Charge`] built the same way [`PayPal::order`]'s is:
+    /// [`Charge::id`] is the *order's* id, [`Charge::status`] is
+    /// [`Status::Authorized`] once PayPal's own `CREATED` or `PENDING`
+    /// authorization status is on it, and the authorization's own id —
+    /// needed for [`PayPal::capture_authorization`] — is not a field on
+    /// `Charge` at all. [`authorization_id`] reads it back out of
+    /// [`Charge::raw`].
+    ///
+    /// **This is not how a `CAPTURE`-intent order is captured.** Calling this
+    /// on one, or calling [`PayPal::capture_order`] on an `AUTHORIZE`-intent
+    /// order, is PayPal's own `ACTION_DOES_NOT_MATCH_INTENT` — each intent
+    /// has exactly one of the two follow-up calls that works.
+    ///
+    /// `request_id`, sent as `PayPal-Request-Id`, is the same idempotency
+    /// story [`PayPal::capture_order`]'s own documentation has: PayPal
+    /// documents this call as idempotent against a repeated key, and a
+    /// caller retrying without one risks a second hold PayPal itself would
+    /// not have placed.
+    pub async fn authorize_order(
+        &self,
+        order: &PaymentId,
+        request_id: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                &format!("/v2/checkout/orders/{}/authorize", order.as_str()),
+                Some(&wire::AuthorizeOrder::default()),
+                true,
+                request_id.map(IdempotencyKey::as_str),
+            )
+            .await?;
+        let order: wire::Order = parse(&raw, "an order")?;
+        into_charge(&order, raw, None)
     }
 
     /// Reads an order back.
@@ -276,6 +347,133 @@ impl PayPal {
             .await?;
         let captured: wire::Order = parse(&raw, "an order")?;
         into_charge(&captured, raw, None)
+    }
+
+    /// Takes the funds an `intent: AUTHORIZE` hold is holding.
+    ///
+    /// `POST /v2/payments/authorizations/{id}/capture`, keyed by
+    /// [`AuthorizationId`] rather than [`PaymentId`] — [`authorization_id`]
+    /// is how a caller gets one, off the [`Charge`]
+    /// [`PayPal::authorize_order`] answered. This is not
+    /// [`Provider::capture`]: the trait method's signature takes a
+    /// [`PaymentId`], and reaching this call from one would mean reading the
+    /// order back first to find the hold's own id, a second request this
+    /// method does not make on a caller's behalf. Going through the
+    /// Authorizations resource at all is calling this directly.
+    ///
+    /// Sent with `Prefer: return=representation`, the header every one of
+    /// PayPal's own documented examples for this call carries — the default,
+    /// `return=minimal`, answers `id`, `status` and links alone, and this
+    /// crate wants the amount too.
+    ///
+    /// `amount` of `None` captures the whole authorization, sent as `{}`,
+    /// PayPal's own `authorizations_capture_empty_request` example. `Some`
+    /// captures part of it — PayPal answers `MAX_CAPTURE_AMOUNT_EXCEEDED`
+    /// for more than what remains.
+    ///
+    /// `request_id`, sent as `PayPal-Request-Id`. The same caution
+    /// [`PayPal::capture_order`]'s own documentation gives: replaying this
+    /// without one can capture the same authorization twice.
+    pub async fn capture_authorization(
+        &self,
+        authorization: &AuthorizationId,
+        amount: Option<Money>,
+        request_id: Option<&IdempotencyKey>,
+    ) -> Result<Capture, Error> {
+        let amount = amount
+            .map(|money| {
+                money.require_positive().map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidRequest,
+                        PAYPAL,
+                        "a capture takes an amount above zero, or None for the lot",
+                    )
+                    .with_source(e)
+                })?;
+                convert::amount_out(money)
+            })
+            .transpose()?;
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                &format!(
+                    "/v2/payments/authorizations/{}/capture",
+                    authorization.as_str()
+                ),
+                Some(&wire::CreateAuthorizationCapture { amount }),
+                true,
+                request_id.map(IdempotencyKey::as_str),
+            )
+            .await?;
+        let captured: wire::AuthorizationCapture = parse(&raw, "a capture")?;
+        Capture::read(&captured, authorization.clone(), raw)
+    }
+
+    /// Gives money back off a capture — **not off the order, and not off an
+    /// authorization**.
+    ///
+    /// `POST /v2/payments/captures/{id}/refund`, keyed by [`CaptureId`]:
+    /// [`capture_id`] is how a caller gets one, off the [`Charge`]
+    /// [`PayPal::capture_order`] or [`Provider::charge_status`] answered.
+    /// This is the same split `kasapay_mollie::Mollie::refund` draws
+    /// between a payment and the capture it was taken with, for the same
+    /// underlying reason: the money moved when the capture happened, and a
+    /// refund reverses that, not the order.
+    ///
+    /// `amount` of `None` sends `{}` — PayPal's own
+    /// `captures_refund_empty_request` example — and their `refund_request`
+    /// schema documents exactly what that refunds: `captured amount -
+    /// previous refunds`, computed when the request is processed rather
+    /// than fixed at the capture's original amount. So calling this with
+    /// `None` a second time, on a capture a first partial refund already
+    /// touched, refunds what is left rather than attempting the original
+    /// total again. `Some` refunds a specific amount instead, and PayPal
+    /// answers `REFUND_AMOUNT_EXCEEDED` once the sum of every refund on this
+    /// capture would pass what was captured; its own answer's
+    /// `seller_payable_breakdown.total_refunded_amount` carries that running
+    /// total either way. What PayPal does not document is which of the two
+    /// rules wins when a retried `None` refund's own idempotency key matches
+    /// a request sent before some other refund landed — see the crate docs,
+    /// "Unverified against a live account".
+    ///
+    /// Sent with `Prefer: return=representation`. Every one of PayPal's own
+    /// documented examples for this call carries that header; none shows the
+    /// minimal shape, so this crate does not guess at one.
+    ///
+    /// **Money leaving needs a key.** PayPal takes `PayPal-Request-Id` here
+    /// exactly as it does on [`PayPal::capture_order`], and replaying a
+    /// refund without one can give the money back twice — the same caution,
+    /// with a sharper cost. `request_id` is that key.
+    pub async fn refund(
+        &self,
+        capture: &CaptureId,
+        amount: Option<Money>,
+        request_id: Option<&IdempotencyKey>,
+    ) -> Result<Refund, Error> {
+        let amount = amount
+            .map(|money| {
+                money.require_positive().map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidRequest,
+                        PAYPAL,
+                        "a refund takes an amount above zero, or None for the lot",
+                    )
+                    .with_source(e)
+                })?;
+                convert::amount_out(money)
+            })
+            .transpose()?;
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                &format!("/v2/payments/captures/{}/refund", capture.as_str()),
+                Some(&wire::CreateRefund { amount }),
+                true,
+                request_id.map(IdempotencyKey::as_str),
+            )
+            .await?;
+        let refunded: wire::Refund = parse(&raw, "a refund")?;
+        Refund::read(&refunded, capture.clone(), raw)
     }
 
     async fn token(&self) -> Result<Secret, Error> {
@@ -604,6 +802,55 @@ fn resolve_amount(unit: Option<&wire::PurchaseUnit>) -> Result<Money, Error> {
     convert::money(amount, "a purchase unit")
 }
 
+/// Reads the capture id off an order's first capture, for [`PayPal::refund`].
+///
+/// PayPal nests it at `purchase_units[0].payments.captures[0].id` on
+/// whatever answered the [`Charge`] — [`PayPal::capture_order`],
+/// [`Provider::charge_status`] on an order that was captured — rather than
+/// carrying it on a field of [`Charge`] itself, the same reason this crate
+/// already reads an order's amount out of the raw shape rather than a
+/// dedicated one.
+///
+/// [`ErrorKind::Malformed`] for a [`Charge`] with no capture on it at all —
+/// an order that has not been captured has nothing to refund.
+pub fn capture_id(charge: &Charge) -> Result<CaptureId, Error> {
+    charge
+        .raw
+        .text_at("/purchase_units/0/payments/captures/0/id")
+        .map(CaptureId::issued)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PAYPAL,
+                "this order carries no captured payment to refund",
+            )
+        })
+}
+
+/// Reads the authorization id off an order's first authorization, for
+/// [`PayPal::capture_authorization`].
+///
+/// PayPal nests it at `purchase_units[0].payments.authorizations[0].id` on
+/// whatever answered the [`Charge`] — [`PayPal::authorize_order`],
+/// [`Provider::charge_status`] on an order somebody else authorized — the
+/// same gap [`capture_id`] closes for a capture.
+///
+/// [`ErrorKind::Malformed`] for a [`Charge`] with no authorization on it at
+/// all — an order nobody has authorized has no hold to capture.
+pub fn authorization_id(charge: &Charge) -> Result<AuthorizationId, Error> {
+    charge
+        .raw
+        .text_at("/purchase_units/0/payments/authorizations/0/id")
+        .map(AuthorizationId::issued)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PAYPAL,
+                "this order carries no authorization to capture",
+            )
+        })
+}
+
 /// What PayPal's HTTP status means, from their standard `error` object.
 fn refused(status: reqwest::StatusCode, text: &str) -> Error {
     let kind = match status.as_u16() {
@@ -670,6 +917,149 @@ fn transport_error(error: &reqwest::Error) -> Error {
     Error::new(kind, PAYPAL, error.to_string())
 }
 
+/// One capture PayPal has taken off an authorization —
+/// [`PayPal::capture_authorization`]'s own answer.
+///
+/// Its identifier is a [`CaptureId`], the same kind [`PayPal::refund`] takes
+/// — not a [`PaymentId`], which names the order rather than this.
+#[derive(Debug, Clone)]
+pub struct Capture {
+    /// PayPal's identifier for this capture.
+    pub id: CaptureId,
+    /// The authorization it was taken off.
+    ///
+    /// **Not read from PayPal's answer.** The capture object this is built
+    /// from carries no authorization id and no order id anywhere in its
+    /// body — only in `links[].href`, under `rel: "up"` — so this is the id
+    /// the caller passed to [`PayPal::capture_authorization`], echoed back
+    /// rather than parsed out of a link.
+    pub authorization: AuthorizationId,
+    /// How much was taken.
+    pub amount: Money,
+    /// Where the capture stands, mapped through the same `capture_status`
+    /// enum PayPal's Orders-level capture answers with, unchanged between
+    /// the two APIs.
+    pub status: Status,
+    /// PayPal's own answer, kept whole.
+    pub raw: Raw,
+}
+
+impl Capture {
+    fn read(
+        capture: &wire::AuthorizationCapture,
+        authorization: AuthorizationId,
+        raw: Raw,
+    ) -> Result<Self, Error> {
+        let missing = |field: &str| {
+            Error::new(
+                ErrorKind::Malformed,
+                PAYPAL,
+                format!("a capture carried no {field}"),
+            )
+        };
+        Ok(Self {
+            id: CaptureId::issued(capture.id.as_deref().ok_or_else(|| missing("id"))?),
+            authorization,
+            amount: convert::money(
+                capture.amount.as_ref().ok_or_else(|| missing("amount"))?,
+                "a capture",
+            )?,
+            status: convert::capture_status(
+                capture.status.as_deref().ok_or_else(|| missing("status"))?,
+            ),
+            raw,
+        })
+    }
+}
+
+/// One refund PayPal has taken off a capture — [`PayPal::refund`]'s own
+/// answer.
+#[derive(Debug, Clone)]
+pub struct Refund {
+    /// PayPal's identifier for this refund.
+    pub id: RefundId,
+    /// The capture it was taken off.
+    ///
+    /// **Not read from PayPal's answer**, for the same reason
+    /// [`Capture::authorization`] is not: the refund object carries no
+    /// capture id of its own, only an `up` link. This is the id the caller
+    /// passed to [`PayPal::refund`].
+    pub capture: CaptureId,
+    /// How much went back.
+    pub amount: Money,
+    /// Where the refund stands. PayPal's own documented examples for this
+    /// call all answer [`RefundState::Completed`]; the other three are on
+    /// their `refund_status` schema and read here rather than guessed at.
+    pub state: RefundState,
+    /// PayPal's own answer, kept whole.
+    pub raw: Raw,
+}
+
+impl Refund {
+    fn read(refund: &wire::Refund, capture: CaptureId, raw: Raw) -> Result<Self, Error> {
+        let missing = |field: &str| {
+            Error::new(
+                ErrorKind::Malformed,
+                PAYPAL,
+                format!("a refund carried no {field}"),
+            )
+        };
+        Ok(Self {
+            id: RefundId::issued(refund.id.as_deref().ok_or_else(|| missing("id"))?),
+            capture,
+            amount: convert::money(
+                refund.amount.as_ref().ok_or_else(|| missing("amount"))?,
+                "a refund",
+            )?,
+            state: RefundState::from(refund.status.as_deref().ok_or_else(|| missing("status"))?),
+            raw,
+        })
+    }
+}
+
+/// Where one of PayPal's refunds stands, from their `refund_status` schema.
+///
+/// Unlike a capture's own status, this names no fold-in of anything else —
+/// PayPal's refund is its own resource and this is only ever read off one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RefundState {
+    /// Accepted and not yet sent.
+    Pending,
+    /// The money is back with the payer.
+    Completed,
+    /// It will not be sent.
+    Failed,
+    /// Withdrawn before it was sent.
+    Cancelled,
+    /// A state PayPal has started returning since this was written.
+    Other(Box<str>),
+}
+
+impl From<&str> for RefundState {
+    fn from(value: &str) -> Self {
+        match value {
+            "PENDING" => Self::Pending,
+            "COMPLETED" => Self::Completed,
+            "FAILED" => Self::Failed,
+            "CANCELLED" => Self::Cancelled,
+            other => Self::Other(other.into()),
+        }
+    }
+}
+
+impl fmt::Display for RefundState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Pending => f.write_str("pending"),
+            Self::Completed => f.write_str("completed"),
+            Self::Failed => f.write_str("failed"),
+            Self::Cancelled => f.write_str("cancelled"),
+            Self::Other(state) => f.write_str(state),
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl Provider for PayPal {
     fn id(&self) -> ProviderId {
@@ -703,19 +1093,30 @@ impl Provider for PayPal {
         self.capture_order(id, None).await
     }
 
-    /// Always refused. **PayPal's Orders v2 API has no cancel or void
-    /// operation at all** — `/v2/checkout/orders` documents `POST` to create,
-    /// `GET` to read, `PATCH` to edit, `POST .../confirm-payment-source`,
-    /// `POST .../authorize` and `POST .../capture`, and nothing that
-    /// withdraws an order. An order the payer never approves is simply left:
-    /// PayPal's own prose says an unapproved order is eligible for deletion
-    /// after it has aged, without naming a fixed duration in this crate's
-    /// scope, and there is no call here to hurry that along.
+    /// Always refused. **`/v2/checkout/orders` itself has no cancel or void
+    /// operation** — `POST` to create, `GET` to read, `PATCH` to edit,
+    /// `POST .../confirm-payment-source`, `POST .../authorize` and
+    /// `POST .../capture`, and nothing that withdraws an order by its own
+    /// id. An order the payer never approves is simply left: PayPal's own
+    /// prose says an unapproved order is eligible for deletion after it has
+    /// aged, without naming a fixed duration in this crate's scope, and
+    /// there is no call here to hurry that along.
+    ///
+    /// **This is still true with `intent: AUTHORIZE` in the picture.** The
+    /// Authorizations resource this now reaches through
+    /// [`PayPal::authorize_order`] and [`PayPal::capture_authorization`]
+    /// does document `POST /v2/payments/authorizations/{id}/void`, which
+    /// releases a hold PayPal will not otherwise release — but it is keyed
+    /// by the authorization's own id, not the order's, and
+    /// [`Provider::cancel`]'s signature takes only a [`PaymentId`]. This
+    /// crate does not implement it: a caller who needs to release a hold
+    /// without capturing it has no call here, the same honest gap this
+    /// method already had for a plain `intent: CAPTURE` order.
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PAYPAL,
-            "PayPal's Orders v2 API has no operation that cancels or voids an order",
+            "PayPal's Orders v2 API has no operation that cancels or voids an order by its own id",
         ))
     }
 
@@ -730,26 +1131,33 @@ impl Provider for PayPal {
         ))
     }
 
-    /// Every PayPal order needs an explicit [`PayPal::capture_order`] after
-    /// the payer approves, regardless of intent, so `separate_capture` is
-    /// `true` unconditionally — there is no PayPal equivalent of Mollie's
+    /// Every PayPal order needs an explicit [`PayPal::capture_order`] or
+    /// [`PayPal::authorize_order`]-then-[`PayPal::capture_authorization`]
+    /// after the payer approves, regardless of intent, so `separate_capture`
+    /// is `true` unconditionally — there is no PayPal equivalent of Mollie's
     /// automatic-capture payment or Stripe's succeeding PaymentIntent.
     ///
-    /// `partial_capture` is `false`: the Orders-level capture takes no amount
-    /// at all. `partial_refund` and `repeated_refund` are `false` too, not
-    /// because PayPal's captures cannot be refunded partially and repeatedly
-    /// — their own `capture_status` enum names `PARTIALLY_REFUNDED`
-    /// specifically because they can — but because this crate implements no
-    /// refund call of any kind; answering `true` here would promise a call
-    /// that does not exist.
+    /// `partial_capture` is `false`: [`Provider::capture`] is
+    /// [`PayPal::capture_order`], the Orders-level call, which takes no
+    /// amount at all. [`PayPal::capture_authorization`] does take one — this
+    /// flag is about what the trait's own `capture` can do, and it is not
+    /// wired to that call; see its own documentation for why.
+    ///
+    /// **`partial_refund` and `repeated_refund` are now `true`.** PayPal's
+    /// own `capture_status` enum has named `PARTIALLY_REFUNDED` since before
+    /// this crate existed — the API always supported both — and
+    /// [`PayPal::refund`] is what closes the gap: its `amount` takes less
+    /// than the full capture, and its own answer's
+    /// `seller_payable_breakdown.total_refunded_amount` tracks the sum
+    /// across as many calls as the capture has left to give back.
     ///
     /// `saved_instruments` is `false`: see [`Provider::instruments`].
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             separate_capture: true,
             partial_capture: false,
-            partial_refund: false,
-            repeated_refund: false,
+            partial_refund: true,
+            repeated_refund: true,
             saved_instruments: false,
         }
     }

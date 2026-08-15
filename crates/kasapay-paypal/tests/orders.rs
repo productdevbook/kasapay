@@ -456,8 +456,10 @@ async fn what_the_client_says_it_will_do() {
     let capabilities = paypal.capabilities();
     assert!(capabilities.separate_capture);
     assert!(!capabilities.partial_capture);
-    assert!(!capabilities.partial_refund);
-    assert!(!capabilities.repeated_refund);
+    // A refund now exists — tests/refunds.rs — and takes any amount up to
+    // what was captured, repeatably.
+    assert!(capabilities.partial_refund);
+    assert!(capabilities.repeated_refund);
     assert!(!capabilities.saved_instruments);
     assert_eq!(paypal.id().as_str(), "paypal");
 }
