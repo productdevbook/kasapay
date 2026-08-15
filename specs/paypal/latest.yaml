@@ -1108,6 +1108,484 @@ paths:
         - parameters/@name=='PayPal-Request-Id'/examples/capture_422_unprocessable_entity
         - parameters/@name=='Authorization'/examples/bearer
         response_example: responses/422/content/application~1json/examples/capture_422_unprocessable_entity
+  /v2/checkout/orders/{id}/authorize:
+    post:
+      operationId: orders.authorize
+      summary: Authorize payment for order
+      description: Authorizes payment for an order. To successfully authorize payment for an order, the
+        buyer must first approve the order or a valid payment_source must be provided in the request.
+        A buyer can approve the order upon being redirected to the rel:approve URL that was returned in
+        the HATEOAS links in the create order response.<blockquote><strong>Note:</strong> For error handling
+        and troubleshooting, see <a href="https://developer.paypal.com/api/rest/reference/orders/v2/errors/#authorize-order">Orders
+        v2 errors</a>.</blockquote>
+      tags:
+      - orders
+      security:
+      - Oauth2:
+        - https://uri.paypal.com/services/payments/payment
+        - https://uri.paypal.com/services/payments/orders/deprecating-jssdk-migration-for-limited-merchants
+      parameters:
+      - name: PayPal-Request-Id
+        description: The server stores keys for 6 hours. The API callers can request the times to up to
+          72 hours by speaking to their Account Manager. It is mandatory for all single-step create order
+          calls (E.g. Create Order Request with payment source information like Card, PayPal.vault_id,
+          PayPal.billing_agreement_id, etc).
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 108
+          pattern: ^[\S\s]*$
+        examples:
+          authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc:
+            summary: Authorize Order - 422 - Payer Action Required
+            description: This code sample attempts to authorize payment for an order that was created
+              by the api caller and the payment could not be processed due to PSD2 SCA compliance requirement.
+            value: 7b92603e-77ed-4896-8e78-5dea2050476a
+          orders_authorize_idempotent:
+            summary: Authorize Order - Idempotent Response with PayPal Wallet
+            description: Authorizes payment for an order with the same idempotency key. By default, uses
+              the minimal representation.
+            value: 7b92603e-77ed-4896-8e78-5dea2050476a
+          authorize_422_unprocessable_entity_payment_denied:
+            summary: Authorize Order - 422 Unprocessable Entity Error - Payment Denied
+            description: This code sample attempts to authorize an order, but the payment is denied by
+              PayPal. This can occur due to various reasons such as insufficient funds, expired card,
+              incorrect payment information, or payment gateway issues.
+            value: 7b92603e-77ed-4896-8e78-5dea2050476a
+          00_orders_authorize:
+            summary: Authorize Order - PayPal Wallet as Payment Source
+            description: Authorize payment for an order after PayPal wallet approval. By default, uses
+              the minimal representation.
+            value: 7b92603e-77ed-4896-8e78-5dea2050476a
+          orders_authorize_paypal_wallet_vault_id:
+            summary: Authorize Order - PayPal Wallet Vault ID
+            description: Authorizes payment for an order through a previously acquired vault id for a
+              PayPal wallet. By default, uses the minimal representation.
+            value: 7b92603e-77ed-4896-8e78-5dea2050476a
+      - name: Prefer
+        description: The preferred server response upon successful completion of the request. Value is:<ul><li><code>return=minimal</code>.
+          The server returns a minimal response to optimize communication between the API caller and the
+          server. A minimal response includes the <code>id</code>, <code>status</code> and HATEOAS links.</li><li><code>return=representation</code>.
+          The server returns a complete resource representation, including the current state of the resource.</li></ul>
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 25
+          pattern: ^[a-zA-Z=,-]*$
+          default: return=minimal
+      - $ref: '#/components/parameters/paypal_client_metadata_id'
+      - name: id
+        description: The ID of the order for which to authorize.
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 36
+          pattern: ^[A-Z0-9]+$
+        examples:
+          00_orders_authorize:
+            summary: Authorize Order - PayPal Wallet as Payment Source
+            description: Authorize payment for an order after PayPal wallet approval. By default, uses
+              the minimal representation.
+            value: 5O190127TN364715T
+          authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc:
+            summary: Authorize Order - 422 - Payer Action Required
+            description: This code sample attempts to authorize payment for an order that was created
+              by the api caller and the payment could not be processed due to PSD2 SCA compliance requirement.
+            value: 9SY02093A2309081P
+          authorize_422_unprocessable_entity_payment_denied:
+            summary: Authorize Order - 422 Unprocessable Entity Error - Payment Denied
+            description: This code sample attempts to authorize an order, but the payment is denied by
+              PayPal. This can occur due to various reasons such as insufficient funds, expired card,
+              incorrect payment information, or payment gateway issues.
+            value: 5O190127TN364715T
+          orders_authorize_idempotent:
+            summary: Authorize Order - Idempotent Response with PayPal Wallet
+            description: Authorizes payment for an order with the same idempotency key. By default, uses
+              the minimal representation.
+            value: 5O190127TN364715T
+          orders_authorize_paypal_wallet_vault_id:
+            summary: Authorize Order - PayPal Wallet Vault ID
+            description: Authorizes payment for an order through a previously acquired vault id for a
+              PayPal wallet. By default, uses the minimal representation.
+            value: 5O190127TN364715T
+      - $ref: '#/components/parameters/authorization'
+      - $ref: '#/components/parameters/paypal_auth_assertion'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/order_authorize_request'
+            examples:
+              00_orders_authorize:
+                summary: Authorize Order - PayPal Wallet as Payment Source
+                description: Authorize payment for an order after PayPal wallet approval. By default,
+                  uses the minimal representation.
+                value: {}
+              authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc:
+                summary: Authorize Order - 422 - Payer Action Required
+                description: This code sample attempts to authorize payment for an order that was created
+                  by the api caller and the payment could not be processed due to PSD2 SCA compliance
+                  requirement.
+                value: {}
+              authorize_422_unprocessable_entity_payment_denied:
+                summary: Authorize Order - 422 Unprocessable Entity Error - Payment Denied
+                description: This code sample attempts to authorize an order, but the payment is denied
+                  by PayPal. This can occur due to various reasons such as insufficient funds, expired
+                  card, incorrect payment information, or payment gateway issues.
+                value:
+                  payment_source:
+                    card:
+                      vault_id: 8cg02452we902502k
+              orders_authorize_idempotent:
+                summary: Authorize Order - Idempotent Response with PayPal Wallet
+                description: Authorizes payment for an order with the same idempotency key. By default,
+                  uses the minimal representation.
+                value: {}
+              orders_authorize_paypal_wallet_vault_id:
+                summary: Authorize Order - PayPal Wallet Vault ID
+                description: Authorizes payment for an order through a previously acquired vault id for
+                  a PayPal wallet. By default, uses the minimal representation.
+                value:
+                  payment_source:
+                    paypal:
+                      vault_id: nkq2y9g
+      responses:
+        '200':
+          description: A successful response to an idempotent request returns the HTTP `200 OK` status
+            code with a JSON response body that shows authorized payment details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/order_authorize_response'
+              examples:
+                orders_authorize_idempotent:
+                  summary: Authorize Order - Idempotent Response with PayPal Wallet
+                  description: Authorizes payment for an order with the same idempotency key. By default,
+                    uses the minimal representation.
+                  value:
+                    id: 5O190127TN364715T
+                    payment_source:
+                      paypal:
+                        name:
+                          given_name: John
+                          surname: Doe
+                        account_status: VERIFIED
+                        email_address: customer@example.com
+                        account_id: QYR5Z8XDVJNXQ
+                    purchase_units:
+                    - reference_id: d9f80740-38f0-11e8-b467-0ed5f89f718b
+                      shipping:
+                        address:
+                          address_line_1: 2211 N First Street
+                          address_line_2: Building 17
+                          admin_area_2: San Jose
+                          admin_area_1: CA
+                          postal_code: '95131'
+                          country_code: US
+                      payments:
+                        authorizations:
+                        - id: 0AW2184448108334S
+                          status: CREATED
+                          amount:
+                            currency_code: USD
+                            value: '100.00'
+                          seller_protection:
+                            status: ELIGIBLE
+                            dispute_categories:
+                            - ITEM_NOT_RECEIVED
+                            - UNAUTHORIZED_TRANSACTION
+                          expiration_time: '2018-05-01T21:20:49Z'
+                          create_time: '2018-04-01T21:20:49Z'
+                          update_time: '2018-04-01T21:20:49Z'
+                          links:
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S
+                            rel: self
+                            method: GET
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S/capture
+                            rel: capture
+                            method: POST
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S/void
+                            rel: void
+                            method: POST
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S/reauthorize
+                            rel: reauthorize
+                            method: POST
+                    payer:
+                      name:
+                        given_name: John
+                        surname: Doe
+                      email_address: customer@example.com
+                      payer_id: QYR5Z8XDVJNXQ
+                    links:
+                    - href: https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T
+                      rel: self
+                      method: GET
+        '201':
+          description: 'A successful response to a non-idempotent request returns the HTTP `201 Created`
+            status code with a JSON response body that shows authorized payment details. If a duplicate
+            response is retried, returns the HTTP `200 OK` status code. By default, the response is minimal.
+            If you need the complete resource representation, you must pass the <a href="https://developer.paypal.com/docs/api/orders/v2/#orders-authorize-header-parameters"><code>Prefer:
+            return=representation</code> request header</a>.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/order_authorize_response'
+              examples:
+                00_orders_authorize:
+                  summary: Authorize Order - PayPal Wallet as Payment Source
+                  description: Authorize payment for an order after PayPal wallet approval. By default,
+                    uses the minimal representation.
+                  value:
+                    id: 5O190127TN364715T
+                    payment_source:
+                      paypal:
+                        name:
+                          given_name: John
+                          surname: Doe
+                        email_address: customer@example.com
+                        account_id: QYR5Z8XDVJNXQ
+                    purchase_units:
+                    - reference_id: d9f80740-38f0-11e8-b467-0ed5f89f718b
+                      payments:
+                        authorizations:
+                        - id: 3C679366HH908993F
+                          status: CREATED
+                          amount:
+                            currency_code: USD
+                            value: '100.00'
+                          seller_protection:
+                            status: ELIGIBLE
+                            dispute_categories:
+                            - ITEM_NOT_RECEIVED
+                            - UNAUTHORIZED_TRANSACTION
+                          expiration_time: '2021-10-08T23:37:39Z'
+                          links:
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/5O190127TN364715T
+                            rel: self
+                            method: GET
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/5O190127TN364715T/capture
+                            rel: capture
+                            method: POST
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/5O190127TN364715T/void
+                            rel: void
+                            method: POST
+                          - href: https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T
+                            rel: up
+                            method: GET
+                    payer:
+                      name:
+                        given_name: John
+                        surname: Doe
+                      email_address: customer@example.com
+                      payer_id: QYR5Z8XDVJNXQ
+                    links:
+                    - href: https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T
+                      rel: self
+                      method: GET
+                orders_authorize_paypal_wallet_vault_id:
+                  summary: Authorize Order - PayPal Wallet Vault ID
+                  description: Authorizes payment for an order through a previously acquired vault id
+                    for a PayPal wallet. By default, uses the minimal representation.
+                  value:
+                    id: 5O190127TN364715T
+                    payment_source:
+                      paypal:
+                        name:
+                          given_name: John
+                          surname: Doe
+                        email_address: customer@example.com
+                        account_id: QYR5Z8XDVJNXQ
+                        account_status: VERIFIED
+                    purchase_units:
+                    - reference_id: d9f80740-38f0-11e8-b467-0ed5f89f718b
+                      shipping:
+                        address:
+                          address_line_1: 2211 N First Street
+                          address_line_2: Building 17
+                          admin_area_2: San Jose
+                          admin_area_1: CA
+                          postal_code: '95131'
+                          country_code: US
+                      payments:
+                        authorizations:
+                        - id: 0AW2184448108334S
+                          status: CREATED
+                          amount:
+                            currency_code: USD
+                            value: '100.00'
+                          seller_protection:
+                            status: ELIGIBLE
+                            dispute_categories:
+                            - ITEM_NOT_RECEIVED
+                            - UNAUTHORIZED_TRANSACTION
+                          expiration_time: '2022-01-29T21:20:49Z'
+                          create_time: '2021-12-29T21:20:49Z'
+                          update_time: '2021-12-29T21:20:49Z'
+                          links:
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S
+                            rel: self
+                            method: GET
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S/capture
+                            rel: capture
+                            method: POST
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S/void
+                            rel: void
+                            method: POST
+                          - href: https://api-m.paypal.com/v2/payments/authorizations/0AW2184448108334S/reauthorize
+                            rel: reauthorize
+                            method: POST
+                    links:
+                    - href: https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T
+                      rel: self
+                      method: GET
+        '202':
+          description: The request has been accepted for processing, but the processing has not been completed
+            yet. The server returns the HTTP `202 Accepted` status code to indicate that the request is
+            valid and will be handled asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/order_authorize_response'
+        '207':
+          description: The request was successfully processed, but the result contains mixed outcomes.
+            When an order includes multiple purchase units, the server returns the HTTP `207 Multi-Status`
+            code to indicate that one or more purchase units were processed successfully while others
+            failed. The response body provides the processing result for each purchase unit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/order_authorize_response'
+        '400':
+          description: Request is not well-formed, syntactically incorrect, or violates schema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+        '401':
+          $ref: '#/components/responses/401_error_response'
+        '403':
+          $ref: '#/components/responses/403_error_response'
+        '404':
+          $ref: '#/components/responses/404_error_response'
+        '409':
+          description: The request could not be completed due to a conflict with the current state of
+            the resource. The HTTP `409 Conflict` status code is returned when the requested operation
+            is not allowed because the order or one or more purchase units are in a state that prevents
+            the operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+        '422':
+          description: The requested action could not be performed, semantically incorrect, or failed
+            business validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc:
+                  summary: Authorize Order - 422 - Payer Action Required
+                  description: This code sample attempts to authorize payment for an order that was created
+                    by the api caller and the payment could not be processed due to PSD2 SCA compliance
+                    requirement.
+                  value:
+                    name: UNPROCESSABLE_ENTITY
+                    details:
+                    - issue: PAYER_ACTION_REQUIRED
+                      description: Transaction cannot complete successfully, instruct the buyer to return
+                        to PayPal.
+                    message: The requested action could not be performed, semantically incorrect, or failed
+                      business validation.
+                    debug_id: f63fbc340a6ce
+                    links:
+                    - href: https://developer.paypal.com/api/orders/v2/#error-PAYER_ACTION_REQUIRED
+                      rel: information_link
+                      method: GET
+                    - href: https://www.paypal.com/checkoutnow?token=9SY02093A2309081P
+                      rel: payer-action
+                      method: GET
+                authorize_422_unprocessable_entity_payment_denied:
+                  summary: Authorize Order - 422 Unprocessable Entity Error - Payment Denied
+                  description: This code sample attempts to authorize an order, but the payment is denied
+                    by PayPal. This can occur due to various reasons such as insufficient funds, expired
+                    card, incorrect payment information, or payment gateway issues.
+                  value:
+                    name: UNPROCESSABLE_ENTITY
+                    details:
+                    - issue: PAYMENT_DENIED
+                      description: PayPal has declined to process this transaction.
+                    message: The requested action could not be performed, semantically incorrect, or failed
+                      business validation.
+                    debug_id: eb476257836d9
+                    links:
+                    - href: https://developer.paypal.com/docs/api/orders/v2/#error-PAYMENT_DENIED
+                      rel: information_link
+                      method: GET
+        '500':
+          $ref: '#/components/responses/500_error_response'
+        default:
+          $ref: '#/components/responses/default_response'
+      x-exampleFlows:
+      - title: Authorize Order - PayPal Wallet as Payment Source
+        description: Authorize payment for an order after PayPal wallet approval. By default, uses the
+          minimal representation.
+        parameter_examples:
+        - parameters/@name=='id'/examples/00_orders_authorize
+        - parameters/@name=='PayPal-Request-Id'/examples/00_orders_authorize
+        - parameters/@name=='Authorization'/examples/bearer
+        response_example: responses/201/content/application~1json/examples/00_orders_authorize
+      - title: Authorize Order - Idempotent Response with PayPal Wallet
+        description: Authorizes payment for an order with the same idempotency key. By default, uses the
+          minimal representation.
+        parameter_examples:
+        - parameters/@name=='id'/examples/orders_authorize_idempotent
+        - parameters/@name=='PayPal-Request-Id'/examples/orders_authorize_idempotent
+        - parameters/@name=='Authorization'/examples/bearer
+        response_example: responses/200/content/application~1json/examples/orders_authorize_idempotent
+      - title: Authorize Order - PayPal Wallet Vault ID
+        description: Authorizes payment for an order through a previously acquired vault id for a PayPal
+          wallet. By default, uses the minimal representation.
+        parameter_examples:
+        - parameters/@name=='id'/examples/orders_authorize_paypal_wallet_vault_id
+        - parameters/@name=='PayPal-Request-Id'/examples/orders_authorize_paypal_wallet_vault_id
+        - parameters/@name=='Authorization'/examples/bearer
+        request_body_example: requestBody/content/application~1json/examples/orders_authorize_paypal_wallet_vault_id
+        response_example: responses/201/content/application~1json/examples/orders_authorize_paypal_wallet_vault_id
+      - title: Authorize Order - 403 Forbidden Error - Charity is not confirmed
+        description: This code sample attempts to authorize a donation order, but charity is not confirmed.
+        parameter_examples:
+        - parameters/@name=='id'/examples/orders_authorize_paypal_billing_agreement_id
+        - parameters/@name=='PayPal-Request-Id'/examples/orders_authorize_paypal_billing_agreement_id
+        - parameters/@name=='Authorization'/examples/bearer
+        request_body_example: requestBody/content/application~1json/examples/orders_authorize_paypal_billing_agreement_id
+        response_example: responses/403/content/application~1json/examples/generic
+      - title: Authorize Order - 422 - Payer Action Required
+        description: This code sample attempts to authorize payment for an order that was created by the
+          api caller and the payment could not be processed due to PSD2 SCA compliance requirement.
+        parameter_examples:
+        - parameters/@name=='id'/examples/authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc
+        - parameters/@name=='PayPal-Request-Id'/examples/authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc
+        - parameters/@name=='Authorization'/examples/bearer
+        request_body_example: requestBody/content/application~1json/examples/authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc
+        response_example: responses/422/content/application~1json/examples/authorize_422_payer_action_required_cib_psd2_sca_ba_in_sc
+      - title: Authorize Order - 422 Unprocessable Entity Error - Payment Denied
+        description: This code sample attempts to authorize an order, but the payment is denied by PayPal.
+          This can occur due to various reasons such as insufficient funds, expired card, incorrect payment
+          information, or payment gateway issues.
+        parameter_examples:
+        - parameters/@name=='id'/examples/authorize_422_unprocessable_entity_payment_denied
+        - parameters/@name=='PayPal-Request-Id'/examples/authorize_422_unprocessable_entity_payment_denied
+        - parameters/@name=='Authorization'/examples/bearer
+        request_body_example: requestBody/content/application~1json/examples/authorize_422_unprocessable_entity_payment_denied
+        response_example: responses/422/content/application~1json/examples/authorize_422_unprocessable_entity_payment_denied
 components:
   parameters:
     authorization:
@@ -4593,6 +5071,128 @@ components:
               in the `payment_source` object instead of the `application_context` object. <b>DEPRECATED</b><br><table><tr><th>See</th><th>Since
               Version</th></tr><tr><td>payment_source.card.stored_credential</td><td>2.9</td></tr></table>
             deprecated: true
+    order_authorize_request:
+      title: Order Authorize Request
+      description: The authorization of an order request.
+      type: object
+      properties:
+        payment_source:
+          allOf:
+          - $ref: '#/components/schemas/payment_source'
+          - description: The source of payment for the order, which can be a token or a card. Use this
+              object only if you have not redirected the user after order creation to approve the payment.
+              In such cases, the user-selected payment method in the PayPal flow is implicitly used.
+    order_authorize_response:
+      title: Order Authorize Response
+      description: The order authorize response.
+      type: object
+      allOf:
+      - allOf:
+        - $ref: '#/components/schemas/activity_timestamps'
+        - title: activity_timestamps
+      - type: object
+        title: Order Authorize Response
+        description: The order authorize response.
+        properties:
+          id:
+            description: The ID of the order.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          payment_source:
+            allOf:
+            - $ref: '#/components/schemas/payment_source_response'
+            - not:
+                anyOf:
+                - required:
+                  - alipay
+                - required:
+                  - bancomatpay
+                - required:
+                  - bancontact
+                - required:
+                  - blik
+                - required:
+                  - boletobancario
+                - required:
+                  - eps
+                - required:
+                  - giropay
+                - required:
+                  - grabpay
+                - required:
+                  - ideal
+                - required:
+                  - mbway
+                - required:
+                  - multibanco
+                - required:
+                  - mybank
+                - required:
+                  - oxxo
+                - required:
+                  - payu
+                - required:
+                  - pay_upon_invoice
+                - required:
+                  - p24
+                - required:
+                  - safetypay
+                - required:
+                  - satispay
+                - required:
+                  - swish
+                - required:
+                  - sofort
+                - required:
+                  - trustly
+                - required:
+                  - verkkopankki
+                - required:
+                  - wechatpay
+          intent:
+            allOf:
+            - $ref: '#/components/schemas/checkout_payment_intent'
+          payer:
+            allOf:
+            - $ref: '#/components/schemas/payer'
+          purchase_units:
+            description: An array of purchase units. Each purchase unit establishes a contract between
+              a customer and merchant. Each purchase unit represents either a full or partial order that
+              the customer intends to purchase from the merchant.
+            type: array
+            minItems: 1
+            maxItems: 10
+            items:
+              allOf:
+              - $ref: '#/components/schemas/purchase_unit'
+              - title: purchase_unit
+                description: A purchase unit. Establishes a contract between a customer and merchant.
+          status:
+            allOf:
+            - $ref: '#/components/schemas/order_status'
+            - readOnly: true
+          links:
+            description: An array of request-related HATEOAS links. To complete payer approval, use the
+              `approve` link to redirect the payer. The API caller has 6 hours (default setting, this
+              which can be changed by your account manager to 24/48/72 hours to accommodate your use case)
+              from the time the order is created, to redirect your payer. Once redirected, the API caller
+              has 6 hours for the payer to approve the order and either authorize or capture the order.
+              If you are not using the PayPal JavaScript SDK to initiate PayPal Checkout (in context)
+              ensure that you include `application_context.return_url` is specified or you will get "We're
+              sorry, Things don't appear to be working at the moment" after the payer approves the payment.
+            type: array
+            minItems: 0
+            maxItems: 32767
+            readOnly: true
+            items:
+              allOf:
+              - $ref: '#/components/schemas/link_description-2'
+              - title: link_description
+                description: A request-related [HATEOAS link](/api/rest/responses/#hateoas-links). To
+                  complete payer approval, use the `approve` link with the `GET` method.
     order_billing_plan:
       title: order_billing_plan
       description: Metadata for merchant-managed recurring billing plans. Valid only during the saved

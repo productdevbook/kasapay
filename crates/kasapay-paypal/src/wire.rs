@@ -64,6 +64,52 @@ pub(crate) struct CreateOrder<'a> {
 #[derive(Debug, serde::Serialize, Default)]
 pub(crate) struct CaptureOrder {}
 
+/// The body `POST .../authorize` takes. Every one of PayPal's own documented
+/// examples for this operation sends `{}` — `payment_source` only matters
+/// when the order was not already approved through PayPal's own checkout,
+/// which is the one flow this crate opens.
+#[derive(Debug, serde::Serialize, Default)]
+pub(crate) struct AuthorizeOrder {}
+
+/// `POST /v2/payments/authorizations/{id}/capture`'s body. `amount` absent
+/// takes the whole authorization; PayPal's own `authorizations_capture_empty_request`
+/// example sends `{}` for that.
+#[derive(Debug, serde::Serialize, Default)]
+pub(crate) struct CreateAuthorizationCapture {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<AmountOut>,
+}
+
+/// What `POST /v2/payments/authorizations/{id}/capture` answers: a capture
+/// on its own, not nested in an order the way [`Capture`] is. PayPal's own
+/// documented examples for this call carry no order id and no authorization
+/// id in the body at all — only in `links[].href`, under `rel: "up"`.
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct AuthorizationCapture {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    pub amount: Option<AmountIn>,
+}
+
+/// `POST /v2/payments/captures/{id}/refund`'s body. `amount` absent refunds
+/// the capture in full; PayPal's own `captures_refund_empty_request` example
+/// sends `{}` for that.
+#[derive(Debug, serde::Serialize, Default)]
+pub(crate) struct CreateRefund {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<AmountOut>,
+}
+
+/// What `POST /v2/payments/captures/{id}/refund` answers. Carries no capture
+/// id of its own in the body either — the same gap [`AuthorizationCapture`]
+/// has, and for the same reason: PayPal's `up` link names it, not a field.
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct Refund {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    pub amount: Option<AmountIn>,
+}
+
 /// One of the `_links` entries: `{"href": …, "rel": …, "method": …}`.
 #[derive(Debug, serde::Deserialize)]
 pub(crate) struct Link {
@@ -72,11 +118,15 @@ pub(crate) struct Link {
 }
 
 // Each carries its own `id` too — `3C679366HH908993F` for a capture, a
-// different alphabet for an authorization — which this crate does not model
-// as its own kind of [`Id`](kasapay_core::Id) because nothing here reads one
-// back by it: unlike Mollie's capture, PayPal's is not a resource this crate
-// calls anything else with. It is still on [`Charge::raw`](kasapay_core::Charge::raw)
-// for a caller who wants it.
+// different alphabet for an authorization — which is not a field on either
+// struct below. [`crate::CaptureId`] and [`crate::AuthorizationId`] are what
+// name the two now that something here calls another endpoint with each —
+// [`crate::PayPal::refund`] against the capture,
+// [`crate::PayPal::capture_authorization`] against the authorization — and
+// [`crate::capture_id`] and [`crate::authorization_id`] read one out of
+// [`Charge::raw`](kasapay_core::Charge::raw) by its JSON pointer directly,
+// the same way this crate already reads an order's amount off the raw shape
+// without a struct field for the id.
 #[derive(Debug, serde::Deserialize)]
 pub(crate) struct Capture {
     pub status: Option<String>,

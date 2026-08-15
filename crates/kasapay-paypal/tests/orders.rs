@@ -427,7 +427,10 @@ async fn a_partial_capture_is_refused_before_it_is_sent() {
     assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
 
-/// PayPal's Orders v2 API has no cancel or void operation at all.
+/// `/v2/checkout/orders` itself has no cancel or void operation, and the
+/// Authorizations resource's own void is keyed by the authorization's id
+/// rather than the order's — see `Provider::cancel`'s own documentation on
+/// `PayPal` for why that keeps this refused rather than reachable.
 #[tokio::test]
 async fn cancel_is_always_refused() {
     let server = MockServer::start().await;
@@ -485,8 +488,10 @@ async fn what_the_client_says_it_will_do() {
     let capabilities = paypal.capabilities();
     assert!(capabilities.separate_capture);
     assert!(!capabilities.partial_capture);
-    assert!(!capabilities.partial_refund);
-    assert!(!capabilities.repeated_refund);
+    // A refund now exists — tests/refunds.rs — and takes any amount up to
+    // what was captured, repeatably.
+    assert!(capabilities.partial_refund);
+    assert!(capabilities.repeated_refund);
     assert!(!capabilities.saved_instruments);
     assert_eq!(paypal.id().as_str(), "paypal");
 }

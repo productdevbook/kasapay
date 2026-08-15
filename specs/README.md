@@ -291,22 +291,34 @@ reading when a mapping looks wrong.
 
 ## PayPal — `specs/paypal/`
 
-    <YYYY-MM-DD>.meta.json   the API version, and a hash of the full upstream document
-    latest.yaml              the subset kasapay-paypal maps, resolved to its schemas
+    <YYYY-MM-DD>.meta.json            Orders v2: the API version, a hash of the full upstream document
+    latest.yaml                       the Orders v2 subset kasapay-paypal maps, resolved to its schemas
+    payments-<YYYY-MM-DD>.meta.json   Payments v2: the same, for the other document
+    payments-latest.yaml              the Payments v2 subset kasapay-paypal maps
 
 PayPal publishes one OpenAPI document per API, in
 [paypal/paypal-rest-api-specifications](https://github.com/paypal/paypal-rest-api-specifications),
-under **Apache-2.0** — checked against `LICENSE` in that repository, since the
-document's own `info` block carries no `license` field the way Mollie's does.
-Apache-2.0 is permissive the way Stripe's MIT is, so the subset itself is kept
-rather than thrown away: `scripts/fetch_paypal.py` fetches
-`openapi/checkout_orders_v2.json`, cuts it to the three operations
-`kasapay-paypal` maps — create an order, read it back, capture it — and rolls
-the subset forward into `latest.yaml` the same way `fetch_stripe.py` does,
-because Orders v2's `order` schema pulls in every `payment_source` PayPal
-documents and a dated copy per fetch would buy diffs nobody can read.
+under **Apache-2.0** — checked against `LICENSE` in that repository, since
+neither document's own `info` block carries a `license` field the way
+Mollie's does. Apache-2.0 is permissive the way Stripe's MIT is, so the
+subset itself is kept rather than thrown away: `scripts/fetch_paypal.py`
+fetches two of PayPal's documents, one call each, because `kasapay-paypal`
+maps operations from both —
 
-### One path carries a fourth verb this crate does not implement
+- `openapi/checkout_orders_v2.json`, cut to create an order, read it back,
+  capture it, and place the hold an `intent: AUTHORIZE` order asks for —
+  rolled forward into the un-prefixed `latest.yaml`, the name it had before a
+  second document existed, so a repository already tracking #113's file sees
+  no rename.
+- `openapi/payments_payment_v2.json`, cut to refunding a capture and
+  capturing an authorization directly — `payments-latest.yaml`.
+
+Both roll forward in place rather than keeping a dated copy, the same choice
+`fetch_stripe.py` makes: Orders v2's `order` schema alone pulls in every
+`payment_source` PayPal documents, so a dated copy per fetch would buy diffs
+nobody can read.
+
+### Two paths carry a verb, or a whole operation, this crate does not implement
 
 `/v2/checkout/orders/{id}` documents both `GET` and `PATCH` — reading an order
 back, and editing one already created. `kasapay-paypal` implements only the
@@ -314,6 +326,13 @@ read, so `KEEP` in the fetcher names `(path, verb)` pairs rather than bare
 paths: keeping the whole path item would have pulled `PATCH`'s JSON Patch
 request schema into the subset and into `compare_specs.py`'s count of what
 this crate maps, for an operation nothing here calls.
+
+Payments v2's Authorizations resource is the sharper case:
+`/v2/payments/authorizations/{authorization_id}` alone names four operations —
+read one back, capture it, void it, reauthorize it — and `kasapay-paypal`
+maps one. `find-eligible-methods` and reading a refund or a capture back by
+id are the same kind of gap: PayPal documents them, and there is no `KEEP`
+entry for any of the four, because this crate has no call that reaches them.
 
 ### What the document does not say
 
@@ -326,12 +345,21 @@ them and refuses Turkish lira and Kuwaiti dinar before a request is built —
 the same two Mollie refuses, because both are simply absent from PayPal's
 list too.
 
-**What a created or captured order's top-level `status` actually looks
-like.** The schema declares the field and the `Prefer` header's own prose says
-a minimal response includes it, but not one of the three documented example
-responses this crate's operations answer with — not create, not read, not
-capture — carries one. `kasapay-paypal`'s own documentation says what it reads
-instead.
+**What a created, read, captured or authorized order's top-level `status`
+actually looks like.** The schema declares the field and the `Prefer`
+header's own prose says a minimal response includes it, but not one of the
+documented example responses this crate's Orders v2 operations answer with —
+not create, not read, not capture, not authorize — carries one.
+`kasapay-paypal`'s own documentation says what it reads instead.
+
+**Whether an idempotent replay of `POST .../refund` with an omitted `amount`
+recomputes against the capture's current remainder or replays the first
+request's own computed one.** `refund_request`'s own schema documents the
+omitted-amount behaviour — `captured amount - previous refunds`, at the time
+the request is processed — and the `PayPal-Request-Id` parameter's prose
+documents idempotent replay separately; neither says which wins when both
+apply to the same retried call. `kasapay-paypal`'s own documentation carries
+this as unverified.
 
 [paypal-currencies]: https://developer.paypal.com/api/rest/reference/currency-codes/
 

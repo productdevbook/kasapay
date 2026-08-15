@@ -8,10 +8,12 @@
   "kept_paths": [
     "/v2/checkout/orders",
     "/v2/checkout/orders/{id}",
-    "/v2/checkout/orders/{id}/capture"
+    "/v2/checkout/orders/{id}/capture",
+    "/v2/checkout/orders/{id}/authorize"
   ],
   "missing_paths": [],
   "operations": [
+    "orders.authorize",
     "orders.capture",
     "orders.create",
     "orders.get"
@@ -19,6 +21,6 @@
   "component_counts": {
     "parameters": 3,
     "responses": 5,
-    "schemas": 197
+    "schemas": 199
   }
 }

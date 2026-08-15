@@ -106,14 +106,18 @@ the Terminal API's fourteen.
   rather than `charge`, and releasing one is `release_authorization` rather
   than `cancel`, because Mollie answers that call `202` with no body for a
   trait method that has to return a `Charge`.
-- **PayPal's `Provider::cancel` always refuses.** Its Orders v2 API has no
-  cancel or void operation at all, so there is nothing for the trait method to
-  call — the one provider here that shows `cancel` assuming every provider has
-  something to withdraw. Its `Provider::capture` is unconditional too, the
-  other direction: every order needs an explicit capture call after the payer
-  approves regardless of the intent it was created with, so
-  `Capabilities::separate_capture` is `true` even though nothing here ever
-  opens a hold the way Mollie's `authorize` does.
+- **PayPal's `Provider::cancel` always refuses**, and the reason is not that
+  there is nothing to call. `/v2/checkout/orders` itself has no cancel or
+  void, but PayPal's Authorizations resource does document one —
+  `POST /v2/payments/authorizations/{id}/void` — for a hold `PayPal::authorize`
+  and `PayPal::authorize_order` place. It is keyed by the authorization's own
+  id, not the order's, and `cancel(&PaymentId)` cannot express that — the
+  same shape `PayPal::capture_authorization` needing its own
+  `AuthorizationId` has. This is the one provider here that shows `cancel`
+  assuming every hold is reachable by the order id that opened it. Its
+  `Provider::capture` is unconditional too, the other direction: every order
+  needs an explicit capture call after the payer approves regardless of the
+  intent it was created with, so `Capabilities::separate_capture` is `true`.
 - The hosted checkout form does **not** go through `Provider::charge`. It needs
   a buyer's identity number, two addresses and an itemised basket, none of
   which belongs in `ChargeRequest`. The trait can express what every provider

@@ -149,10 +149,13 @@ all are the kind 0.0.x exists to make.
   documented example bodies from `paypal/paypal-rest-api-specifications`.
 
   **`Provider::cancel` always refuses, and it is not a gap in this crate.**
-  PayPal's Orders v2 API has no cancel or void operation at all — no `DELETE`,
-  nothing that withdraws an order — so the trait method this workspace's other
-  four providers each answer for real has nothing to call here. An order the
-  payer never approves is simply left to age off PayPal's own side.
+  `/v2/checkout/orders` itself has no cancel or void operation — no `DELETE`,
+  nothing that withdraws an order by its own id — so the trait method this
+  workspace's other four providers each answer for real has nothing to call
+  here. An order the payer never approves is simply left to age off PayPal's
+  own side. (PayPal's Authorizations resource does document a void, for a
+  hold rather than an order — see the refund/`AUTHORIZE` entry below for why
+  that still leaves this refused.)
 
   **Every PayPal order needs an explicit capture regardless of intent**, which
   is not true of Mollie's automatic-capture payment or a succeeding Stripe
@@ -201,6 +204,48 @@ all are the kind 0.0.x exists to make.
   Mollie's is. `scripts/fetch_paypal.py` cuts `checkout_orders_v2.json` to the
   three operations this crate maps and rolls the subset forward in
   `latest.yaml`, the same as `fetch_stripe.py`.
+
+- **`kasapay-paypal` gains refunds and `intent: AUTHORIZE`**, the two gaps
+  #113 named on purpose. `PayPal::refund` is `POST
+  /v2/payments/captures/{id}/refund` — **against the capture, not the
+  order**, the same split `kasapay_mollie::Mollie::refund` draws — whole or
+  partial, and repeatably up to what was captured; `CaptureId` is its own
+  kind of `kasapay_core::Id`, the way Mollie's own `CaptureId` and `RefundId`
+  are, and `kasapay_paypal::capture_id` reads one off a `Charge` that
+  `PayPal::capture_order` or `Provider::charge_status` answered, since
+  PayPal nests it rather than carrying it on a field of its own.
+  `Capabilities::partial_refund` and `::repeated_refund` are `true` now —
+  PayPal's own `capture_status` enum has named `PARTIALLY_REFUNDED` since
+  before this crate existed, and #113 said plainly that was about this
+  crate rather than the API.
+
+  `PayPal::authorize` opens an order with `intent: AUTHORIZE`, mirroring
+  `Mollie::authorize`; `PayPal::authorize_order` places the hold once the
+  payer approves, through PayPal's own `/authorize` operation on Orders v2;
+  `PayPal::capture_authorization` takes the funds, through the
+  Authorizations resource's `POST
+  /v2/payments/authorizations/{id}/capture` — keyed by the new
+  `AuthorizationId`, not the order id, because that call answers a bare
+  capture object with no order id or authorization id in its own body, only
+  in a `links[].href`. None of the three is reachable through `Provider`:
+  the trait has no `authorize` method and `Provider::capture` stays wired to
+  `PayPal::capture_order`, which still refuses an `AUTHORIZE`-intent order
+  with PayPal's own `ACTION_DOES_NOT_MATCH_INTENT`.
+
+  **Left out, and said so rather than guessed at:**
+  `POST /v2/payments/authorizations/{id}/void`, which releases a hold
+  without capturing it. PayPal documents it, and it is keyed by the
+  authorization's own id the same way capturing one is — but
+  `Provider::cancel` takes only an order id, so this crate does not call it;
+  a caller who places a hold and decides not to take it has no release call
+  here. Reading a capture, an authorization or a refund back by id, listing
+  refunds, and reauthorizing an expired hold are the same kind of gap.
+
+  `scripts/fetch_paypal.py` now fetches two of PayPal's documents rather
+  than one — `checkout_orders_v2.json` for `authorize` alongside the
+  original three operations, and the new `payments_payment_v2.json` for the
+  refund and authorization-capture operations — into `specs/paypal/latest.yaml`
+  and the new `specs/paypal/payments-latest.yaml`.
 
 - **`kasapay_iyzico::agent` and `kasapay_iyzico::softpos`, all five PayPOS
   operations from #8.** `specs/` records these five as declaring neither a

@@ -9,42 +9,67 @@
 //! payer to; [`charge_status`](kasapay_core::Provider::charge_status) reads it
 //! back by the order id PayPal issued.
 //!
-//! # This crate is the spine, not the whole API
+//! # This crate is the spine, plus what a refund and a hold need
 //!
-//! Three calls: create an order, read it back, capture it. Deliberately
-//! smaller than PayPal's Orders v2 surface, because a smaller adapter that is
-//! correct beats a complete one that guesses:
+//! Create an order, read it back, capture it, refund a capture, place and
+//! capture a hold. Still deliberately smaller than PayPal's Orders and
+//! Payments surface, because a smaller adapter that is correct beats a
+//! complete one that guesses:
 //!
-//! - **Only `intent: CAPTURE`.** PayPal decides at order creation whether a
-//!   later capture takes the whole order (`CAPTURE`) or first places a hold
-//!   through a separate Authorizations resource that is captured after
-//!   (`AUTHORIZE`) — the same choice Mollie's `captureMode` makes, and
-//!   `ChargeRequest` has no field for either. Unlike Mollie, though,
-//!   **neither intent captures on its own**: every PayPal order needs an
-//!   explicit follow-up call after the payer approves regardless, so
-//!   `AUTHORIZE` buys a longer hold rather than skipping a step this crate
-//!   would otherwise need. Its Authorizations resource
-//!   (`/v2/payments/authorizations/{id}/*`) is not here.
-//! - **No refunds, no shipping/items, no webhooks, no PATCH.** The Orders API
-//!   is more than sixty operations across create/read/update, confirm,
-//!   authorize, capture, and package tracking; this crate maps three.
+//! - **Both intents now.** PayPal decides at order creation whether a later
+//!   capture takes the whole order (`CAPTURE`, [`PayPal::create_order`]) or
+//!   first places a hold through the Authorizations resource that is
+//!   captured after (`AUTHORIZE`, [`PayPal::authorize`]) — the same choice
+//!   Mollie's `captureMode` makes, and `ChargeRequest` has no field for
+//!   either, so each is its own method. Unlike Mollie, though, **neither
+//!   intent captures on its own**: every PayPal order needs an explicit
+//!   follow-up call after the payer approves regardless — either
+//!   [`PayPal::capture_order`] or [`PayPal::authorize_order`] then
+//!   [`PayPal::capture_authorization`] — so `AUTHORIZE` buys a longer hold
+//!   rather than skipping a step this crate would otherwise need. What is
+//!   still not here: releasing a hold without capturing it. PayPal documents
+//!   `POST /v2/payments/authorizations/{id}/void` for that, and it is keyed
+//!   by the authorization's own id rather than the order's — the same split
+//!   [`PayPal::capture_authorization`] has — but this crate does not call
+//!   it. See [`Provider::cancel`](kasapay_core::Provider::cancel)'s own
+//!   documentation on [`PayPal`] for what that leaves a caller with.
+//! - **Refunds are against a capture, not an order.** [`PayPal::refund`]
+//!   is `POST /v2/payments/captures/{id}/refund`, keyed by [`CaptureId`] —
+//!   the same split `kasapay_mollie::Mollie::refund` draws between a
+//!   payment and its capture. Whole or partial, and repeatable up to what
+//!   was captured.
+//! - **No shipping/items, no webhooks, no PATCH, no listing refunds.** The
+//!   Orders and Payments APIs together are well over sixty operations across
+//!   create/read/update, confirm, capture, authorize, void, reauthorize,
+//!   refund and package tracking; this crate maps eight.
 //! - **No Vault.** PayPal's saved-instrument story is a separate, versioned
 //!   API (`/v3/vault/*`). [`Provider::instruments`](kasapay_core::Provider::instruments)
 //!   answers [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported)
-//!   because of it, and so does [`Provider::cancel`](kasapay_core::Provider::cancel)
-//!   for an unrelated reason — see below.
+//!   because of it.
 //!
 //! # `Provider::cancel` is always refused
 //!
-//! **PayPal's Orders v2 API has no cancel or void operation.** Its paths are
-//! create, read, `PATCH` to edit, confirm-payment-source, authorize, capture,
-//! and shipment tracking — nothing that withdraws an order. An order the
-//! payer never approves is simply left; PayPal's own prose says it becomes
-//! eligible for deletion once it has aged, without this crate's sources
-//! naming a fixed duration, and there is no call to hurry that along. Four
-//! card-first providers in this workspace all answer a real cancel; PayPal is
-//! the one that shows `Provider::cancel` assuming every provider has
-//! something to call.
+//! **`/v2/checkout/orders` itself has no cancel or void operation** — create,
+//! read, `PATCH` to edit, confirm-payment-source, authorize, capture, and
+//! shipment tracking, nothing that withdraws an order by its own id. An order
+//! the payer never approves is simply left; PayPal's own prose says it
+//! becomes eligible for deletion once it has aged, without this crate's
+//! sources naming a fixed duration, and there is no call to hurry that
+//! along. Four card-first providers in this workspace all answer a real
+//! cancel; PayPal is the one that shows `Provider::cancel` assuming every
+//! hold is reachable by the order id that opened it.
+//!
+//! **That assumption is what actually breaks with `intent: AUTHORIZE` in the
+//! picture — not a missing operation.** PayPal's Authorizations resource
+//! does document a void, `POST /v2/payments/authorizations/{id}/void`, for a
+//! hold [`PayPal::authorize_order`] places. It releases the hold by the
+//! hold's own id, the same [`AuthorizationId`] [`PayPal::capture_authorization`]
+//! is keyed by rather than the order's, and
+//! [`Provider::cancel`](kasapay_core::Provider::cancel) takes only a
+//! [`PaymentId`](kasapay_core::PaymentId). This crate does not implement it,
+//! so a caller who places a hold and decides not to take it has no release
+//! call here — the same honest gap `Provider::cancel` already had for a
+//! plain `intent: CAPTURE` order, for a sharper reason.
 //!
 //! # OAuth2, and why the client renews its own token
 //!
@@ -105,6 +130,19 @@
 //! states still read [`Status::Captured`](kasapay_core::Status::Captured)
 //! here — the money was taken, which is the fact `Status` has a word for —
 //! and the more specific answer is on [`Charge::raw`](kasapay_core::Charge::raw).
+//! This enum is what proved PayPal's API always supported partial and
+//! repeated refunds even while this crate had no call that made one;
+//! [`PayPal::refund`] is that call now, and
+//! [`Capabilities::partial_refund`](kasapay_core::Capabilities::partial_refund)
+//! and [`Capabilities::repeated_refund`](kasapay_core::Capabilities::repeated_refund)
+//! read `true`.
+//!
+//! [`PayPal::refund`]'s own answer carries a different, smaller enum —
+//! `refund_status`: `PENDING`, `COMPLETED`, `FAILED`, `CANCELLED` — modelled
+//! as [`RefundState`] rather than folded into
+//! [`Status`](kasapay_core::Status), because nothing calls
+//! [`Provider::charge_status`](kasapay_core::Provider::charge_status) on a
+//! refund id.
 //!
 //! # Retrying
 //!
@@ -126,6 +164,14 @@
 //! [`Provider::charge_status`](kasapay_core::Provider::charge_status), never
 //! a second capture sent without one.
 //!
+//! **[`PayPal::authorize_order`], [`PayPal::capture_authorization`] and
+//! [`PayPal::refund`] all take a `request_id` of their own**, sent the same
+//! way — none of them is reachable through [`Provider`](kasapay_core::Provider)
+//! at all, so there is no trait signature to work around for them. Money
+//! leaving is why [`PayPal::refund`]'s matters most: PayPal takes
+//! `PayPal-Request-Id` on the refund endpoint exactly as it does on capture,
+//! and a retried refund with none can give the money back twice.
+//!
 //! # Unverified against a live account
 //!
 //! Everything above that is read off PayPal's prose or their OpenAPI
@@ -134,6 +180,25 @@
 //! rather than a refusal of its own kind, and the account-level default
 //! `return_url`/`cancel_url` a caller gets by leaving `ChargeRequest::return_url`
 //! unset. Check these first against a sandbox account.
+//!
+//! [`PayPal::authorize`], [`PayPal::authorize_order`],
+//! [`PayPal::capture_authorization`] and [`PayPal::refund`] add to that list
+//! rather than replacing it — every request and response shape they use is a
+//! documented example, but none of the four has been called against a
+//! sandbox account either.
+//!
+//! **One combination PayPal documents each half of and never together: a
+//! retried refund, with an omitted amount, against a capture that is itself
+//! partially refunded.** Their `refund_request` schema says an omitted
+//! `amount` refunds `captured amount - previous refunds` — computed at the
+//! time the request is processed — and their `PayPal-Request-Id` prose says
+//! a repeated key answers the same cached response rather than processing
+//! again. Both are documented; **which one wins when a caller retries an
+//! omitted-amount refund after some other refund has landed in between is
+//! not** — whether the retry replays the first request's own computed
+//! amount, or is treated as a fresh request and recomputes against a
+//! smaller remainder. [`PayPal::refund`] passes `request_id` straight
+//! through either way and does not guess at the answer.
 //!
 //! # Example
 //!
@@ -163,6 +228,11 @@
 //! let id = charge.id.as_ref().ok_or("PayPal names every order")?;
 //! let captured = paypal.capture(id, None, None).await?;
 //! println!("{:?}", captured.status);
+//!
+//! // Giving some of it back later — against the capture, not the order.
+//! let capture = kasapay_paypal::capture_id(&captured)?;
+//! let refund = paypal.refund(&capture, None, None).await?;
+//! println!("{:?}", refund.state);
 //! # Ok(())
 //! # }
 //! ```
@@ -172,6 +242,7 @@
 
 mod client;
 mod convert;
+pub mod id;
 mod wire;
 
 use kasapay_core::ProviderId;
@@ -180,4 +251,8 @@ use kasapay_core::ProviderId;
 pub const PAYPAL: ProviderId = ProviderId::new("paypal");
 
 #[doc(inline)]
-pub use crate::client::{Config, PayPal};
+pub use crate::client::{
+    Capture, Config, PayPal, Refund, RefundState, authorization_id, capture_id,
+};
+#[doc(inline)]
+pub use crate::id::{AuthorizationId, CaptureId, RefundId};
