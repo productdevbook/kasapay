@@ -139,6 +139,35 @@ all are the kind 0.0.x exists to make.
 
 ### Added
 
+- **`kasapay_iyzico::reporting`, iyzico's reporting service** — #8's two
+  remaining operations: `payment_details` (`GET /v2/reporting/payment/details`)
+  and `daily_transactions` (`GET /v2/reporting/payment/transactions`), a
+  payment's status, fraud result, cancels and refunds read back after the
+  fact. Left out once because `classic`'s own payment-status mapping was being
+  rewritten at the time and a second, independent copy of it would have
+  quietly diverged; that reason is gone, so `PaymentDetail::fraud_status`
+  reuses `classic`'s own `fraudStatus` interpretation rather than repeat it.
+  `paymentStatus` could not get the same treatment — iyzico's own `2` means
+  *"Failure / INIT_THREEDS"*, one code for two states `classic` tells apart —
+  so it stays its own `PaymentStatus`, plainly not `kasapay_core::Status`,
+  rather than guess which of the two it was.
+
+  No worked example exists for either operation, in either language — the same
+  situation `kasapay_iyzico::softpos` was implemented under, and for the same
+  reason nothing here stood in with an invented one: every field is read from
+  iyzico's own schema, and every test is about a mapping this crate controls,
+  not bytes iyzico was never shown to send.
+
+  `cardstorage`'s and `in-store`'s own remaining gaps were investigated and
+  left alone rather than guessed at. `POST /cardstorage/card` genuinely needs
+  a card number in every documented request shape — `classic`'s module
+  documentation already said so, and #97's `cardUserKey`-filled checkout form
+  is a different endpoint, not this one. `in_store`'s `POST
+  /v3/in-store/payment/query` shares its path with the `GET` this crate
+  already implements and answers in a different, `PascalCase` shape found
+  nowhere else in the API; `in_store`'s module documentation now says why that
+  reads as a stale reference page rather than a second implementation to add.
+
 - **`kasapay-paypal`, a fifth provider — the first that is neither card-first
   nor a redirect-and-forget checkout.** `kasapay = { features = ["paypal"] }`.
   PayPal's Orders v2 API behind the same trait, deliberately scoped to its
