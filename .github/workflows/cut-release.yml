@@ -1,0 +1,109 @@
+name: Cut a release
+
+# Does by one trigger what was done by hand for 0.0.2: bump the version
+# everywhere it is written, date the changelog's Unreleased section, commit,
+# and push the tag. Pushing the tag is what starts `release.yml`, which
+# packages, publishes to crates.io and writes the release note.
+#
+# It writes to `main` directly, which nothing else here is allowed to do. That
+# is deliberate: a release commit is mechanical, it is what the person running
+# this workflow asked for, and routing it through a pull request would mean
+# cutting a release took three deliberate acts instead of one. Everything that
+# is not mechanical — what goes in the release — is already in the changelog by
+# the time this runs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version to release, e.g. 0.0.3"
+        required: true
+        type: string
+      dry_run:
+        description: "Show what would change without committing or tagging"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: The version must be a version, and must not already exist
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          case "$VERSION" in
+            v*) echo "give the version without a leading v"; exit 1 ;;
+          esac
+          printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
+            || { echo "$VERSION is not a semver version"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "v$VERSION already exists"; exit 1
+          fi
+
+      - name: Bump the version and date the changelog
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, os, pathlib, re, sys
+
+          version = os.environ["VERSION"]
+          today = datetime.date.today().isoformat()
+
+          root = pathlib.Path.cwd()
+          cargo = root / "Cargo.toml"
+          text = cargo.read_text()
+          current = re.search(r'^version = "([^"]+)"', text, re.M)
+          if current is None:
+              sys.exit("Cargo.toml has no workspace version")
+          old = current.group(1)
+          if old == version:
+              sys.exit(f"Cargo.toml is already {version}")
+          # The workspace version, and every path dependency that carries it.
+          text = re.sub(rf'^version = "{re.escape(old)}"', f'version = "{version}"', text, count=1, flags=re.M)
+          text = text.replace(f'{{ version = "{old}", path = "crates/', f'{{ version = "{version}", path = "crates/')
+          cargo.write_text(text)
+
+          # Wherever the install snippet names a version.
+          for path in (root / "README.md", root / "crates" / "kasapay" / "src" / "lib.rs"):
+              body = path.read_text()
+              path.write_text(body.replace(f'kasapay = {{ version = "{old}"', f'kasapay = {{ version = "{version}"'))
+
+          changelog = root / "CHANGELOG.md"
+          body = changelog.read_text()
+          if "## Unreleased" not in body:
+              sys.exit("CHANGELOG.md has no Unreleased section to date")
+          changelog.write_text(body.replace("## Unreleased", f"## {version} — {today}", 1))
+          print(f"{old} -> {version}, dated {today}")
+          PY
+          git diff --stat
+
+      - name: The changelog must have something to say
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 scripts/release_notes.py "$VERSION" > /dev/null
+
+      - name: Commit and tag
+        if: inputs.dry_run == false
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: release $VERSION"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin main "refs/tags/v$VERSION"
