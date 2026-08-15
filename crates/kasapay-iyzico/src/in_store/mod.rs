@@ -78,8 +78,8 @@
 //! `GET` and a `POST` at the same path: the `GET` — `queryPayment2`, what
 //! [`charge_status`](kasapay_core::Provider::charge_status) calls — comes from
 //! *In-Store API V3*, the page every other operation here is read from; the
-//! `POST` — `queryPayment` — comes from a different page, *App2App V3 →
-//! Sorgulama*, one of a small set of per-operation reference pages under the
+//! `POST` — `queryPayment` — comes from a different page, `App2App V3` →
+//! `Sorgulama`, one of a small set of per-operation reference pages under the
 //! same `app2app-v3` directory as the correctly-versioned `/crypt/decrypt`
 //! page. Both name the identical three headers and the identical `paymentId`
 //! query parameter; what differs is the verb and the response's field

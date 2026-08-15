@@ -702,7 +702,7 @@ impl DailyTransactionItem {
 /// iyzico's `paymentStatus`, on `payment/details`.
 ///
 /// **Not [`Status`].** iyzico's own three codes fold two different outcomes
-/// into one: `2` is documented as *"Failure / INIT_THREEDS"* — a refused
+/// into one: `2` is documented as `"Failure / INIT_THREEDS"` — a refused
 /// payment and one still waiting on the payer to finish 3-D Secure — where
 /// [`crate::classic`]'s own mapping of a checkout form's `paymentStatus`
 /// sends `FAILURE` to [`Status::Failed`] and `INIT_THREEDS` to
