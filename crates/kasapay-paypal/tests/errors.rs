@@ -3,6 +3,12 @@
 //! Every body below is one PayPal documents on the operation itself, in
 //! `checkout_orders_v2.json`, or on their OAuth2 authentication reference for
 //! the token endpoint's own error shape.
+//!
+//! One exception, and it is deliberate: a test that exercises a branch taken
+//! only when PayPal answers something their examples never show cannot use a
+//! documented example, because there is not one. Those bodies are built by
+//! hand and say so where they are used. They test this crate's own fallback,
+//! never a claim about what PayPal sends.
 
 #![allow(
     clippy::expect_used,
@@ -248,6 +254,9 @@ async fn an_answer_that_is_not_an_order_is_malformed() {
 
 /// An order settled in a currency `Currency` cannot name is refused on the
 /// way back as well as on the way out.
+///
+/// Built by hand: PayPal documents no example in a currency kasapay has no
+/// name for, which is the whole point of the branch.
 #[tokio::test]
 async fn an_order_in_a_currency_kasapay_cannot_name_is_not_guessed_at() {
     let server = MockServer::start().await;

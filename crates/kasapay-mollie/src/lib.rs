@@ -22,8 +22,9 @@
 //!
 //! # Mollie takes neither lira nor Kuwaiti dinar
 //!
-//! It settles in twenty-seven currencies, kasapay names nine, and the overlap
-//! is seven: USD, EUR, GBP, JPY, RUB, CHF and NOK. A charge in TRY or KWD is
+//! Mollie settles in many more currencies than kasapay names, and the overlap
+//! is seven of kasapay's nine: USD, EUR, GBP, JPY, RUB, CHF and NOK. A charge
+//! in TRY or KWD is
 //! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) **before a
 //! socket opens**, rather than a request with a currency Mollie will not read.
 //!

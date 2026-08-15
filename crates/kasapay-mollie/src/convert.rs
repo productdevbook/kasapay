@@ -7,8 +7,8 @@ use crate::wire;
 
 /// What Mollie calls a currency, where Mollie takes it at all.
 ///
-/// Mollie settles in twenty-seven currencies and kasapay names nine, and the
-/// two lists are not nested: **Mollie takes neither lira nor Kuwaiti dinar**,
+/// Mollie settles in many more currencies than kasapay names, and the two
+/// lists are not nested: **Mollie takes neither lira nor Kuwaiti dinar**,
 /// which is to say the home currency of the two Turkish providers in this
 /// workspace and the one currency with three decimal places.
 ///

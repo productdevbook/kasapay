@@ -7,6 +7,12 @@
 //! — and from `checkout_orders_v2.json`'s `00_orders_capture` example, which
 //! is what [`kasapay_paypal::capture_id`] reads a capture id out of. Where
 //! PayPal documents no shape, there is no test for it.
+//!
+//! One exception, and it is deliberate: a test that exercises a branch taken
+//! only when PayPal answers something their examples never show cannot use a
+//! documented example, because there is not one. Those bodies are built by
+//! hand and say so where they are used. They test this crate's own fallback,
+//! never a claim about what PayPal sends.
 
 #![allow(
     clippy::expect_used,
@@ -240,6 +246,9 @@ async fn capture_id_reads_the_capture_off_a_captured_order() {
 }
 
 /// An order that has not been captured has nothing for `capture_id` to read.
+///
+/// The body is built by hand: PayPal's examples never show an order carrying a
+/// top-level `status` and no capture, so there is no documented one to copy.
 #[tokio::test]
 async fn an_uncaptured_order_has_no_capture_id() {
     let server = MockServer::start().await;

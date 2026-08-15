@@ -10,6 +10,12 @@
 //! shape, there is no test for it: this crate does not call
 //! `/v2/payments/authorizations/{id}/void`, so there is nothing here for it
 //! either.
+//!
+//! One exception, and it is deliberate: a test that exercises a branch taken
+//! only when PayPal answers something their examples never show cannot use a
+//! documented example, because there is not one. Those bodies are built by
+//! hand and say so where they are used. They test this crate's own fallback,
+//! never a claim about what PayPal sends.
 
 #![allow(
     clippy::expect_used,
@@ -214,6 +220,9 @@ async fn authorize_orders_own_request_id_travels_as_paypals_header() {
 }
 
 /// An order nobody has authorized has nothing for `authorization_id` to read.
+///
+/// Built by hand, for the same reason the refund test's is: PayPal documents
+/// no example of the shape this branch exists to survive.
 #[tokio::test]
 async fn an_order_with_no_authorization_has_no_authorization_id() {
     let server = MockServer::start().await;
