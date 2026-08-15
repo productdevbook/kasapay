@@ -368,7 +368,15 @@ impl Provider for Stripe {
         into_charge(&intent)
     }
 
-    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
+    /// Sends `idempotency` as Stripe's own `Idempotency-Key`, the same way
+    /// [`Provider::charge`] does — see [`ErrorKind::is_retryable`] for what a
+    /// timeout means with and without one.
+    async fn capture(
+        &self,
+        id: &PaymentId,
+        amount: Option<Money>,
+        idempotency: Option<&kasapay_core::IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         let mut capture = CapturePaymentIntent::new(id.as_str().to_owned());
         if let Some(amount) = amount {
             amount.require_positive().map_err(|e| {
@@ -381,12 +389,24 @@ impl Provider for Stripe {
             })?;
             capture = capture.amount_to_capture(amount.minor_units());
         }
-        let intent = capture
-            .customize()
-            .timeout(DEFAULT_TIMEOUT)
-            .send(self.inner.as_ref())
-            .await
-            .map_err(|e| convert::error(&e).with_source(e))?;
+        let intent = match idempotency {
+            Some(key) => {
+                capture
+                    .customize()
+                    .request_strategy(RequestStrategy::Idempotent(idempotency_key(key)?))
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
+            None => {
+                capture
+                    .customize()
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
+        }
+        .map_err(|e| convert::error(&e).with_source(e))?;
         into_charge(&intent)
     }
 

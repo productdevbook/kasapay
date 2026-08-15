@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, InstrumentId,
-    Money, NextAction, PaymentId, Provider, ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
+    InstrumentId, Money, NextAction, PaymentId, Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -1282,8 +1282,16 @@ impl Provider for Client {
     ///
     /// iyzico documents no authorisation the classic API holds for a later
     /// call to take, and [`Capabilities::separate_capture`] says so before a
-    /// caller gets this far.
-    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+    /// caller gets this far. `idempotency` is ignored rather than refused: a
+    /// call this crate never sends has nothing to send it with, and iyzico
+    /// refusing an idempotency key generally (#54) applies to a request that
+    /// reaches iyzico, which this one never does.
+    async fn capture(
+        &self,
+        _id: &PaymentId,
+        _amount: Option<Money>,
+        _idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PROVIDER,

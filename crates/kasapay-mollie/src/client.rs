@@ -294,10 +294,16 @@ impl Mollie {
     /// `amount` of `None` captures the full authorised amount. `Some` captures
     /// part of it, and Mollie allows more than one capture against a payment
     /// up to what was authorised.
+    ///
+    /// `idempotency`, when given, is sent as Mollie's own `Idempotency-Key` on
+    /// this endpoint the same as it is on opening a payment: a repeated key
+    /// answers the cached first response for an hour rather than capturing
+    /// again. Without one, replaying this call can take the funds twice.
     pub async fn capture_payment(
         &self,
         payment: &PaymentId,
         amount: Option<Money>,
+        idempotency: Option<&IdempotencyKey>,
     ) -> Result<Capture, Error> {
         let amount = amount
             .map(|money| {
@@ -317,7 +323,7 @@ impl Mollie {
                 reqwest::Method::POST,
                 &format!("/v2/payments/{}/captures", payment.as_str()),
                 Some(&wire::CreateCapture { amount }),
-                None,
+                idempotency,
             )
             .await?;
         let capture: wire::Capture = parse(&raw, "a capture")?;
@@ -1023,8 +1029,16 @@ impl Provider for Mollie {
     ///
     /// Mollie holds funds only for a payment opened with `captureMode: manual`,
     /// which is [`Mollie::authorize`] rather than [`Provider::charge`].
-    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
-        self.capture_payment(id, amount)
+    ///
+    /// `idempotency` is forwarded to [`Mollie::capture_payment`], which sends
+    /// it as Mollie's own `Idempotency-Key` on the captures endpoint.
+    async fn capture(
+        &self,
+        id: &PaymentId,
+        amount: Option<Money>,
+        idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
+        self.capture_payment(id, amount, idempotency)
             .await
             .map(Capture::into_charge)
     }

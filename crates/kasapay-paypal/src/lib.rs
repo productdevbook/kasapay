@@ -113,16 +113,18 @@
 //! is sent as PayPal's `PayPal-Request-Id`; PayPal documents returning the
 //! cached first answer for a repeated key rather than creating twice.
 //!
-//! **Capturing is not safe through [`Provider::capture`](kasapay_core::Provider::capture)
-//! at all.** PayPal takes the same `PayPal-Request-Id` on the capture
-//! endpoint, and replaying a capture without one can capture twice — but
-//! `Provider::capture`'s signature carries no idempotency key for the trait
-//! to send. [`PayPal::capture_order`] is the
-//! one place a caller working directly against this crate can pass one; going
-//! through [`Provider`](kasapay_core::Provider) alone, the only safe answer
-//! after a failure whose outcome is unknown is
+//! **Capturing is safe with a key, through [`Provider::capture`](kasapay_core::Provider::capture)
+//! now too.** PayPal takes the same `PayPal-Request-Id` on the capture
+//! endpoint that it does on opening an order, and `Provider::capture`'s own
+//! `idempotency` argument feeds straight into [`PayPal::capture_order`]'s
+//! `request_id` — [`PayPal::capture_order`] stays exposed for a caller who
+//! wants that parameter without going through
+//! [`ChargeRequest`](kasapay_core::ChargeRequest)'s shape at all. Without a
+//! key, replaying a capture — through either call — can capture the same
+//! order twice, and the only safe answer after a failure whose outcome is
+//! unknown is
 //! [`Provider::charge_status`](kasapay_core::Provider::charge_status), never
-//! a second [`Provider::capture`](kasapay_core::Provider::capture).
+//! a second capture sent without one.
 //!
 //! # Unverified against a live account
 //!
@@ -159,7 +161,7 @@
 //!
 //! // Only after the payer has approved it at PayPal.
 //! let id = charge.id.as_ref().ok_or("PayPal names every order")?;
-//! let captured = paypal.capture(id, None).await?;
+//! let captured = paypal.capture(id, None, None).await?;
 //! println!("{:?}", captured.status);
 //! # Ok(())
 //! # }

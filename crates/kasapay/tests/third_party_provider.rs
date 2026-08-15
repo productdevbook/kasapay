@@ -14,8 +14,8 @@
 use std::sync::Mutex;
 
 use kasapay::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, Money, NextAction,
-    OrderRef, PaymentId, Provider, ProviderId, Raw, Status, async_trait,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Status, async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -79,7 +79,12 @@ impl Provider for Kumbara {
         })
     }
 
-    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
+    async fn capture(
+        &self,
+        id: &PaymentId,
+        amount: Option<Money>,
+        _idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         Ok(Charge {
             id: Some(id.clone()),
             order: None,
@@ -193,6 +198,7 @@ async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them()
         .capture(
             &id,
             Some(Money::parse("4.00", Currency::Try).expect("valid amount")),
+            None,
         )
         .await
         .expect("part of the authorisation is taken");
@@ -247,7 +253,12 @@ impl Provider for Yastik {
         Err(Self::unnamed())
     }
 
-    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+    async fn capture(
+        &self,
+        _id: &PaymentId,
+        _amount: Option<Money>,
+        _idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         Err(Self::unnamed())
     }
 
