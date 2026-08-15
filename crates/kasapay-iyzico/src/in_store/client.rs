@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, Money, NextAction,
-    OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
 };
 use url::Url;
 
@@ -385,7 +385,18 @@ impl Provider for Client {
     /// Answering `Ok` with the amount unchanged would be the more convenient
     /// lie: it would put a capture in the caller's ledger at a time when no
     /// money moved.
-    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+    ///
+    /// `idempotency` is ignored rather than refused. That is not the same
+    /// answer [`Provider::charge`] gives — #54 is why *that* call refuses a
+    /// key outright rather than silently dropping it — but this one never
+    /// reaches iyzico at all, so there is no request for a key to travel
+    /// with, honest or otherwise.
+    async fn capture(
+        &self,
+        _id: &PaymentId,
+        _amount: Option<Money>,
+        _idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PROVIDER,

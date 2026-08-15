@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Which will refuse until the payer has authorised it — the point being
     // that the failure is Mollie's own 422 rather than something invented.
     match mollie
-        .capture_payment(held_id, Some(Money::parse("4.00", Currency::Eur)?))
+        .capture_payment(held_id, Some(Money::parse("4.00", Currency::Eur)?), None)
         .await
     {
         // The capture is its own object with its own `cpt_…` identifier, and

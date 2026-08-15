@@ -347,7 +347,7 @@ async fn a_capture_is_its_own_object_with_its_own_identifier() {
     let payment = kasapay_core::PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo");
     let amount = Money::parse("35.95", Currency::Eur).expect("valid amount");
     let capture = client(&server)
-        .capture_payment(&payment, Some(amount))
+        .capture_payment(&payment, Some(amount), None)
         .await
         .expect("the capture is created");
 
@@ -393,10 +393,41 @@ async fn a_capture_for_the_whole_hold_sends_no_amount_at_all() {
         .capture(
             &kasapay_core::PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"),
             None,
+            None,
         )
         .await
         .expect("the capture is created");
     assert_eq!(charge.status, Status::Captured);
+}
+
+#[tokio::test]
+async fn an_idempotency_key_travels_as_mollies_own_header_on_capture_too() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/captures"))
+        .and(header("Idempotency-Key", "capture-123"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "resource": "capture",
+            "id": "cpt_vytxeTZskVKR7C7WgdSP3d",
+            "mode": "live",
+            "amount": { "currency": "EUR", "value": "35.95" },
+            "status": "succeeded",
+            "paymentId": "tr_5B8cwPMGnU6qLbRvo7qEZo",
+            "createdAt": "2023-08-02T09:29:56+00:00",
+            "_links": { "self": { "href": "...", "type": "application/hal+json" } }
+        })))
+        .mount(&server)
+        .await;
+
+    let key = IdempotencyKey::new("capture-123");
+    client(&server)
+        .capture(
+            &kasapay_core::PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"),
+            None,
+            Some(&key),
+        )
+        .await
+        .expect("the key is accepted");
 }
 
 /// Asking for a hold sends `captureMode: manual`, which is the only way Mollie

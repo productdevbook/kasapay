@@ -193,7 +193,7 @@ async fn capturing_the_wrong_intent_is_an_invalid_request() {
         .await;
 
     let error = paypal
-        .capture(&PaymentId::issued("5O190127TN364715T"), None)
+        .capture(&PaymentId::issued("5O190127TN364715T"), None, None)
         .await
         .expect_err("this order was not created with intent CAPTURE");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);

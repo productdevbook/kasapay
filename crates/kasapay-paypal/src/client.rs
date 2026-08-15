@@ -316,15 +316,17 @@ impl PayPal {
 
     /// Takes the funds an approved order is holding.
     ///
-    /// [`Provider::capture`] is this call with `request_id` fixed to `None`,
-    /// which is the gap worth knowing about: PayPal takes a
-    /// `PayPal-Request-Id` here exactly as it does on
-    /// [`PayPal::create_order`], and replaying a capture without one **can
-    /// capture twice** — but [`Provider::capture`]'s signature carries no
-    /// idempotency key for the trait to send. This method is the one place a
-    /// caller working directly against this crate can pass one; a caller
-    /// going through [`Provider`] alone cannot make this call retry-safe at
-    /// all.
+    /// [`Provider::capture`] is this call, feeding its own `idempotency`
+    /// straight into `request_id` — the trait and this method now guarantee
+    /// the same thing. This method stays beside it for a caller working
+    /// directly against this crate who wants `request_id` without going
+    /// through [`ChargeRequest`]'s shape at all.
+    ///
+    /// PayPal takes a `PayPal-Request-Id` here exactly as it does on
+    /// [`PayPal::create_order`], and PayPal documents that **replaying a
+    /// capture without one can capture the same order twice** — not this
+    /// crate's inference, their own description of what the header is for on
+    /// this call.
     ///
     /// `amount` on [`Provider::capture`] is honoured only as `None`. PayPal's
     /// Orders-level capture takes no amount at all — it is documented with an
@@ -1076,13 +1078,19 @@ impl Provider for PayPal {
     }
 
     /// Takes the funds an approved order is holding, through
-    /// [`PayPal::capture_order`] with no `PayPal-Request-Id` — see that
-    /// method's own documentation for what that costs a caller going through
-    /// [`Provider`] alone.
+    /// [`PayPal::capture_order`] — `idempotency` here is `capture_order`'s own
+    /// `request_id`, so a caller going through [`Provider`] alone gets the
+    /// same guarantee against capturing twice that a caller against this
+    /// crate directly does.
     ///
     /// `amount` of anything but `None` is refused before a socket opens:
     /// PayPal's Orders-level capture has no field for one.
-    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error> {
+    async fn capture(
+        &self,
+        id: &PaymentId,
+        amount: Option<Money>,
+        idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         if amount.is_some() {
             return Err(Error::new(
                 ErrorKind::Unsupported,
@@ -1090,7 +1098,7 @@ impl Provider for PayPal {
                 "PayPal's order capture takes the whole order; there is no field for a smaller amount",
             ));
         }
-        self.capture_order(id, None).await
+        self.capture_order(id, idempotency).await
     }
 
     /// Always refused. **`/v2/checkout/orders` itself has no cancel or void

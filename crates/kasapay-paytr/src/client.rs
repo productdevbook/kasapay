@@ -6,8 +6,8 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, Instrument, Money, NextAction,
-    OrderRef, PaymentId, Provider, ProviderId, Raw, Status,
+    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Status,
 };
 use url::Url;
 
@@ -523,7 +523,13 @@ impl Provider for PayTr {
     /// A payment PayTR reports on is one the payer finished, and there is no
     /// authorisation held for a later call to take.
     /// [`Capabilities::separate_capture`] says so before a caller gets here.
-    async fn capture(&self, _id: &PaymentId, _amount: Option<Money>) -> Result<Charge, Error> {
+    /// `idempotency` is ignored: there is no capture request to send it on.
+    async fn capture(
+        &self,
+        _id: &PaymentId,
+        _amount: Option<Money>,
+        _idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PAYTR,

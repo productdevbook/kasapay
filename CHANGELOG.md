@@ -116,6 +116,27 @@ all are the kind 0.0.x exists to make.
   `PayTr` now does, rather than an empty list that would read as "this
   customer has nothing saved".
 
+- **`Provider::capture` gains `idempotency: Option<&IdempotencyKey>`.**
+  Repeating a capture takes the money twice; repeating `Provider::cancel`
+  meets a hold already released and answers `ErrorKind::InvalidRequest`, which
+  is why only `capture` changes. Every existing call needs one `None` added at
+  the end: `provider.capture(id, amount)` becomes
+  `provider.capture(id, amount, None)`. `ErrorKind::is_retryable`'s own doc
+  table now says what a timeout means for a capture with a key and without
+  one, provider by provider.
+
+  Stripe and Mollie send it as `Idempotency-Key` on the capture call the same
+  way they do on opening a charge — Mollie's on the captures endpoint
+  specifically, answered from its usual hour-long cache. PayPal's
+  `capture_order` already took its own `request_id` for exactly this reason;
+  the trait method now feeds that parameter instead of fixing it to `None`, so
+  a caller going through `Provider` alone gets the same guarantee against a
+  duplicate capture that PayPal documents for `PayPal-Request-Id` on this
+  call. iyzico refuses an idempotency key generally (#54) but implements no
+  capture at all, so both `classic` and `in_store` ignore the argument rather
+  than refuse it — there is no request for a key to travel with either way.
+  PayTR has no capture step; its hosted form takes the money as it goes.
+
 ### Added
 
 - **`kasapay-paypal`, a fifth provider — the first that is neither card-first
@@ -151,10 +172,10 @@ all are the kind 0.0.x exists to make.
   cached token's expiry before every call rather than after one fails, and
   still does not retry a failed *business* call on its own. Replaying a
   capture without care can capture twice — PayPal takes a `PayPal-Request-Id`
-  on that call the same as it does on opening a charge — and
-  `Provider::capture`'s signature carries no idempotency key for the trait to
-  send it with; `PayPal::capture_order` is the one place a caller working
-  directly against this crate can pass one.
+  on that call the same as it does on opening a charge, and `Provider::capture`
+  now carries its own `idempotency` to send it with (below); at the time this
+  crate shipped it did not, and `PayPal::capture_order` was the one place a
+  caller working directly against this crate could pass one.
 
   **PayPal takes neither Turkish lira nor Kuwaiti dinar**, the same two Mollie
   refuses, because both are simply absent from PayPal's twenty-five-currency
