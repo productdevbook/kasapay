@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 # Set by async-stripe, which needs 1.88. Raised only when a dependency
 # forces it, never to follow the current stable.
@@ -15,12 +15,12 @@ keywords = ["payments", "stripe", "iyzico"]
 categories = ["api-bindings", "web-programming"]
 
 [workspace.dependencies]
-kasapay-core = { version = "0.0.1", path = "crates/kasapay-core" }
-kasapay-iyzico = { version = "0.0.1", path = "crates/kasapay-iyzico" }
-kasapay-mollie = { version = "0.0.1", path = "crates/kasapay-mollie" }
-kasapay-paypal = { version = "0.0.1", path = "crates/kasapay-paypal" }
-kasapay-paytr = { version = "0.0.1", path = "crates/kasapay-paytr" }
-kasapay-stripe = { version = "0.0.1", path = "crates/kasapay-stripe" }
+kasapay-core = { version = "0.0.2", path = "crates/kasapay-core" }
+kasapay-iyzico = { version = "0.0.2", path = "crates/kasapay-iyzico" }
+kasapay-mollie = { version = "0.0.2", path = "crates/kasapay-mollie" }
+kasapay-paypal = { version = "0.0.2", path = "crates/kasapay-paypal" }
+kasapay-paytr = { version = "0.0.2", path = "crates/kasapay-paytr" }
+kasapay-stripe = { version = "0.0.2", path = "crates/kasapay-stripe" }
 
 async-trait = "0.1.92"
 serde = { version = "1.0.229", features = ["derive"] }

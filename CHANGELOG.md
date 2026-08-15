@@ -3,7 +3,11 @@
 What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
-## Unreleased
+## 0.0.2 — 2026-08-15
+
+Three more providers — PayTR, Mollie and PayPal — and a shared trait shaped by
+all five rather than by two. `kasapay-paytr`, `kasapay-mollie` and
+`kasapay-paypal` are published here for the first time.
 
 These changes break code written against 0.0.1. All are cheap to follow and
 all are the kind 0.0.x exists to make.
