@@ -364,7 +364,7 @@ async fn capturing_an_order_reads_the_captures_own_status() {
         .await;
 
     let charge = paypal
-        .capture(&PaymentId::issued("5O190127TN364715T"), None)
+        .capture(&PaymentId::issued("5O190127TN364715T"), None, None)
         .await
         .expect("the order captures");
 
@@ -373,6 +373,27 @@ async fn capturing_an_order_reads_the_captures_own_status() {
     // The order carries no `approve` link once it is captured, and Status is
     // no longer open, so there is nowhere left to send the payer.
     assert!(charge.next_action.is_none());
+}
+
+#[tokio::test]
+async fn an_idempotency_key_travels_as_paypals_own_header_on_capture_too() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/v2/checkout/orders/5O190127TN364715T/capture"))
+        .and(header(
+            "PayPal-Request-Id",
+            "9c47c9c4-7a2c-4e6b-9c5e-2f6c7d3e9a1b",
+        ))
+        .respond_with(ResponseTemplate::new(201).set_body_json(created_order()))
+        .mount(&server)
+        .await;
+
+    let key = IdempotencyKey::new("9c47c9c4-7a2c-4e6b-9c5e-2f6c7d3e9a1b");
+    paypal
+        .capture(&PaymentId::issued("5O190127TN364715T"), None, Some(&key))
+        .await
+        .expect("the key is accepted");
 }
 
 /// PayPal's Orders-level capture takes no amount at all — refused before a
@@ -392,7 +413,7 @@ async fn a_partial_capture_is_refused_before_it_is_sent() {
 
     let partial = Money::parse("40.00", Currency::Usd).expect("valid amount");
     let error = paypal
-        .capture(&PaymentId::issued("5O190127TN364715T"), Some(partial))
+        .capture(&PaymentId::issued("5O190127TN364715T"), Some(partial), None)
         .await
         .expect_err("PayPal's Orders-level capture has no amount field");
     assert_eq!(error.kind(), ErrorKind::Unsupported);

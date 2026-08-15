@@ -264,12 +264,31 @@ async fn capture_without_an_amount_takes_the_lot() {
         .await;
 
     let charge = client(&server)
-        .capture(&PaymentId::issued("pi_kasapay1"), None)
+        .capture(&PaymentId::issued("pi_kasapay1"), None, None)
         .await
         .expect("the authorisation is taken");
 
     assert_eq!(charge.status, Status::Captured);
     assert_eq!(charge.amount.minor_units(), 1999);
+}
+
+#[tokio::test]
+async fn an_idempotency_key_reaches_stripe_as_a_header_on_capture_too() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents/pi_kasapay1/capture"))
+        .and(header("idempotency-key", "capture-retry-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(captured_intent(1999)))
+        .mount(&server)
+        .await;
+
+    let key = IdempotencyKey::new("capture-retry-1");
+    let charge = client(&server)
+        .capture(&PaymentId::issued("pi_kasapay1"), None, Some(&key))
+        .await
+        .expect("the key is accepted");
+
+    assert_eq!(charge.status, Status::Captured);
 }
 
 #[tokio::test]
@@ -287,6 +306,7 @@ async fn a_partial_capture_reports_what_was_taken_not_what_was_authorised() {
         .capture(
             &PaymentId::issued("pi_kasapay1"),
             Some(Money::parse("12.00", Currency::Usd).expect("valid amount")),
+            None,
         )
         .await
         .expect("part of the authorisation is taken");
@@ -304,6 +324,7 @@ async fn a_capture_of_nothing_is_refused_before_a_socket_opens() {
         .capture(
             &PaymentId::issued("pi_kasapay1"),
             Some(Money::from_minor_units(0, Currency::Usd)),
+            None,
         )
         .await
         .expect_err("zero is not an amount to capture");

@@ -129,6 +129,13 @@
 //! [`Mollie::refund`] takes no key, so a refund that timed out is read back
 //! rather than replayed.
 //!
+//! **The captures endpoint takes a key too.**
+//! [`Provider::capture`](kasapay_core::Provider::capture)'s own `idempotency`
+//! — and [`Mollie::capture_payment`]'s — travels as the same
+//! `Idempotency-Key` header, answered from the same hour-long cache. Without
+//! one, replaying a capture can take the funds twice, the same way a
+//! replayed partial refund can give them back twice.
+//!
 //! # An error from Mollie has no code
 //!
 //! Their error object is `status`, `title`, `detail` and sometimes `field`, and

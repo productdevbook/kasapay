@@ -37,6 +37,11 @@
 //! `Idempotency-Key`, so replaying a charge with the same key takes the money
 //! once. Without a key, a retry is a second charge.
 //!
+//! [`Provider::capture`](kasapay_core::Provider::capture)'s own `idempotency`
+//! travels the same way — a capture is a `POST` too, and Stripe reads its
+//! `Idempotency-Key` the same regardless of which endpoint it is sent to.
+//! Without one, a second capture takes the funds a second time.
+//!
 //! # Which `async-stripe`
 //!
 //! Exactly `1.0.0-rc.8`, pinned rather than ranged. The 1.0 line is a

@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Every PayPal order needs this call regardless of intent — there is no
     // PayPal equivalent of a payment that captures itself on approval.
-    let captured = paypal.capture(id, None).await?;
+    let captured = paypal.capture(id, None, None).await?;
     println!("{:?}", captured.status);
 
     Ok(())

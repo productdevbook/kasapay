@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::charge::{Charge, ChargeRequest};
+use crate::charge::{Charge, ChargeRequest, IdempotencyKey};
 use crate::error::Error;
 use crate::id::PaymentId;
 use crate::instrument::Instrument;
@@ -150,7 +150,22 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// A provider whose [`Capabilities::separate_capture`] is false took the
     /// money at authorisation and answers
     /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) here.
-    async fn capture(&self, id: &PaymentId, amount: Option<Money>) -> Result<Charge, Error>;
+    ///
+    /// `idempotency` makes a replayed capture safe where the provider offers
+    /// it — read [`ErrorKind::is_retryable`](crate::ErrorKind::is_retryable)
+    /// before retrying one without a key: unlike
+    /// [`Provider::charge`](crate::Provider::charge), a repeated capture can
+    /// take the same money twice, and not every provider protects against it.
+    /// A provider that cannot honour a key ignores it rather than refusing the
+    /// call, the same way iyzico's `in_store` refuses one on
+    /// [`Provider::charge`](crate::Provider::charge) but a capture it does not
+    /// implement has nothing to refuse it *for*.
+    async fn capture(
+        &self,
+        id: &PaymentId,
+        amount: Option<Money>,
+        idempotency: Option<&IdempotencyKey>,
+    ) -> Result<Charge, Error>;
 
     /// Releases an authorisation that will never be taken.
     ///
@@ -158,6 +173,12 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest) rather
     /// than a silent success: giving that money back is a refund, a different
     /// act with a different entry in the ledger.
+    ///
+    /// No idempotency key: repeating a cancel is harmless. The second call
+    /// meets a hold that is already released and answers
+    /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest) rather
+    /// than releasing anything twice, which is the whole reason
+    /// [`Provider::capture`] carries a key and this does not.
     async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error>;
 
     /// Lists what a customer has saved with this provider.

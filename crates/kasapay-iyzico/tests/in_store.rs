@@ -477,7 +477,7 @@ async fn capture_is_refused_rather_than_answered_as_a_no_op() {
     let server = MockServer::start().await;
 
     let error = client(&server)
-        .capture(&PaymentId::issued("1234567890"), None)
+        .capture(&PaymentId::issued("1234567890"), None, None)
         .await
         .expect_err("the In-Store API has no capture step");
 
@@ -522,7 +522,7 @@ async fn capabilities_match_what_the_methods_actually_do() {
     // The capability and the refusal have to agree, or the capability is a lie.
     assert_eq!(
         client
-            .capture(&PaymentId::issued("1234567890"), None)
+            .capture(&PaymentId::issued("1234567890"), None, None)
             .await
             .expect_err("separate_capture is false")
             .kind(),
