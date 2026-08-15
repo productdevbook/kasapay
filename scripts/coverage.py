@@ -42,8 +42,9 @@ So this script:
 2. Deletes every `mod tests { ... }` block by brace-counting from there.
 3. Collects `const NAME: &str = "...";` bindings, per file.
 4. Reads the path argument off every call that plausibly sends a request —
-   `.post(`, `.get(`, `.delete(`, `.put(`, `.patch(`, `.call(`,
-   `.token_call(`, `self.endpoint(`, and any `Method::X, path, ...` (not
+   `.post(`, `.get(`, `.delete(`, `.put(`, `.patch(`, `self.endpoint(`, any
+   method at all whose first argument resolves to a path, and any
+   `Method::X, path, ...` (not
    anchored to a function name, since `kasapay-mollie`'s equivalent is
    `.send(reqwest::Method::POST, "/v2/payments", ...)`, not `.request(` —
    resolving a bare identifier to a same-file `const` when one matches.
@@ -228,8 +229,12 @@ REQUEST_CALL_RE = re.compile(
     r"(?:^|[\s(,])(?:reqwest::)?Method::(\w+)\s*,\s*(&?\w+|" + STR + r")",
     re.MULTILINE,
 )
-CALL_FN_RE = re.compile(r"\.call\(\s*(" + STR + r"|&?\w+)")
-TOKEN_CALL_RE = re.compile(r"\.token_call\(\s*(" + STR + r"|&?\w+)")
+# Any method whose first argument is a path. Not a list of names: naming them
+# made a module rename itself to be counted, which is the measurement changing
+# the thing measured. `add` ignores anything that does not resolve to a string,
+# so `.expect("valid url")` costs nothing. The verb is unknown, because an
+# unrecognised helper's name does not say which one it sends.
+HELPER_CALL_RE = re.compile(r"\.(\w+)\(\s*(" + STR + r"|&?\w+)")
 FORMAT_RE = re.compile(r'format!\(\s*"((?:[^"\\]|\\.)*)"')
 
 PATH_CHARSET = re.compile(r"^[A-Za-z0-9_.\-/{}\x01]+$")
@@ -318,11 +323,9 @@ def candidates_from_file(path: pathlib.Path, base_path: tuple[str, ...]) -> list
         verb, arg = m.groups()
         add(verb.upper(), arg, f"{path.relative_to(ROOT)}:Method::{verb}, ...")
 
-    for m in CALL_FN_RE.finditer(text):
-        add("POST", m.group(1), f"{path.relative_to(ROOT)}:.call(...)")
-
-    for m in TOKEN_CALL_RE.finditer(text):
-        add("POST", m.group(1), f"{path.relative_to(ROOT)}:.token_call(...)")
+    for m in HELPER_CALL_RE.finditer(text):
+        helper, arg = m.groups()
+        add(None, arg, f"{path.relative_to(ROOT)}:.{helper}(...)")
 
     # format!() templates: method is whatever the call site used, which this
     # script does not trace back to here — recorded as method=None, "any".
