@@ -231,7 +231,7 @@ async fn capture_id_reads_the_capture_off_a_captured_order() {
         .await;
 
     let charge = paypal
-        .capture(&PaymentId::issued("5O190127TN364715T"), None)
+        .capture(&PaymentId::issued("5O190127TN364715T"), None, None)
         .await
         .expect("the order captures");
 

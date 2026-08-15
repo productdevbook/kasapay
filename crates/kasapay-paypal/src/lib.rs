@@ -57,15 +57,19 @@
 //! sources naming a fixed duration, and there is no call to hurry that
 //! along. Four card-first providers in this workspace all answer a real
 //! cancel; PayPal is the one that shows `Provider::cancel` assuming every
-//! provider has something to call.
+//! hold is reachable by the order id that opened it.
 //!
-//! This is still true with `intent: AUTHORIZE` in the picture: the
-//! Authorizations resource does document a void, but it releases a hold by
-//! the hold's own id, and [`Provider::cancel`](kasapay_core::Provider::cancel)
-//! takes only an order id. This crate does not implement it, so a caller who
-//! places a hold with [`PayPal::authorize_order`] and decides not to take it
-//! has no call here to release it — the same honest gap `Provider::cancel`
-//! already had for a plain `intent: CAPTURE` order.
+//! **That assumption is what actually breaks with `intent: AUTHORIZE` in the
+//! picture — not a missing operation.** PayPal's Authorizations resource
+//! does document a void, `POST /v2/payments/authorizations/{id}/void`, for a
+//! hold [`PayPal::authorize_order`] places. It releases the hold by the
+//! hold's own id, the same [`AuthorizationId`] [`PayPal::capture_authorization`]
+//! is keyed by rather than the order's, and
+//! [`Provider::cancel`](kasapay_core::Provider::cancel) takes only a
+//! [`PaymentId`](kasapay_core::PaymentId). This crate does not implement it,
+//! so a caller who places a hold and decides not to take it has no release
+//! call here — the same honest gap `Provider::cancel` already had for a
+//! plain `intent: CAPTURE` order, for a sharper reason.
 //!
 //! # OAuth2, and why the client renews its own token
 //!

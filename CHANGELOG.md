@@ -149,10 +149,13 @@ all are the kind 0.0.x exists to make.
   documented example bodies from `paypal/paypal-rest-api-specifications`.
 
   **`Provider::cancel` always refuses, and it is not a gap in this crate.**
-  PayPal's Orders v2 API has no cancel or void operation at all — no `DELETE`,
-  nothing that withdraws an order — so the trait method this workspace's other
-  four providers each answer for real has nothing to call here. An order the
-  payer never approves is simply left to age off PayPal's own side.
+  `/v2/checkout/orders` itself has no cancel or void operation — no `DELETE`,
+  nothing that withdraws an order by its own id — so the trait method this
+  workspace's other four providers each answer for real has nothing to call
+  here. An order the payer never approves is simply left to age off PayPal's
+  own side. (PayPal's Authorizations resource does document a void, for a
+  hold rather than an order — see the refund/`AUTHORIZE` entry below for why
+  that still leaves this refused.)
 
   **Every PayPal order needs an explicit capture regardless of intent**, which
   is not true of Mollie's automatic-capture payment or a succeeding Stripe
