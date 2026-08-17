@@ -1,0 +1,665 @@
+openapi: 3.0.3
+info:
+  title: iyzico — iyzilink
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+tags:
+- name: iyzico Link
+  description: Pay by link (iyzico Link)
+paths:
+  /v2/iyzilink/fast-link/products:
+    post:
+      tags:
+      - iyzico Link
+      summary: Create Fast Link
+      description: Creates a Fast Link. Fast Link is a solution that enables quick and easy collection
+        for payments up to 750 TRY. A Fast Link can be used only once. To create a Fast Link, you must
+        first have an approved iyzico link.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IyziLinkFastLinkRequest'
+      responses:
+        '200':
+          description: Successful creation response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkCreateOrUpdateResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+  /v2/iyzilink/products:
+    post:
+      tags:
+      - iyzilink
+      summary: Create iyzico Link
+      description: Used to create a new iyzico Link. On success, returns the link URL. You can share the
+        returned URL with your customers.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IyziLinkCreateRequest'
+      responses:
+        '200':
+          description: Successful creation response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkCreateOrUpdateResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+    get:
+      tags:
+      - iyzico Link
+      summary: List iyzico Links
+      description: Lists all created iyzico Links with pagination.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - tr
+          - en
+        description: Response language.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: Page number.
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+        description: Number of items per page.
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Free-form field for request/response correlation.
+      responses:
+        '200':
+          description: Listing response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkListResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+  /v2/iyzilink/products/{token}:
+    get:
+      tags:
+      - iyzico Link
+      summary: Get iyzico Link
+      description: Query a single link by token. Returns the iyzico Link details for the given token.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Token value of the iyzico Link to query.
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - tr
+          - en
+        description: Response language (default **en**).
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Request/response correlation value.
+      responses:
+        '200':
+          description: Product detail response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkDetailResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+    put:
+      tags:
+      - iyzico Link
+      summary: Update iyzico Link
+      description: Update an existing iyzico Link by using the token returned at creation time.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Token value of the iyzico Link to be updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IyziLinkUpdateRequest'
+      responses:
+        '200':
+          description: Successful update response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkCreateOrUpdateResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+    delete:
+      tags:
+      - iyzico Link
+      summary: Delete iyzico Link
+      description: Deletes an iyzico Link.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Token of the link to delete.
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - tr
+          - en
+        description: Response language (default **en**).
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Request/response correlation value.
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IyziLinkDeleteResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+  /v2/iyzilink/products/{token}/status/{status}:
+    patch:
+      tags:
+      - iyzico Link
+      summary: Update Link Status
+      description: Sets an iyzico link’s status to **ACTIVE** or **PASSIVE**. Requires the link token
+        and the new status value.
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Token of the iyzico link.
+      - name: status
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - PASSIVE
+        description: New status to set.
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - tr
+          - en
+        description: Response language (default **en**).
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Request/response correlation value.
+      responses:
+        '200':
+          description: Status update result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasicStatusResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/iyzico-link.md
+components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      description: 'Signature value starting with IYZWSv2 (Base64).
+
+        '
+      schema:
+        type: string
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      description: Request body content type.
+      schema:
+        type: string
+        enum:
+        - application/json
+  schemas:
+    BasicStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Request result.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - en
+          - tr
+        systemTime:
+          type: integer
+          description: Unix timestamp (ms).
+        conversationId:
+          type: string
+          description: Echoed back if sent with the request.
+    IyziLinkCreateOrUpdateResponse:
+      allOf:
+      - $ref: '#/components/schemas/BasicStatusResponse'
+      - type: object
+        properties:
+          data:
+            type: object
+            description: Created/updated link information.
+            properties:
+              token:
+                type: string
+                description: Token generated by iyzico.
+              url:
+                type: string
+                description: Purchase URL of the product.
+              imageUrl:
+                type: string
+                description: Product image URL.
+    IyziLinkCreateRequest:
+      type: object
+      required:
+      - name
+      - description
+      - price
+      - currencyCode
+      - encodedImageFile
+      properties:
+        conversationId:
+          type: string
+          description: Value sent for request/response correlation.
+        locale:
+          type: string
+          description: Response language. Default **tr**.
+          enum:
+          - en
+          - tr
+        name:
+          type: string
+          description: The product name that will be visible to the customer.
+        description:
+          type: string
+          description: The product description that will be visible to the customer.
+        price:
+          type: string
+          format: decimal
+          description: Product price.
+        currencyCode:
+          type: string
+          description: Currency code.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        encodedImageFile:
+          type: string
+          description: Base64-encoded product image.
+        addressIgnorable:
+          type: boolean
+          description: Do not request address at checkout (true) / request address (false).
+          enum:
+          - true
+          - false
+        installmentRequested:
+          type: boolean
+          description: Enable/disable installment sales.
+          enum:
+          - true
+          - false
+        stockEnabled:
+          type: boolean
+          description: Enable/disable stock control.
+          enum:
+          - true
+          - false
+        stockCount:
+          type: integer
+          description: Stock quantity.
+        flexibleLink:
+          type: boolean
+          description: Lets the customer complete the payment with one of three preset amounts or a custom
+            amount. This feature must be enabled on the merchant account.
+          enum:
+          - true
+          - false
+        presetPriceValues:
+          type: integer
+          description: Preset amounts shown for FlexibleLink.
+          enum:
+          - 10
+          - 20
+          - 30
+        categoryType:
+          type: string
+          description: Product category type. Default value is "UNKNOWN".
+          enum:
+          - GOLD
+          - FOOD
+          - PHONE
+          - UNKNOWN
+          - PC
+          - TABLET
+    IyziLinkDeleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Operation result.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Unix timestamp (ms).
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+          description: Echoed back if sent with the request.
+    IyziLinkDetailResponse:
+      allOf:
+      - $ref: '#/components/schemas/BasicStatusResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/IyziLinkProduct'
+    IyziLinkFastLinkRequest:
+      type: object
+      required:
+      - price
+      - currencyCode
+      properties:
+        conversationId:
+          type: string
+          description: Value sent for request/response correlation.
+        locale:
+          type: string
+          description: Response language. Default **tr**.
+          enum:
+          - tr
+          - en
+        description:
+          type: string
+          description: Link description shown to the customer.
+        price:
+          type: string
+          format: decimal
+          description: Product price.
+        currencyCode:
+          type: string
+          description: Currency code.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+    IyziLinkListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BasicStatusResponse'
+      - type: object
+        properties:
+          data:
+            type: object
+            properties:
+              listingReviewed:
+                type: boolean
+                description: Status information for the listing operation.
+              totalCount:
+                type: integer
+                description: Total item count.
+              currentPage:
+                type: integer
+                description: Current page.
+              pageCount:
+                type: integer
+                description: Total page count.
+              items:
+                type: array
+                description: Product list.
+                items:
+                  $ref: '#/components/schemas/IyziLinkProduct'
+    IyziLinkProduct:
+      type: object
+      description: iyzico Link product detail.
+      properties:
+        name:
+          type: string
+          description: Product name.
+        conversationId:
+          type: string
+          description: Merchant-side reference.
+        description:
+          type: string
+          description: Product description.
+        price:
+          type: string
+          format: decimal
+          description: Product price (decimal).
+        currencyId:
+          type: integer
+          description: Currency ID.
+        currencyCode:
+          type: string
+          description: Currency code.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        token:
+          type: string
+          description: Token generated by iyzico.
+        productType:
+          type: string
+          description: Product type.
+          enum:
+          - IYZILINK
+          - FASTLINK
+        productStatus:
+          type: string
+          description: Product status.
+          enum:
+          - ACTIVE
+          - PASSIVE
+        merchantId:
+          type: integer
+          description: Merchant ID.
+        url:
+          type: string
+          description: Purchase link.
+        imageUrl:
+          type: string
+          description: Product image.
+        addressIgnorable:
+          type: boolean
+          description: Do not request/request address.
+          enum:
+          - true
+          - false
+        soldCount:
+          type: integer
+          description: Number of sold items.
+        installmentRequested:
+          type: boolean
+          description: Installment status.
+          enum:
+          - true
+          - false
+        stockEnabled:
+          type: boolean
+          description: Enable/disable stock control.
+          enum:
+          - true
+          - false
+        stockCount:
+          type: integer
+          description: Stock quantity.
+        presetPriceValues:
+          type: array
+          description: Preset price options.
+          items:
+            type: string
+            format: decimal
+        flexibleLink:
+          type: boolean
+          description: Flexible priced link.
+        categoryType:
+          type: string
+          description: Product category type. Default value is "UNKNOWN".
+          enum:
+          - GOLD
+          - FOOD
+          - PHONE
+          - UNKNOWN
+          - PC
+          - TABLET
+    IyziLinkUpdateRequest:
+      type: object
+      required:
+      - name
+      - description
+      - price
+      - currencyCode
+      description: Fields that can be sent for link update (**token** is sent in the path).
+      properties:
+        conversationId:
+          type: string
+          description: Value used for request/response correlation.
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        name:
+          type: string
+          description: Product name.
+        description:
+          type: string
+          description: Product description.
+        price:
+          type: string
+          format: decimal
+          description: Product price.
+        currencyCode:
+          type: string
+          description: Currency code.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        encodedImageFile:
+          type: string
+          description: Base64-encoded product image.
+        addressIgnorable:
+          type: boolean
+          description: Do not request/request address.
+          enum:
+          - true
+          - false
+        installmentRequested:
+          type: boolean
+          description: Enable/disable installment sales.
+          enum:
+          - true
+          - false
+        stockEnabled:
+          type: boolean
+          description: Enable/disable stock control.
+          enum:
+          - true
+          - false
+        stockCount:
+          type: integer
+          description: Stock quantity.
+        categoryType:
+          type: string
+          description: Product category type. Default value is "UNKNOWN".
+          enum:
+          - GOLD
+          - FOOD
+          - PHONE
+          - UNKNOWN
+          - PC
+          - TABLET

@@ -1,0 +1,2531 @@
+openapi: 3.0.3
+info:
+  title: iyzico — subscription
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+tags:
+- name: Subscription
+  description: Subscription operations
+- name: Subscription Product
+  description: Subscription product management services.
+paths:
+  /v2/subscription/card-update/checkoutform/initialize:
+    post:
+      summary: Subscription Card Update (Checkout Form)
+      description: 'Updates the credit card used in a subscription. In cases like payment failure or card
+        expiry, merchants can prompt customers to update their card. **The update can only be performed
+        through the iyzico Checkout Form.**
+
+        A **₺1** validation charge is taken and immediately refunded to validate the updated card.
+
+        '
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitializeCardUpdateCheckoutFormRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeCardUpdateCheckoutFormResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse6'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+  /v2/subscription/checkoutform/initialize:
+    post:
+      summary: Initialize Subscription (iyzico Checkout Form)
+      description: Used to start a subscription with iyzico Checkout Form. Returns the form content and
+        token.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSubscriptionCheckoutFormInitializeRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionCheckoutFormInitializeResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md
+  /v2/subscription/checkoutform/{token}:
+    get:
+      summary: Retrieve Checkout Form Result
+      description: After the checkout form flow completes, query the subscription creation result with
+        the returned token.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Token returned by checkout form initialize for this operation.
+      - name: conversationId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Optional correlation value you send in the request to match with the response.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionCheckoutFormResultResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md
+  /v2/subscription/customers:
+    get:
+      summary: List Subscribers
+      description: List all subscribers with basic details.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Page number to fetch.
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Number of subscribers per page.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerListResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md
+  /v2/subscription/customers/{customerReferenceCode}:
+    post:
+      summary: Update Subscriber
+      description: 'Update all details of a subscriber via API. Provide the subscriber''s **customerReferenceCode**
+        as a path parameter and include the fields to be updated in the request body. At least **one field**
+        in the body is required; only the provided fields will be updated.
+
+        '
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
+      - name: customerReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Subscriber reference code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdateRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerUpdateResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md
+    get:
+      summary: Subscriber Detail
+      description: Retrieve all details of a subscriber by its reference code.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader3'
+      - name: customerReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Subscriber reference code.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetailResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse3'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md
+  /v2/subscription/initialize:
+    post:
+      summary: Initialize Subscription (NON3D)
+      description: Start a subscription without the hosted checkout form, using your own payment form
+        via NON3D service.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSubscriptionNon3DRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionNon3DResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md
+  /v2/subscription/initialize/with-customer:
+    post:
+      summary: Initialize Subscription (Existing Customer)
+      description: 'If the user already has an active subscription, you can start a new one with customerReferenceCode.
+        If the user does not have an active subscription, no new subscription is started with customerReferenceCode.
+
+        '
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader4'
+      - $ref: '#/components/parameters/ContentTypeHeader4'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSubscriptionWithCustomerRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSubscriptionWithCustomerResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse4'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md
+  /v2/subscription/operation/retry:
+    post:
+      summary: Retry Subscription Payment
+      description: 'If a recurring payment fails for a subscription, use this service to retry the charge
+        and collect the payment.
+
+        '
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrySubscriptionPaymentRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrySubscriptionPaymentResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse6'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+  /v2/subscription/pricing-plans/{pricingPlanReferenceCode}:
+    post:
+      summary: Update Pricing Plan
+      description: 'This method allows updating **only** the **name** and **trialPeriodDays** fields.   The
+        plan''s reference code must be provided as a path parameter.   Updates can be performed via API
+        or the iyzico merchant panel. Active subscriptions are not affected.
+
+        '
+      tags:
+      - Pricing Plan
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: pricingPlanReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the pricing plan to be updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePricingPlanRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatePricingPlanResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md
+    delete:
+      summary: Delete Pricing Plan
+      description: Deletes the specified pricing plan by reference code. Plans with active subscriptions
+        or pending updates cannot be deleted.
+      tags:
+      - Pricing Plan
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: pricingPlanReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the pricing plan to delete.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletePricingPlanResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md
+    get:
+      summary: Get Pricing Plan Detail
+      description: Returns details of a pricing plan. Merchants can see all details both in the merchant
+        panel and via API.
+      tags:
+      - Pricing Plan
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: pricingPlanReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Pricing plan reference code.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingPlanDetailResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md
+  /v2/subscription/products:
+    post:
+      summary: Create Product
+      operationId: createSubscriptionProduct
+      description: Creates a new subscription product. The Subscription API charges on a recurring basis
+        according to pricing plans, and each plan is linked to at least one product. There is no limit
+        on the number of products; a product can be created by providing only a name.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionProductCreateRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductCreateSuccess'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md
+    get:
+      summary: List Products
+      operationId: listSubscriptionProducts
+      description: Lists subscription products. Use this to fetch all products and their linked plans.
+        To reduce latency and payload size, pagination is used so you can retrieve the product list page
+        by page.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionProductListRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductListSuccess'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md
+  /v2/subscription/products/{productReferenceCode}:
+    post:
+      summary: Update Product
+      operationId: updateSubscriptionProduct
+      description: Updates a subscription product. Product name and description can be edited via API
+        or the iyzico merchant panel. Use the product’s unique reference code for API updates.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique reference code of the product.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionProductUpdateRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductGetSuccess'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md
+    delete:
+      summary: Delete Product
+      operationId: deleteSubscriptionProduct
+      description: Deletes a subscription product. Products can be deleted via API or the iyzico merchant
+        panel only when there are no plans linked to the product.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique reference code of the product.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductDeleteSuccess'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md
+    get:
+      summary: Get Product
+      operationId: getSubscriptionProduct
+      description: Retrieves details of a single product. Provide the product reference code in the request.
+      tags:
+      - Subscription Product
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader2'
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique reference code of the product.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionProductGetSuccess'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md
+  /v2/subscription/products/{productReferenceCode}/pricing-plans:
+    post:
+      summary: Create Pricing Plan
+      description: Creates a new pricing plan for a specific product.
+      tags:
+      - Pricing Plan
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the product the plan will be attached to.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePricingPlanRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePricingPlanResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md
+    get:
+      summary: List Pricing Plans
+      description: Lists all pricing plans for a given product. The response is paginated.
+      tags:
+      - Pricing Plan
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - name: productReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Product reference code.
+      - name: page
+        in: query
+        schema:
+          type: integer
+        description: Page number to list.
+      - name: count
+        in: query
+        schema:
+          type: integer
+        description: Number of records per page.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPricingPlanResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md
+  /v2/subscription/subscriptions:
+    get:
+      summary: Search Subscriptions
+      description: 'Retrieve subscription and payment details by filtering with various parameters, or
+        without any parameters. For example, by sending only **subscriptionStatus**, you can list subscriptions
+        with that status.
+
+        '
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
+      - name: subscriptionReferenceCode
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Reference code of the subscription to query.
+      - name: customerReferenceCode
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Customer reference code.
+      - name: pricingPlanReferenceCode
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Reference code of the pricing plan used in the subscription.
+      - name: parent
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Parent reference code used for matching in subscription updates.
+      - name: subscriptionStatus
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          - UNPAID
+          - UPGRADED
+          - CANCELED
+          - EXPIRED
+        description: Subscription status filter.
+      - name: startDate
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Subscription start date.
+      - name: endDate
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Subscription end date (epoch ms).
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Page number.
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Number of records per page.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchSubscriptionsResponse'
+        '404':
+          description: Example response for a wrong endpoint (e.g., typo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}:
+    get:
+      summary: Get Subscription Detail
+      description: Returns full details of a subscription by its reference code.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the subscription to query.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetSubscriptionDetailOptionalRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSubscriptionDetailResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate:
+    post:
+      summary: Activate Subscription
+      description: A subscription that was started as pending can be activated via this service.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader5'
+      - $ref: '#/components/parameters/ContentTypeHeader5'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the subscription that was started as pending.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateSubscriptionRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivateSubscriptionResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse5'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel:
+    post:
+      summary: Cancel Subscription
+      description: Cancels an active subscription.
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the subscription to cancel.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelSubscriptionRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelSubscriptionResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse6'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+  /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade:
+    post:
+      summary: Upgrade Subscription
+      description: 'You can change or upgrade the plan during the subscription, provided that the **new
+        plan belongs to the same product** and the billing interval (**paymentInterval** and **paymentIntervalCount**)
+        remains the same. Use this service for price changes.
+
+        '
+      tags:
+      - Subscription
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader3'
+      - $ref: '#/components/parameters/ContentTypeHeader6'
+      - name: subscriptionReferenceCode
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Reference code of the subscription to upgrade.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpgradeSubscriptionRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpgradeSubscriptionResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse6'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md
+components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, IYZWSv2 ile başlayan ve base64 formatında üretilmiş imzalı hash
+        değeridir.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Format of the request payload.
+    AuthHeader2:
+      name: Authorization
+      in: header
+      required: true
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+      schema:
+        type: string
+    ContentTypeHeader2:
+      name: Content-Type
+      in: header
+      required: true
+      description: Content type of the request body.
+      schema:
+        type: string
+    AuthHeader3:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+    ContentTypeHeader3:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request content type.
+    AuthHeader4:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, a signed hash value that starts with **IYZWSv2** and is produced
+        in Base64 format.
+    ContentTypeHeader4:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: The request content type.
+    AuthHeader5:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header; a Base64-encoded signed hash value that begins with IYZWSv2.
+    ContentTypeHeader5:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request body content type.
+    ContentTypeHeader6:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content format of the request.
+  schemas:
+    ActivateSubscriptionRequest:
+      type: object
+      properties:
+        subscriptionReferenceCode:
+          type: string
+          description: Reference code of the subscription that was started as pending.
+    ActivateSubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Indicates the result of the request. Returns `success` if the operation succeeds.
+        systemTime:
+          type: integer
+          description: Unix timestamp (milliseconds) of the response.
+    CancelSubscriptionRequest:
+      type: object
+      properties:
+        subscriptionReferenceCode:
+          type: string
+          description: Subscription reference code. Can optionally be sent in the request body.
+    CancelSubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the request. Returns **success** if the operation is successful.
+        systemTime:
+          type: integer
+          description: Server time of the response (epoch ms).
+    CreatePricingPlanRequest:
+      type: object
+      required:
+      - name
+      - price
+      - currencyCode
+      - paymentInterval
+      - planPaymentType
+      properties:
+        name:
+          type: string
+          description: Pricing plan name.
+        price:
+          type: string
+          description: Amount to charge on each billing period.
+          format: decimal
+        currencyCode:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          description: Currency. (For foreign currency, only non-TRY cards are allowed.)
+        paymentInterval:
+          type: string
+          enum:
+          - DAILY
+          - WEEKLY
+          - MONTHLY
+          - YEARLY
+          description: Recurrence interval for the subscription charge.
+        planPaymentType:
+          type: string
+          enum:
+          - RECURRING
+          description: Subscription type.
+        paymentIntervalCount:
+          type: integer
+          description: Frequency multiplier for the interval. For example, if you set a weekly plan and
+            send **2**, the charge occurs every 2 weeks.
+        recurrenceCount:
+          type: integer
+          description: Total number of repeats (e.g., **12** → 12 months). If omitted, it continues until
+            the subscription is canceled.
+        trialPeriodDays:
+          type: integer
+          description: Free trial length in days. If provided, the first charge happens after this period.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Language of the response and error messages.
+        conversationId:
+          type: string
+          description: Custom identifier for request tracking.
+    CreatePricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the operation.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the created plan.
+            createdDate:
+              type: integer
+              description: Plan creation time (epoch ms).
+            name:
+              type: string
+              description: Plan name.
+            productReferenceCode:
+              type: string
+              description: Product reference code.
+            price:
+              type: string
+              description: Subscription price.
+              format: decimal
+            currencyCode:
+              type: string
+              enum:
+              - TRY
+              - USD
+              - EUR
+              description: Currency code.
+            paymentInterval:
+              type: string
+              enum:
+              - DAILY
+              - WEEKLY
+              - MONTHLY
+              - YEARLY
+              description: Billing interval.
+            paymentIntervalCount:
+              type: integer
+              description: Interval multiplier.
+            planPaymentType:
+              type: string
+              enum:
+              - RECURRING
+              description: Subscription type.
+            recurrenceCount:
+              type: integer
+              description: Number of repeats.
+            trialPeriodDays:
+              type: integer
+              description: Trial period (days).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Plan status.
+    CreatePricingPlanResponse2:
+      properties:
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the created plan.
+            createdDate:
+              type: integer
+              description: Plan creation time (epoch ms).
+            name:
+              type: string
+              description: Plan name.
+            productReferenceCode:
+              type: string
+              description: Product reference code.
+            price:
+              type: string
+              description: Subscription price.
+              format: decimal
+            currencyCode:
+              type: string
+              enum:
+              - TRY
+              - USD
+              - EUR
+              description: Currency code.
+            paymentInterval:
+              type: string
+              enum:
+              - DAILY
+              - WEEKLY
+              - MONTHLY
+              - YEARLY
+              description: Billing interval.
+            paymentIntervalCount:
+              type: integer
+              description: Interval multiplier.
+            planPaymentType:
+              type: string
+              enum:
+              - RECURRING
+              description: Subscription type.
+            recurrenceCount:
+              type: integer
+              description: Number of repeats.
+            trialPeriodDays:
+              type: integer
+              description: Trial period (days).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Plan status.
+    CustomerAddress:
+      type: object
+      description: Address information.
+      properties:
+        address:
+          type: string
+          description: Address line.
+        zipCode:
+          type: string
+          description: Postal/ZIP code.
+        contactName:
+          type: string
+          description: Contact name.
+        city:
+          type: string
+          description: City.
+        district:
+          type: string
+          description: District (if any).
+        country:
+          type: string
+          description: Country.
+    CustomerDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: The current epoch time in milliseconds at the moment of the response.
+        data:
+          type: object
+          description: Subscriber (customer) details.
+          properties:
+            referenceCode:
+              type: string
+              description: Subscriber reference code.
+            createdDate:
+              type: integer
+              description: Creation time (epoch ms).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Record status.
+            name:
+              type: string
+              description: First name.
+            surname:
+              type: string
+              description: Last name.
+            identityNumber:
+              type: string
+              description: Turkish National ID Number.
+            email:
+              type: string
+              description: Subscriber email.
+            gsmNumber:
+              type: string
+              description: Subscriber GSM number.
+            contactEmail:
+              type: string
+              description: Contact email.
+            contactGsmNumber:
+              type: string
+              description: Contact GSM number.
+            billingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+            shippingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+    CustomerDetailResponse2:
+      properties:
+        data:
+          type: object
+          description: Subscriber (customer) details.
+          properties:
+            referenceCode:
+              type: string
+              description: Subscriber reference code.
+            createdDate:
+              type: integer
+              description: Creation time (epoch ms).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Record status.
+            name:
+              type: string
+              description: First name.
+            surname:
+              type: string
+              description: Last name.
+            identityNumber:
+              type: string
+              description: Turkish National ID Number.
+            email:
+              type: string
+              description: Subscriber email.
+            gsmNumber:
+              type: string
+              description: Subscriber GSM number.
+            contactEmail:
+              type: string
+              description: Contact email.
+            contactGsmNumber:
+              type: string
+              description: Contact GSM number.
+            billingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+            shippingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+    CustomerListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: The current epoch time in milliseconds at the moment of the response.
+        data:
+          type: object
+          description: Pagination info and subscriber list.
+          properties:
+            totalCount:
+              type: integer
+              description: Total number of records.
+            currentPage:
+              type: integer
+              description: Current page.
+            pageCount:
+              type: integer
+              description: Total page count.
+            items:
+              type: array
+              description: Subscriber records.
+              items:
+                type: object
+                allOf:
+                - $ref: '#/components/schemas/CustomerDetailResponse/properties/data'
+    CustomerUpdateRequest:
+      type: object
+      description: 'Fields to update. All fields are **optional**, but the body must contain at least
+        one property.
+
+        '
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          description: First name.
+        surname:
+          type: string
+          description: Last name.
+        email:
+          type: string
+          description: Email address.
+        gsmNumber:
+          type: string
+          description: GSM number. Prefer **+90** format.
+        identityNumber:
+          type: string
+          description: Turkish National ID Number (11 digits).
+        billingAddress:
+          $ref: '#/components/schemas/CustomerAddress'
+        shippingAddress:
+          $ref: '#/components/schemas/CustomerAddress'
+    CustomerUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Indicates the result of the request.
+        systemTime:
+          type: integer
+          description: The current epoch time in milliseconds at the moment of the response.
+        data:
+          type: object
+          description: Updated subscriber information.
+          properties:
+            referenceCode:
+              type: string
+              description: Subscriber reference code.
+            createdDate:
+              type: integer
+              description: Subscriber creation time (epoch ms).
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Record status.
+            name:
+              type: string
+              description: First name.
+            surname:
+              type: string
+              description: Last name.
+            identityNumber:
+              type: string
+              description: Turkish National ID Number.
+            email:
+              type: string
+              description: Email address.
+            gsmNumber:
+              type: string
+              description: GSM number.
+            contactEmail:
+              type: string
+              description: Contact email.
+            contactGsmNumber:
+              type: string
+              description: Contact GSM number.
+            billingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+            shippingAddress:
+              $ref: '#/components/schemas/CustomerAddress'
+    DeletePricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        systemTime:
+          type: integer
+    ErrorResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Operation result.
+          enum:
+          - success
+          - failure
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+    ErrorResponse3:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: Indicates the request result (failure).
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        systemTime:
+          type: integer
+          description: The current epoch time in milliseconds at the moment of the response.
+    ErrorResponse4:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: Indicates an unsuccessful request.
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        systemTime:
+          type: integer
+          description: Current unix timestamp at the response time.
+    ErrorResponse5:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: Indicates the result of the request (failure).
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        systemTime:
+          type: integer
+          description: Unix timestamp (milliseconds) of the response.
+    ErrorResponse6:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+          description: Indicates a failed request.
+        errorCode:
+          type: string
+          description: Error code.
+        errorMessage:
+          type: string
+          description: Error message.
+        systemTime:
+          type: integer
+          description: Server time of the response (epoch ms).
+    GetSubscriptionDetailOptionalRequest:
+      type: object
+      properties:
+        subscriptionReferenceCode:
+          type: string
+          description: Subscription reference code. Can optionally be sent in the request body.
+    GetSubscriptionDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the request.
+        systemTime:
+          type: integer
+          description: Server time of the response (epoch ms).
+        data:
+          type: object
+          description: Pagination information and subscription records.
+          properties:
+            totalCount:
+              type: integer
+              description: Total record count.
+            currentPage:
+              type: integer
+              description: Current page number.
+            pageCount:
+              type: integer
+              description: Total page count.
+            items:
+              type: array
+              description: Detailed subscription records.
+              items:
+                $ref: '#/components/schemas/SubscriptionDetailItem'
+    InitializeCardUpdateCheckoutFormRequest:
+      type: object
+      required:
+      - callbackUrl
+      - customerReferenceCode
+      properties:
+        callbackUrl:
+          type: string
+          description: Callback URL where the update result will be posted.
+        customerReferenceCode:
+          type: string
+          description: Reference code of the customer whose card will be updated.
+        subscriptionReferenceCode:
+          type: string
+          description: 'If updating on a specific subscription, the subscription reference code (optional).
+
+            '
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language preference.
+    InitializeCardUpdateCheckoutFormResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Operation result.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID sent for request/response correlation. Echoed back in the response.
+        token:
+          type: string
+          description: Token of the card update checkout form.
+        checkoutFormContent:
+          type: string
+          description: HTML content for the checkout form where card information is updated.
+        tokenExpireTime:
+          type: integer
+          description: Token validity period (seconds).
+    ListPricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+        data:
+          type: object
+          properties:
+            totalCount:
+              type: integer
+              description: Total record count.
+            currentPage:
+              type: integer
+            pageCount:
+              type: integer
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreatePricingPlanResponse/properties/data'
+    NotFoundErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          description: Server time (epoch ms).
+        status:
+          type: integer
+          description: HTTP status code.
+        error:
+          type: string
+          description: Short error description.
+        path:
+          type: string
+          description: Requested path.
+    PaymentCard:
+      type: object
+      required:
+      - cardHolderName
+      - cardNumber
+      - expireMonth
+      - expireYear
+      - cvc
+      properties:
+        cardHolderName:
+          type: string
+          description: Cardholder name.
+        cardNumber:
+          type: string
+          description: Card number.
+        expireMonth:
+          type: string
+          description: Expiry month.
+        expireYear:
+          type: string
+          description: Expiry year.
+        cvc:
+          type: string
+          description: CVC/CVV.
+    PricingPlanBrief:
+      type: object
+      description: Summary view of the plan linked to the product.
+      properties:
+        referenceCode:
+          type: string
+          description: Unique reference code of the plan.
+        createdDate:
+          type: string
+          description: Plan creation date (`YYYY-MM-DD hh:mm:ss`).
+        name:
+          type: string
+          description: Plan name.
+        price:
+          type: string
+          description: Plan price (Decimal).
+          format: decimal
+        paymentInterval:
+          type: string
+          enum:
+          - WEEKLY
+          - MONTHLY
+          - DAILY
+          - YEARLY
+          description: Payment frequency.
+        paymentIntervalCount:
+          type: integer
+          description: Number of repeats for the payment interval.
+        trialPeriodDays:
+          type: integer
+          description: Trial period (days).
+        currencyCode:
+          type: string
+          description: Currency (e.g., TRY).
+        productReferenceCode:
+          type: string
+          description: Reference code of the product the plan belongs to.
+        planPaymentType:
+          type: string
+          description: Plan payment type (RECURRING).
+        status:
+          type: string
+          description: Plan status (e.g., ACTIVE).
+        recurrenceCount:
+          type: integer
+          description: Total number of recurrences (if any).
+    PricingPlanDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+        data:
+          $ref: '#/components/schemas/CreatePricingPlanResponse/properties/data'
+    ProductResource:
+      type: object
+      description: Product details.
+      properties:
+        referenceCode:
+          type: string
+          description: Unique reference code of the product.
+        createdDate:
+          type: string
+          description: Product creation date (`YYYY-MM-DD hh:mm:ss`).
+        name:
+          type: string
+          description: Product name.
+        description:
+          type: string
+          description: Product description.
+        status:
+          type: string
+          description: Product status (default ACTIVE).
+        pricingPlans:
+          type: array
+          description: List of plans linked to the product.
+          items:
+            $ref: '#/components/schemas/PricingPlanBrief'
+    RetrySubscriptionPaymentRequest:
+      type: object
+      required:
+      - referenceCode
+      properties:
+        referenceCode:
+          type: string
+          description: 'Reference code of the failed payment. This is the **orderReferenceCode** value
+            provided in the webhook notification for the failed subscription payment.
+
+            '
+    RetrySubscriptionPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the request. Returns **success** if the operation is successful.
+        systemTime:
+          type: integer
+          description: Server time of the response (epoch ms).
+    SearchSubscriptionsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the request.
+        systemTime:
+          type: integer
+          description: Server time of the response (epoch ms).
+        data:
+          type: object
+          description: Pagination information and subscription records.
+          properties:
+            totalCount:
+              type: integer
+              description: Total record count.
+            currentPage:
+              type: integer
+              description: Current page number.
+            pageCount:
+              type: integer
+              description: Total page count.
+            items:
+              type: array
+              description: Detailed subscription records.
+              items:
+                $ref: '#/components/schemas/SubscriptionDetailItem'
+    StartSubscriptionCheckoutFormInitializeRequest:
+      type: object
+      required:
+      - callbackUrl
+      - pricingPlanReferenceCode
+      - subscriptionInitialStatus
+      - customer
+      properties:
+        locale:
+          type: string
+          description: Language code. Default is `tr`. Send `"en"` to create the checkout form in English.
+          enum:
+          - tr
+          - en
+        callbackUrl:
+          type: string
+          description: Callback URL to which the payment result will be sent.
+        pricingPlanReferenceCode:
+          type: string
+          description: Reference code of the plan to start the subscription.
+        subscriptionInitialStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          description: Initial status. If `PENDING`, subscription will not start until activated.
+        conversationId:
+          type: string
+          description: Optional correlation value to match request/response pairs.
+        customer:
+          $ref: '#/components/schemas/SubscriptionCustomer'
+    StartSubscriptionCheckoutFormInitializeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Operation result.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: Echoes the value you sent in the request.
+        token:
+          type: string
+          description: Token of the checkout form.
+        checkoutFormContent:
+          type: string
+          description: HTML content of the checkout form.
+        tokenExpireTime:
+          type: integer
+          description: Token validity time in seconds.
+    StartSubscriptionCheckoutFormResultResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          description: Current unix timestamp at the response time.
+        conversationId:
+          type: string
+          description: Echoes the value you sent in the request.
+        token:
+          type: string
+          description: Token of the checkout form.
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the created subscription.
+            parentReferenceCode:
+              type: string
+              description: Unique code used to match updates on the merchant side.
+            customerReferenceCode:
+              type: string
+              description: Unique customer code created from user info (based on email and gsmNumber).
+            subscriptionStatus:
+              type: string
+              description: Subscription status.
+              enum:
+              - ACTIVE
+              - PENDING
+            pricingPlanReferenceCode:
+              type: string
+            trialDays:
+              type: integer
+              description: Trial period defined in the plan. No charge during this period.
+            trialStartDate:
+              type: integer
+              description: Start time of the trial period (epoch ms).
+            trialEndDate:
+              type: integer
+              description: End time of the trial period (epoch ms).
+            createdDate:
+              type: integer
+              description: Subscription creation time (epoch ms).
+            startDate:
+              type: integer
+              description: Subscription start time (epoch ms).
+            endDate:
+              type: integer
+              description: Subscription end time (epoch ms).
+    StartSubscriptionNon3DRequest:
+      type: object
+      required:
+      - pricingPlanReferenceCode
+      - customer
+      - paymentCard
+      - subscriptionInitialStatus
+      properties:
+        pricingPlanReferenceCode:
+          type: string
+          description: Reference code of the plan to start the subscription.
+        conversationId:
+          type: string
+          description: Optional correlation value to match request/response pairs.
+        subscriptionInitialStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          description: Initial status. If `PENDING`, subscription will not start until activated.
+        customer:
+          $ref: '#/components/schemas/SubscriptionCustomer'
+        paymentCard:
+          description: Card information.
+          $ref: '#/components/schemas/PaymentCard'
+    StartSubscriptionNon3DResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Indicates the request result; `success` if the operation succeeded.
+        systemTime:
+          type: integer
+          description: Current unix timestamp at the response time.
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the created subscription.
+            parentReferenceCode:
+              type: string
+              description: Unique code used to match updates on the merchant side.
+            customerReferenceCode:
+              type: string
+              description: Unique customer code created from user info (based on email and gsmNumber).
+            subscriptionStatus:
+              type: string
+              description: Subscription status.
+              enum:
+              - ACTIVE
+              - PENDING
+            pricingPlanReferenceCode:
+              type: string
+            trialDays:
+              type: integer
+              description: Trial period defined in the plan.
+            trialStartDate:
+              type: integer
+              description: Start time of the trial period (epoch ms).
+            trialEndDate:
+              type: integer
+              description: End time of the trial period (epoch ms).
+            createdDate:
+              type: integer
+              description: Subscription creation time (epoch ms).
+            startDate:
+              type: integer
+              description: Subscription start time (epoch ms).
+            endDate:
+              type: integer
+              description: Subscription end time (epoch ms).
+    StartSubscriptionWithCustomerRequest:
+      type: object
+      required:
+      - subscriptionInitialStatus
+      - pricingPlanReferenceCode
+      - customerReferenceCode
+      properties:
+        subscriptionInitialStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PENDING
+          description: Initial status. If `PENDING`, subscription will not start until activated.
+        pricingPlanReferenceCode:
+          type: string
+          description: Reference code of the plan to start the subscription.
+        customerReferenceCode:
+          type: string
+          description: Reference code of the existing customer. Must already have an active subscription
+            to start a new one with this flow.
+    StartSubscriptionWithCustomerResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Operation result.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the created subscription.
+            parentReferenceCode:
+              type: string
+              description: Reference code to correlate subscription updates on the merchant side.
+            pricingPlanReferenceCode:
+              type: string
+              description: Reference code of the plan linked to the created subscription.
+            customerReferenceCode:
+              type: string
+              description: Reference code of the related customer.
+            subscriptionStatus:
+              type: string
+              enum:
+              - ACTIVE
+              - PENDING
+              description: Subscription status.
+            trialDays:
+              type: integer
+              description: Trial period (days).
+            trialStartDate:
+              type: integer
+              description: Trial start time (epoch ms).
+            trialEndDate:
+              type: integer
+              description: Trial end time (epoch ms).
+            createdDate:
+              type: integer
+              description: Creation time (epoch ms).
+            startDate:
+              type: integer
+              description: Start time (epoch ms).
+            endDate:
+              type: integer
+              description: End time (epoch ms).
+    SubscriptionBillingAddress:
+      type: object
+      description: Billing address.
+      required:
+      - address
+      - contactName
+      - city
+      - country
+      properties:
+        address:
+          type: string
+          description: Billing address line.
+        zipCode:
+          type: string
+          description: ZIP/Postal code.
+        contactName:
+          type: string
+          description: Contact person.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+    SubscriptionCustomer:
+      description: Buyer information.
+      type: object
+      required:
+      - name
+      - surname
+      - email
+      - gsmNumber
+      - identityNumber
+      - billingAddress
+      properties:
+        name:
+          type: string
+          description: First name.
+        surname:
+          type: string
+          description: Last name.
+        email:
+          type: string
+          description: Email address.
+        gsmNumber:
+          type: string
+          description: GSM number. Prefer E.164 when possible (e.g., +905555555555).
+        identityNumber:
+          type: string
+          description: National ID (string).
+        billingAddress:
+          $ref: '#/components/schemas/SubscriptionBillingAddress'
+        shippingAddress:
+          $ref: '#/components/schemas/SubscriptionShippingAddress'
+    SubscriptionDetailItem:
+      type: object
+      properties:
+        referenceCode:
+          type: string
+          description: Subscription reference code.
+        parentReferenceCode:
+          type: string
+          description: Reference used by the merchant to correlate subscription updates.
+        pricingPlanName:
+          type: string
+          description: Name of the pricing plan linked to the subscription.
+        pricingPlanReferenceCode:
+          type: string
+          description: Reference code of the pricing plan linked to the subscription.
+        productName:
+          type: string
+          description: Product name.
+        productReferenceCode:
+          type: string
+          description: Product reference code.
+        customerEmail:
+          type: string
+          description: Customer email address.
+        customerGsmNumber:
+          type: string
+          description: Customer GSM number.
+        customerReferenceCode:
+          type: string
+          description: Customer reference code.
+        subscriptionStatus:
+          type: string
+          description: 'Subscription status.
+
+
+            Values:
+
+            - **ACTIVE**: Subscription is active and payments are being collected regularly.
+
+            - **PENDING**: Subscription is paused.
+
+            - **UNPAID**: Payment could not be collected during the subscription.
+
+            - **UPGRADED**: Subscription has been updated to another plan.
+
+            - **CANCELED**: Subscription is canceled.
+
+            - **EXPIRED**: Subscription period ended; no further charges are attempted.
+
+            '
+          enum:
+          - ACTIVE
+          - PENDING
+          - UNPAID
+          - UPGRADED
+          - CANCELED
+          - EXPIRED
+        trialDays:
+          type: integer
+          description: Trial period (days) of the pricing plan.
+        trialStartDate:
+          type: integer
+          description: Trial start time (epoch ms).
+        trialEndDate:
+          type: integer
+          description: Trial end time (epoch ms).
+        createdDate:
+          type: integer
+          description: Subscription creation time (epoch ms).
+        startDate:
+          type: integer
+          description: Subscription start time (epoch ms).
+        endDate:
+          type: integer
+          description: Subscription end time (epoch ms).
+        orders:
+          type: array
+          description: List of periods (orders) within the subscription.
+          items:
+            $ref: '#/components/schemas/SubscriptionOrder'
+    SubscriptionOrder:
+      type: object
+      properties:
+        referenceCode:
+          type: string
+          description: Reference code of the subscription period (order).
+        price:
+          type: string
+          description: Period price.
+          format: decimal
+        currencyCode:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          description: Currency.
+        startPeriod:
+          type: integer
+          description: Start time of the period (epoch ms).
+        endPeriod:
+          type: integer
+          description: End time of the period (epoch ms).
+        orderStatus:
+          type: string
+          description: Period status.
+          enum:
+          - WAITING
+          - SUCCESS
+          - FAILED
+        paymentAttempts:
+          type: array
+          description: Payment attempts made for this period.
+          items:
+            $ref: '#/components/schemas/SubscriptionPaymentAttempt'
+    SubscriptionPaymentAttempt:
+      type: object
+      description: A single payment attempt for a subscription period.
+      properties:
+        conversationId:
+          type: string
+          description: ID sent for request/response correlation. Echoed back in the response.
+        createdDate:
+          type: integer
+          description: Creation time of the attempt (epoch ms).
+        paymentStatus:
+          type: string
+          description: Result of the payment attempt.
+          enum:
+          - SUCCESS
+          - FAILED
+        paymentId:
+          type: integer
+          description: Payment ID for a successful payment. Present only when **SUCCESS**.
+        errorCode:
+          type: string
+          description: Error code for a failed payment. Present only when **FAILED**.
+        errorMessage:
+          type: string
+          description: Error message for a failed payment. Present only when **FAILED**.
+    SubscriptionProductCreateRequest:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: Language of iyzico response messages. Default **en**; **tr** is supported.
+        conversationId:
+          type: string
+          description: A reference value that can be used to match request and response.
+        name:
+          type: string
+          description: Product name.
+        description:
+          type: string
+          description: Product description.
+      required:
+      - name
+    SubscriptionProductCreateSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Operation result.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        data:
+          $ref: '#/components/schemas/ProductResource'
+    SubscriptionProductDeleteSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Operation result.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+    SubscriptionProductGetSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Operation result.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        data:
+          $ref: '#/components/schemas/ProductResource'
+    SubscriptionProductListRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Returns products for the specified page.
+        count:
+          type: integer
+          description: Number of products per page.
+    SubscriptionProductListSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Operation result.
+          enum:
+          - success
+          - failure
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        data:
+          type: object
+          description: Pagination results.
+          properties:
+            totalCount:
+              type: string
+              description: Total number of results returned.
+            currentPage:
+              type: integer
+              description: Page number returned.
+            pageCount:
+              type: integer
+              description: Total page count.
+            items:
+              type: array
+              description: Product list.
+              items:
+                $ref: '#/components/schemas/ProductResource'
+    SubscriptionProductUpdateRequest:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: Response language (**en**/**tr**).
+        conversationId:
+          type: string
+          description: Value used for request/response matching.
+        name:
+          type: string
+          description: New product name.
+        description:
+          type: string
+          description: New product description.
+      required:
+      - name
+    SubscriptionShippingAddress:
+      type: object
+      description: Shipping address.
+      properties:
+        address:
+          type: string
+          description: Shipping address line.
+        zipCode:
+          type: string
+          description: ZIP/Postal code.
+        contactName:
+          type: string
+          description: Contact person.
+        city:
+          type: string
+          description: City.
+        country:
+          type: string
+          description: Country.
+    UpdatePricingPlanRequest:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          description: Updated plan name.
+        trialPeriodDays:
+          type: integer
+          description: Updated trial period (days).
+    UpdatePricingPlanResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the operation.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the updated plan.
+            createdDate:
+              type: integer
+              description: Plan creation time (epoch ms).
+            name:
+              type: string
+              description: Updated plan name.
+            price:
+              type: string
+              description: Plan price.
+              format: decimal
+            paymentInterval:
+              type: string
+              enum:
+              - DAILY
+              - WEEKLY
+              - MONTHLY
+              - YEARLY
+              description: Billing interval.
+            paymentIntervalCount:
+              type: integer
+              description: Interval multiplier.
+            trialPeriodDays:
+              type: integer
+              description: Updated trial period (days).
+            currencyCode:
+              type: string
+              enum:
+              - TRY
+              - USD
+              - EUR
+              description: Currency code.
+            productReferenceCode:
+              type: string
+              description: Product reference code.
+            planPaymentType:
+              type: string
+              enum:
+              - RECURRING
+              description: Subscription type.
+            status:
+              type: string
+              enum:
+              - ACTIVE
+              description: Plan status.
+            recurrenceCount:
+              type: integer
+              description: Number of repeats.
+    UpgradeSubscriptionRequest:
+      type: object
+      required:
+      - upgradePeriod
+      - newPricingPlanReferenceCode
+      properties:
+        upgradePeriod:
+          type: string
+          enum:
+          - NOW
+          - NEXT_PERIOD
+          description: 'When the upgrade will take effect.
+
+            Values:
+
+            - **NOW**: Apply the change immediately.
+
+            - **NEXT_PERIOD**: Apply the change at the next billing period.
+
+            '
+        newPricingPlanReferenceCode:
+          type: string
+          description: Reference code of the target pricing plan.
+        useTrial:
+          type: boolean
+          description: If **true**, includes the trial period of the upgraded plan.
+        resetRecurrenceCount:
+          type: boolean
+          description: "- **true**: Recalculates the subscription end date according to the new plan’s\
+            \ **recurrenceCount**.  \n- **false**: Keeps the current plan’s end date and transfers it\
+            \ to the new plan.\n"
+    UpgradeSubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result of the request. Returns **success** if the operation is successful.
+        systemTime:
+          type: integer
+          description: Server time of the response (epoch ms).
+        data:
+          type: object
+          properties:
+            referenceCode:
+              type: string
+              description: Reference code of the newly created subscription.
+            parentReferenceCode:
+              type: string
+              description: Reference code used by the merchant to correlate subscription updates.
+            pricingPlanReferenceCode:
+              type: string
+            customerReferenceCode:
+              type: string
+            subscriptionStatus:
+              type: string
+              enum:
+              - ACTIVE
+              - PENDING
+              description: Subscription status.
+            trialDays:
+              type: integer
+              description: Trial period of the plan (days).
+            createdDate:
+              type: integer
+              description: Creation time (epoch ms).
+            startDate:
+              type: string
+              description: Start time (epoch ms).
+              format: date
+            endDate:
+              type: string
+              description: End time (epoch ms).
+              format: date

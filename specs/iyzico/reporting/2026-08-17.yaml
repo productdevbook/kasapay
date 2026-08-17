@@ -1,0 +1,689 @@
+openapi: 3.0.3
+info:
+  title: iyzico — reporting
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+tags:
+- name: Reporting
+  description: Reporting endpoints
+paths:
+  /v2/reporting/payment/details:
+    get:
+      summary: Transaction Detail Reporting
+      description: The reporting service returns the current status of payments, refund results, and fraud
+        statuses. It works with both paymentConversationId and paymentId. At least one of these must be
+        provided.
+      tags:
+      - Reporting
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/LocaleQuery'
+      - $ref: '#/components/parameters/ConversationIdQuery'
+      - name: paymentId
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Payment ID. Required if paymentConversationId is not sent.
+
+          '
+      - name: paymentConversationId
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Conversation ID of the payment. Can be used to query by conversationId. Required
+          if paymentId is not sent.
+
+          '
+      responses:
+        '200':
+          description: Successful response — transaction detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingPaymentDetailsResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/reporting-service.md
+  /v2/reporting/payment/transactions:
+    get:
+      summary: Daily Transactions Reporting
+      description: Returns the list of payment/cancel/refund operations that occurred on a specific date.
+      tags:
+      - Reporting
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      - $ref: '#/components/parameters/LocaleQuery'
+      - $ref: '#/components/parameters/ConversationIdQuery'
+      - name: page
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: Page number (starts from 1).
+      - name: transactionDate
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 'Date to query (YYYY-MM-DD). Example: `2025-07-24`.
+
+          '
+      responses:
+        '200':
+          description: Successful response — daily transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportingDailyTransactionsResponse'
+        '400':
+          description: Invalid request / validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/advanced/reporting-service.md
+components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header, IYZWSv2 ile başlayan ve base64 formatında üretilmiş imzalı hash
+        değeridir.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content type of the request body.
+    LocaleQuery:
+      name: locale
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - tr
+        - en
+      description: Language code.
+    ConversationIdQuery:
+      name: conversationId
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Can be used to correlate request/response. Echoed back in the response as-is.
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Indicates the result of the request.
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          description: Response language (tr/en).
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID matching the request (if present).
+    ErrorResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          errorCode:
+            type: string
+            description: Error code for the operation.
+          errorMessage:
+            type: string
+            description: Error message for the operation. Supports localization based on the locale parameter.
+          errorGroup:
+            type: string
+            description: Error group.
+    ReportingCancel:
+      type: object
+      properties:
+        refundId:
+          description: Refund/ID information for the cancel.
+          oneOf:
+          - type: string
+          - type: integer
+        cancelConversationId:
+          type: string
+          description: Conversation ID of the cancel operation.
+        refundPrice:
+          type: string
+          description: Cancel/refund amount.
+          format: decimal
+        refundStatus:
+          type: integer
+          description: Cancel/refund status code.
+        createdDate:
+          type: string
+          description: ISO-8601 creation time.
+        currencyCode:
+          type: string
+          description: Currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        authCode:
+          type: string
+          description: Auth code returned from the bank.
+        hostReference:
+          type: string
+          description: hostReference value returned by the provider.
+    ReportingConvertedPayout:
+      type: object
+      properties:
+        paidPrice:
+          type: string
+          description: Distribution of collected amount at line-item level.
+          format: decimal
+        iyziCommissionRateAmount:
+          type: string
+          description: iyzico commission amount (line-item, after conversion).
+          format: decimal
+        iyziCommissionFee:
+          type: string
+          description: iyzico transaction fee (line-item, after conversion).
+          format: decimal
+        blockageRateAmountMerchant:
+          type: string
+          description: Merchant blockage amount (after conversion, merchant).
+          format: decimal
+        blockageRateAmountSubMerchant:
+          type: string
+          description: Sub-merchant blockage amount (after conversion).
+          format: decimal
+        subMerchantPayoutAmount:
+          type: string
+          description: Amount to be transferred to the sub-merchant (after conversion).
+          format: decimal
+        merchantPayoutAmount:
+          type: string
+          description: Amount to be sent to the merchant (after conversion).
+          format: decimal
+        iyziConversionRate:
+          type: string
+          description: FX rate.
+          format: decimal
+        iyziConversionRateAmount:
+          type: string
+          description: Amount after applying the FX rate.
+          format: decimal
+        currency:
+          type: string
+          description: Currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+    ReportingDailyTransactionItem:
+      type: object
+      properties:
+        transactionType:
+          type: string
+          description: Transaction type.
+          enum:
+          - CANCEL
+          - PAYMENT
+          - REFUND
+        transactionDate:
+          type: string
+          description: Transaction time (yyyy-MM-dd HH:mm:ss).
+        transactionId:
+          description: Transaction ID.
+          type: string
+        transactionStatus:
+          type: integer
+          description: 'Line-item status.
+
+            - 0: In fraud review
+
+            - -1: Rejected after fraud review
+
+            - 1: Approved (In marketplace, 1 means Waiting for Sub-merchant Approval)
+
+            - 2: Approved (Marketplace Approval Granted)
+
+            enum: [ 0, -1, 1, 2 ]
+
+            '
+        afterSettlement:
+          type: integer
+          description: Was it processed after payout? 0=No, 1=Yes (for REFUND).
+          enum:
+          - 0
+          - 1
+        paymentTxId:
+          description: Line-item payment transaction ID.
+          type: string
+        paymentId:
+          description: Payment ID.
+          type: string
+        conversationId:
+          type: string
+          description: Conversation ID of the transaction (if any).
+        paymentPhase:
+          type: string
+          description: Payment phase.
+        price:
+          type: string
+          description: Item/transaction amount.
+          format: decimal
+        paidPrice:
+          type: string
+          description: Collected amount.
+          format: decimal
+        transactionCurrency:
+          type: string
+          description: Transaction currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        installment:
+          type: integer
+          description: Installment count.
+        threeDS:
+          type: integer
+          description: Was 3DS used? 0=No, 1=Yes.
+          enum:
+          - 0
+          - 1
+        settlementCurrency:
+          type: string
+          description: Settlement currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        connectorType:
+          type: string
+          description: Connector/POS provider type.
+        posOrderId:
+          type: string
+          description: POS order number.
+        authCode:
+          type: string
+          description: Bank auth code.
+        hostReference:
+          type: string
+          description: Provider hostReference value.
+        basketId:
+          type: string
+          description: Basket ID.
+        iyzicoCommission:
+          type: string
+          description: Commission (for PAYMENT).
+          format: decimal
+        iyzicoFee:
+          type: string
+          description: Transaction fee (for PAYMENT).
+          format: decimal
+        parity:
+          type: string
+          description: FX parity (for PAYMENT).
+          format: decimal
+        iyzicoConversionAmount:
+          type: string
+          description: FX conversion amount (for PAYMENT).
+          format: decimal
+        merchantPayoutAmount:
+          type: string
+          description: Amount to be paid to the merchant (for PAYMENT).
+          format: decimal
+        subMerchantPayoutAmount:
+          type: string
+          description: Amount to be paid to the sub-merchant (for PAYMENT).
+          format: decimal
+    ReportingDailyTransactionsResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          transactions:
+            type: array
+            description: Transactions on the specified day.
+            items:
+              $ref: '#/components/schemas/ReportingDailyTransactionItem'
+          currentPage:
+            type: integer
+            description: Current page number.
+          totalPageCount:
+            type: integer
+            description: Total number of pages.
+    ReportingItemTransaction:
+      type: object
+      properties:
+        paymentTransactionId:
+          description: Line-item transaction ID.
+          type: string
+        transactionStatus:
+          type: integer
+          description: 'Line-item status.
+
+            - **0**: In fraud review
+
+            - **-1**: Rejected after fraud review
+
+            - **1**: Approved (In marketplace: Waiting for Sub-merchant Approval)
+
+            - **2**: Approved (Marketplace Approval Granted)
+
+            '
+          enum:
+          - 0
+          - -1
+          - 1
+          - 2
+        price:
+          type: string
+          description: Item amount.
+          format: decimal
+        paidPrice:
+          type: string
+          description: Distribution of collected amount at line-item level.
+          format: decimal
+        merchantCommissionRate:
+          type: string
+          description: Merchant surcharge/commission rate (line-item).
+          format: decimal
+        merchantCommissionRateAmount:
+          type: string
+          description: Merchant surcharge/commission amount (line-item).
+          format: decimal
+        iyziCommissionRateAmount:
+          type: string
+          description: iyzico commission amount (line-item).
+          format: decimal
+        iyziCommissionFee:
+          type: string
+          description: iyzico transaction fee (line-item).
+          format: decimal
+        blockageRate:
+          type: string
+          description: Merchant blockage rate (line-item).
+          format: decimal
+        blockageRateAmountMerchant:
+          type: string
+          description: Blockage amount reflected to the merchant.
+          format: decimal
+        blockageRateAmountSubMerchant:
+          type: string
+          description: Blockage amount reflected to the sub-merchant.
+          format: decimal
+        blockageResolvedDate:
+          type: string
+          description: Blockage resolution date (ISO-8601).
+        subMerchantPrice:
+          type: string
+          description: Sub-merchant item amount.
+          format: decimal
+        subMerchantPayoutRate:
+          type: string
+          description: Rate of payout to sub-merchant.
+          format: decimal
+        subMerchantPayoutAmount:
+          type: string
+          description: Amount to be transferred to the sub-merchant.
+          format: decimal
+        merchantPayoutAmount:
+          type: string
+          description: Amount to be sent to the merchant after commissions and blockages.
+          format: decimal
+        convertedPayout:
+          $ref: '#/components/schemas/ReportingConvertedPayout'
+        refunds:
+          type: array
+          description: Line-item refunds.
+          items:
+            $ref: '#/components/schemas/ReportingRefund'
+    ReportingPaymentDetailsItem:
+      type: object
+      properties:
+        paymentId:
+          description: Payment ID.
+          type: string
+        paymentStatus:
+          type: integer
+          description: 'Payment status.
+
+
+            - **1** (Success)
+
+            - **2** (Failure / INIT_THREEDS)
+
+            - **3** (CALLBACK_THREEDS)
+
+            '
+          enum:
+          - 1
+          - 2
+          - 3
+        paymentRefundStatus:
+          type: string
+          description: 'Refund status.
+
+
+            - **NOT_REFUNDED**
+
+            - **PARTIALLY_REFUNDED**
+
+            - **TOTALLY_REFUNDED**
+
+            '
+        price:
+          type: string
+          description: Basket total amount.
+          format: decimal
+        paidPrice:
+          type: string
+          description: Total collected amount.
+          format: decimal
+        installment:
+          type: integer
+          description: Installment count.
+        merchantCommissionRate:
+          type: string
+          description: Merchant’s surcharge/commission rate (informational).
+          format: decimal
+        merchantCommissionRateAmount:
+          type: string
+          description: Merchant’s surcharge/commission amount (informational).
+          format: decimal
+        iyziCommissionRateAmount:
+          type: string
+          description: iyzico commission amount for the payment.
+          format: decimal
+        iyziCommissionFee:
+          type: string
+          description: iyzico transaction fee for the payment.
+          format: decimal
+        paymentConversationId:
+          type: string
+          description: Conversation ID of the payment.
+        fraudStatus:
+          type: integer
+          description: 'Fraud status per fraud filters. If the score is low, the payment is approved;
+            if high, it is rejected.
+
+            Merchants should ship goods only for status **1**; for **0**, they should wait for notification.
+
+            - **1**: Approved
+
+            - **0**: Under Review
+
+            - **-1**: Rejected
+
+            '
+          enum:
+          - -1
+          - 0
+          - 1
+        cardType:
+          type: string
+          description: Card type.
+          enum:
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - PREPAID_CARD
+        cardAssociation:
+          type: string
+          description: Card association.
+          enum:
+          - VISA
+          - MASTER_CARD
+          - AMERICAN_EXPRESS
+        cardFamily:
+          type: string
+          description: Card family.
+          enum:
+          - Bonus
+          - Axess
+          - World
+          - Maximum
+          - Paraf
+          - CardFinans
+        binNumber:
+          type: string
+          description: BIN (first 8 digits).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card.
+        basketId:
+          type: string
+          description: Basket ID.
+        currency:
+          type: string
+          description: Currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        connectorName:
+          type: string
+          description: Connector/POS provider name.
+        authCode:
+          type: string
+          description: Auth code returned from the bank.
+        threeDS:
+          type: boolean
+          description: Whether the transaction used 3DS.
+        phase:
+          type: string
+          description: Payment phase.
+        acquirerBankName:
+          type: string
+          description: Acquiring bank/provider name.
+        hostReference:
+          type: string
+          description: hostReference value returned by the provider.
+        createdDate:
+          type: string
+          description: ISO-8601 creation time.
+        cancels:
+          type: array
+          description: List of cancel operations.
+          items:
+            $ref: '#/components/schemas/ReportingCancel'
+        itemTransactions:
+          type: array
+          description: Line-item level transaction breakdowns.
+          items:
+            $ref: '#/components/schemas/ReportingItemTransaction'
+    ReportingPaymentDetailsResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          payments:
+            type: array
+            description: Transactions returned by the query.
+            items:
+              $ref: '#/components/schemas/ReportingPaymentDetailsItem'
+    ReportingRefund:
+      type: object
+      properties:
+        refundTxId:
+          description: Refund transaction ID.
+          oneOf:
+          - type: string
+          - type: integer
+        refundConversationId:
+          type: string
+          description: Conversation ID of the refund.
+        refundPrice:
+          type: string
+          description: Refund amount.
+          format: decimal
+        refundStatus:
+          type: integer
+          description: Refund status code.
+        isAfterSettlement:
+          type: boolean
+          description: Was the refund processed after payout?
+        createdDate:
+          type: string
+          description: ISO-8601 creation time.
+        currencyCode:
+          type: string
+          description: Currency.
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - NOK
+          - CHF
+        authCode:
+          type: string
+          description: Auth code returned from the bank.
+        hostReference:
+          type: string
+          description: hostReference value returned by the provider.
+        iyziCommissionRateAmount:
+          type: string
+          description: Commission amount on the refund (if any).
+          format: decimal

@@ -1,0 +1,1470 @@
+openapi: 3.0.3
+info:
+  title: iyzico — in-store
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+tags:
+- name: OAuth
+- name: Payment
+  description: Ödeme işlemleri servisleri
+paths:
+  /in-store/oauth2/authorize:
+    post:
+      tags:
+      - OAuth
+      description: 'This service starts the authorization step and generates an "auth code".
+
+
+        Flow:
+
+        1) A request is sent to this service with a form-urlencoded body.
+
+        2) The "code" value in the response is received.
+
+        3) The received "code" value is used in the "Get Token with Auth Code" service to generate a token.
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthAuthorizeRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+  /in-store/oauth2/token:
+    post:
+      tags:
+      - OAuth
+      description: "This service generates access_token and refresh_token using the auth code.\n\nAuthorization\
+        \ (Basic Auth):\n- Username: client_id\n- Password: client_secret\nHeader format:\nAuthorization:\
+        \ Basic base64(client_id:client_secret)\n\nFlow (Auth Code):\n1) The \"code\" returned from /authorize\
+        \ call is retrieved.\n2) It is sent to this service with a form-urlencoded body:\n   - grant_type=authorization_code\n\
+        \   - code={authCode}\n3) From the response:\n   - access_token: Used as Bearer Token in Terminal\
+        \ Host services.\n   - refresh_token: Stored for token renewal.\n   - expires_in: access_token\
+        \ validity period (seconds).\n"
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/OAuthTokenRequestAuthCode'
+              - $ref: '#/components/schemas/OAuthTokenRequestRefresh'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+      security:
+      - BasicAuth: []
+  /in-store/oauth2/token/refresh:
+    post:
+      tags:
+      - OAuth
+      summary: Get Token with Refresh Token
+      description: "This service generates a new access_token using the refresh_token (token renewal).\n\
+        \nAuthorization (Basic Auth):\n- Username: client_id\n- Password: client_secret\nHeader format:\n\
+        Authorization: Basic base64(client_id:client_secret)\n\nFlow:\n1) The \"refresh_token\" received\
+        \ from the previous token call is stored.\n2) It is sent to this service with a form-urlencoded\
+        \ body:\n   - grant_type=refresh_token\n   - refresh_token={refresh_token}\n3) The new access_token\
+        \ is received from the response and used in Terminal Host services.\n"
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthTokenRequestRefresh'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSimpleError'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/login.md
+      security:
+      - BasicAuth: []
+  /v2/in-store/crypt/decrypt:
+    post:
+      tags:
+      - Payment
+      summary: Ödeme Sonucu
+      description: 'Ödeme tamamlandıktan sonra callback ile gelen şifreli `data` değerini çözer
+
+        ve ödeme sonucunu döner.
+
+        '
+      operationId: decryptPaymentResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecryptRequest'
+      responses:
+        '200':
+          description: Şifre başarıyla çözüldü
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecryptResponse'
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
+  /v3/in-store/crypt/decrypt:
+    post:
+      summary: Ödeme Sonucu Şifre Çözme
+      description: Ödeme tamamlandıktan sonra callback ile gelen şifreli `data` değerini çözer ve ödeme
+        sonucunu döner.
+      operationId: decryptPayment
+      parameters:
+      - name: x-api-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS API anahtarı
+        schema:
+          type: string
+      - name: x-secret-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
+        schema:
+          type: string
+      - name: x-merchant-id
+        in: header
+        required: true
+        description: iyzico hesabınızın üye işyeri numarası
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecryptRequest'
+      responses:
+        '200':
+          description: Şifre başarıyla çözüldü
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecryptResponse'
+        '400':
+          description: Geçersiz parametre veya eksik alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sifre-cozme.md
+  /v3/in-store/payment/init:
+    post:
+      tags:
+      - Payment
+      summary: Ödeme Başlatma
+      description: 'Müşterinin ödeme sürecini başlatır.
+
+        Başarılı yanıt içindeki `deepLinkUrl` ile müşteri iyzico uygulamasına yönlendirilir.
+
+
+        **Entegrasyon Akışı:**
+
+        1. Bu endpoint ile `deepLinkUrl` ve `paymentSessionToken` alınır.
+
+        2. Müşteri `deepLinkUrl` ile yönlendirilir (iyzico uygulaması açılır).
+
+        3. Müşteri ödemeyi tamamlar.
+
+        4. Callback URL''e şifreli sonuç iletilir.
+
+        5. `/crypt/decrypt` ile şifreli data çözülür.
+
+        '
+      operationId: initPayment
+      parameters:
+      - name: x-callback-url
+        in: header
+        required: true
+        description: İşlem sonucu bildirimi için callback URL
+        schema:
+          type: string
+          format: uri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInitRequest'
+      responses:
+        '200':
+          description: Ödeme başarıyla başlatıldı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitResponse'
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
+  /v3/in-store/payment/query:
+    post:
+      summary: Ödeme Durumu Sorgulama
+      description: Belirtilen `paymentId` ile bir ödemenin güncel durumunu sorgular.
+      operationId: queryPayment
+      parameters:
+      - name: x-api-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS API anahtarı
+        schema:
+          type: string
+      - name: x-secret-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
+        schema:
+          type: string
+      - name: x-merchant-id
+        in: header
+        required: true
+        description: iyzico hesabınızın üye işyeri numarası
+        schema:
+          type: string
+      - name: paymentId
+        in: query
+        required: true
+        description: Sorgulanacak ödemenin ID'si
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: Şifre başarıyla çözüldü
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sorgulama.md
+    get:
+      tags:
+      - Payment
+      summary: Ödeme Sorgula
+      description: Belirtilen `paymentId` ile bir ödemenin güncel durumunu sorgular.
+      operationId: queryPayment2
+      parameters:
+      - name: paymentId
+        in: query
+        required: true
+        description: Sorgulanacak ödemenin ID'si
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: Ödeme bilgileri başarıyla döndü
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentQueryResponse'
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
+  /v3/in-store/payment/refund:
+    post:
+      tags:
+      - Payment
+      summary: İptal / İade Başlat
+      description: 'Daha önce gerçekleştirilmiş bir ödeme için iptal veya iade işlemi başlatır.
+
+        `refundAmount` girilmezse tam iade yapılır.
+
+        '
+      operationId: refundPayment
+      parameters:
+      - name: x-callback-url
+        in: header
+        required: true
+        description: İşlem sonucu bildirimi için callback URL
+        schema:
+          type: string
+          format: uri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: İade işlemi başarıyla başlatıldı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResponse'
+        '422':
+          description: Validasyon hatası — eksik veya hatalı alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md
+      security:
+      - ApiKeyAuth: []
+        SecretKeyAuth: []
+        MerchantIdAuth: []
+  /v3/in-store/user:
+    post:
+      tags:
+      - User
+      summary: Kullanıcı Ekleme
+      description: Yeni bir kullanıcı oluşturur ve kullanıcı bilgilerini döner.
+      operationId: createUser
+      parameters:
+      - name: x-api-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS API anahtarı
+        schema:
+          type: string
+      - name: x-secret-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
+        schema:
+          type: string
+      - name: x-merchant-id
+        in: header
+        required: true
+        description: iyzico hesabınızın üye işyeri numarası
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: Kullanıcı başarıyla oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '400':
+          description: Geçersiz parametre veya eksik alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Geçersiz veya eksik header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
+    delete:
+      tags:
+      - User
+      summary: Kullanıcı Silme
+      description: Var olan bir kullanıcıyı sistemden siler.
+      operationId: deleteUser
+      parameters:
+      - name: x-api-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS API anahtarı
+        schema:
+          type: string
+      - name: x-secret-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
+        schema:
+          type: string
+      - name: x-merchant-id
+        in: header
+        required: true
+        description: iyzico hesabınızın üye işyeri numarası
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteUserRequest'
+      responses:
+        '200':
+          description: Kullanıcı başarıyla silindi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteUserResponse'
+        '400':
+          description: Geçersiz parametre veya eksik alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Geçersiz veya eksik header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
+  /v3/in-store/user/list:
+    get:
+      tags:
+      - User
+      summary: Kullanıcı Listeleme
+      description: Sistemdeki kullanıcıların sayfalanmış (paginated) listesini döner.
+      operationId: listUsers
+      parameters:
+      - name: x-api-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS API anahtarı
+        schema:
+          type: string
+      - name: x-secret-key
+        in: header
+        required: true
+        description: iyzico panelinizdeki CepPOS güvenlik anahtarı
+        schema:
+          type: string
+      - name: x-merchant-id
+        in: header
+        required: true
+        description: iyzico hesabınızın üye işyeri numarası
+        schema:
+          type: string
+      - name: pageNumber
+        in: query
+        description: Sayfa numarası
+        schema:
+          type: integer
+          default: 1
+      - name: pageCount
+        in: query
+        description: Sayfa başına kullanıcı sayısı
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: Başarılı — kullanıcı listesi döner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '400':
+          description: Geçersiz parametre veya eksik alan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Geçersiz veya eksik header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/kullanici-servisleri.md
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+      - userId
+      properties:
+        userId:
+          type: string
+          description: Kullanıcı kimliği
+    DecryptRequest:
+      type: object
+      required:
+      - data
+      - paymentSessionToken
+      properties:
+        data:
+          type: string
+          description: Callback ile gelen şifreli ödeme verisi
+        paymentSessionToken:
+          type: string
+          description: Ödeme başlatma adımında alınan token
+    DecryptResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        systemTime:
+          type: integer
+          description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+          format: int64
+        inStoreCompleteOperation:
+          description: Şifresi çözülmüş ödeme sonucunu içeren nesne. Banka işlem detayları, kart bilgileri
+            ve fiş verileri bu alan altında yer alır.
+          $ref: '#/components/schemas/InStoreCompleteOperation2'
+    DeleteUserRequest:
+      type: object
+      required:
+      - userId
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Hata durumunda her zaman "failure" döner.
+        systemTime:
+          type: integer
+          format: int64
+          description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+        userId:
+          type: string
+          description: Silinecek kullanıcı kimliği
+    DeleteUserResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: Başarıyla silinen kullanıcının kimliği. Silme işleminin doğrulanması amacıyla döner.
+    Enrollment:
+      type: object
+      properties:
+        enrolledBank:
+          type: string
+          description: Kullanıcının kayıtlı olduğu bankanın adı.
+        enrolledTerminalId:
+          type: string
+          description: Bankaya ait fiziksel POS terminal kimliği.
+        enrollmentStatus:
+          type: string
+          description: Banka terminali kayıt durumu.
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Hata durumunda her zaman "failure" döner.
+        errorCode:
+          type: string
+          description: iyzico tarafından tanımlanmış hata kodu. Hatanın türünü programatik olarak ayırt
+            etmek için kullanılır.
+        errorMessage:
+          type: string
+          description: Hatayı açıklayan, okunabilir hata mesajı. Loglama ve hata ayıklama amacıyla kullanılabilir.
+    ErrorResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+          description: Hatanın detayı
+        errorGroup:
+          type: string
+    InStoreCompleteOperation:
+      type: object
+      properties:
+        transaction:
+          description: Ödemeye ait banka işlem detayları, kart bilgileri ve fiş verilerini içeren nesne.
+          $ref: '#/components/schemas/Transaction'
+        paymentFailedResult:
+          description: Başarısız ödeme detaylarını içeren nesne.
+          $ref: '#/components/schemas/PaymentFailedResult'
+    InStoreCompleteOperation2:
+      type: object
+      properties:
+        transaction:
+          description: Ödemeye ait banka işlem detayları, kart bilgileri ve fiş verilerini içeren nesne.
+          $ref: '#/components/schemas/Transaction2'
+    OAuthAuthorizeErrorResponse:
+      type: object
+      properties:
+        errorCode:
+          type: string
+          description: Error Code
+        description:
+          type: string
+          description: Error Description
+        uri:
+          type: string
+          description: Returned in some cases
+    OAuthAuthorizeRequest:
+      type: object
+      required:
+      - scope
+      - client_id
+      - client_secret
+      - response_type
+      - username
+      - password
+      - request_timestamp
+      properties:
+        scope:
+          type: string
+          description: 'Default value: iyzipayApiGateway'
+          enum:
+          - iyzipayApiGateway
+        client_id:
+          type: string
+          description: Merchant-specific client_id value provided by iyzico.
+        client_secret:
+          type: string
+          description: Merchant-specific client secret value generated by iyzico.
+        response_type:
+          type: string
+          description: 'Default value: code'
+          enum:
+          - code
+        username:
+          type: string
+          description: Username
+        password:
+          type: string
+          description: User password
+        request_timestamp:
+          type: string
+          description: Unix timestamp value of the relevant request.
+    OAuthAuthorizeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Auth Code
+        issuedAt:
+          type: string
+          description: Transaction date
+        expiredAt:
+          type: string
+          description: Transaction validity date
+    OAuthSimpleError:
+      type: object
+      properties:
+        error:
+          type: string
+    OAuthTokenRequestAuthCode:
+      type: object
+      required:
+      - grant_type
+      - code
+      description: Generates a JWT token using the Authorization Code. Basic Auth is performed with client_id
+        and client_secret.
+      properties:
+        grant_type:
+          type: string
+          description: Transaction type for token generation
+          enum:
+          - authorization_code
+          - refresh_token
+        code:
+          type: string
+          description: authCode value generated during the authorization step.
+    OAuthTokenRequestRefresh:
+      type: object
+      required:
+      - grant_type
+      - refresh_token
+      description: Generates a JWT token using the Refresh Token. Basic Auth is performed with client_id
+        and client_secret.
+      properties:
+        grant_type:
+          type: string
+          description: Transaction type for token generation
+          enum:
+          - authorization_code
+          - refresh_token
+        refresh_token:
+          type: string
+          description: Refresh token value to be used for token renewal.
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: Access Token Value
+        refresh_token:
+          type: string
+          description: Refresh Token Value
+        scope:
+          type: string
+          description: Default Scope Value
+          enum:
+          - iyzipayApiGateway
+        token_type:
+          type: string
+          description: Token type used in authorization
+        expires_in:
+          type: integer
+          format: int32
+          description: Validity period in seconds.
+    PaymentFailedResult:
+      type: object
+      properties:
+        transactionAmount:
+          type: number
+          description: İşlem tutarı.
+        paymentResultText:
+          type: string
+          description: Ödeme sonucu mesajı.
+        screenMessageText:
+          type: string
+          description: Ekranda gösterilecek bilgilendirme mesajı.
+        date:
+          type: string
+          description: İşlem tarihi ve saati (okunabilir format).
+        dateISO:
+          type: string
+          format: date-time
+          description: İşlem tarihi ve saati.
+    PaymentInitRequest:
+      type: object
+      required:
+      - userId
+      - orderId
+      - amount
+      properties:
+        userId:
+          type: string
+          description: Ödemeyi yapacak kullanıcı ID'si
+          format: float
+        orderId:
+          type: string
+          description: Sipariş referans numarası
+        amount:
+          type: string
+          description: Ödeme tutarı
+          format: decimal
+    PaymentInitResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        errorCode:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
+        errorMessage:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
+        deepLinkUrl:
+          type: string
+          description: Müşterinin iyzico mobil uygulamasına yönlendirileceği deep link URL'i. Bu link
+            açıldığında uygulama ödeme ekranını başlatır.
+        paymentSessionToken:
+          type: string
+          description: Ödeme oturumuna özgü token. Ödeme tamamlandıktan sonra /crypt/decrypt adımında
+            şifre çözmek için kullanılır.
+        paymentId:
+          type: integer
+          format: int64
+          description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde
+            referans olarak kullanılır.
+    PaymentQueryResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        errorCode:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
+        errorMessage:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
+        errorGroup:
+          type: string
+          nullable: true
+          description: Hata grubunu belirten alan. Başarılı işlemlerde null döner.
+        locale:
+          type: string
+          nullable: true
+          description: İşlemin gerçekleştiği dil/bölge kodu.
+        systemTime:
+          type: integer
+          description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+          format: int64
+        conversationId:
+          type: string
+          nullable: true
+          description: İsteğe bağlı olarak iletilen konuşma/istek takip kimliği.
+        paymentId:
+          type: integer
+          description: Sorgulanan ödemenin iyzico sistemindeki benzersiz kimliği.
+          format: int64
+        orderId:
+          type: string
+          description: Ödeme oluşturulurken iletilen sipariş referans numarası.
+        userId:
+          type: string
+          description: Ödemeyi gerçekleştiren kullanıcının kimliği.
+        transactionDetail:
+          description: Ödemeye ait banka işlem detayları, kart bilgileri ve fiş verilerini içeren nesne.
+          $ref: '#/components/schemas/QueryTransactionDetail2'
+    QueryReceiptDetail:
+      type: object
+      properties:
+        Key:
+          type: string
+          description: Fiş satırının anahtar adı.
+        Value:
+          type: string
+          description: Fiş satırının değeri.
+        ShowCheck:
+          type: boolean
+          description: Fiş satırında onay işareti gösterilip gösterilmeyeceği.
+        ShowTimes:
+          type: boolean
+          description: Fiş satırında çarpım gösterilip gösterilmeyeceği.
+    QueryReceiptDetail2:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Fiş satırının anahtar adı.
+        value:
+          type: string
+          description: Fiş satırının değeri.
+        colorHex:
+          type: string
+          description: Fiş satırının renk kodu (hex).
+        showCheck:
+          type: boolean
+          description: Fiş satırında onay işareti gösterilip gösterilmeyeceği.
+        showTimes:
+          type: boolean
+          description: Fiş satırında çarpım gösterilip gösterilmeyeceği.
+    QueryTransactionDetail:
+      type: object
+      properties:
+        ScreenMessage:
+          type: string
+          description: Ekranda gösterilecek bilgilendirme mesajı.
+        Rrn:
+          type: string
+          description: Referans işlem numarası (Retrieval Reference Number).
+        TransactionDate:
+          type: string
+          description: İşlem tarihi ve saati (okunabilir format).
+        TransactionDateISO:
+          type: string
+          format: date-time
+          description: İşlem tarihi ve saati (ISO 8601 formatında).
+        Receipt:
+          type: object
+          description: Fişe ait özet bilgiler ve detay satırları.
+          properties:
+            Detail:
+              type: array
+              items:
+                $ref: '#/components/schemas/QueryReceiptDetail'
+            PaymentBrandUrl:
+              type: string
+              description: Kart markasının logo URL'i.
+            SchemaName:
+              type: string
+              description: Kullanılan kart şemasının adı.
+            Approved:
+              type: boolean
+              description: İşlemin onaylanıp onaylanmadığını gösterir.
+    QueryTransactionDetail2:
+      type: object
+      properties:
+        screenMessage:
+          type: string
+          description: Ekranda gösterilecek bilgilendirme mesajı.
+        rrn:
+          type: string
+          description: Referans işlem numarası (Retrieval Reference Number).
+        transactionDate:
+          type: string
+          description: İşlem tarihi ve saati (okunabilir format).
+        transactionDateISO:
+          type: string
+          format: date-time
+          description: İşlem tarihi ve saati (ISO 8601 formatında).
+        receipt:
+          type: object
+          description: Fişe ait özet bilgiler ve detay satırları.
+          properties:
+            detail:
+              type: array
+              items:
+                $ref: '#/components/schemas/QueryReceiptDetail2'
+            paymentBrandUrl:
+              type: string
+              description: Kart markasının logo URL'i.
+            merchantLogoUrl:
+              type: string
+              description: Üye işyerinin logo URL'i.
+            schemaName:
+              type: string
+              description: Kullanılan kart şemasının adı.
+            approved:
+              type: boolean
+              description: İşlemin onaylanıp onaylanmadığını gösterir.
+        approved:
+          type: string
+          description: Banka onay kodu.
+        amount:
+          type: string
+          description: İşlem tutarı.
+          format: decimal
+        currencyCode:
+          type: string
+          description: İşlemin gerçekleştiği para birimi kodu.
+        transactionCode:
+          type: string
+          description: İşlem tipi kodu.
+        recordId:
+          type: integer
+          description: iyzico sistemindeki işlem kayıt numarası.
+          format: int64
+        maskedPan:
+          type: string
+          description: Maskelenmiş kart numarası.
+        authorizationCode:
+          type: string
+          description: Banka tarafından sağlanan yetkilendirme kodu.
+        responseCodeValue:
+          type: string
+          description: Bankadan dönen ham yanıt kodu.
+        statusCode:
+          type: string
+          description: İşlemin durum kodu.
+        hexColor:
+          type: string
+          description: İşlem durumuna karşılık gelen renk kodu.
+        resultText:
+          type: string
+          description: İşlem sonucunun kullanıcıya gösterilecek metni.
+        isVoidable:
+          type: boolean
+          description: İşlemin iptal edilebilir olup olmadığını gösterir.
+        isRefundable:
+          type: boolean
+          description: İşlemin iade edilebilir olup olmadığını gösterir.
+        bankResponseCodeValue:
+          type: string
+          description: Bankadan dönen yanıt kodu.
+        issuerBin:
+          type: string
+          description: Kartı çıkaran bankanın BIN numarası.
+        acquirerId:
+          type: string
+          description: İşlemi gerçekleştiren acquirer'ın kimliği.
+        clearingDate:
+          type: string
+          nullable: true
+          description: Takas tarihi. Henüz gerçekleşmemişse null döner.
+        hasDiscount:
+          type: boolean
+          description: İşlemde indirim uygulanıp uygulanmadığını gösterir.
+        discount:
+          type: object
+          nullable: true
+          description: İndirim detayları. İndirim yoksa null döner.
+    Receipt:
+      type: object
+      properties:
+        detail:
+          type: array
+          description: Fişte gösterilecek detay satırlarının listesi.
+          items:
+            $ref: '#/components/schemas/ReceiptDetail'
+        paymentBrandUrl:
+          type: string
+          description: Kart markasının logo URL'i.
+        schemaName:
+          type: string
+          description: Kullanılan kart şemasının adı.
+        approved:
+          type: boolean
+          description: Ödemenin onaylanıp onaylanmadığını gösterir.
+        refundApproved:
+          type: boolean
+          description: İade işleminin onaylanıp onaylanmadığını gösterir.
+        voidApproved:
+          type: boolean
+          description: İptal işleminin onaylanıp onaylanmadığını gösterir.
+    Receipt2:
+      type: object
+      properties:
+        approved:
+          type: boolean
+          description: Ödemenin onaylanıp onaylanmadığını gösterir.
+        refundApproved:
+          type: boolean
+          description: İade işleminin onaylanıp onaylanmadığını gösterir.
+        voidApproved:
+          type: boolean
+          description: İptal işleminin onaylanıp onaylanmadığını gösterir.
+        schemaName:
+          type: string
+          description: Kullanılan kart şemasının adı.
+        paymentBrandUrl:
+          type: string
+          description: Kart markasının logo URL'i.
+        merchantLogoUrl:
+          type: string
+          description: Üye işyerinin logo URL'i.
+        detail:
+          type: array
+          description: Fişte gösterilecek detay satırlarının listesi.
+          items:
+            $ref: '#/components/schemas/ReceiptDetail'
+    ReceiptDetail:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Fiş satırının anahtar adı.
+        value:
+          type: string
+          description: Fiş satırının değeri.
+    RefundRequest:
+      type: object
+      required:
+      - userId
+      - paymentId
+      properties:
+        userId:
+          type: string
+          description: İşlemi başlatan kullanıcı ID'si
+        paymentId:
+          type: integer
+          description: İade edilecek ödemenin ID'si
+          format: int64
+        refundAmount:
+          type: string
+          nullable: true
+          description: Kısmi iade tutarı; girilmezse tam iade yapılır
+          format: decimal
+        refundPrice:
+          type: string
+          format: decimal
+          description: İade edilecek tutar. Boş bırakılırsa eğer tam iade yapılır.
+    RefundResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        errorCode:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda iyzico hata kodunu içerir, aksi hâlde null döner.
+        errorMessage:
+          type: string
+          nullable: true
+          description: Hata oluşması durumunda açıklayıcı mesajı içerir, aksi hâlde null döner.
+        deepLinkUrl:
+          type: string
+          description: Müşteriyi iade onay ekranına yönlendiren deep link URL'i. İade akışı bu link üzerinden
+            tamamlanır.
+        paymentSessionToken:
+          type: string
+          description: İade oturumuna özgü token. Callback sonrasında şifre çözmek için kullanılır.
+        paymentId:
+          type: integer
+          description: İade işlemi başlatılan orijinal ödemenin kimliği.
+          format: int64
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Başarılı durumlarda "success" döner.
+        systemTime:
+          type: integer
+          description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+          format: int64
+        paymentId:
+          type: integer
+          description: iyzico tarafından atanan benzersiz ödeme kimliği. İade ve sorgulama işlemlerinde
+            referans olarak kullanılır.
+        orderId:
+          type: string
+          description: Pos tarafındaki işlem numarası.
+        userId:
+          type: string
+          description: Ödemeyi gerçekleştiren kullanıcının kimliği.
+        transactionDetail:
+          type: object
+          description: Ödemeye ait banka işlem detayları, kart bilgileri ve fiş verilerini içeren nesne.
+          $ref: '#/components/schemas/QueryTransactionDetail'
+        Amount:
+          type: string
+          description: İşlem tutarı.
+          format: decimal
+        CurrencyCode:
+          type: string
+          description: İşlemin gerçekleştiği para birimi kodu.
+        TransactionCode:
+          type: string
+          description: İşlem tipi kodu.
+        RecordId:
+          type: integer
+          description: iyzico sistemindeki işlem kayıt numarası.
+          format: int64
+        MaskedPan:
+          type: string
+          description: Maskelenmiş kart numarası.
+        AuthorizationCode:
+          type: string
+          description: Banka tarafından sağlanan yetkilendirme kodu.
+        ResponseCodeValue:
+          type: string
+          description: Bankadan dönen ham yanıt kodu.
+        StatusCode:
+          type: string
+          description: İşlemin durum kodu.
+        HexColor:
+          type: string
+          description: İşlem durumuna karşılık gelen renk kodu.
+        ResultText:
+          type: string
+          description: İşlem sonucunun kullanıcıya gösterilecek metni.
+        IsVoidable:
+          type: boolean
+          description: İşlemin iptal edilebilir olup olmadığını gösterir.
+        IsRefundable:
+          type: boolean
+          description: İşlemin iade edilebilir olup olmadığını gösterir.
+        BankResponseCodeValue:
+          type: string
+          description: Bankadan dönen yanıt kodu.
+        IssuerBin:
+          type: string
+          description: Kartı çıkaran bankanın BIN numarası.
+        AcquirerId:
+          type: string
+          description: İşlemi gerçekleştiren acquirer'ın kimliği.
+        ClearingDate:
+          type: string
+          nullable: true
+          description: Takas tarihi. Henüz gerçekleşmemişse null döner.
+        HasDiscount:
+          type: boolean
+          description: İşlemde indirim uygulanıp uygulanmadığını gösterir.
+    Transaction:
+      type: object
+      properties:
+        transactionDate:
+          type: string
+          description: İşlem tarihi ve saati (okunabilir format).
+        transactionDateISO:
+          type: string
+          format: date-time
+          description: İşlem tarihi ve saati (ISO 8601 formatında).
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        screenMessage:
+          type: string
+          description: Ekranda gösterilecek bilgilendirme mesajı.
+        rrn:
+          type: string
+          description: Referans işlem numarası (Retrieval Reference Number).
+        amount:
+          type: number
+          description: İşlem tutarı.
+        currencyCode:
+          type: string
+          description: İşlemin gerçekleştiği para birimi kodu.
+        transactionCode:
+          type: string
+          description: İşlem tipi kodu.
+        recordId:
+          type: integer
+          format: int64
+          description: iyzico sistemindeki işlem kayıt numarası.
+        maskedPan:
+          type: string
+          description: Maskelenmiş kart numarası.
+        authorizationCode:
+          type: string
+          description: Banka tarafından sağlanan yetkilendirme kodu.
+        responseCodeValue:
+          type: string
+          description: Bankadan dönen ham yanıt kodu.
+        statusCode:
+          type: string
+          description: İşlemin durum kodu.
+        resultText:
+          type: string
+          description: İşlem sonucunun kullanıcıya gösterilecek metni.
+        isVoidable:
+          type: boolean
+          description: İşlemin iptal edilebilir olup olmadığını gösterir.
+        isRefundable:
+          type: boolean
+          description: İşlemin iade edilebilir olup olmadığını gösterir.
+        bankResponseCodeValue:
+          type: string
+          description: Bankadan dönen yanıt kodu.
+        issuerBin:
+          type: string
+          description: Kartı çıkaran bankanın BIN numarası.
+        acquirerId:
+          type: string
+          description: İşlemi gerçekleştiren acquirer'ın kimliği.
+        hasDiscount:
+          type: boolean
+          description: İşlemde indirim uygulanıp uygulanmadığını gösterir.
+        hasInstallment:
+          type: boolean
+          description: İşlemin taksitli olup olmadığını gösterir.
+    Transaction2:
+      type: object
+      properties:
+        transactionDate:
+          type: string
+          description: İşlem tarihi ve saati (okunabilir format).
+        transactionDateISO:
+          type: string
+          format: date-time
+          description: İşlem tarihi ve saati (ISO 8601 formatında).
+        receipt:
+          $ref: '#/components/schemas/Receipt2'
+        screenMessage:
+          type: string
+          description: Ekranda gösterilecek bilgilendirme mesajı.
+        rrn:
+          type: string
+          description: Referans işlem numarası (Retrieval Reference Number).
+        amount:
+          type: string
+          description: İşlem tutarı.
+          format: decimal
+        currencyCode:
+          type: string
+          description: İşlemin gerçekleştiği para birimi kodu.
+        transactionCode:
+          type: string
+          description: İşlem tipi kodu.
+        recordId:
+          type: integer
+          description: iyzico sistemindeki işlem kayıt numarası.
+          format: int64
+        maskedPan:
+          type: string
+          description: Maskelenmiş kart numarası.
+        authorizationCode:
+          type: string
+          description: Banka tarafından sağlanan yetkilendirme kodu.
+        responseCodeValue:
+          type: string
+          description: Bankadan dönen ham yanıt kodu.
+        statusCode:
+          type: string
+          description: İşlemin durum kodu.
+        resultText:
+          type: string
+          description: İşlem sonucunun kullanıcıya gösterilecek metni.
+        isVoidable:
+          type: boolean
+          description: İşlemin iptal edilebilir olup olmadığını gösterir.
+        isRefundable:
+          type: boolean
+          description: İşlemin iade edilebilir olup olmadığını gösterir.
+        bankResponseCodeValue:
+          type: string
+          description: Bankadan dönen yanıt kodu.
+        issuerBin:
+          type: string
+          description: Kartı çıkaran bankanın BIN numarası.
+        acquirerId:
+          type: string
+          description: İşlemi gerçekleştiren acquirer'ın kimliği.
+        hasDiscount:
+          type: boolean
+          description: İşlemde indirim uygulanıp uygulanmadığını gösterir.
+        hasInstallment:
+          type: boolean
+          description: İşlemin taksitli olup olmadığını gösterir.
+    UserDetail:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Hata durumunda her zaman "failure" döner.
+        systemTime:
+          type: integer
+          format: int64
+          description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+        userId:
+          type: string
+          description: Sisteme kayıtlı kullanıcının benzersiz kimliği.
+        enrollments:
+          type: array
+          description: Kullanıcının kayıtlı olduğu banka ve terminal bilgilerinin listesi.
+          items:
+            $ref: '#/components/schemas/Enrollment'
+    UserListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: İşlemin sonucunu gösterir. Hata durumunda her zaman "failure" döner.
+        systemTime:
+          type: integer
+          format: int64
+          description: Sunucu tarafındaki işlem zamanı (Unix epoch, milisaniye).
+        userList:
+          type: array
+          description: Sisteme kayıtlı kullanıcıların sayfalanmış listesi. Her kayıt kullanıcının banka
+            ve terminal bilgilerini içerir.
+          items:
+            $ref: '#/components/schemas/UserDetail'
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: 'Authorization with Basic Auth.
+
+        Postman Basic Auth fields:
+
+        - Username: client_id
+
+        - Password: client_secret
+
+
+        HTTP header equivalent:
+
+        Authorization: Basic base64(client_id:client_secret)
+
+        '
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key

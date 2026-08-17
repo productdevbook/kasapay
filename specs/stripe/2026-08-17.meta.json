@@ -1,0 +1,16 @@
+{
+  "source": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+  "fetched": "2026-08-17",
+  "api_version": "2026-07-29.dahlia",
+  "upstream_sha256": "3653ad45bbec54fcbe461c541c908355b715018bdf455a0e11b27bedb2cbdee5",
+  "kept_paths": [
+    "/v1/payment_intents",
+    "/v1/payment_intents/{intent}",
+    "/v1/payment_intents/{intent}/confirm",
+    "/v1/payment_intents/{intent}/cancel",
+    "/v1/refunds",
+    "/v1/refunds/{refund}"
+  ],
+  "missing_paths": [],
+  "schema_count": 864
+}

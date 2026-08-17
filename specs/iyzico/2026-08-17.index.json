@@ -1,0 +1,518 @@
+{
+  "fetched": "2026-08-17",
+  "source": "https://docs.iyzico.com/llms.txt",
+  "pages_swept": 314,
+  "pages_with_fragments": 49,
+  "fragments": 96,
+  "language": "both; one fragment per operation, with what the other language alone documents grafted on",
+  "upstream_sha256": "32169fec6334ddd8694e419e165a48270802e39527776af3be14cb813e68f7b8",
+  "notes": [
+    "https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md: fragments on one page declare different servers (/v2/in-store, /v3/in-store), all kept",
+    "POST /payment/auth: basketItems.withholdingTax, paymentCard.cardHolderName, paymentCard.cardNumber, paymentCard.cvc, paymentCard.expireMonth, paymentCard.expireYear, paymentCard.registerCard documented only in Turkish, grafted on",
+    "POST /payment/auth: paymentSource documented only in Turkish, grafted on",
+    "POST /payment/iyzipos/checkoutform/auth/ecom/detail: itemTransactions.convertedPayout.iyziConversionRate, itemTransactions.convertedPayout.iyziConversionRateAmount, status.enum documented only in Turkish, grafted on",
+    "POST /v2/subscription/products: data.pricingPlans.price.format documented only in Turkish, grafted on",
+    "POST /v2/subscription/products/{productReferenceCode}: data.pricingPlans.price.format documented only in Turkish, grafted on",
+    "GET /v2/subscription/products: data.items.pricingPlans.price.format documented only in Turkish, grafted on",
+    "GET /v2/subscription/products/{productReferenceCode}: data.pricingPlans.price.format documented only in Turkish, grafted on",
+    "POST /v1/mass/payout/init: items.amount.currency.enum documented only in Turkish, grafted on",
+    "POST /v2/terminal-host/eod: useSummary.enum documented only in Turkish, grafted on",
+    "POST /v3/in-store/payment/refund: refundPrice documented only in English, grafted on",
+    "POST /v3/in-store/payment/init: userId.format documented only in English, grafted on",
+    "documented in Turkish only: DELETE /v3/in-store/user, GET /v3/in-store/payment/query, GET /v3/in-store/user/list, POST /payment/3dsecure/initialize/preauth, POST /payment/iyzipos/checkoutform/initialize/preauth/ecom, POST /payment/postauth, POST /payment/preauth, POST /v2/in-store/crypt/decrypt, POST /v3/in-store/crypt/decrypt, POST /v3/in-store/payment/init, POST /v3/in-store/payment/query, POST /v3/in-store/payment/refund, POST /v3/in-store/user",
+    "documented in both, kept from the Turkish page because it is the fuller one: POST /payment/3dsecure/initialize, POST /payment/cancel, POST /payment/iyzipos/checkoutform/initialize/auth/ecom, POST /payment/refund, POST /v1/mass/payout/retrieve, POST /v2/terminal-host/gmu/partial-payment/start, POST /v2/terminal-host/gmu/payment, POST /v2/terminal-host/gmu/payment/refund"
+  ],
+  "areas": {
+    "agent": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "POST /v1/agent/get_auth_key",
+          "POST /v1/agent/logout"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "POST /v1/agent/get_auth_key",
+        "POST /v1/agent/logout"
+      ],
+      "schemas": 3,
+      "notes": [
+        "POST /v1/agent/get_auth_key is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host",
+        "POST /v1/agent/logout is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host"
+      ]
+    },
+    "cardstorage": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "DELETE /cardstorage/card",
+          "POST /cardstorage/card",
+          "POST /cardstorage/cards"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "DELETE /cardstorage/card",
+        "POST /cardstorage/card",
+        "POST /cardstorage/cards"
+      ],
+      "schemas": 12,
+      "notes": []
+    },
+    "in-store": {
+      "authentication": {
+        "by_security_scheme": [
+          "GET /v3/in-store/payment/query",
+          "POST /in-store/oauth2/token",
+          "POST /in-store/oauth2/token/refresh",
+          "POST /v2/in-store/crypt/decrypt",
+          "POST /v3/in-store/payment/init",
+          "POST /v3/in-store/payment/refund"
+        ],
+        "by_authorization_parameter": [],
+        "undeclared": [
+          "DELETE /v3/in-store/user",
+          "GET /v3/in-store/user/list",
+          "POST /in-store/oauth2/authorize",
+          "POST /v3/in-store/crypt/decrypt",
+          "POST /v3/in-store/payment/query",
+          "POST /v3/in-store/user"
+        ]
+      },
+      "operations": [
+        "DELETE /v3/in-store/user",
+        "GET /v3/in-store/payment/query",
+        "GET /v3/in-store/user/list",
+        "POST /in-store/oauth2/authorize",
+        "POST /in-store/oauth2/token",
+        "POST /in-store/oauth2/token/refresh",
+        "POST /v2/in-store/crypt/decrypt",
+        "POST /v3/in-store/crypt/decrypt",
+        "POST /v3/in-store/payment/init",
+        "POST /v3/in-store/payment/query",
+        "POST /v3/in-store/payment/refund",
+        "POST /v3/in-store/user"
+      ],
+      "schemas": 35,
+      "notes": [
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/urunler/ceppos-app2app/app2app-v3/sorgulama.md, kept as ErrorResponse2",
+        "schemas InStoreCompleteOperation redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as InStoreCompleteOperation2",
+        "schemas Transaction redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as Transaction2",
+        "schemas Receipt redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as Receipt2",
+        "schemas QueryTransactionDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryTransactionDetail2",
+        "schemas QueryReceiptDetail redefined by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, kept as QueryReceiptDetail2",
+        "operationId queryPayment reused by https://docs.iyzico.com/urunler/ceppos-app2app/in-store-api-v3.md, renamed queryPayment2"
+      ]
+    },
+    "iyzilink": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "DELETE /v2/iyzilink/products/{token}",
+          "GET /v2/iyzilink/products",
+          "GET /v2/iyzilink/products/{token}",
+          "PATCH /v2/iyzilink/products/{token}/status/{status}",
+          "POST /v2/iyzilink/fast-link/products",
+          "POST /v2/iyzilink/products",
+          "PUT /v2/iyzilink/products/{token}"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "DELETE /v2/iyzilink/products/{token}",
+        "GET /v2/iyzilink/products",
+        "GET /v2/iyzilink/products/{token}",
+        "PATCH /v2/iyzilink/products/{token}/status/{status}",
+        "POST /v2/iyzilink/fast-link/products",
+        "POST /v2/iyzilink/products",
+        "PUT /v2/iyzilink/products/{token}"
+      ],
+      "schemas": 9,
+      "notes": []
+    },
+    "mass": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "GET /v1/mass/payout/balance",
+          "GET /v1/mass/payout/retrieve/items/{referenceCode}",
+          "POST /v1/mass/payout/auth",
+          "POST /v1/mass/payout/cancel/{requestId}",
+          "POST /v1/mass/payout/init",
+          "POST /v1/mass/payout/retrieve"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "GET /v1/mass/payout/balance",
+        "GET /v1/mass/payout/retrieve/items/{referenceCode}",
+        "POST /v1/mass/payout/auth",
+        "POST /v1/mass/payout/cancel/{requestId}",
+        "POST /v1/mass/payout/init",
+        "POST /v1/mass/payout/retrieve"
+      ],
+      "schemas": 15,
+      "notes": [
+        "parameters AuthHeader redefined by https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-raporlama.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-raporlama.md, kept as ContentTypeHeader2",
+        "parameters LocaleQuery redefined by https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-raporlama.md, kept as LocaleQuery2",
+        "schemas MassPayoutItemDetail redefined by https://docs.iyzico.com/urunler/mass-payout/mass-payout-toplu-odeme-entegrasyonu/toplu-odeme-raporlama.md, kept as MassPayoutItemDetail2"
+      ]
+    },
+    "onboarding": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "POST /onboarding/submerchant",
+          "POST /onboarding/submerchant/detail",
+          "PUT /onboarding/submerchant"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "POST /onboarding/submerchant",
+        "POST /onboarding/submerchant/detail",
+        "PUT /onboarding/submerchant"
+      ],
+      "schemas": 13,
+      "notes": []
+    },
+    "payment": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "POST /payment/3dsecure/auth",
+          "POST /payment/3dsecure/initialize",
+          "POST /payment/3dsecure/initialize/preauth",
+          "POST /payment/auth",
+          "POST /payment/bin/check",
+          "POST /payment/cancel",
+          "POST /payment/detail",
+          "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+          "POST /payment/iyzipos/checkoutform/initialize/auth/ecom",
+          "POST /payment/iyzipos/checkoutform/initialize/preauth/ecom",
+          "POST /payment/iyzipos/installment",
+          "POST /payment/iyzipos/item/approve",
+          "POST /payment/iyzipos/item/disapprove",
+          "POST /payment/pay-with-iyzico/initialize",
+          "POST /payment/postauth",
+          "POST /payment/preauth",
+          "POST /payment/refund",
+          "POST /payment/v2/3dsecure/auth",
+          "POST /v2/payment/refund",
+          "PUT /payment/item"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "POST /payment/3dsecure/auth",
+        "POST /payment/3dsecure/initialize",
+        "POST /payment/3dsecure/initialize/preauth",
+        "POST /payment/auth",
+        "POST /payment/bin/check",
+        "POST /payment/cancel",
+        "POST /payment/detail",
+        "POST /payment/iyzipos/checkoutform/auth/ecom/detail",
+        "POST /payment/iyzipos/checkoutform/initialize/auth/ecom",
+        "POST /payment/iyzipos/checkoutform/initialize/preauth/ecom",
+        "POST /payment/iyzipos/installment",
+        "POST /payment/iyzipos/item/approve",
+        "POST /payment/iyzipos/item/disapprove",
+        "POST /payment/pay-with-iyzico/initialize",
+        "POST /payment/postauth",
+        "POST /payment/preauth",
+        "POST /payment/refund",
+        "POST /payment/v2/3dsecure/auth",
+        "POST /v2/payment/refund",
+        "PUT /payment/item"
+      ],
+      "schemas": 70,
+      "notes": [
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/advanced/card-storage.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/advanced/card-storage.md, kept as ContentTypeHeader2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/advanced/card-storage.md, kept as ErrorResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/advanced/installment-and-bin-service.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/advanced/installment-and-bin-service.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/advanced/installment-and-bin-service.md, kept as ErrorResponse3",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/advanced/installment-and-bin-service.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/advanced/installment-and-bin-service.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/advanced/installment-and-bin-service.md, kept as ErrorResponse3",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/advanced/refund-and-cancel.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/advanced/refund-and-cancel.md, kept as ContentTypeHeader4",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/advanced/refund-and-cancel.md, kept as ErrorResponse4",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/advanced/retrieve-payment.md, kept as AuthHeader4",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/advanced/retrieve-payment.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/advanced/retrieve-payment.md, kept as ErrorResponse5",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md, kept as ContentTypeHeader5",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md, kept as ContentTypeHeader5",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/approve.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md, kept as ContentTypeHeader5",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md, kept as AuthHeader5",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md, kept as ErrorResponse7",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md, kept as AuthHeader5",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/api-3ds.md, kept as ErrorResponse8",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md, kept as AuthHeader6",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md, kept as ContentTypeHeader6",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md, kept as ErrorResponse9",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md, kept as AuthHeader6",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md, kept as ContentTypeHeader6",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/payment-methods/pay-with-iyzico.md, kept as ErrorResponse10",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/api/3ds/3ds-entegrasyonu/3ds-baslatma.md, kept as ContentTypeHeader7",
+        "schemas Address redefined by https://docs.iyzico.com/odeme-metotlari/api/3ds/3ds-entegrasyonu/3ds-baslatma.md, kept as Address2",
+        "schemas BasketItem redefined by https://docs.iyzico.com/odeme-metotlari/api/3ds/3ds-entegrasyonu/3ds-baslatma.md, kept as BasketItem2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/api/3ds/3ds-entegrasyonu/3ds-baslatma.md, kept as ErrorResponse11",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/odeme-formu/cf-entegrasyonu/cf-baslatma.md, kept as ContentTypeHeader7",
+        "schemas Address redefined by https://docs.iyzico.com/odeme-metotlari/odeme-formu/cf-entegrasyonu/cf-baslatma.md, kept as Address2",
+        "schemas BasketItem redefined by https://docs.iyzico.com/odeme-metotlari/odeme-formu/cf-entegrasyonu/cf-baslatma.md, kept as BasketItem2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/odeme-formu/cf-entegrasyonu/cf-baslatma.md, kept as ErrorResponse12",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md, kept as ContentTypeHeader7",
+        "schemas ThreeDSInitializeRequest redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md, kept as ThreeDSInitializeRequest2",
+        "schemas Address redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md, kept as Address2",
+        "schemas BasketItem redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md, kept as BasketItem2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/3ds.md, kept as ErrorResponse11",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as ContentTypeHeader7",
+        "schemas CFInitializeRequest redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as CFInitializeRequest2",
+        "schemas Address redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as Address2",
+        "schemas BasketItem redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as BasketItem2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/iyzico-odeme-formu-checkoutform.md, kept as ErrorResponse12",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as ContentTypeHeader7",
+        "schemas Buyer redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as Buyer2",
+        "schemas Address redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as Address3",
+        "schemas BasketItem redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as BasketItem2",
+        "schemas PaymentResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as PaymentResponse2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-baslatma/non3d.md, kept as ErrorResponse13",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ContentTypeHeader8",
+        "schemas ItemTransaction redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ItemTransaction2",
+        "schemas ConvertedPayout redefined by https://docs.iyzico.com/odeme-metotlari/on-provizyon/on-provizyon-entegrasyonu/provizyon-kapama.md, kept as ConvertedPayout2"
+      ]
+    },
+    "reporting": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "GET /v2/reporting/payment/details",
+          "GET /v2/reporting/payment/transactions"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "GET /v2/reporting/payment/details",
+        "GET /v2/reporting/payment/transactions"
+      ],
+      "schemas": 10,
+      "notes": []
+    },
+    "softpos": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [],
+        "undeclared": [
+          "POST /v1/softpos/check_transaction",
+          "POST /v1/softpos/init_reversal_transaction",
+          "POST /v1/softpos/init_sale_transaction"
+        ]
+      },
+      "operations": [
+        "POST /v1/softpos/check_transaction",
+        "POST /v1/softpos/init_reversal_transaction",
+        "POST /v1/softpos/init_sale_transaction"
+      ],
+      "schemas": 8,
+      "notes": [
+        "POST /v1/softpos/init_sale_transaction is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host",
+        "POST /v1/softpos/init_reversal_transaction is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host",
+        "POST /v1/softpos/check_transaction is served from https://api.paynet.com.tr, https://pts-api.paynet.com.tr, not iyzico's own host"
+      ]
+    },
+    "subscription": {
+      "authentication": {
+        "by_security_scheme": [],
+        "by_authorization_parameter": [
+          "DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+          "DELETE /v2/subscription/products/{productReferenceCode}",
+          "GET /v2/subscription/checkoutform/{token}",
+          "GET /v2/subscription/customers",
+          "GET /v2/subscription/customers/{customerReferenceCode}",
+          "GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+          "GET /v2/subscription/products",
+          "GET /v2/subscription/products/{productReferenceCode}",
+          "GET /v2/subscription/products/{productReferenceCode}/pricing-plans",
+          "GET /v2/subscription/subscriptions",
+          "GET /v2/subscription/subscriptions/{subscriptionReferenceCode}",
+          "POST /v2/subscription/card-update/checkoutform/initialize",
+          "POST /v2/subscription/checkoutform/initialize",
+          "POST /v2/subscription/customers/{customerReferenceCode}",
+          "POST /v2/subscription/initialize",
+          "POST /v2/subscription/initialize/with-customer",
+          "POST /v2/subscription/operation/retry",
+          "POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+          "POST /v2/subscription/products",
+          "POST /v2/subscription/products/{productReferenceCode}",
+          "POST /v2/subscription/products/{productReferenceCode}/pricing-plans",
+          "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate",
+          "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel",
+          "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade"
+        ],
+        "undeclared": []
+      },
+      "operations": [
+        "DELETE /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "DELETE /v2/subscription/products/{productReferenceCode}",
+        "GET /v2/subscription/checkoutform/{token}",
+        "GET /v2/subscription/customers",
+        "GET /v2/subscription/customers/{customerReferenceCode}",
+        "GET /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "GET /v2/subscription/products",
+        "GET /v2/subscription/products/{productReferenceCode}",
+        "GET /v2/subscription/products/{productReferenceCode}/pricing-plans",
+        "GET /v2/subscription/subscriptions",
+        "GET /v2/subscription/subscriptions/{subscriptionReferenceCode}",
+        "POST /v2/subscription/card-update/checkoutform/initialize",
+        "POST /v2/subscription/checkoutform/initialize",
+        "POST /v2/subscription/customers/{customerReferenceCode}",
+        "POST /v2/subscription/initialize",
+        "POST /v2/subscription/initialize/with-customer",
+        "POST /v2/subscription/operation/retry",
+        "POST /v2/subscription/pricing-plans/{pricingPlanReferenceCode}",
+        "POST /v2/subscription/products",
+        "POST /v2/subscription/products/{productReferenceCode}",
+        "POST /v2/subscription/products/{productReferenceCode}/pricing-plans",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/activate",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/cancel",
+        "POST /v2/subscription/subscriptions/{subscriptionReferenceCode}/upgrade"
+      ],
+      "schemas": 57,
+      "notes": [
+        "schemas CreatePricingPlanResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md, kept as CreatePricingPlanResponse2",
+        "schemas CreatePricingPlanResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/pricing-plan.md, kept as CreatePricingPlanResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ContentTypeHeader2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ErrorResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ContentTypeHeader2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ErrorResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ContentTypeHeader2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ErrorResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ContentTypeHeader2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ErrorResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as AuthHeader2",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ContentTypeHeader2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/product.md, kept as ErrorResponse2",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as ErrorResponse3",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as ContentTypeHeader3",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as ErrorResponse3",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as ContentTypeHeader3",
+        "schemas CustomerDetailResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as CustomerDetailResponse2",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscriber-transactions.md, kept as ErrorResponse3",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as AuthHeader4",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ContentTypeHeader4",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ErrorResponse4",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as AuthHeader4",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ContentTypeHeader4",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ErrorResponse4",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as AuthHeader4",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ContentTypeHeader4",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ErrorResponse4",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as AuthHeader4",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ContentTypeHeader4",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/initialize-subscription.md, kept as ErrorResponse4",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader5",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader5",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse5",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6",
+        "schemas ErrorResponse redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ErrorResponse6",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `subscriptionReferenceCode` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `customerReferenceCode` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `pricingPlanReferenceCode` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `parent` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `subscriptionStatus` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `startDate` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `endDate` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `page` said in: path for a path with no such placeholder, read as a query parameter",
+        "https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md: parameter `count` said in: path for a path with no such placeholder, read as a query parameter",
+        "parameters AuthHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as AuthHeader3",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/subscription/subscription/subscription-transactions.md, kept as ContentTypeHeader6"
+      ]
+    },
+    "terminal-host": {
+      "authentication": {
+        "by_security_scheme": [
+          "POST /v2/terminal-host/eod",
+          "POST /v2/terminal-host/gmu/eod",
+          "POST /v2/terminal-host/gmu/partial-payment/add-payment",
+          "POST /v2/terminal-host/gmu/partial-payment/complete",
+          "POST /v2/terminal-host/gmu/partial-payment/start",
+          "POST /v2/terminal-host/gmu/payment",
+          "POST /v2/terminal-host/gmu/payment/query-transaction-status",
+          "POST /v2/terminal-host/gmu/payment/refund",
+          "POST /v2/terminal-host/gmu/payment/refundable-sale-info",
+          "POST /v2/terminal-host/gmu/payment/void",
+          "POST /v2/terminal-host/payment",
+          "POST /v2/terminal-host/payment/query-transaction-status",
+          "POST /v2/terminal-host/payment/refund",
+          "POST /v2/terminal-host/payment/void"
+        ],
+        "by_authorization_parameter": [],
+        "undeclared": []
+      },
+      "operations": [
+        "POST /v2/terminal-host/eod",
+        "POST /v2/terminal-host/gmu/eod",
+        "POST /v2/terminal-host/gmu/partial-payment/add-payment",
+        "POST /v2/terminal-host/gmu/partial-payment/complete",
+        "POST /v2/terminal-host/gmu/partial-payment/start",
+        "POST /v2/terminal-host/gmu/payment",
+        "POST /v2/terminal-host/gmu/payment/query-transaction-status",
+        "POST /v2/terminal-host/gmu/payment/refund",
+        "POST /v2/terminal-host/gmu/payment/refundable-sale-info",
+        "POST /v2/terminal-host/gmu/payment/void",
+        "POST /v2/terminal-host/payment",
+        "POST /v2/terminal-host/payment/query-transaction-status",
+        "POST /v2/terminal-host/payment/refund",
+        "POST /v2/terminal-host/payment/void"
+      ],
+      "schemas": 32,
+      "notes": [
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/end-of-day.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md, kept the first",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md, kept the first",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md, kept as ContentTypeHeader2",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md, kept the first",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md, kept as ContentTypeHeader2",
+        "security scheme BearerAuth redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md, kept the first",
+        "parameters ContentTypeHeader redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md, kept as ContentTypeHeader2",
+        "schemas GmuPaymentResponse redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md, kept as GmuPaymentResponse2",
+        "schemas AddedSaleItem redefined by https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md, kept as AddedSaleItem2"
+      ]
+    }
+  }
+}

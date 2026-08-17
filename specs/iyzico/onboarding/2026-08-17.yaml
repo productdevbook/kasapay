@@ -1,0 +1,632 @@
+openapi: 3.0.3
+info:
+  title: iyzico — onboarding
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+tags: []
+paths:
+  /onboarding/submerchant:
+    post:
+      summary: Create Submerchant
+      description: 'Creates a submerchant for the marketplace model. Supported types are **PERSONAL**,
+        **PRIVATE_COMPANY**, and **LIMITED_OR_JOINT_STOCK_COMPANY**. The subme rchant type is selected
+        via the **subMerchantType** parameter.
+
+        '
+      tags:
+      - Marketplace
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmerchantCreateRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmerchantCreateResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md
+    put:
+      summary: Update Submerchant
+      description: 'Updates an existing submerchant. The request body shape varies by submerchant type;
+        **one of three variants** must be sent. The **subMerchantType** field is **not** included in the
+        update body.
+
+        '
+      tags:
+      - Marketplace
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmerchantUpdateRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmerchantUpdateResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md
+  /onboarding/submerchant/detail:
+    post:
+      summary: Get Submerchant Detail
+      description: Returns submerchant details by external ID (**subMerchantExternalId**).
+      tags:
+      - Marketplace
+      parameters:
+      - $ref: '#/components/parameters/AuthHeader'
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmerchantDetailRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmerchantDetailResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/getting-started/preliminaries/api-reference-beta/marketplace/submerchant.md
+components:
+  parameters:
+    AuthHeader:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Authorization header; a signed hash value that starts with **IYZWSv2** and is generated
+        in Base64 format.
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Request body content type.
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+    SubmerchantCreateRequest:
+      oneOf:
+      - $ref: '#/components/schemas/SubmerchantPersonalRequest'
+      - $ref: '#/components/schemas/SubmerchantPrivateCompanyRequest'
+      - $ref: '#/components/schemas/SubmerchantLimitedJointRequest'
+      discriminator:
+        propertyName: subMerchantType
+        mapping:
+          PERSONAL: '#/components/schemas/SubmerchantPersonalRequest'
+          PRIVATE_COMPANY: '#/components/schemas/SubmerchantPrivateCompanyRequest'
+          LIMITED_OR_JOINT_STOCK_COMPANY: '#/components/schemas/SubmerchantLimitedJointRequest'
+      description: The request body varies depending on **subMerchantType**.
+    SubmerchantCreateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID sent in the request.
+        subMerchantKey:
+          type: string
+          description: Generated Submerchant key.
+    SubmerchantDetailRequest:
+      type: object
+      required:
+      - subMerchantExternalId
+      properties:
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+        subMerchantExternalId:
+          type: string
+          description: ExternalId of the submerchant to query.
+    SubmerchantDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+        conversationId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        bankCountry:
+          type: string
+        currency:
+          type: string
+        taxOffice:
+          type: string
+        legalCompanyTitle:
+          type: string
+        subMerchantExternalId:
+          type: string
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        subMerchantType:
+          type: string
+        subMerchantKey:
+          type: string
+    SubmerchantLimitedJointRequest:
+      description: Limited/Joint-Stock Company
+      type: object
+      required:
+      - subMerchantType
+      - email
+      - gsmNumber
+      - address
+      - taxOffice
+      - taxNumber
+      - legalCompanyTitle
+      - subMerchantExternalId
+      properties:
+        subMerchantType:
+          type: string
+          enum:
+          - PERSONAL
+          - PRIVATE_COMPANY
+          - LIMITED_OR_JOINT_STOCK_COMPANY
+          description: Submerchant type. Use "LIMITED_OR_JOINT_STOCK_COMPANY" for LTD/JSC companies.
+        name:
+          type: string
+          description: Submerchant name.
+        email:
+          type: string
+          description: Submerchant email.
+        gsmNumber:
+          type: string
+          description: Submerchant phone.
+        address:
+          type: string
+          description: Submerchant address.
+        iban:
+          type: string
+          description: 'Submerchant IBAN. Must match **legalCompanyTitle**. If not sent during creation,
+            it must be provided before product approval for payouts.
+
+            '
+        taxOffice:
+          type: string
+          description: Tax office.
+        taxNumber:
+          type: string
+          description: Tax number.
+        legalCompanyTitle:
+          type: string
+          description: Registered company title.
+        subMerchantExternalId:
+          type: string
+          description: External unique id set by the merchant.
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+          description: Currency (default TRY).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantLimitedJointUpdateRequest:
+      description: Limited/Joint-Stock Submerchant Update
+      type: object
+      required:
+      - email
+      - gsmNumber
+      - address
+      - iban
+      - legalCompanyTitle
+      - taxOffice
+      - identityNumber
+      - subMerchantKey
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        taxOffice:
+          type: string
+        legalCompanyTitle:
+          type: string
+        taxNumber:
+          type: string
+          description: Tax number.
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        subMerchantKey:
+          type: string
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantPersonalRequest:
+      description: Personal Submerchant
+      type: object
+      required:
+      - subMerchantType
+      - email
+      - gsmNumber
+      - address
+      - contactName
+      - contactSurname
+      - subMerchantExternalId
+      - identityNumber
+      properties:
+        subMerchantType:
+          type: string
+          enum:
+          - PERSONAL
+          - PRIVATE_COMPANY
+          - LIMITED_OR_JOINT_STOCK_COMPANY
+          description: Submerchant type. Use PERSONAL for personal accounts.
+        name:
+          type: string
+          description: Submerchant (store) name.
+        email:
+          type: string
+          description: Submerchant email.
+        gsmNumber:
+          type: string
+          description: Submerchant phone.
+        address:
+          type: string
+          description: Submerchant address.
+        iban:
+          type: string
+          description: 'Submerchant IBAN. Must be consistent with **contactName/contactSurname**. If not
+            sent during creation, it must be provided before product approval for payouts.
+
+            '
+        contactName:
+          type: string
+          description: Contact first name.
+        contactSurname:
+          type: string
+          description: Contact last name.
+        subMerchantExternalId:
+          type: string
+          description: External unique id set by the merchant to map your Submerchant.
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+          description: Currency (default TRY).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        conversationId:
+          type: string
+          description: Correlation id for request/response.
+    SubmerchantPersonalUpdateRequest:
+      description: Personal Submerchant Update
+      type: object
+      required:
+      - email
+      - gsmNumber
+      - address
+      - iban
+      - contactName
+      - contactSurname
+      - identityNumber
+      - subMerchantKey
+      properties:
+        name:
+          type: string
+          description: Store name.
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        contactName:
+          type: string
+        contactSurname:
+          type: string
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        subMerchantKey:
+          type: string
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantPrivateCompanyRequest:
+      description: Private Company
+      type: object
+      required:
+      - subMerchantType
+      - email
+      - gsmNumber
+      - address
+      - taxOffice
+      - legalCompanyTitle
+      - subMerchantExternalId
+      properties:
+        subMerchantType:
+          type: string
+          enum:
+          - PERSONAL
+          - PRIVATE_COMPANY
+          - LIMITED_OR_JOINT_STOCK_COMPANY
+          description: Submerchant type. Use "PRIVATE_COMPANY" for private companies.
+        name:
+          type: string
+          description: Submerchant name.
+        email:
+          type: string
+          description: Submerchant email.
+        gsmNumber:
+          type: string
+          description: Submerchant phone (E.164).
+        address:
+          type: string
+          description: Submerchantt address.
+        iban:
+          type: string
+          description: 'Submerchant IBAN. Must match **legalCompanyTitle**. If not sent during creation,
+            it must be provided before product approval for payouts.
+
+            '
+        taxOffice:
+          type: string
+          description: Tax office.
+        taxNumber:
+          type: string
+          description: Tax number.
+        legalCompanyTitle:
+          type: string
+          description: Registered company title.
+        subMerchantExternalId:
+          type: string
+          description: External unique id set by the merchant.
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+          description: Currency (default TRY).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantPrivateCompanyUpdateRequest:
+      description: Private Company Submerchant Update
+      type: object
+      required:
+      - email
+      - gsmNumber
+      - address
+      - iban
+      - legalCompanyTitle
+      - taxOffice
+      - identityNumber
+      - subMerchantKey
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        gsmNumber:
+          type: string
+        address:
+          type: string
+        iban:
+          type: string
+        taxOffice:
+          type: string
+        taxNumber:
+          type: string
+          description: Tax number.
+        legalCompanyTitle:
+          type: string
+        currency:
+          type: string
+          enum:
+          - TRY
+          - USD
+          - EUR
+          - GBP
+          - RUB
+          - CHF
+          - NOK
+        subMerchantKey:
+          type: string
+        identityNumber:
+          type: string
+          description: National ID (TCKN).
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+        conversationId:
+          type: string
+    SubmerchantUpdateRequest:
+      oneOf:
+      - $ref: '#/components/schemas/SubmerchantPersonalUpdateRequest'
+      - $ref: '#/components/schemas/SubmerchantPrivateCompanyUpdateRequest'
+      - $ref: '#/components/schemas/SubmerchantLimitedJointUpdateRequest'
+      description: Update fields vary by submerchant type. **Do not send subMerchantType** in update.
+    SubmerchantUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+          description: Result.
+        locale:
+          type: string
+          enum:
+          - tr
+          - en
+          description: Response language.
+        systemTime:
+          type: integer
+          description: Operation time (epoch ms).
+        conversationId:
+          type: string
+          description: ID sent in the request.

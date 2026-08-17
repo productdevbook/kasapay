@@ -1,0 +1,1766 @@
+openapi: 3.0.3
+info:
+  title: iyzico — terminal-host
+  version: unversioned
+  description: Reassembled from the per-endpoint fragments embedded in https://docs.iyzico.com/. iyzico
+    publishes no OpenAPI file; this is a record of what was documented, not a contract they offer.
+servers:
+- url: https://api.iyzipay.com
+  description: Production
+- url: https://sandbox-api.iyzipay.com
+  description: Sandbox
+tags:
+- name: GMU Payment
+  description: GMU sale and transaction services
+- name: Terminal Host
+paths:
+  /v2/terminal-host/eod:
+    post:
+      tags:
+      - Terminal Host
+      description: "This service runs the end-of-day (EOD) operation for the terminal and returns totals.\n\
+        Example: \"End of day is executed and a summary is reported via the totals/batchNo/resultMessage\
+        \ fields.\"\n\nAuthorization (Bearer Token):\n- The token value is the access_token returned by\
+        \ the OAuth token service.\n- Header format:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndOfDayRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalEodSuccessResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/end-of-day.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/eod:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Performs the end-of-day batch close operation for the GMU device. The financial day
+        of the device is closed and an acquirer-based summary report is returned.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuEodRequest'
+      responses:
+        '200':
+          description: Successful end-of-day result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuEodResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuEodResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/end-of-day.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/partial-payment/add-payment:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Adds a new payment to an initiated partial payment flow. It can be called multiple
+        times until the remaining amount becomes zero.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPartialPaymentAddRequest'
+      responses:
+        '200':
+          description: Successful partial payment add result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/partial-payment.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/partial-payment/complete:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Closes the flow and finalizes the sale after all partial payments are added. Returns
+        the full sale response.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPartialPaymentCompleteRequest'
+      responses:
+        '200':
+          description: Successful partial payment completion result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentCompleteResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentCompleteResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/partial-payment.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/partial-payment/start:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Aynı satışın farklı ödeme araçlarıyla karşılanabileceği kısmi ödeme akışını başlatır.
+        Dönen saleNumber sonraki adımlarda kullanılır.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı kısmi ödeme başlatma sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPartialPaymentStartResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/kismi-odeme.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/payment:
+    post:
+      tags:
+      - GMU Payment
+      description: 'GMU cihazı üzerinden standart satış işlemi gerçekleştirir. E-Fatura için `saleDocumentType=1`,
+        Gider Pusulası için `saleDocumentType=9` kullanılabilir.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuPaymentRequest'
+      responses:
+        '200':
+          description: Başarılı işlem sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse2'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuPaymentResponse2'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/odeme-ve-islem-servisleri.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/payment/query-transaction-status:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Queries the current status of a payment, refund, or void transaction. A query can
+        be made with `paymentId` or `transactionReferenceId`, or both can be sent together.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        description: At least one of paymentId or transactionReferenceId must be sent.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuQueryTransactionStatusRequest'
+      responses:
+        '200':
+          description: Successful transaction status query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuQueryTransactionStatusResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuQueryTransactionStatusResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/payment/refund:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Tamamlanmış bir satış işlemi için kısmi veya tam iade gerçekleştirilir. İade yapılabilecek
+        kalemleri öğrenmek için önce İade Edilebilir Satış Bilgisi servisini çağırmanız önerilir.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader2'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuRefundRequest'
+      responses:
+        '200':
+          description: Başarılı iade sonucu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundResponse'
+        '400':
+          description: Hatalı istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundResponse'
+      x-iyzico-source: https://docs.iyzico.com/urunler/fiziki-pos/terminal-api-entegrasyonu/vuk-507-servisleri/iptal-iade.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/payment/refundable-sale-info:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Returns refundable item and amount information for the sale related to the given transaction
+        reference. It is recommended to call this before the refund operation; the returned `saleUid`
+        value is used as `relatedSaleId` in the refund request.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuRefundableSaleInfoRequest'
+      responses:
+        '200':
+          description: Successful refundable sale info result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundableSaleInfoResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuRefundableSaleInfoResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/void-refund.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/gmu/payment/void:
+    post:
+      tags:
+      - GMU Payment
+      description: 'Voids a payment transaction completed on the same day. For transactions closed after
+        end of day, refund should be used instead of void.
+
+        '
+      parameters:
+      - $ref: '#/components/parameters/ContentTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GmuVoidRequest'
+      responses:
+        '200':
+          description: Successful void result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuVoidResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmuVoidResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-507-services/void-refund.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/payment:
+    post:
+      tags:
+      - Terminal Host
+      description: "This service starts the payment transaction on the terminal. The payment is completed\
+        \ by presenting the card on the POS device.\nExample: \"You complete the transaction started by\
+        \ the sales application and receive fields such as paymentId/authCode.\"\n\nAuthorization (Bearer\
+        \ Token):\n- The token value is the access_token returned by the OAuth token service.\n- Header\
+        \ format:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePaymentRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/payment/query-transaction-status:
+    post:
+      tags:
+      - Terminal Host
+      description: "This service queries the status of a previously completed transaction.\nExample: You\
+        \ can retrieve the payment status and any error details using the paymentId.\n\nAuthorization\
+        \ (Bearer Token):\n- The token value is the access_token returned by the OAuth token service.\n\
+        - Header format:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryTransactionStatusRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/payment/refund:
+    post:
+      tags:
+      - Terminal Host
+      description: "This service performs a refund operation on an eligible payment (partial/total).\n\
+        Example: \"A refund process is initiated with paymentId and price. The cancellation process is\
+        \ completed by swiping the card on the POS device.\"\n\nAuthorization (Bearer Token):\n- The token\
+        \ value is the access_token returned by the OAuth token service.\n- Header format:\n  Authorization:\
+        \ Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
+  /v2/terminal-host/payment/void:
+    post:
+      tags:
+      - Terminal Host
+      description: "This service cancels an eligible payment.\nExample: \"The cancellation process is\
+        \ initiated with paymentId and paymentDate. The cancellation is completed by swiping the card\
+        \ on the POS device.\"\n\nAuthorization (Bearer Token):\n- The token value is the access_token\
+        \ returned by the OAuth token service.\n- Header format:\n  Authorization: Bearer {access_token}\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidPaymentRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalPaymentSuccessResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalFailureResponse'
+      x-iyzico-source: https://docs.iyzico.com/en/products/physical-pos/terminal-api-integration/vuk-509-services/payment-and-transaction-services.md
+      security:
+      - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer Token authentication is performed using the access token.
+  parameters:
+    ContentTypeHeader:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Content type
+    ContentTypeHeader2:
+      name: Content-Type
+      in: header
+      required: true
+      schema:
+        type: string
+      description: İçerik tipi
+  schemas:
+    AddedSaleItem:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the sale item added to the transaction
+        generic:
+          type: boolean
+          description: Generic product information
+        unitCode:
+          type: string
+          description: Unit code
+        taxGroupCode:
+          type: string
+          description: VAT group code
+        itemQuantity:
+          type: integer
+          description: Item quantity
+        unitPriceAmount:
+          type: string
+          description: Unit price
+          format: decimal
+        grossPriceAmount:
+          type: string
+          description: Gross price
+          format: decimal
+        totalPriceAmount:
+          type: string
+          description: Total price
+          format: decimal
+    AddedSaleItem2:
+      type: object
+      properties:
+        name:
+          type: string
+          description: İşleme eklenen satış kalemi adı
+        generic:
+          type: boolean
+          description: Genel ürün bilgisi
+        unitCode:
+          type: string
+          description: Birim kodu
+        taxGroupCode:
+          type: string
+          description: KDV grubu kodu
+        itemQuantity:
+          type: integer
+          description: Ürün adedi
+        unitPriceAmount:
+          type: string
+          description: Birim fiyat
+          format: decimal
+        grossPriceAmount:
+          type: string
+          description: Brüt fiyat
+          format: decimal
+        totalPriceAmount:
+          type: string
+          description: Toplam fiyat
+          format: decimal
+      title: AddedSaleItem
+    BuyerInfo:
+      type: object
+      properties:
+        customerType:
+          type: integer
+          description: Müşteri tipi. 1 bireysel, 2 kurumsal
+          enum:
+          - 1
+          - 2
+        firstName:
+          type: string
+          description: Ad
+        middleName:
+          type: string
+          description: İkinci ad
+        familyName:
+          type: string
+          description: Soyad
+        companyName:
+          type: string
+          description: Şirket adı. Kurumsal müşteriler için kullanılır
+        taxOfficeCode:
+          type: string
+          description: Vergi dairesi kodu
+        taxNumber:
+          type: string
+          description: Vergi numarası veya TC kimlik numarası
+        country:
+          type: string
+          description: Ülke
+        city:
+          type: string
+          description: Şehir
+        district:
+          type: string
+          description: İlçe
+      title: BuyerInfo
+    CompletePaymentRequest:
+      type: object
+      required:
+      - conversationId
+      - locale
+      - deviceUniqueId
+      - transactionReferenceId
+      - price
+      - currency
+      - installment
+      - salesType
+      properties:
+        conversationId:
+          type: string
+          description: ID value used to match the request and response. It is determined by the merchant,
+            and the value sent in the request is returned in the response.
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        deviceUniqueId:
+          type: string
+          description: Unique identifier defined for the terminal/device where the transaction is performed.
+        transactionReferenceId:
+          type: string
+          description: uniqueId value generated by the sales application for this sales transaction.
+        price:
+          type: number
+          format: double
+          description: Price Value
+        currency:
+          type: string
+          description: Currency
+        salesType:
+          type: string
+          description: Sales Type.
+          enum:
+          - SALE
+          - PRE_AUTH
+          - POST_AUTH
+        paymentId:
+          type: string
+          description: Payment Number. This field is mandatory when performing a postAuth (provision closing)
+            transaction.
+        installment:
+          type: integer
+          format: int32
+          description: Installment Count
+          enum:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          - 9
+          - 10
+          - 11
+          - 12
+    EndOfDayRequest:
+      type: object
+      required:
+      - conversationId
+      - locale
+      - deviceUniqueId
+      properties:
+        conversationId:
+          type: string
+          description: ID value used to match the request and response. It is determined by the merchant,
+            and the value sent in the request is returned in the response.
+        locale:
+          type: string
+          description: Request language.
+          enum:
+          - tr
+          - en
+        deviceUniqueId:
+          type: string
+          description: Unique identifier defined for the terminal/device where the transaction is performed.
+        useSummary:
+          type: boolean
+          description: If sent as true, transaction details are shown on the printed slip. If sent as
+            false, all transaction details are not shown on the slip.
+          enum:
+          - tr
+          - en
+    GmuEodRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      properties:
+        locale:
+          type: string
+          description: Language code. Default is TR
+        conversationId:
+          type: string
+          description: Correlation ID
+        deviceUniqueId:
+          type: string
+          description: Device unique ID. Maximum 64 characters
+        useSummary:
+          type: boolean
+          description: Whether summary end-of-day should be used
+    GmuEodResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success or failure
+        errorCode:
+          type: string
+          description: Error code
+        errorMessage:
+          type: string
+          description: Error details
+        conversationId:
+          type: string
+          description: Correlation ID
+        systemTime:
+          type: integer
+          description: Timestamp
+        batchNo:
+          type: string
+          description: Closed batch number
+        resultMessage:
+          type: string
+          description: End-of-day result message
+        tails:
+          type: array
+          description: Acquirer-based end-of-day summary information
+          items:
+            $ref: '#/components/schemas/TailDto'
+    GmuPartialPaymentAddRequest:
+      type: object
+      required:
+      - saleNumber
+      - price
+      properties:
+        locale:
+          type: string
+          description: Language code
+        conversationId:
+          type: string
+          description: Correlation ID
+        deviceUniqueId:
+          type: string
+          description: Device unique ID
+        transactionReferenceId:
+          type: string
+          description: Reference ID of this add payment transaction
+        saleNumber:
+          type: string
+          description: saleNumber returned from the Start step
+        price:
+          type: string
+          description: Amount to be paid in this step. Must not exceed the remaining amount
+          format: decimal
+        installment:
+          type: integer
+          description: Installment count. Default is 1
+        currency:
+          type: string
+          description: Currency
+    GmuPartialPaymentCompleteRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - transactionReferenceId
+      - saleNumber
+      properties:
+        locale:
+          type: string
+          description: Language code
+        conversationId:
+          type: string
+          description: Correlation ID
+        deviceUniqueId:
+          type: string
+          description: Device unique ID. Maximum 64 characters
+        transactionReferenceId:
+          type: string
+          description: Reference ID of this completion transaction
+        saleNumber:
+          type: string
+          description: saleNumber returned from the Start Partial Payment step
+    GmuPartialPaymentCompleteResponse:
+      allOf:
+      - $ref: '#/components/schemas/GmuPaymentResponse'
+      - type: object
+        properties:
+          remainingPaymentAmount:
+            type: string
+            description: Remaining payment amount. It must be 0 when completion is successful
+            format: decimal
+    GmuPartialPaymentStartResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası epoch ms
+        saleNumber:
+          type: string
+          description: Kısmi ödeme akışını temsil eden ana ödeme ID'si. Add Partial Payment ve Complete
+            Partial Payment adımlarında kullanılır.
+        remainingPaymentAmount:
+          type: string
+          description: Henüz ödenmemiş kalan tutar
+          format: decimal
+      title: GmuPartialPaymentStartResponse
+    GmuPaymentRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - transactionReferenceId
+      - price
+      - paidPrice
+      - saleAppName
+      - saleAppVersion
+      - saleDocumentType
+      - saleItems
+      - paymentType
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan TR
+        conversationId:
+          type: string
+          description: İstek korelasyon ID’si. Boş bırakılırsa otomatik UUID atanır.
+        deviceUniqueId:
+          type: string
+          description: Cihazın benzersiz kimliği. Maksimum 64 karakter
+        transactionReferenceId:
+          type: string
+          description: Çağıran tarafın bu işleme atadığı benzersiz referans ID. İptal ve sorgulama işlemlerinde
+            kullanılabilir.
+        price:
+          type: string
+          description: Brüt tutar. Pozitif olmalıdır
+          format: decimal
+        paidPrice:
+          type: string
+          description: Ödenecek nihai tutar. Pozitif olmalıdır
+          format: decimal
+        paymentType:
+          type: string
+          description: Ödeme türü. (Kart, Nakit vb.)
+          enum:
+          - CARD
+          - CASH
+        currency:
+          type: string
+          description: Para birimi. Varsayılan TRY
+          enum:
+          - TRY
+          - USD
+          - EUR
+        installment:
+          type: integer
+          description: Taksit sayısı. Varsayılan 1
+        saleAppName:
+          type: string
+          description: Satış uygulamasının adı
+        saleAppVersion:
+          type: string
+          description: Satış uygulamasının versiyonu
+        saleDocumentType:
+          type: string
+          description: Belge tipi. E-Fatura için 1, Gider Pusulası için 9
+          enum:
+          - '1'
+          - '9'
+        notificationPhone:
+          type: string
+          description: SMS bildirimi istenilen telefon numarası
+        notificationEmail:
+          type: string
+          description: Bildirim istenilen E-posta adresi
+        saleItems:
+          type: array
+          description: Satış kalemleri. En az 1 adet olmalıdır.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaleItem'
+        buyerInfo:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/BuyerInfo'
+          description: Nihai tüketici değilse doldurulması zorunludur.
+      title: GmuPaymentRequest
+    GmuPaymentResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success or failure
+        errorCode:
+          type: string
+          description: Error code. Returns 0 for successful transactions
+        errorMessage:
+          type: string
+          description: Error message
+        conversationId:
+          type: string
+          description: Correlation ID matching the request
+        systemTime:
+          type: integer
+          description: transaction time epoch ms
+        deviceUniqueId:
+          type: string
+          description: ID of the device used in the transaction
+        transactionReferenceId:
+          type: string
+          description: Reference ID of the caller
+        transactionDateTime:
+          type: string
+          description: Date and time when the transaction occurred
+        paymentId:
+          type: string
+          description: Generated payment ID. Used in refund and void operations.
+        paymentDate:
+          type: integer
+          description: Payment date. In YYYYMMDD format
+        price:
+          type: string
+          description: Transaction amount
+          format: decimal
+        installment:
+          type: integer
+          description: Installment count
+        acquirerId:
+          type: string
+          description: Acquirer bank ID
+        bankMerchantId:
+          type: string
+          description: Bank merchant number
+        bankTerminalId:
+          type: string
+          description: Bank terminal ID
+        issuerId:
+          type: string
+          description: Card issuer institution ID
+        currency:
+          type: string
+          description: Currency
+          enum:
+          - TRY
+          - USD
+          - EUR
+        authCode:
+          type: string
+          description: Authorization code
+        binNumber:
+          type: string
+          description: BIN number of the card. First 6 digits
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card
+        hostReference:
+          type: string
+          description: Host reference number
+        cardType:
+          type: string
+          description: Card type. Example CREDIT or DEBIT
+        batchNo:
+          type: string
+          description: Batch number
+        stanNo:
+          type: string
+          description: STAN number
+        posEntryModeCode:
+          type: string
+          description: POS entry mode code
+        saleItems:
+          type: array
+          description: Details of the sale items added to the transaction
+          items:
+            $ref: '#/components/schemas/AddedSaleItem'
+        saleNumber:
+          type: string
+          description: Sale number. Used in partial payment add and complete services referenced in items
+            7 and 8
+    GmuPaymentResponse2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu. Başarılı işlemlerde 0 döner
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: İstek ile eşleşen korelasyon ID
+        systemTime:
+          type: integer
+          description: işlem zamanı (epoch ms)
+        deviceUniqueId:
+          type: string
+          description: İşlem yapılan cihazın ID'si
+        transactionReferenceId:
+          type: string
+          description: Çağıran tarafın referans ID'si
+        transactionDateTime:
+          type: string
+          description: İşlemin gerçekleştiği tarih ve saat
+        paymentId:
+          type: string
+          description: Oluşturulan ödeme ID. İade ve iptal işlemlerinde kullanılır.
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatındadır
+        price:
+          type: string
+          description: İşlem tutarı
+          format: decimal
+        installment:
+          type: integer
+          description: Taksit sayısı
+        acquirerId:
+          type: string
+          description: Acquirer banka ID
+        bankMerchantId:
+          type: string
+          description: Banka üye işyeri numarası
+        bankTerminalId:
+          type: string
+          description: Banka terminal ID
+        issuerId:
+          type: string
+          description: Kartı çıkaran kuruluş ID
+        currency:
+          type: string
+          description: Para birimi
+          enum:
+          - TRY
+          - USD
+          - EUR
+        authCode:
+          type: string
+          description: Onay kodu
+        binNumber:
+          type: string
+          description: Kartın BIN numarası. İlk 6 hanedir
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi
+        hostReference:
+          type: string
+          description: Host referans numarası
+        cardType:
+          type: string
+          description: Kart tipi. Örnek CREDIT veya DEBIT
+        batchNo:
+          type: string
+          description: Batch parti numarası
+        stanNo:
+          type: string
+          description: STAN numarası
+        posEntryModeCode:
+          type: string
+          description: POS giriş modu kodu
+        saleItems:
+          type: array
+          description: İşleme eklenen satış kalemleri detayı
+          items:
+            $ref: '#/components/schemas/AddedSaleItem2'
+        saleNumber:
+          type: string
+          description: Satış numarası. Parçalı ödeme ekleme 7. madde ve tamamlama 8. madde servislerinde
+            kullanılır
+      title: GmuPaymentResponse
+    GmuQueryTransactionStatusRequest:
+      type: object
+      description: At least one of paymentId or transactionReferenceId must be sent.
+      properties:
+        locale:
+          type: string
+          description: Language code
+        conversationId:
+          type: string
+          description: Correlation ID
+        paymentId:
+          type: string
+          description: Payment ID information for the transaction to be queried
+        deviceUniqueId:
+          type: string
+          description: Device unique ID
+        transactionReferenceId:
+          type: string
+          description: transactionReferenceId sent when initiating the transaction to be queried
+    GmuQueryTransactionStatusResponse:
+      allOf:
+      - $ref: '#/components/schemas/GmuPaymentResponse'
+      - type: object
+        properties:
+          cancelHostReference:
+            type: string
+            nullable: true
+            description: Host reference of the void transaction if the payment has been voided
+          refundHostReference:
+            type: string
+            nullable: true
+            description: Host reference of the refund transaction if the payment has been refunded
+    GmuRefundRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - paymentId
+      - paymentDate
+      - transactionReferenceId
+      - saleAppName
+      - saleAppVersion
+      - saleItems
+      properties:
+        locale:
+          type: string
+          description: Dil kodu. Varsayılan TR
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        deviceUniqueId:
+          type: string
+          description: Cihaz benzersiz ID. Maksimum 64 karakter
+        paymentId:
+          type: string
+          description: Satış servisinden dönen paymentId
+        paymentDate:
+          type: integer
+          description: Ödeme tarihi. YYYYMMDD formatında olmalıdır
+        transactionReferenceId:
+          type: string
+          description: Bu iade işlemine ait referans ID
+        saleAppName:
+          type: string
+          description: Satış uygulaması adı
+        saleAppVersion:
+          type: string
+          description: Satış uygulaması versiyonu
+        notificationPhone:
+          type: string
+          description: SMS bildirimi istenilen telefon numarası
+        notificationEmail:
+          type: string
+          description: Bildirim istenilen E-posta adresi
+        saleItems:
+          type: array
+          description: İade edilecek kalemler. En az 1 adet olmalıdır
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaleItem'
+      title: GmuRefundRequest
+    GmuRefundResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success veya failure
+        errorCode:
+          type: string
+          description: Hata kodu
+        errorMessage:
+          type: string
+          description: Hata mesajı
+        conversationId:
+          type: string
+          description: Korelasyon ID
+        systemTime:
+          type: integer
+          description: Zaman damgası epoch ms
+        deviceUniqueId:
+          type: string
+          description: İşlem yapılan cihaz ID
+        transactionReferenceId:
+          type: string
+          description: İade işlemine ait referans ID
+        price:
+          type: string
+          description: İade tutarı
+          format: decimal
+        vatAmount:
+          type: string
+          description: KDV tutarı
+          format: decimal
+        currency:
+          type: string
+          description: Para birimi
+        invoiceNo:
+          type: string
+          description: Fatura numarası
+        authCode:
+          type: string
+          description: Onay kodu
+        hostReference:
+          type: string
+          description: Host referans numarası
+        binNumber:
+          type: string
+          description: Kartın BIN numarası
+        lastFourDigits:
+          type: string
+          description: Kartın son 4 hanesi
+        acquirerName:
+          type: string
+          description: Acquirer banka adı
+        acquirerId:
+          type: string
+          description: Acquirer banka ID
+        batchNo:
+          type: string
+          description: Batch numarası
+      title: GmuRefundResponse
+    GmuRefundableSaleInfoRequest:
+      type: object
+      required:
+      - transactionReferenceId
+      properties:
+        locale:
+          type: string
+          description: Language code
+        conversationId:
+          type: string
+          description: Correlation ID
+        deviceUniqueId:
+          type: string
+          description: Device unique ID
+        transactionReferenceId:
+          type: string
+          description: Reference ID of the original sale transaction
+    GmuRefundableSaleInfoResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success or failure
+        errorCode:
+          type: string
+          description: Error code
+        errorMessage:
+          type: string
+          description: Error message
+        conversationId:
+          type: string
+          description: Correlation ID
+        systemTime:
+          type: integer
+          description: Timestamp epoch ms
+        saleNumber:
+          type: string
+          description: Sale number
+        saleUid:
+          type: string
+          description: Unique ID of the sale. Used as relatedSaleId in the refund request.
+        totalReturnableAmount:
+          type: string
+          description: Total refundable amount
+          format: decimal
+        currency:
+          type: string
+          description: Currency
+        saleItems:
+          type: array
+          description: Refundable items. Includes returnableQuantity and returnableAmount for each item.
+          items:
+            $ref: '#/components/schemas/RefundableAddedSaleItem'
+    GmuVoidRequest:
+      type: object
+      required:
+      - deviceUniqueId
+      - paymentId
+      - paymentDate
+      - transactionReferenceId
+      properties:
+        locale:
+          type: string
+          description: Language code. Default is TR
+        conversationId:
+          type: string
+          description: Correlation ID
+        deviceUniqueId:
+          type: string
+          description: Device unique ID. Maximum 64 characters
+        paymentId:
+          type: string
+          description: paymentId of the payment to be voided
+        paymentDate:
+          type: integer
+          description: Payment date. Must be in YYYYMMDD format
+        transactionReferenceId:
+          type: string
+          description: Reference ID of this void transaction
+        reason:
+          type: string
+          description: Void reason
+        description:
+          type: string
+          description: Description
+    GmuVoidResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: success or failure
+        errorCode:
+          type: string
+          description: Error code
+        errorMessage:
+          type: string
+          description: Error message
+        conversationId:
+          type: string
+          description: Correlation ID
+        systemTime:
+          type: integer
+          description: Timestamp epoch ms
+        deviceUniqueId:
+          type: string
+          description: Device ID
+        transactionReferenceId:
+          type: string
+          description: Void reference ID
+        paymentId:
+          type: string
+          description: Voided payment ID
+        price:
+          type: string
+          description: Void amount
+          format: decimal
+        currency:
+          type: string
+          description: Currency
+        authCode:
+          type: string
+          description: Authorization code
+        hostReference:
+          type: string
+          description: Host reference number of the original transaction
+        cancelHostReference:
+          type: string
+          description: Host reference number of the void transaction
+        transactionDate:
+          type: string
+          description: Transaction date
+        transactionTime:
+          type: string
+          description: Transaction time
+        paymentDate:
+          type: integer
+          description: Payment date. In YYYYMMDD format
+        transactionDateTime:
+          type: string
+          description: Transaction date and time information
+        binNumber:
+          type: string
+          description: Card BIN number
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card
+    QueryTransactionStatusRequest:
+      type: object
+      description: Service that queries the status of a transaction.
+      required:
+      - conversationId
+      - locale
+      - paymentId
+      - deviceUniqueId
+      - transactionReferenceId
+      properties:
+        conversationId:
+          type: string
+          description: ID value used to match the request and response. It is determined by the merchant,
+            and the value sent in the request is returned in the response.
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: Payment Number to be queried
+        deviceUniqueId:
+          type: string
+          description: Unique identifier defined for the terminal/device where the transaction is performed.
+        transactionReferenceId:
+          nullable: true
+          description: Unique reference number generated during the transaction for the payment/void/refund
+            operation to be queried.
+          type: string
+    RefundPaymentRequest:
+      type: object
+      required:
+      - conversationId
+      - locale
+      - paymentId
+      - deviceUniqueId
+      - price
+      - transactionReferenceId
+      - paymentDate
+      properties:
+        conversationId:
+          type: string
+          description: ID value used to match the request and response. It is determined by the merchant,
+            and the value sent in the request is returned in the response.
+        locale:
+          type: string
+          description: Request language.
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: Payment number to be refunded
+        deviceUniqueId:
+          type: string
+          description: Unique identifier defined for the terminal/device where the transaction is performed.
+        price:
+          type: number
+          format: double
+          description: Transaction amount.
+        transactionReferenceId:
+          type: string
+          description: Unique reference number generated by the sales application for the refund transaction.
+        paymentDate:
+          type: string
+          description: Date when the transaction is posted (YYYYMMDD).
+        reason:
+          type: string
+          description: Refund Reason
+        description:
+          type: string
+          description: Refund Description
+    RefundableAddedSaleItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Item ID
+        name:
+          type: string
+          description: Item name
+        itemQuantity:
+          type: integer
+          description: Item quantity
+        totalPriceAmount:
+          type: string
+          description: Total price
+          format: decimal
+        vatAmount:
+          type: string
+          description: VAT amount
+          format: decimal
+        returnableQuantity:
+          type: integer
+          description: Refundable quantity
+        returnableAmount:
+          type: string
+          description: Refundable amount
+          format: decimal
+    SaleItem:
+      type: object
+      required:
+      - name
+      - unitCode
+      - taxGroupCode
+      - itemQuantity
+      - unitPriceAmount
+      - grossPriceAmount
+      - totalPriceAmount
+      - relatedSaleItemId
+      - returnAmount
+      properties:
+        relatedSaleItemId:
+          type: string
+          description: İade edilecek satış kırılımının ID bilgisi.
+        name:
+          type: string
+          description: Ürün veya hizmet adı
+        generic:
+          type: boolean
+          description: Genel ürün bilgisi
+        unitCode:
+          type: string
+          description: Birim kodu. Örnek C62 adet anlamına gelir
+        taxGroupCode:
+          type: string
+          description: KDV grubu kodu
+        itemQuantity:
+          type: integer
+          description: Ürün adedi
+        unitPriceAmount:
+          type: string
+          description: Birim fiyat. Pozitif olmalıdır
+          format: decimal
+        grossPriceAmount:
+          type: string
+          description: Brüt fiyat. Pozitif olmalıdır
+          format: decimal
+        totalPriceAmount:
+          type: string
+          description: Toplam fiyat. Pozitif olmalıdır
+          format: decimal
+        returnAmount:
+          type: string
+          description: İade tutarı
+          format: decimal
+      title: SaleItem
+    TailDto:
+      type: object
+      properties:
+        acquirerId:
+          type: string
+          description: Acquirer bank ID
+        terminalId:
+          type: string
+          description: Terminal ID
+        bankMerchantId:
+          type: string
+          description: Bank merchant number
+        totalTransactionAmount:
+          type: string
+          description: Total transaction amount
+        totalTransactionCount:
+          type: string
+          description: Total transaction count
+        acquirerName:
+          type: string
+          description: Bank name
+        batchNo:
+          type: string
+          description: Batch number
+        responseCode:
+          type: string
+          description: Acquirer response code
+        internalErrorCode:
+          type: string
+          nullable: true
+          description: Internal error code if present
+    TerminalEodSuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Transaction result. (SUCCESS, FAILURE, etc.)
+        errorCode:
+          type: string
+          description: Error code returned if the transaction fails. It is empty for successful transactions.
+        errorMessage:
+          type: string
+          description: Descriptive error message returned in case of an error.
+        errorGroup:
+          type: string
+          description: Group/category information of the error.
+        locale:
+          type: string
+          description: Response language
+          enum:
+          - tr
+          - en
+        systemTime:
+          type: integer
+          format: int64
+          description: Unix timestamp value of when the transaction was processed in iyzico systems.
+        conversationId:
+          type: string
+          description: Unique value sent by the merchant for request-response matching and transaction
+            tracking.
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/TerminalEodTotalsItem'
+        batchNo:
+          type: string
+          description: Batch (end-of-day) number that includes the transaction.
+        resultMessage:
+          type: string
+          description: Result Message
+    TerminalEodTotalsItem:
+      type: object
+      properties:
+        acquirerId:
+          type: string
+          description: Institution ID of the acquiring bank that processes the transaction.
+        terminalId:
+          type: string
+          description: Terminal Number
+        bankMerchantId:
+          type: string
+          description: Terminal number defined for the terminal at the bank.
+        totalTransactionAmount:
+          type: string
+          description: Total amount of successful transactions within the relevant batch.
+        totalTransactionCount:
+          type: string
+          description: Number of successful transactions within the relevant batch.
+        acquirerName:
+          type: string
+          description: Name of the acquiring bank that processes the transaction.
+        batchNo:
+          type: string
+          description: Batch (end-of-day) number that includes the transaction.
+        responseCode:
+          type: string
+          description: Result code returned by the bank/host for the end-of-day (EOD) transaction. Usually
+            00 means success.
+        internalErrorCode:
+          type: string
+          description: Error code generated in iyzico internal systems during the end-of-day transaction.
+            It is populated only in error cases.
+    TerminalFailureResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Transaction result. (SUCCESS, FAILURE, etc.)
+        errorCode:
+          type: string
+          description: Error code returned if the transaction fails. It is empty for successful transactions.
+        errorMessage:
+          type: string
+          description: Descriptive error message returned in case of an error.
+        errorGroup:
+          type: string
+          description: Group/category information of the error.
+        systemTime:
+          type: integer
+          format: int64
+          description: Unix timestamp value of when the transaction was processed in iyzico systems.
+        consumerErrorMessage:
+          type: string
+          description: Error message generated for end users without technical details.
+    TerminalPaymentSuccessResponse:
+      type: object
+      properties:
+        conversationId:
+          type: string
+          description: Unique value sent by the merchant for request-response matching and transaction
+            tracking.
+        locale:
+          type: string
+          description: Response language
+          enum:
+          - tr
+          - en
+        deviceUniqueId:
+          type: string
+          description: Unique identifier defined for the terminal/device where the transaction is performed.
+        transactionReferenceId:
+          type: string
+          description: Unique reference number generated by the sales application for the transaction.
+        status:
+          type: string
+          description: Transaction result. (SUCCESS, FAILURE, etc.)
+        errorCode:
+          type: string
+          description: Error code returned if the transaction fails. It is empty for successful transactions.
+        errorMessage:
+          type: string
+          description: Descriptive error message returned in case of an error.
+        errorGroup:
+          type: string
+          description: Group/category information of the error.
+        systemTime:
+          type: integer
+          format: int64
+          description: Unix timestamp value of when the transaction was processed in iyzico systems.
+        transactionDateTime:
+          type: string
+          description: Date and time when the transaction occurred on the terminal/host (ISO-8601).
+        authCode:
+          type: string
+          description: Approval (authorization) code generated by the bank/host.
+        paymentId:
+          type: string
+          description: Transaction-based unique payment ID generated by iyzico.
+        paymentDate:
+          type: string
+          description: Date when the transaction is posted (YYYYMMDD).
+        price:
+          type: number
+          format: double
+          description: Transaction amount.
+        installment:
+          type: integer
+          format: int32
+          description: Installment count. Returns 0 or 1 for single-payment transactions.
+        currency:
+          type: string
+          description: Transaction currency (e.g. TRY).
+        binNumber:
+          type: string
+          description: First 6 digits of the card (BIN).
+        lastFourDigits:
+          type: string
+          description: Last 4 digits of the card number.
+        hostReference:
+          type: string
+          description: Transaction reference number generated by the bank/host system.
+        cardType:
+          type: string
+          description: Card type. (CREDIT_CARD, DEBIT_CARD, etc.)
+        acquirerId:
+          type: string
+          description: Institution ID of the acquiring bank that processes the transaction.
+        issuerId:
+          type: string
+          description: Institution ID of the issuing bank.
+        bankMerchantId:
+          type: string
+          description: Merchant number assigned by the bank for the merchant.
+        bankTerminalId:
+          type: string
+          description: Terminal number defined for the terminal at the bank.
+        batchNo:
+          type: string
+          description: Batch (end-of-day) number that includes the transaction.
+        stanNo:
+          type: string
+          description: System Trace Audit Number (STAN).
+        posEntryModeCode:
+          type: string
+          description: Code indicating how card information was entered into the POS (e.g. chip, magnetic
+            stripe, contactless).
+        cancelHostReference:
+          type: string
+          description: Void transaction reference number
+        refundHostReference:
+          type: string
+          description: Refund transaction reference number
+    VoidPaymentRequest:
+      description: Payment Reversal Service.
+      type: object
+      required:
+      - conversationId
+      - locale
+      - paymentId
+      - paymentDate
+      - deviceUniqueId
+      - transactionReferenceId
+      properties:
+        conversationId:
+          type: string
+          description: ID value used to match the request and response. It is determined by the merchant,
+            and the value sent in the request is returned in the response.
+        locale:
+          type: string
+          description: Response language.
+          enum:
+          - tr
+          - en
+        paymentId:
+          type: string
+          description: Payment Number to be voided
+        paymentDate:
+          type: string
+          description: Date when the transaction is posted (YYYYMMDD).
+        deviceUniqueId:
+          type: string
+          description: Unique identifier defined for the terminal/device where the transaction is performed.
+        transactionReferenceId:
+          type: string
+          description: A unique reference number generated for the void transaction
+        reason:
+          type: string
+          description: Void reason
+        description:
+          type: string
+          description: Void description
