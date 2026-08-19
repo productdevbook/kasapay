@@ -38,6 +38,13 @@ order releases happen, newest first.
   `cardUserKey` that is not the customer reference, and refusing instalments
   altogether.
 
+- **`Stripe::at`**, a base URL and a secret key. Every other adapter takes a
+  base; Stripe's did not, so pointing it at a mock server or a logging proxy
+  meant depending on `async-stripe` directly and going through
+  `Stripe::with_client`. That escape hatch stays, for the things it is
+  actually for — a timeout, a pinned API version, an account to act on behalf
+  of.
+
 - **`Money::checked_mul`**, a unit price times a count, refusing the overflow
   that would wrap a line total round to a negative one.
   `BasketItem::line_total` is what uses it: `BasketItem::price` is what *one*
