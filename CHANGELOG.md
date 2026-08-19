@@ -7,6 +7,14 @@ order releases happen, newest first.
 
 ### Added
 
+- **`classic::Client::start_pay_with_iyzico`**, iyzico's
+  `/payment/pay-with-iyzico/initialize`. The payer signs in to their own iyzico
+  account and pays with a card already there. The same `CheckoutForm` opens it
+  and `classic::Client::checkout_result` reads it back — not an approximation:
+  iyzico documents Pay with iyzico's retrieve at the same path the checkout
+  form's own result is read from. Their answer carries the member's email and
+  phone number, on `Charge::raw`.
+
 - **`classic::Client::instalments`**, iyzico's `/payment/iyzipos/installment`.
   What a Turkish checkout needs before it draws its payment page: which
   instalment counts a card's bank allows for an amount, and what the payer pays

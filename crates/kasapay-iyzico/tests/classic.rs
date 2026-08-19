@@ -916,6 +916,84 @@ async fn a_form_the_payer_saved_a_card_on_answers_the_handles_for_it() {
     assert_eq!(card.token().as_str(), "card-token-1");
 }
 
+/// The payer's own iyzico account rather than a card, and the same machinery
+/// underneath.
+#[tokio::test]
+async fn pay_with_iyzico_opens_at_its_own_path_and_answers_the_same_shape() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/pay-with-iyzico/initialize"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            // iyzico names this field differently here than on the form.
+            "payWithIyzicoPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            // HMAC-SHA256("ord-1:cf-token-1", "secret-key")
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .start_pay_with_iyzico(&form())
+        .await
+        .expect("the session opens");
+
+    assert_eq!(charge.status, Status::RequiresAction);
+    assert_eq!(charge.id, None);
+    match charge.next_action.expect("somewhere to send the payer") {
+        NextAction::Redirect { url, continuation } => {
+            assert_eq!(
+                url.as_str(),
+                "https://sandbox-cpp.iyzipay.com/?token=cf-token-1"
+            );
+            // The same token `checkout_result` reads the outcome back with.
+            assert_eq!(continuation.as_deref(), Some("cf-token-1"));
+        }
+        other => panic!("expected a redirect, got {other:?}"),
+    }
+}
+
+/// The card is already in the payer's account, and iyzico's own request for
+/// this documents no vault to file one under.
+#[tokio::test]
+async fn pay_with_iyzico_does_not_send_a_card_user_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/pay-with-iyzico/initialize"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "payWithIyzicoPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let with_key = checkout::CheckoutForm::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "https://merchant.test/callback".parse().expect("valid url"),
+        buyer(),
+    )
+    .billing_address(address())
+    .item(item("149.90"))
+    .card_user_key("card-user-key-1")
+    .build()
+    .expect("valid form");
+
+    client(&server)
+        .start_pay_with_iyzico(&with_key)
+        .await
+        .expect("the session opens");
+
+    let sent = &server.received_requests().await.expect("recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    assert!(!body.contains("cardUserKey"), "{body}");
+}
+
 /// The same form at another path, and the caller says which when they read it
 /// back — iyzico's answer does not.
 #[tokio::test]
