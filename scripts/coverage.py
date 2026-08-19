@@ -11,6 +11,17 @@ What it answers is not a number. It is two lists: operations nothing calls and
 nothing here explains, and explanations that no longer describe anything.
 Either one is work. A total that has not moved is not.
 
+Those two lists are what the exit code reports, and CI runs this on every push.
+`--self-test` drives the same comparison with a deliberately broken table.
+
+## What this does not prove
+
+That an operation with a call site is *correctly* implemented — only that some
+line in `crates/kasapay-iyzico/src` posts to that path. It reads endpoint
+strings at call sites, so a path assembled at runtime is invisible to it, and
+a path named in a comment is not a call. The other four providers' sections
+report and do not gate: they carry no written accounting to check against.
+
 ## What "documented" means
 
 Every (method, path) under `paths:` in `specs/iyzico/*/latest.yaml`, grouped
@@ -498,7 +509,7 @@ def print_iyzico_report() -> int:
     for key in sorted(matched):
         area, method, route = key
         print(f"    {method:<7}{route:<55}{evidence[key][0]}")
-    return 0
+    return len(unaccounted) + len(stale)
 
 
 def print_stripe_report() -> None:
@@ -568,12 +579,56 @@ def print_mollie_report() -> None:
     print(f"operationIds documented, for reference: {', '.join(sorted(operations))}\n")
 
 
+def self_test() -> int:
+    """Feeds the accounting a broken table and asserts both lists fire.
+
+    A latch nobody has seen fail is a latch nobody knows works. This drives
+    the two comparisons `print_iyzico_report` gates on, with an operation that
+    is unreached and unexplained, and an explanation that no longer describes
+    anything.
+
+    What it does not prove: that `documented_iyzico` reads the specs
+    correctly, or that `implemented_candidates` finds every call site. It
+    exercises the accounting, which is the part that turns the report into a
+    check — not the parsing underneath it.
+    """
+    unreached = {("payment", "POST", "/gone"), ("payment", "POST", "/unexplained")}
+    accounted = {
+        ("payment", "POST", "/gone"): "a reason",
+        ("payment", "POST", "/reached-again"): "a reason that stopped describing anything",
+    }
+    unaccounted = sorted(unreached - set(accounted))
+    stale = sorted(set(accounted) - unreached)
+    problems = 0
+    if [route for _, _, route in unaccounted] != ["/unexplained"]:
+        print(f"self-test: unaccounted did not fire, got {unaccounted}")
+        problems += 1
+    if [route for _, _, route in stale] != ["/reached-again"]:
+        print(f"self-test: stale did not fire, got {stale}")
+        problems += 1
+    if problems == 0:
+        print("self-test: both lists fire on a broken table.")
+    return problems
+
+
 def main() -> int:
-    print_iyzico_report()
+    if "--self-test" in sys.argv:
+        return self_test()
+    # Only iyzico's section gates. It is the one carrying a written accounting
+    # of what is deliberately not reached, and a tolerated list nothing
+    # enforces is a list that rots — this script measured itself against a
+    # closed issue's number for weeks before anybody looked.
+    problems = print_iyzico_report()
     print_stripe_report()
     print_paytr_report()
     print_mollie_report()
-    return 0  # this reports, it does not gate
+    if problems:
+        print(
+            f"{problems} operation(s) neither reached nor explained, or explained and no"
+            " longer unreached. Fix the code or NOT_REACHED_ON_PURPOSE, never by adding"
+            " an entry with no reason."
+        )
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":
