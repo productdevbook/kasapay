@@ -37,6 +37,12 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
+      # For the lockfile step below. The version bump is Python's work; the
+      # lockfile is cargo's, and there is no other way to write one that is
+      # right.
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
 
       - name: The version must be a version, and must not already exist
         env:
@@ -90,6 +96,17 @@ jobs:
           print(f"{old} -> {version}, dated {today}")
           PY
           git diff --stat
+
+      # The bump changes the version of every crate in this workspace, and
+      # `Cargo.lock` names those versions too. Without this the release commit
+      # lands on `main` with a lockfile that disagrees with the manifests, and
+      # every `--locked` job in CI goes red until somebody notices.
+      #
+      # `--workspace` rewrites the entries for this workspace's own crates and
+      # leaves every third-party pin alone: a release must not quietly upgrade
+      # a dependency.
+      - name: Rewrite the lockfile's own versions
+        run: cargo update --workspace
 
       - name: The changelog must have something to say
         env:
