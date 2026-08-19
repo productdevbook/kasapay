@@ -43,7 +43,7 @@ pub type CaptureId = Id<kind::Capture>;
 
 /// Mollie's identifier for one refund — `re_…`.
 ///
-/// Core's own [`RefundId`](kasapay_core::RefundId), re-exported rather than a
+/// Core's own [`RefundId`], re-exported rather than a
 /// kind of Mollie's: [`Provider::refund`](kasapay_core::Provider::refund)
 /// answers a refund for every provider, so the concept is shared the way a
 /// payment is. Still not a [`PaymentId`](kasapay_core::PaymentId), for the

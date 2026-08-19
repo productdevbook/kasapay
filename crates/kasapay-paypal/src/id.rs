@@ -46,7 +46,7 @@ pub type CaptureId = Id<kind::Capture>;
 
 /// PayPal's identifier for one refund — `0K35355239430361V`.
 ///
-/// Core's own [`RefundId`](kasapay_core::RefundId), re-exported rather than a
+/// Core's own [`RefundId`], re-exported rather than a
 /// kind of PayPal's: [`Provider::refund`](kasapay_core::Provider::refund)
 /// answers a refund for every provider, so the concept is shared the way a
 /// payment is. Still not a [`PaymentId`](kasapay_core::PaymentId) or a
