@@ -22,6 +22,7 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{Currency, ErrorKind, Money, Secret};
+use kasapay_iyzico::terminal::gmu;
 use kasapay_iyzico::terminal::{
     CardType, Client, Config, Credentials, EndOfDayRequest, Login, Query, Reference, Refund, Sale,
     SalesType, Timestamps, Void,
@@ -706,4 +707,201 @@ async fn an_end_of_day_iyzico_refused_is_not_a_closed_batch() {
         .await
         .expect_err("a 200 carrying FAILURE is a refusal");
     assert_eq!(error.code(), Some("380111"));
+}
+
+/// VUK 507's sale is a receipt: the lines, the document type and the buyer's
+/// tax details go with the amount.
+#[tokio::test]
+async fn a_vuk_507_sale_carries_the_lines_and_the_document() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/terminal-host/gmu/payment"))
+        .and(header("authorization", format!("Bearer {TOKEN}")))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "conv-1",
+            "deviceUniqueId": DEVICE,
+            "transactionReferenceId": "txn-1",
+            "price": "149.90",
+            "paidPrice": "149.90",
+            "paymentType": "CREDITCARD",
+            "currency": "TRY",
+            "installment": 1,
+            "saleAppName": "Kasa",
+            "saleAppVersion": "1.0.0",
+            // 1 is an e-invoice, which is the default.
+            "saleDocumentType": 1,
+            "saleItems": [{
+                "name": "Kahve",
+                "generic": false,
+                "unitCode": "C62",
+                "taxGroupCode": "KDV20",
+                "itemQuantity": 1,
+                "unitPriceAmount": "149.90",
+                "grossPriceAmount": "124.92",
+                "totalPriceAmount": "149.90",
+            }],
+            "buyerInfo": {
+                "customerType": 2,
+                "companyName": "A Ltd",
+                "taxOfficeCode": "034",
+                "taxNumber": "1234567890",
+            },
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "SUCCESS",
+            "paymentId": "P-1",
+            "paymentDate": 20_260_819_i64,
+            "price": "149.90",
+            "currency": "TRY",
+            "authCode": "123456",
+            "batchNo": "000123",
+            "lastFourDigits": "0004",
+        })))
+        .mount(&server)
+        .await;
+
+    let sale = gmu::Sale::builder(
+        Reference::new("conv-1", DEVICE, "txn-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "CREDITCARD",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+    )
+    .item(gmu::SaleItem::new(
+        "Kahve",
+        "C62",
+        "KDV20",
+        1,
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        Money::parse("124.92", Currency::Try).expect("valid amount"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    ))
+    .buyer(
+        gmu::Buyer::new(gmu::BuyerKind::Company)
+            .company("A Ltd")
+            .tax("034", "1234567890"),
+    )
+    .build();
+
+    let payment = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .pay(&sale)
+        .await
+        .expect("the till takes the payment");
+
+    assert_eq!(payment.payment_id.as_deref(), Some("P-1"));
+    // `YYYYMMDD` as an integer here, kept as iyzico wrote it.
+    assert_eq!(payment.payment_date.as_deref(), Some("20260819"));
+    assert_eq!(payment.price.as_deref(), Some("149.90"));
+}
+
+/// A sale with no lines is not a document, so it never reaches the till.
+#[tokio::test]
+async fn a_vuk_507_sale_with_no_lines_never_reaches_the_till() {
+    let server = MockServer::start().await;
+    let sale = gmu::Sale::builder(
+        Reference::new("conv-1", DEVICE, "txn-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+        "CREDITCARD",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+    )
+    .build();
+
+    let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .pay(&sale)
+        .await
+        .expect_err("a receipt with nothing on it");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// A refund names what is coming back, which is the whole difference.
+#[tokio::test]
+async fn a_vuk_507_refund_names_the_line_it_returns() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/terminal-host/gmu/payment/refund"))
+        .and(body_string_contains(r#""relatedSaleItemId":"item-1""#))
+        .and(body_string_contains(r#""returnAmount":"50.00""#))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "SUCCESS",
+            "paymentId": "P-1",
+        })))
+        .mount(&server)
+        .await;
+
+    let refund = gmu::Refund::new(
+        Reference::new("conv-2", DEVICE, "txn-2"),
+        "P-1",
+        "20260819",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+        vec![
+            gmu::SaleItem::new(
+                "Kahve",
+                "C62",
+                "KDV20",
+                1,
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+                Money::parse("41.67", Currency::Try).expect("valid amount"),
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+            )
+            .returning(
+                "item-1",
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+            ),
+        ],
+    );
+
+    gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .refund(&refund)
+        .await
+        .expect("the line comes back");
+}
+
+/// The three steps that settle one sale with more than one instrument.
+#[tokio::test]
+async fn a_partial_payment_is_opened_added_to_and_closed() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/terminal-host/gmu/partial-payment/add-payment"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "conv-3",
+            "deviceUniqueId": DEVICE,
+            "transactionReferenceId": "txn-3",
+            "saleNumber": "S-1",
+            "price": "50.00",
+            "installment": 1,
+            "currency": "TRY",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "SUCCESS",
+            "saleNumber": "S-1",
+            "remainingPaymentAmount": "99.90",
+        })))
+        .mount(&server)
+        .await;
+
+    let part = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .add_partial_payment(
+            "S-1",
+            &Reference::new("conv-3", DEVICE, "txn-3"),
+            Money::parse("50.00", Currency::Try).expect("valid amount"),
+            1,
+        )
+        .await
+        .expect("part of it is settled");
+
+    assert_eq!(part.sale_number.as_deref(), Some("S-1"));
+    // What is left, which the next step must not exceed.
+    assert_eq!(part.remaining.as_deref(), Some("99.90"));
+}
+
+/// No mock is mounted: a query naming nothing never reaches the till.
+#[tokio::test]
+async fn a_vuk_507_query_names_at_least_one_of_the_three() {
+    let server = MockServer::start().await;
+    let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .payment(&gmu::Query::default())
+        .await
+        .expect_err("nothing to ask about");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }
