@@ -419,7 +419,7 @@ impl Client {
                 signature::signed_amount(response.price.as_deref().unwrap_or_default()),
             ],
         )?;
-        into_payment_charge(response, raw)
+        into_payment_charge(response, raw, false)
     }
 
     /// Charges a card iyzico already holds, sending no card number.
@@ -468,13 +468,15 @@ impl Client {
     /// one that does not match is [`ErrorKind::Untrusted`] rather than a
     /// charge.
     pub async fn preauth_with_saved_card(&self, payment: &saved::Payment) -> Result<Charge, Error> {
-        self.charge_saved_card(payment, PAYMENT_PREAUTH).await
+        self.charge_saved_card(payment, true).await
     }
 
+    /// Both stored-card payments, which differ in the path and in what a
+    /// success means.
     async fn charge_saved_card(
         &self,
         payment: &saved::Payment,
-        path: &str,
+        holds: bool,
     ) -> Result<Charge, Error> {
         let currency = payment.price.currency();
         let body = wire::SavedCardPaymentRequest {
