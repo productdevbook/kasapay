@@ -13,7 +13,7 @@ use kasapay_core::{
 use url::Url;
 
 use crate::card::{CardDetails, CardKind, CardScheme};
-use crate::payment::Payment;
+use crate::payment::{BasketItem, Payer, Payment};
 use crate::signing::Credentials;
 
 /// PayTR.
@@ -557,26 +557,107 @@ impl PayTr {
     }
 }
 
-/// PayTR reads a payment back by the merchant's own order reference, and
-/// cannot start one from a [`ChargeRequest`].
+/// What PayTR requires that a [`ChargeRequest`] may not have been given.
+fn missing(field: &str) -> Error {
+    Error::new(
+        ErrorKind::InvalidRequest,
+        PAYTR,
+        format!("PayTR requires {field}"),
+    )
+}
+
+/// Builds the payment PayTR wants out of the shared request.
+fn payment(request: &ChargeRequest) -> Result<Payment, Error> {
+    let buyer = request.buyer.as_ref().ok_or_else(|| missing("a buyer"))?;
+    let success_url = request
+        .return_url
+        .clone()
+        .ok_or_else(|| missing("a return_url to send the payer to when it works"))?;
+    let address = buyer
+        .address
+        .as_ref()
+        .or(request.billing_address.as_ref())
+        .ok_or_else(|| missing("the payer's address"))?;
+    if request.basket.is_empty() {
+        return Err(missing("a basket with at least one line"));
+    }
+
+    let payer = Payer {
+        email: buyer.email.clone(),
+        ip: buyer
+            .ip
+            .clone()
+            .ok_or_else(|| missing("the address the payer's request came from"))?,
+        name: buyer.name.clone(),
+        address: address.line.clone(),
+        phone: buyer
+            .phone
+            .clone()
+            .ok_or_else(|| missing("the payer's phone number"))?,
+        // PayTR wants two, and takes the payer somewhere either way; a caller
+        // with one URL that reads the outcome afterwards is served by it twice.
+        failure_url: request
+            .failure_url
+            .clone()
+            .unwrap_or_else(|| success_url.clone()),
+        success_url,
+    };
+
+    let mut builder = Payment::builder(request.order.clone(), request.amount, payer);
+    for item in &request.basket {
+        builder = builder.item(BasketItem {
+            name: item.name.clone(),
+            price: item.price,
+            quantity: item.quantity,
+        });
+    }
+    builder
+        .build()
+        .map_err(|e| Error::new(ErrorKind::InvalidRequest, PAYTR, e.to_string()).with_source(e))
+}
+
+/// PayTR reads a payment back by the merchant's own order reference, and opens
+/// one from a [`ChargeRequest`] that carries what it needs.
 ///
-/// The same line as every other provider here: the trait can say what happened
-/// to a payment and not how to begin one. PayTR needs an email, the payer's IP,
-/// a name, an address, a phone number and two return URLs before it will open
-/// a form.
+/// [`Provider::charge`] builds a [`Payment`] out of [`ChargeRequest::buyer`],
+/// the address and the basket, and refuses with [`ErrorKind::InvalidRequest`]
+/// **naming the field** when one PayTR requires is missing. What it cannot
+/// reach is what the shared request has no word for: refusing instalments
+/// altogether, or capping how many are offered. Those are
+/// [`PayTr::start_payment`].
 #[async_trait::async_trait]
 impl Provider for PayTr {
     fn id(&self) -> ProviderId {
         PAYTR
     }
 
-    async fn charge(&self, _request: &ChargeRequest) -> Result<Charge, Error> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            PAYTR,
-            "PayTR needs an email, the payer's IP, a name, an address, a phone number and \
-             two return URLs; call PayTr::start_payment",
-        ))
+    /// Opens a payment form — the same call as [`PayTr::start_payment`], built
+    /// out of the shared request.
+    ///
+    /// # What PayTR requires and a [`ChargeRequest`] does not
+    ///
+    /// A buyer with an email, a phone number, an address and the IP the
+    /// payer's own request came from — PayTR refuses a token without that last
+    /// one, and refuses a private address for it. A `return_url`, and a
+    /// `failure_url` when the two outcomes go to different places: PayTR takes
+    /// two URLs and this sends the payer to the same one either way when only
+    /// one was given.
+    ///
+    /// # The basket is not checked against the amount
+    ///
+    /// PayTR takes `payment_amount` as its own field, and this sends
+    /// [`ChargeRequest::amount`] there unchanged. The basket is what the payer
+    /// is shown.
+    ///
+    /// # The charge that comes back has no payment id
+    ///
+    /// PayTR issues none: the order reference is what reads the payment back,
+    /// and the answer here is [`Status::RequiresAction`] with
+    /// [`NextAction::Redirect`] to PayTR's form. `idempotency_key` is ignored;
+    /// `merchant_oid` is what PayTR refuses to charge twice.
+    async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        let payment = payment(request)?;
+        self.start_payment(&payment).await
     }
 
     /// Reads a payment back by the order reference it was opened with.

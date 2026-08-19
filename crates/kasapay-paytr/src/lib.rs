@@ -1,8 +1,12 @@
 //! PayTR, behind kasapay's [`Provider`](kasapay_core::Provider) trait.
 //!
 //! PayTR hosts the payment form, so no card data crosses this process.
-//! [`PayTr::start_payment`] opens one and answers a
-//! [`Charge`](kasapay_core::Charge) carrying the address to send the payer to;
+//! [`charge`](kasapay_core::Provider::charge) opens one out of a
+//! [`ChargeRequest`](kasapay_core::ChargeRequest) that carries a buyer and a
+//! basket, and [`PayTr::start_payment`] opens the same one where the trait has
+//! no word for what is wanted — refusing instalments, or capping how many are
+//! offered. Either answers a [`Charge`](kasapay_core::Charge) carrying the
+//! address to send the payer to;
 //! [`charge_status`](kasapay_core::Provider::charge_status) reads it back.
 //!
 //! # PayTR has no payment id

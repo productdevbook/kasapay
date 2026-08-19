@@ -3,6 +3,47 @@
 What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
+## Unreleased
+
+### Added
+
+- **`ChargeRequest` carries a buyer, addresses and a basket**, so
+  `Provider::charge` works on every provider in the workspace. It did not:
+  iyzico's classic API and PayTR both answered `ErrorKind::Unsupported`,
+  which made the library's central claim — that which provider takes the
+  money is a deployment decision rather than a rewrite — false for exactly the
+  two a Turkish shop would swap between. A caller had to reach past the trait
+  and build a `classic::CheckoutForm` or a `paytr::Payment` by hand.
+
+  New in `kasapay-core`, and re-exported from `kasapay`: `Buyer`, `Address`,
+  `BasketItem` and `ItemKind`. New on `ChargeRequest` and its builder:
+  `buyer`, `billing_address`, `shipping_address`, `basket` and `failure_url`.
+  All optional, all ignored by the providers that do not ask for them, so no
+  existing caller changes.
+
+  An adapter that is not given a field it needs answers
+  `ErrorKind::InvalidRequest` **naming the field**, before a socket opens.
+  What iyzico requires: a surname, an identity number, a phone number, a
+  billing address or one on the buyer, a `return_url`, and a category on every
+  basket line. What PayTR requires: an email, a phone number, an address, and
+  the IP the payer's own request came from.
+
+  `ChargeRequest::amount` stays what the card is charged. For iyzico the basket
+  is `price` and the amount is `paidPrice`, which is iyzico's own distinction
+  and how an instalment surcharge is expressed.
+
+  `classic::Client::start_checkout_form` and `PayTr::start_payment` are still
+  there, for the settings the shared request has no word for: holding the
+  money rather than taking it, which instalment counts to offer, a
+  `cardUserKey` that is not the customer reference, and refusing instalments
+  altogether.
+
+- **`Money::checked_mul`**, a unit price times a count, refusing the overflow
+  that would wrap a line total round to a negative one.
+  `BasketItem::line_total` is what uses it: `BasketItem::price` is what *one*
+  costs, because PayTR takes the unit price and the count as two fields while
+  iyzico takes one figure and has nowhere to put a count.
+
 ## 0.0.4 — 2026-08-19
 
 ### Added

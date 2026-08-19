@@ -766,6 +766,39 @@ fn form() -> checkout::CheckoutForm {
     .expect("valid form")
 }
 
+/// The same buyer as `buyer()`, in kasapay's own terms.
+fn core_buyer() -> kasapay_core::Buyer {
+    kasapay_core::Buyer::new("Ayse", "ayse@example.test")
+        .surname("Yilmaz")
+        .identity_number("11111111111")
+        .phone("+905350000000")
+        .address(kasapay_core::Address::new(
+            "Bagdat Cad. 1",
+            "Istanbul",
+            "Turkey",
+        ))
+}
+
+/// The same order as `form()`, as a `ChargeRequest`.
+fn charge_request() -> kasapay_core::ChargeRequest {
+    kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request")
+}
+
 #[tokio::test]
 async fn opening_a_form_gives_a_page_to_send_the_payer_to() {
     let server = MockServer::start().await;
@@ -1832,22 +1865,203 @@ fn every_reason_renders_the_word_iyzico_documents() {
 }
 
 #[tokio::test]
-async fn the_classic_client_refuses_to_start_a_payment_through_the_trait() {
+async fn the_trait_opens_the_same_form_out_of_a_charge_request() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .charge(&charge_request())
+        .await
+        .expect("the form opens");
+
+    assert_eq!(charge.status, Status::RequiresAction);
+    assert_eq!(charge.id, None);
+
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body: serde_json::Value =
+        serde_json::from_slice(&sent.first().expect("one request").body).expect("valid json");
+    // The same body the hand-built form produces, down to the decimal strings.
+    assert_eq!(body["price"], json!("149.90"));
+    assert_eq!(body["paidPrice"], json!("149.90"));
+    assert_eq!(body["buyer"]["identityNumber"], json!("11111111111"));
+    assert_eq!(body["billingAddress"]["contactName"], json!("Ayse Yilmaz"));
+    assert_eq!(body["shippingAddress"]["contactName"], json!("Ayse Yilmaz"));
+    assert_eq!(body["basketItems"][0]["category1"], json!("Icecek"));
+    assert_eq!(body["basketItems"][0]["itemType"], json!("PHYSICAL"));
+}
+
+/// The basket sets `price`; the request's own amount is what the card is
+/// charged. That difference is how an instalment surcharge is expressed, and
+/// iyzico refuses a basket that does not add up to `price`, so getting the two
+/// the wrong way round would fail every surcharged payment.
+#[tokio::test]
+async fn a_charge_larger_than_the_basket_is_the_surcharge_iyzico_expects() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("159.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("74.95", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek")
+        .quantity(2),
+    )
+    .build()
+    .expect("valid request");
+
+    client(&server).charge(&request).await.expect("it opens");
+
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body: serde_json::Value =
+        serde_json::from_slice(&sent.first().expect("one request").body).expect("valid json");
+    assert_eq!(body["price"], json!("149.90"));
+    assert_eq!(body["paidPrice"], json!("159.90"));
+    // iyzico has no count of its own: two at 74.95 goes out as one line of
+    // 149.90.
+    assert_eq!(body["basketItems"][0]["price"], json!("149.90"));
+}
+
+/// Each field iyzico requires and `ChargeRequest` does not, named before a
+/// socket opens. The alternative is iyzico's own numbered error code.
+#[tokio::test]
+async fn a_charge_missing_what_iyzico_requires_says_which_field() {
     let server = MockServer::start().await;
     // No mock: a request reaching the network would fail the test.
-    let request = kasapay_core::ChargeRequest::builder(
+    let bare = kasapay_core::ChargeRequest::builder(
         OrderRef::new("ord-1"),
         Money::parse("149.90", Currency::Try).expect("valid amount"),
     )
     .build()
     .expect("valid request");
-
     let error = client(&server)
-        .charge(&request)
+        .charge(&bare)
         .await
-        .expect_err("the hosted form needs more than a ChargeRequest carries");
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert!(error.to_string().contains("start_checkout_form"));
+        .expect_err("no buyer at all");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert!(error.to_string().contains("a buyer"), "{error}");
+
+    let no_identity = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .buyer(
+        kasapay_core::Buyer::new("Ayse", "ayse@example.test")
+            .surname("Yilmaz")
+            .phone("+905350000000")
+            .address(kasapay_core::Address::new(
+                "Bagdat Cad. 1",
+                "Istanbul",
+                "Turkey",
+            )),
+    )
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request");
+    let error = client(&server)
+        .charge(&no_identity)
+        .await
+        .expect_err("iyzico requires an identity number");
+    assert!(error.to_string().contains("identity number"), "{error}");
+
+    let no_category = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .buyer(core_buyer())
+    .item(kasapay_core::BasketItem::new(
+        "item-1",
+        "Kahve",
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    ))
+    .build()
+    .expect("valid request");
+    let error = client(&server)
+        .charge(&no_category)
+        .await
+        .expect_err("iyzico requires a category on every line");
+    assert!(error.to_string().contains("category"), "{error}");
+}
+
+/// The customer reference is iyzico's own `cardUserKey`, which is what
+/// `Provider::instruments` reads it as. A form opened without it files a card
+/// the payer saves under a key nothing can find again.
+#[tokio::test]
+async fn the_customer_reference_goes_out_as_the_card_user_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .customer("card-user-key-1")
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request");
+
+    client(&server).charge(&request).await.expect("it opens");
+
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body: serde_json::Value =
+        serde_json::from_slice(&sent.first().expect("one request").body).expect("valid json");
+    assert_eq!(body["cardUserKey"], json!("card-user-key-1"));
+    assert_eq!(body["buyer"]["id"], json!("card-user-key-1"));
 }
 
 #[tokio::test]

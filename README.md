@@ -146,14 +146,25 @@ the Terminal API's fourteen.
   `Provider::capture` is unconditional too, the other direction: every order
   needs an explicit capture call after the payer approves regardless of the
   intent it was created with, so `Capabilities::separate_capture` is `true`.
-- The hosted checkout form does **not** go through `Provider::charge`. It needs
-  a buyer's identity number, two addresses and an itemised basket, none of
-  which belongs in `ChargeRequest`. The trait can express what every provider
-  answers; it cannot express what each one demands. A form the payer has not
-  finished has no payment id either, only its own `classic::FormToken`, and
-  `classic::Client::checkout_result` is what takes one — `charge_status` reads
-  a finished payment by its id. An identifier says what it names as well as who
-  issued it, so handing one to the other's call does not compile.
+- **What one provider requires, another has never heard of.** iyzico's classic
+  form refuses a payment without a buyer's identity number, an address and an
+  itemised basket; PayTR refuses one without the payer's own IP; Stripe and
+  Mollie ask for none of it. So `ChargeRequest` carries `buyer`,
+  `billing_address`, `shipping_address` and `basket`, all optional, and an
+  adapter that is not given one it needs answers `ErrorKind::InvalidRequest`
+  **naming the field**, before a socket opens. The request that works
+  everywhere is the one carrying what the strictest provider asks; swapping to
+  a laxer one costs nothing, because the extra fields are ignored.
+- **A hosted form still has settings the trait has no word for.** Holding the
+  money rather than taking it, which instalment counts to offer, a
+  `cardUserKey` that is not the customer reference — those are
+  `classic::Client::start_checkout_form` and `PayTr::start_payment`, and
+  `Provider::charge` builds the same request without them.
+- A form the payer has not finished has no payment id, only its own
+  `classic::FormToken`, and `classic::Client::checkout_result` is what takes
+  one — `charge_status` reads a finished payment by its id. An identifier says
+  what it names as well as who issued it, so handing one to the other's call
+  does not compile.
 
 ## No card number goes through kasapay
 

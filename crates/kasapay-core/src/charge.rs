@@ -7,6 +7,7 @@ use url::Url;
 
 use crate::id::PaymentId;
 use crate::money::{Money, MoneyError};
+use crate::party::{Address, BasketItem, Buyer};
 use crate::provider::ProviderId;
 use crate::raw::Raw;
 
@@ -246,6 +247,33 @@ pub struct ChargeRequest {
     /// key and dropping it would read as a guarantee against double charges
     /// where there is none.
     pub idempotency_key: Option<IdempotencyKey>,
+    /// Where the provider should send the payer when the payment fails.
+    ///
+    /// `None` means [`ChargeRequest::return_url`] serves for both, which is
+    /// what every provider but PayTR takes anyway — PayTR requires two URLs,
+    /// and sends the payer to whichever matches the outcome.
+    pub failure_url: Option<Url>,
+    /// The person paying, where the provider requires one.
+    ///
+    /// iyzico's classic API and PayTR both refuse a payment without a buyer;
+    /// Stripe and Mollie never ask. See [`Buyer`] for which of its fields a
+    /// given provider insists on.
+    pub buyer: Option<Buyer>,
+    /// Where to bill.
+    ///
+    /// `None` falls back to [`Buyer::address`] at the providers that require
+    /// one, because a shop that gave one address meant it for both.
+    pub billing_address: Option<Address>,
+    /// Where to ship, when that is somewhere else.
+    pub shipping_address: Option<Address>,
+    /// What is being paid for, line by line.
+    ///
+    /// Required by the providers that build a basket — iyzico refuses an empty
+    /// one — and ignored by the ones that do not. The lines do not have to sum
+    /// to [`ChargeRequest::amount`]: a surcharge is money the payer is charged
+    /// rather than a line of the basket. [`BasketItem::price`] is what one of
+    /// the thing costs, not what the line comes to.
+    pub basket: Vec<BasketItem>,
     /// Key/value pairs handed to the provider and given back unchanged.
     pub metadata: BTreeMap<String, String>,
 }
@@ -260,6 +288,11 @@ impl ChargeRequest {
             customer: None,
             description: None,
             return_url: None,
+            failure_url: None,
+            buyer: None,
+            billing_address: None,
+            shipping_address: None,
+            basket: Vec::new(),
             idempotency_key: None,
             metadata: BTreeMap::new(),
         }
@@ -274,6 +307,11 @@ pub struct ChargeRequestBuilder {
     customer: Option<Box<str>>,
     description: Option<Box<str>>,
     return_url: Option<Url>,
+    failure_url: Option<Url>,
+    buyer: Option<Buyer>,
+    billing_address: Option<Address>,
+    shipping_address: Option<Address>,
+    basket: Vec<BasketItem>,
     idempotency_key: Option<IdempotencyKey>,
     metadata: BTreeMap<String, String>,
 }
@@ -300,6 +338,44 @@ impl ChargeRequestBuilder {
         self
     }
 
+    /// Sets where the provider should send the payer when it fails.
+    ///
+    /// Only PayTR asks for a second address; everywhere else this is unused
+    /// and [`ChargeRequestBuilder::return_url`] serves for both outcomes.
+    #[must_use]
+    pub fn failure_url(mut self, url: Url) -> Self {
+        self.failure_url = Some(url);
+        self
+    }
+
+    /// Names the person paying, which some providers require.
+    #[must_use]
+    pub fn buyer(mut self, buyer: Buyer) -> Self {
+        self.buyer = Some(buyer);
+        self
+    }
+
+    /// Sets where to bill.
+    #[must_use]
+    pub fn billing_address(mut self, address: Address) -> Self {
+        self.billing_address = Some(address);
+        self
+    }
+
+    /// Sets where to ship, when that is somewhere else.
+    #[must_use]
+    pub fn shipping_address(mut self, address: Address) -> Self {
+        self.shipping_address = Some(address);
+        self
+    }
+
+    /// Adds one line to what is being paid for.
+    #[must_use]
+    pub fn item(mut self, item: BasketItem) -> Self {
+        self.basket.push(item);
+        self
+    }
+
     /// Sets the key that makes replaying this request safe.
     #[must_use]
     pub fn idempotency_key(mut self, key: IdempotencyKey) -> Self {
@@ -320,12 +396,22 @@ impl ChargeRequestBuilder {
             return Err(ChargeRequestError::EmptyOrderRef);
         }
         self.amount.require_positive()?;
+        // A line that comes to nothing is a line somebody forgot to price or
+        // to count, and two of the providers that take a basket refuse one.
+        for item in &self.basket {
+            item.line_total()?.require_positive()?;
+        }
         Ok(ChargeRequest {
             order: self.order,
             amount: self.amount,
             customer: self.customer,
             description: self.description,
             return_url: self.return_url,
+            failure_url: self.failure_url,
+            buyer: self.buyer,
+            billing_address: self.billing_address,
+            shipping_address: self.shipping_address,
+            basket: self.basket,
             idempotency_key: self.idempotency_key,
             metadata: self.metadata,
         })
@@ -348,6 +434,7 @@ pub enum ChargeRequestError {
 mod tests {
     use super::{ChargeRequest, ChargeRequestError, OrderRef};
     use crate::money::{Currency, Money};
+    use crate::party::{Address, BasketItem, Buyer};
 
     fn ten_lira() -> Money {
         Money::from_minor_units(1000, Currency::Try)
@@ -386,5 +473,31 @@ mod tests {
             .build()
             .expect_err("an empty reference is not usable");
         assert_eq!(err, ChargeRequestError::EmptyOrderRef);
+    }
+
+    #[test]
+    fn a_request_carries_a_buyer_and_a_basket_when_it_is_given_them() {
+        let request = ChargeRequest::builder(OrderRef::new("ord-1"), ten_lira())
+            .buyer(Buyer::new("Ayse", "ayse@example.test").identity_number("11111111111"))
+            .billing_address(Address::new("Bagdat Cad. 1", "Istanbul", "Turkey"))
+            .item(BasketItem::new("sku-1", "Kahve", ten_lira()))
+            .build()
+            .expect("valid request");
+
+        assert_eq!(
+            request.buyer.expect("a buyer").email.as_ref(),
+            "ayse@example.test"
+        );
+        assert_eq!(request.basket.len(), 1);
+        assert!(request.shipping_address.is_none());
+    }
+
+    #[test]
+    fn a_basket_line_that_comes_to_nothing_is_refused() {
+        let error = ChargeRequest::builder(OrderRef::new("ord-1"), ten_lira())
+            .item(BasketItem::new("sku-1", "Kahve", ten_lira()).quantity(0))
+            .build()
+            .expect_err("a line of none of something is not a line");
+        assert!(matches!(error, ChargeRequestError::Amount(_)));
     }
 }

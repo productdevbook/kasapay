@@ -62,6 +62,10 @@ required-features = ["paytr"]
 name = "iyzico_subscription"
 required-features = ["iyzico"]
 
+[[example]]
+name = "portable_charge"
+required-features = ["iyzico", "paytr"]
+
 [package.metadata.docs.rs]
 all-features = true
 
