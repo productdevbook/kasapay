@@ -215,8 +215,9 @@ prose is wrong the moment a module lands. `python3 scripts/coverage.py` counts
 it from the endpoint strings the code actually calls, and answers two lists
 that matter more than the total: an operation nothing calls and nothing
 explains, and an explanation that no longer describes anything. Both are work.
-The eight it does not reach today are six that take a card number and two that
-are twins of something already implemented.
+What it does not reach today, it prints with a reason for each, and CI fails
+when one has none — so the breakdown belongs there rather than here, where it
+would rot the way the sentence this replaced did.
 
 The specs carry only what iyzico states. Most operations document no
 authentication at all, and that absence is recorded rather than filled in — if
