@@ -105,6 +105,14 @@ fmt, clippy with warnings denied, nextest, doctests, the MSRV check and the
 feature matrix. If something is wrong it is wrong there, and the next commit
 is the fix.
 
+`Cargo.lock` is committed, and it is written by CI rather than here.
+`cargo generate-lockfile` resolves dependencies and compiles nothing, which is
+cheap — but the rule is "cargo fmt only" rather than "only what is cheap", so
+the **Lockfile** workflow is what runs it: by hand after a dependency changes,
+monthly on its own, and it opens a pull request whose own CI run says whether
+the tree it resolved is any good. The point of pinning it is that a red run on
+a pull request that touched nothing related can be reproduced at all.
+
 ## Where the boundary is
 
 `kasapay-core` holds no HTTP client and never will. A provider adapter brings
@@ -179,8 +187,8 @@ that would separate them. One sandbox pre-authorisation settles both.
 
 iyzico's `/payment/auth` status mapping, for the same reason: the documented
 response has no `paymentStatus`, so `fraudStatus` is what
-`into_saved_card_charge` reads — 0 is `Pending`, -1 is `Failed`, anything else
-is `Captured`. What has not been seen is whether a fraud rejection arrives as
+`read_payment_answer` reads — 0 is `Pending`, -1 is `Failed`, anything else is
+`Captured`, and a pre-authorisation's `Captured` is `Authorized` instead. What has not been seen is whether a fraud rejection arrives as
 `status: "failure"` or as a success carrying -1.
 
 Two things about Mollie, both read off their prose rather than an example.

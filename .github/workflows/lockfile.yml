@@ -1,0 +1,74 @@
+name: Lockfile
+
+# Writes `Cargo.lock` and opens a pull request with it.
+#
+# Nothing is ever built on the machine this project is developed on — CLAUDE.md
+# says why, and holds the same rule for the agents that work here — so this is
+# the only place a lockfile can be produced at all. `cargo generate-lockfile`
+# resolves dependencies and compiles nothing, which is cheap, but the rule is
+# "cargo fmt only" rather than "only what is cheap".
+#
+# Run it by hand after changing a dependency, and monthly on its own so the
+# pinned tree does not quietly fall a year behind. Either way the pull request's
+# own CI run is what says whether the resolution is any good; nothing here is
+# applied automatically.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # The 1st, early, well away from the weekly spec refetch.
+    - cron: "23 5 1 * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  regenerate:
+    name: resolve the dependency tree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      # Resolves the tree and writes Cargo.lock. It compiles nothing, which is
+      # why this is one step and not a build.
+      - run: cargo generate-lockfile
+      - name: What resolved, for the pull request to carry
+        id: resolved
+        run: |
+          {
+            echo 'summary<<SUMMARY'
+            git diff --stat -- Cargo.lock || true
+            echo SUMMARY
+          } >> "$GITHUB_OUTPUT"
+      - name: Open a pull request if the resolution moved
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          branch: lockfile
+          title: "build: resolve the dependency tree"
+          commit-message: "build: resolve the dependency tree"
+          add-paths: Cargo.lock
+          body: |
+            `cargo generate-lockfile`, run where a lockfile can be produced.
+
+            **What this is for.** Nobody working on this project can build it —
+            CI is the only place the code is ever compiled — so an unpinned
+            tree means a pull request that touched nothing related can go red
+            because a dependency published that morning, and its author has no
+            way to reproduce it. A committed `Cargo.lock` makes that failure
+            the same failure twice.
+
+            **Read the diff before merging.** This resolves from scratch rather
+            than adding what is missing, so every dependency moves to the
+            newest version its requirement allows. The CI run on this pull
+            request is what says whether that tree still builds, still passes
+            and still satisfies `deny.toml` — a red run here is the point of
+            the job, not a fault in it.
+
+            ```
+            ${{ steps.resolved.outputs.summary }}
+            ```
+          labels: dependencies
+          delete-branch: true
