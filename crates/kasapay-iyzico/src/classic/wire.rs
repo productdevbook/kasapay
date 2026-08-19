@@ -127,6 +127,20 @@ pub(crate) struct CheckoutFormRequest<'a> {
     pub(crate) basket_items: Vec<BasketItemBody<'a>>,
 }
 
+/// `POST /payment/postauth` — turning a held authorisation into a sale.
+#[derive(Debug, Serialize)]
+pub(crate) struct PostAuthRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    #[serde(rename = "paymentId")]
+    pub(crate) payment_id: &'a str,
+    /// A decimal string, and required: iyzico has no "take the lot" capture.
+    #[serde(rename = "paidPrice")]
+    pub(crate) paid_price: String,
+    pub(crate) currency: &'a str,
+}
+
 /// The buyer, as the form wants them.
 #[derive(Debug, Serialize)]
 pub(crate) struct BuyerBody<'a> {

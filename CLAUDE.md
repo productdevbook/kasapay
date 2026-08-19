@@ -167,6 +167,16 @@ iyzico's `/payment/query` status mapping. The documented response body has no
 status field, so `receipt.approved` and `isRefundable` are what
 `query_into_charge` reads. Check it first against a sandbox account.
 
+iyzico's pre-authorisation, in two places. `Provider::capture` sends
+`/payment/postauth` with a `paidPrice` below the authorised amount when it is
+asked to, on that field being documented as "the final amount to be collected
+from the card" rather than as the authorised one — iyzico does not say in as
+many words that a smaller figure is accepted, and `Capabilities::partial_capture`
+promises it. And a payment that has been authorised and not captured reads back
+as `Status::Captured` from `/payment/detail`, because iyzico answers
+`paymentStatus: SUCCESS` for both and documents no values for the `phase` field
+that would separate them. One sandbox pre-authorisation settles both.
+
 iyzico's `/payment/auth` status mapping, for the same reason: the documented
 response has no `paymentStatus`, so `fraudStatus` is what
 `into_saved_card_charge` reads — 0 is `Pending`, -1 is `Failed`, anything else

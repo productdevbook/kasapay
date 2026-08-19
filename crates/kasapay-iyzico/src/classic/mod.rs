@@ -6,7 +6,7 @@
 //!
 //! # What is here
 //!
-//! Ten operations, chosen because none of them touches a card number:
+//! Thirteen operations, chosen because none of them touches a card number:
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
@@ -24,6 +24,22 @@
 //!   refund comes off is then their choice rather than the shop's
 //! - [`Client::cancel`] — void a payment before it settles
 //!
+//! # Holding money rather than taking it
+//!
+//! Three more, which are the same three calls again with the money held
+//! instead of taken:
+//!
+//! - [`Client::start_checkout_form_preauth`] — the hosted form, authorising
+//! - [`Client::checkout_result_preauth`] — the same result endpoint, read as
+//!   a hold, because iyzico's answer does not say which form it was
+//! - [`Client::preauth_with_saved_card`] — `/payment/auth`'s own request sent
+//!   to `/payment/preauth`
+//!
+//! and [`Provider::capture`](kasapay_core::Provider::capture), which is
+//! `/payment/postauth`, is what turns the hold into a sale.
+//! [`Client::cancel`] releases one that will never be taken — same-day, after
+//! which it is a refund like any other.
+//!
 //! All three of those take an optional [`Reason`], which is what iyzico is
 //! told the money went back for.
 //!
@@ -32,14 +48,19 @@
 //! they live in [`crate::iyzilink`], [`crate::subscription`] and
 //! [`crate::mass`], over this same [`Client`].
 //!
-//! [`Client`] implements [`Provider`](kasapay_core::Provider), and every
-//! payment operation on it answers
+//! [`Client`] implements [`Provider`](kasapay_core::Provider), and most of
+//! what starts a payment there answers
 //! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported): the hosted
 //! form needs more than `ChargeRequest` carries to start, and what identifies
 //! one before the payer finishes is a [`FormToken`] rather than a
-//! [`PaymentId`](kasapay_core::PaymentId). This flow is driven by the calls
-//! above; what the trait still answers here is which provider this is and what
-//! it can do.
+//! [`PaymentId`](kasapay_core::PaymentId). What the trait does answer is
+//! [`capture`](kasapay_core::Provider::capture),
+//! [`refund`](kasapay_core::Provider::refund),
+//! [`charge_status`](kasapay_core::Provider::charge_status),
+//! [`lookup`](kasapay_core::Provider::lookup),
+//! [`instruments`](kasapay_core::Provider::instruments) and
+//! [`capabilities`](kasapay_core::Provider::capabilities) — everything that
+//! happens to a payment once one exists.
 //!
 //! # Where a card number may live, and where it does not
 //!

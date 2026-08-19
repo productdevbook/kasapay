@@ -46,6 +46,22 @@ order releases happen, newest first.
 
 ### Added
 
+- **iyzico holds money as well as taking it.**
+  `classic::Client::start_checkout_form_preauth` opens the hosted form in
+  pre-authorisation mode, `classic::Client::preauth_with_saved_card` is
+  `/payment/auth`'s own request sent to `/payment/preauth`, and
+  `Provider::capture` is `/payment/postauth` — so `separate_capture` and
+  `partial_capture` are now true for the classic API, and a shop can authorise
+  when the order is placed and capture when the parcel leaves. Sixty of
+  iyzico's ninety-six documented operations; `scripts/coverage.py` says which.
+
+  `classic::Client::checkout_result_preauth` reads a pre-auth form's result:
+  the same endpoint as `checkout_result` and the same token, but the caller
+  says which form they opened, because iyzico answers `SUCCESS` for a payment
+  taken and for one only held and documents no values for the `phase` field
+  that would separate them. `Provider::charge_status` has the same limit and
+  says so.
+
 - **Two providers can say whether a call landed.** iyzico's `classic` reads a
   payment back through reporting by the `conversationId` it was made with;
   PayTR's status query is keyed by `merchant_oid`, which is the reference

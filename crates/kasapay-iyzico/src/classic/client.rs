@@ -19,6 +19,17 @@ use crate::signing::Credentials;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
 
+/// A payment that takes the money.
+const PAYMENT_AUTH: &str = "/payment/auth";
+/// The same request, holding the money instead.
+const PAYMENT_PREAUTH: &str = "/payment/preauth";
+/// Turning a hold into a sale.
+const PAYMENT_POSTAUTH: &str = "/payment/postauth";
+/// The hosted form that takes the money.
+const CHECKOUT_FORM_AUTH: &str = "/payment/iyzipos/checkoutform/initialize/auth/ecom";
+/// The same form, holding the money instead.
+const CHECKOUT_FORM_PREAUTH: &str = "/payment/iyzipos/checkoutform/initialize/preauth/ecom";
+
 /// Where the classic client points and what it signs with.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -156,6 +167,34 @@ impl Client {
     /// [`CheckoutFormBuilder::card_user_key`](crate::classic::checkout::CheckoutFormBuilder::card_user_key)
     /// decides whose vault it joins.
     pub async fn start_checkout_form(&self, form: &CheckoutForm) -> Result<Charge, Error> {
+        self.open_form(form, false).await
+    }
+
+    /// Opens a hosted checkout form that **holds** the money rather than
+    /// taking it.
+    ///
+    /// The same form, the same [`CheckoutForm`], the same token and the same
+    /// [`Client::checkout_result`] afterwards —
+    /// `/payment/iyzipos/checkoutform/initialize/preauth/ecom` instead of
+    /// `…/auth/ecom`, which is the whole difference on the wire. What changes
+    /// is what the payer's approval does: the funds are authorised and wait
+    /// for [`Provider::capture`], rather than being taken there and then.
+    ///
+    /// A hold nobody captures is not free money returned instantly — it sits
+    /// against the payer's limit until iyzico or the issuer releases it, which
+    /// is what [`Client::cancel`] is for. Same-day only; after that it is a
+    /// refund.
+    ///
+    /// **The charge this answers is still [`Status::RequiresAction`]**, for
+    /// the reason the ordinary form's is: nothing has happened until the payer
+    /// finishes. It is [`Client::checkout_result`] that answers
+    /// [`Status::Authorized`] once they have.
+    pub async fn start_checkout_form_preauth(&self, form: &CheckoutForm) -> Result<Charge, Error> {
+        self.open_form(form, true).await
+    }
+
+    /// Both forms, which differ in the path and in nothing else.
+    async fn open_form(&self, form: &CheckoutForm, holds: bool) -> Result<Charge, Error> {
         let currency = form.price.currency();
         let body = wire::CheckoutFormRequest {
             locale: "tr",
@@ -173,12 +212,13 @@ impl Client {
             basket_items: form.basket.iter().map(basket_item_body).collect(),
         };
 
-        let (response, raw) = self
-            .post::<_, wire::CheckoutFormResponse>(
-                "/payment/iyzipos/checkoutform/initialize/auth/ecom",
-                &body,
-            )
-            .await?;
+        let (response, raw) = if holds {
+            self.post::<_, wire::CheckoutFormResponse>(CHECKOUT_FORM_PREAUTH, &body)
+                .await?
+        } else {
+            self.post::<_, wire::CheckoutFormResponse>(CHECKOUT_FORM_AUTH, &body)
+                .await?
+        };
         if let Some(error) = refused(
             response.status.as_deref(),
             response.error_message,
@@ -269,6 +309,30 @@ impl Client {
     /// on their documentation site. A form the payer did not save a card on
     /// carries neither.
     pub async fn checkout_result(&self, token: &FormToken) -> Result<Charge, Error> {
+        self.form_result(token, false).await
+    }
+
+    /// Reads what became of a form opened by
+    /// [`Client::start_checkout_form_preauth`].
+    ///
+    /// The same endpoint, the same token, the same signed answer — and a
+    /// different word for the same `paymentStatus`. A pre-authorisation that
+    /// succeeded is [`Status::Authorized`]: the money is held and
+    /// [`Provider::capture`] is what takes it.
+    ///
+    /// # Why the caller has to say which
+    ///
+    /// iyzico has one result endpoint for both forms and its answer does not
+    /// say which one was opened. There is a `phase` field on the payment, but
+    /// iyzico documents it as "the transaction phase" and names no values for
+    /// it, so reading a hold out of it would be a guess — and the guess that
+    /// fails writes a sale into a shop's ledger for money nobody has taken.
+    /// The caller opened the form and knows.
+    pub async fn checkout_result_preauth(&self, token: &FormToken) -> Result<Charge, Error> {
+        self.form_result(token, true).await
+    }
+
+    async fn form_result(&self, token: &FormToken, holds: bool) -> Result<Charge, Error> {
         let body = wire::CheckoutResultRequest {
             locale: "tr",
             token: token.as_str(),
@@ -300,7 +364,7 @@ impl Client {
                 response.token.as_deref().unwrap_or_default(),
             ],
         )?;
-        into_payment_charge(response, raw)
+        into_payment_charge(response, raw, holds)
     }
 
     /// Reads a payment back by the id iyzico gave it.
@@ -314,6 +378,20 @@ impl Client {
     /// `conversationId`, `paidPrice` and `price`, which iyzico documents in
     /// both languages, and an answer that does not match is
     /// [`ErrorKind::Untrusted`] rather than a charge.
+    ///
+    /// # A payment only authorised reads as captured here
+    ///
+    /// The known limit of this call. iyzico answers `paymentStatus: SUCCESS`
+    /// for a payment taken and for one
+    /// [`Client::preauth_with_saved_card`] has only held, and nothing in the
+    /// documented response separates them — there is a `phase` field, and
+    /// iyzico documents it as "the transaction phase" and names no values for
+    /// it. So a caller who authorised and has not captured yet knows that from
+    /// their own ledger rather than from here, the same way
+    /// [`Client::checkout_result_preauth`] has them say which form they
+    /// opened. Reading `phase` for a word iyzico has not written down would be
+    /// a guess, and the guess that fails reports money taken that is only
+    /// held.
     pub async fn payment(&self, id: &PaymentId) -> Result<Charge, Error> {
         let body = wire::PaymentDetailRequest {
             locale: "tr",
@@ -341,7 +419,7 @@ impl Client {
                 signature::signed_amount(response.price.as_deref().unwrap_or_default()),
             ],
         )?;
-        into_payment_charge(response, raw)
+        into_payment_charge(response, raw, false)
     }
 
     /// Charges a card iyzico already holds, sending no card number.
@@ -371,6 +449,35 @@ impl Client {
     /// wait for their notification. This mapping has not been checked against a
     /// live account — see the crate's `CLAUDE.md`.
     pub async fn pay_with_saved_card(&self, payment: &saved::Payment) -> Result<Charge, Error> {
+        self.charge_saved_card(payment, false).await
+    }
+
+    /// Holds money on a card iyzico already holds, without taking it.
+    ///
+    /// `POST /payment/preauth`, which is `/payment/auth`'s own request body
+    /// sent to a path that authorises instead of charging — everything
+    /// [`Client::pay_with_saved_card`] says about what iyzico wants, about
+    /// 3-D Secure and about who is liable applies here unchanged.
+    ///
+    /// What comes back is [`Status::Authorized`] rather than
+    /// [`Status::Captured`], and the money is taken by [`Provider::capture`].
+    /// A hold that will never be taken is released by [`Client::cancel`],
+    /// same-day; after that it is a refund.
+    ///
+    /// The answer is signed over the same six fields as any other payment, and
+    /// one that does not match is [`ErrorKind::Untrusted`] rather than a
+    /// charge.
+    pub async fn preauth_with_saved_card(&self, payment: &saved::Payment) -> Result<Charge, Error> {
+        self.charge_saved_card(payment, true).await
+    }
+
+    /// Both stored-card payments, which differ in the path and in what a
+    /// success means.
+    async fn charge_saved_card(
+        &self,
+        payment: &saved::Payment,
+        holds: bool,
+    ) -> Result<Charge, Error> {
         let currency = payment.price.currency();
         let body = wire::SavedCardPaymentRequest {
             locale: "tr",
@@ -390,9 +497,28 @@ impl Client {
             basket_items: payment.basket.iter().map(basket_item_body).collect(),
         };
 
-        let (response, raw) = self
-            .post::<_, wire::PaymentResultResponse>("/payment/auth", &body)
-            .await?;
+        let (response, raw) = if holds {
+            self.post::<_, wire::PaymentResultResponse>(PAYMENT_PREAUTH, &body)
+                .await?
+        } else {
+            self.post::<_, wire::PaymentResultResponse>(PAYMENT_AUTH, &body)
+                .await?
+        };
+        self.read_payment_answer(response, raw, holds)
+    }
+
+    /// Reads what `/payment/auth`, `/payment/preauth` and `/payment/postauth`
+    /// all answer: the same body, signed over the same six fields.
+    ///
+    /// `holds` is what separates them. A pre-authorisation that passed fraud
+    /// review is money **held**, and saying `Captured` for it would put a sale
+    /// in the caller's ledger for money nobody has taken.
+    fn read_payment_answer(
+        &self,
+        response: wire::PaymentResultResponse,
+        raw: Raw,
+        holds: bool,
+    ) -> Result<Charge, Error> {
         if let Some(error) = refused(
             response.status.as_deref(),
             response.error_message.clone(),
@@ -412,7 +538,11 @@ impl Client {
                 signature::signed_amount(response.price.as_deref().unwrap_or_default()),
             ],
         )?;
-        into_saved_card_charge(response, raw)
+        let status = match fraud_status(response.fraud_status) {
+            Status::Captured if holds => Status::Authorized,
+            status => status,
+        };
+        charge_from(response, raw, status)
     }
 
     /// Refuses a response that is not signed, or is signed wrongly.
@@ -903,28 +1033,23 @@ fn basket_item_body(item: &crate::classic::checkout::BasketItem) -> wire::Basket
 /// `paymentStatus` is the field that matters, and `status: "success"` only
 /// means the query worked — a refused card comes back as a successful query
 /// reporting a failure.
-fn into_payment_charge(response: wire::PaymentResultResponse, raw: Raw) -> Result<Charge, Error> {
+///
+/// `holds` is the caller saying which form this was: iyzico answers `SUCCESS`
+/// for a payment taken and for one only authorised, and its answer does not
+/// say which. See [`Client::checkout_result_preauth`].
+fn into_payment_charge(
+    response: wire::PaymentResultResponse,
+    raw: Raw,
+    holds: bool,
+) -> Result<Charge, Error> {
     let status = match response.payment_status.as_deref() {
+        Some("SUCCESS") if holds => Status::Authorized,
         Some("SUCCESS") => Status::Captured,
         Some("FAILURE") => Status::Failed,
         Some("INIT_THREEDS" | "CALLBACK_THREEDS" | "BKM_POS_SELECTED") => Status::RequiresAction,
         // No paymentStatus at all means the payer has not finished.
         _ => Status::Pending,
     };
-    charge_from(response, raw, status)
-}
-
-/// Reads a stored-card charge, which reports itself differently.
-///
-/// `/payment/auth` answers no `paymentStatus`: a refusal is `status:
-/// "failure"`, which `refused` has already turned into an error by the time
-/// this runs, so what is left is a payment that went through. `fraudStatus` is
-/// the one thing that can still hold it up — see [`fraud_status`].
-fn into_saved_card_charge(
-    response: wire::PaymentResultResponse,
-    raw: Raw,
-) -> Result<Charge, Error> {
-    let status = fraud_status(response.fraud_status);
     charge_from(response, raw, status)
 }
 
@@ -1346,26 +1471,76 @@ impl Provider for Client {
         self.payment(id).await
     }
 
-    /// Always [`ErrorKind::Unsupported`]: the hosted form captures as it takes.
+    /// Turns a held authorisation into a sale — `POST /payment/postauth`.
     ///
-    /// iyzico documents no authorisation the classic API holds for a later
-    /// call to take, and [`Capabilities::separate_capture`] says so before a
-    /// caller gets this far. `idempotency` is ignored rather than refused: a
-    /// call this crate never sends has nothing to send it with, and iyzico
-    /// refusing an idempotency key generally (#54) applies to a request that
-    /// reaches iyzico, which this one never does.
+    /// The other half of [`Client::start_checkout_form_preauth`] and
+    /// [`Client::preauth_with_saved_card`]. A payment taken by the ordinary
+    /// form or by `/payment/auth` has already been captured, and iyzico
+    /// answers this call for one with an error rather than taking the money
+    /// twice.
+    ///
+    /// # `amount: None` costs a second request
+    ///
+    /// iyzico's `paidPrice` is required and it has no request that means "the
+    /// lot", so a capture with no amount reads the payment back through
+    /// [`Client::payment`] and captures what it says was authorised. Naming
+    /// the amount is one call rather than two.
+    ///
+    /// # A smaller amount is what iyzico's own field is for
+    ///
+    /// `paidPrice` is documented as *"the final amount to be collected from
+    /// the card"* rather than as the authorised one, which is what
+    /// [`Capabilities::partial_capture`] rests on here. iyzico does not say in
+    /// as many words that a smaller figure is allowed, and no live account has
+    /// been asked — see the crate's own note on what is unverified.
+    ///
+    /// # The currency the answer comes back in
+    ///
+    /// Read as sent. iyzico's authorisation documents six currencies and this
+    /// response's own schema names three, so a capture of a payment authorised
+    /// in sterling answers a currency its schema forbids — #88. Refusing it
+    /// would lose a capture that has already happened; the amount is real
+    /// money either way.
+    ///
+    /// `idempotency` is [`ErrorKind::Unsupported`] rather than dropped: iyzico
+    /// accepts no idempotency mechanism, and a capture sent without the
+    /// guarantee the caller asked for can take the money twice.
     async fn capture(
         &self,
-        _id: &PaymentId,
-        _amount: Option<Money>,
-        _idempotency: Option<&IdempotencyKey>,
+        id: &PaymentId,
+        amount: Option<Money>,
+        idempotency: Option<&IdempotencyKey>,
     ) -> Result<Charge, Error> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            PROVIDER,
-            "the classic API takes the money when the payer finishes the form and \
-             documents no capture step",
-        ))
+        if idempotency.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "iyzico's classic API accepts no idempotency key; read the payment back \
+                 with Provider::charge_status before capturing again",
+            ));
+        }
+        let amount = match amount {
+            Some(amount) => amount.require_positive().map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    PROVIDER,
+                    "a capture takes an amount above zero, or None for the lot",
+                )
+                .with_source(e)
+            })?,
+            None => self.payment(id).await?.amount,
+        };
+        let body = wire::PostAuthRequest {
+            locale: "tr",
+            conversation_id: id.as_str(),
+            payment_id: id.as_str(),
+            paid_price: amount.to_decimal_string(),
+            currency: amount.currency().code(),
+        };
+        let (response, raw) = self
+            .post::<_, wire::PaymentResultResponse>(PAYMENT_POSTAUTH, &body)
+            .await?;
+        self.read_payment_answer(response, raw, false)
     }
 
     /// Always [`ErrorKind::Unsupported`]: a void answers a `Reversal`, not a charge.
@@ -1543,12 +1718,19 @@ impl Provider for Client {
             .collect())
     }
 
-    /// No separate capture, refunds the way iyzico documents them, and a card
-    /// iyzico holds can be charged.
+    /// Holds funds when asked to, refunds the way iyzico documents them, and
+    /// charges a card iyzico holds.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
-            separate_capture: false,
-            partial_capture: false,
+            // About the API rather than about a particular payment: iyzico
+            // will hold funds, and Client::start_checkout_form_preauth and
+            // Client::preauth_with_saved_card are what ask it to. A payment
+            // opened by the ordinary form is captured as it goes, and
+            // capturing it afterwards fails.
+            separate_capture: true,
+            // On `paidPrice` being documented as the final amount to collect
+            // rather than the authorised one. See Provider::capture.
+            partial_capture: true,
             partial_refund: true,
             // Documented rather than assumed: a refund must not exceed the
             // amount still refundable, and "as long as that rule is followed,
