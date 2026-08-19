@@ -113,6 +113,25 @@ async fn a_delivery_paypal_does_not_recognise_is_refused() {
     assert_eq!(error.kind(), ErrorKind::Untrusted);
 }
 
+/// Two of one signed header is not one signed header, and PayPal is never
+/// asked to adjudicate: whichever value went out, the other one is still in
+/// the delivery and something in front of this believes it signed that.
+#[tokio::test]
+async fn a_delivery_carrying_a_signed_header_twice_is_refused_before_asking() {
+    let server = MockServer::start().await;
+    let webhooks = webhooks(&server).await;
+    // No verification mock is mounted: asking at all would fail the test.
+
+    let mut headers = signed_headers().to_vec();
+    headers.push(("paypal-transmission-sig", "not the one above"));
+    let error = webhooks
+        .verify(&Delivery::new(&headers, CAPTURE_COMPLETED.as_bytes()))
+        .await
+        .expect_err("two signatures over one body is not a signature");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+    assert!(error.to_string().contains("arrived 2 times"), "{error}");
+}
+
 /// A delivery missing one of the five signed headers never reaches PayPal.
 #[tokio::test]
 async fn a_delivery_missing_a_signed_header_is_refused_before_asking() {

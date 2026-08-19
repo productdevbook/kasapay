@@ -161,4 +161,4 @@ pub use crate::refund::{
 #[doc(inline)]
 pub use crate::secret::Secret;
 #[doc(inline)]
-pub use crate::webhook::{Delivery, Event, EventKind, Webhook};
+pub use crate::webhook::{Delivery, Event, EventKind, RepeatedHeader, Webhook};

@@ -100,13 +100,18 @@ impl Webhook for Webhooks {
     /// the two want different handling. Neither is a delivery to act on.
     async fn verify(&self, delivery: &Delivery<'_>) -> Result<Event, Error> {
         let header = |name: &'static str| {
-            delivery.header(name).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Untrusted,
-                    PAYPAL,
-                    format!("the delivery carried no {name} header"),
-                )
-            })
+            delivery
+                .signed_header(name)
+                .map_err(|e| {
+                    Error::new(ErrorKind::Untrusted, PAYPAL, e.to_string()).with_source(e)
+                })?
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Untrusted,
+                        PAYPAL,
+                        format!("the delivery carried no {name} header"),
+                    )
+                })
         };
         let body = delivery.body_str().ok_or_else(|| {
             Error::new(

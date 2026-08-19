@@ -74,6 +74,26 @@ async fn a_body_with_one_byte_changed_is_refused() {
     assert_eq!(error.kind(), ErrorKind::Untrusted);
 }
 
+/// A valid signature beside a second one is still refused, and it is the
+/// *valid* one that arrives first: a verifier that reads the first header and
+/// stops would accept this delivery while whatever wrote the second header
+/// believes it signed something else. Two claims about one delivery are not
+/// one claim.
+#[tokio::test]
+async fn a_delivery_carrying_two_signature_headers_is_refused() {
+    let (body, header) = captured();
+    let headers = [
+        ("Stripe-Signature", header.as_str()),
+        ("stripe-signature", "t=1492774577,v1=deadbeef"),
+    ];
+    let error = ignoring_age()
+        .verify(&Delivery::new(&headers, body.as_bytes()))
+        .await
+        .expect_err("two signatures over one body is not a signature");
+    assert_eq!(error.kind(), ErrorKind::Untrusted);
+    assert!(error.to_string().contains("arrived 2 times"), "{error}");
+}
+
 #[tokio::test]
 async fn a_delivery_with_no_signature_at_all_is_refused() {
     let (body, _) = captured();

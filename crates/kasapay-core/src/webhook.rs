@@ -8,6 +8,18 @@ use crate::money::Money;
 use crate::provider::{ProviderId, async_trait};
 use crate::raw::Raw;
 
+/// A header a signature depends on arrived more than once.
+///
+/// [`Delivery::signed_header`] answers this rather than picking one of them.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("`{name}` arrived {count} times; a signed delivery carries it once")]
+pub struct RepeatedHeader {
+    /// The header that was asked for.
+    pub name: Box<str>,
+    /// How many times it arrived.
+    pub count: usize,
+}
+
 /// One delivery from a provider, exactly as it arrived.
 ///
 /// Headers and bytes, and nothing parsed: **a signature is over the bytes the
@@ -32,12 +44,52 @@ impl<'a> Delivery<'a> {
     }
 
     /// The first header with this name, ignoring case.
+    ///
+    /// For anything a signature depends on, use
+    /// [`Delivery::signed_header`] instead: this one answers the first of two
+    /// and says nothing about the second.
     #[must_use]
     pub fn header(&self, name: &str) -> Option<&'a str> {
         self.headers
             .iter()
             .find(|(key, _)| key.eq_ignore_ascii_case(name))
             .map(|(_, value)| *value)
+    }
+
+    /// The header with this name, refusing a delivery that carries two.
+    ///
+    /// `Ok(None)` is a delivery that carries none, which is the caller's own
+    /// error to phrase — a header that is merely absent and one that is
+    /// contradicted are different failures and deserve different words.
+    ///
+    /// # Why this exists
+    ///
+    /// A signature is a claim about one delivery, and two headers making that
+    /// claim are two claims. Whichever a verifier picks, something in front of
+    /// it — a proxy, a load balancer, whatever wrote the second — picked
+    /// differently, and the pair of them no longer agree about what was
+    /// signed. That disagreement is the whole of a header-smuggling attack,
+    /// and the only safe reading of it is that this delivery cannot be
+    /// trusted.
+    ///
+    /// It costs nothing to refuse: no provider here sends a signature header
+    /// twice, so a delivery that carries two did not come from them intact.
+    pub fn signed_header(&self, name: &str) -> Result<Option<&'a str>, RepeatedHeader> {
+        let mut found = self
+            .headers
+            .iter()
+            .filter(|(key, _)| key.eq_ignore_ascii_case(name));
+        let Some((_, value)) = found.next() else {
+            return Ok(None);
+        };
+        let count = 1 + found.count();
+        if count > 1 {
+            return Err(RepeatedHeader {
+                name: name.into(),
+                count,
+            });
+        }
+        Ok(Some(value))
     }
 
     /// Every header, in the order they arrived.
@@ -199,6 +251,36 @@ mod tests {
         assert_eq!(delivery.header("stripe-signature"), Some("t=1,v1=abc"));
         assert_eq!(delivery.header("STRIPE-SIGNATURE"), Some("t=1,v1=abc"));
         assert_eq!(delivery.header("x-nothing"), None);
+    }
+
+    #[test]
+    fn a_signed_header_that_arrived_twice_is_refused_rather_than_chosen_between() {
+        let headers = [
+            ("Stripe-Signature", "t=1,v1=abc"),
+            ("Accept", "*/*"),
+            ("stripe-signature", "t=1,v1=forged"),
+        ];
+        let delivery = Delivery::new(&headers, b"{}");
+        // The lenient reader picks one and cannot say the other was there.
+        assert_eq!(delivery.header("Stripe-Signature"), Some("t=1,v1=abc"));
+
+        let repeated = delivery
+            .signed_header("Stripe-Signature")
+            .expect_err("two claims about one delivery are not one claim");
+        assert_eq!(repeated.count, 2);
+        assert!(repeated.to_string().contains("arrived 2 times"));
+    }
+
+    #[test]
+    fn a_header_that_never_arrived_is_not_the_same_failure_as_one_that_arrived_twice() {
+        let headers = [("Accept", "*/*")];
+        let delivery = Delivery::new(&headers, b"{}");
+        assert_eq!(
+            delivery
+                .signed_header("Stripe-Signature")
+                .expect("absent is not ambiguous"),
+            None
+        );
     }
 
     #[test]

@@ -132,13 +132,16 @@ impl Webhook for Webhooks {
     /// outside [`Webhooks::tolerance`] is refused even though its signature
     /// matched — that is what a replay looks like.
     async fn verify(&self, delivery: &Delivery<'_>) -> Result<Event, Error> {
-        let header = delivery.header(SIGNATURE_HEADER).ok_or_else(|| {
-            Error::new(
-                ErrorKind::Untrusted,
-                PROVIDER,
-                "the delivery carried no Stripe-Signature header",
-            )
-        })?;
+        let header = delivery
+            .signed_header(SIGNATURE_HEADER)
+            .map_err(|e| Error::new(ErrorKind::Untrusted, PROVIDER, e.to_string()).with_source(e))?
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Untrusted,
+                    PROVIDER,
+                    "the delivery carried no Stripe-Signature header",
+                )
+            })?;
         let parsed = SignatureHeader::parse(header).ok_or_else(|| {
             Error::new(
                 ErrorKind::Untrusted,
