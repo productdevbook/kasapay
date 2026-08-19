@@ -1842,12 +1842,28 @@ impl Provider for Client {
         self.start_checkout_form(&form).await
     }
 
+    /// Reads back the form [`Provider::charge`] opened, by its token.
+    ///
+    /// The same call as [`Client::checkout_result`], which is where the
+    /// reasoning about the signature and the status lives. `continuation` is
+    /// what [`NextAction::Redirect`] handed over.
+    ///
+    /// **A form opened to hold the money is not read back here.**
+    /// [`Client::start_checkout_form_preauth`] opens one and
+    /// [`Client::checkout_result_preauth`] reads it, because iyzico's answer
+    /// does not say which form was opened and reading a hold as a sale writes
+    /// money into a ledger that nobody has taken. This trait opens the form
+    /// that takes the money, and reads that one back.
+    async fn resume(&self, continuation: &str) -> Result<Charge, Error> {
+        self.checkout_result(&FormToken::issued(continuation)).await
+    }
+
     /// Reads a payment back by its id, through [`Client::payment`].
     ///
     /// A hosted form the payer has not finished has no payment id yet, and is
     /// read back by the [`FormToken`] it was opened with — that is
-    /// [`Client::checkout_result`], and no signature that takes a `PaymentId`
-    /// can stand in for it.
+    /// [`Provider::resume`] and [`Client::checkout_result`], and no signature
+    /// that takes a `PaymentId` can stand in for either.
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         self.payment(id).await
     }
@@ -2120,6 +2136,8 @@ impl Provider for Client {
             // Reporting reads a payment back by the conversationId it was
             // made with, which is the caller's own order reference.
             lookup_by_order: true,
+            // A form has only its own token until the payer finishes.
+            resume_by_continuation: true,
             // Client::stored_cards lists them and Client::pay_with_saved_card
             // charges one.
             saved_instruments: true,

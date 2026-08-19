@@ -660,6 +660,22 @@ impl Provider for PayTr {
         self.start_payment(&payment).await
     }
 
+    /// Always [`ErrorKind::Unsupported`]: PayTR reads nothing back by the form
+    /// token.
+    ///
+    /// The token opens the form and PayTR never asks for it again. What tells
+    /// a merchant what happened is the payment notice — [`Notice::charge`](crate::Notice::charge) —
+    /// and [`Provider::lookup`] asks by the order reference for the case where
+    /// the notice has not arrived.
+    async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            "PayTR reads nothing back by the form token; the outcome arrives on the payment \
+             notice, and Provider::lookup asks by the order reference",
+        ))
+    }
+
     /// Reads a payment back by the order reference it was opened with.
     ///
     /// [`payment_id`] builds what this takes out of an [`OrderRef`].
@@ -872,6 +888,7 @@ impl Provider for PayTr {
             // The status query is keyed by merchant_oid, which is the
             // caller's own reference.
             lookup_by_order: true,
+            resume_by_continuation: false,
             saved_instruments: false,
         }
     }

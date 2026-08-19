@@ -166,10 +166,21 @@ pub enum NextAction {
     Redirect {
         /// Where to send them.
         url: Url,
-        /// A token the provider will want back when the payer returns.
+        /// A token to keep for when the payer comes back.
         ///
-        /// iyzico's `paymentSessionToken` is this; it is required to read the
-        /// callback it later posts.
+        /// `None` is a provider that named the payment as it opened the flow,
+        /// so [`Charge::id`] is the handle and
+        /// [`Provider::charge_status`](crate::Provider::charge_status) is what
+        /// finishes it.
+        ///
+        /// `Some` is a token, and what can be done with it is
+        /// [`Capabilities::resume_by_continuation`](crate::Capabilities::resume_by_continuation):
+        /// true means [`Provider::resume`](crate::Provider::resume) takes it
+        /// and answers the finished charge, which is the only handle iyzico's
+        /// classic form has until the payer is done. False means the token is
+        /// the provider's own — iyzico's In-Store `paymentSessionToken` opens
+        /// the encrypted callback it later posts, and PayTR's is the segment
+        /// of the form address — and the adapter's own call is what takes it.
         continuation: Option<Box<str>>,
     },
     /// Hand this to the provider's client-side SDK and let it finish there.

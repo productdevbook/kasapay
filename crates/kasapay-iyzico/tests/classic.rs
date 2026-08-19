@@ -2019,6 +2019,67 @@ async fn a_charge_missing_what_iyzico_requires_says_which_field() {
     assert!(error.to_string().contains("category"), "{error}");
 }
 
+/// The whole point of the trait: open a form and read it back without the
+/// caller's code naming iyzico. `charge` gives a redirect with a token,
+/// `capabilities().resume_by_continuation` says the token is the handle, and
+/// `resume` takes it.
+#[tokio::test]
+async fn a_form_is_opened_and_read_back_without_naming_the_provider() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/initialize/auth/ecom"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .and(body_json(json!({ "locale": "tr", "token": "cf-token-1" })))
+        // The same answer `a_finished_form_reports_the_payment` pins, signature
+        // and all: what this test is about is the route to it, not the reading.
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            "currency": "TRY",
+            "token": "cf-token-1",
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    let charge = client
+        .charge(&charge_request())
+        .await
+        .expect("the form opens");
+
+    let continuation = match charge.next_action.expect("a form to send the payer to") {
+        NextAction::Redirect { continuation, .. } => continuation.expect("a token to keep"),
+        other => panic!("expected a redirect, got {other:?}"),
+    };
+    assert!(
+        client.capabilities().resume_by_continuation,
+        "a form has only its own token until the payer is done"
+    );
+
+    let finished = client
+        .resume(&continuation)
+        .await
+        .expect("the payer came back");
+    assert_eq!(finished.status, Status::Captured);
+    assert_eq!(finished.id, Some(PaymentId::issued("12345678")));
+}
+
 /// The customer reference is iyzico's own `cardUserKey`, which is what
 /// `Provider::instruments` reads it as. A form opened without it files a card
 /// the payer saves under a key nothing can find again.

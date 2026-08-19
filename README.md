@@ -49,7 +49,7 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-mollie` | Mollie's Payments API: hosted checkout, holds, captures, refunds |
 | `kasapay-paypal` | PayPal's Orders v2 and Payments v2: create, read, capture, hold, release, refund |
 
-**The shared trait is `charge`, `charge_status`, `capture`, `cancel`,
+**The shared trait is `charge`, `resume`, `charge_status`, `capture`, `cancel`,
 `refund`, `lookup` and `instruments`**, with `capabilities()` saying which of them a
 provider actually does — iyzico's In-Store flow takes the money at
 authorisation and has no capture step, and a caller planning a checkout needs
@@ -172,11 +172,21 @@ the Terminal API's fourteen.
   `cardUserKey` that is not the customer reference — those are
   `classic::Client::start_checkout_form` and `PayTr::start_payment`, and
   `Provider::charge` builds the same request without them.
-- A form the payer has not finished has no payment id, only its own
-  `classic::FormToken`, and `classic::Client::checkout_result` is what takes
-  one — `charge_status` reads a finished payment by its id. An identifier says
-  what it names as well as who issued it, so handing one to the other's call
-  does not compile.
+- **A form the payer has not finished has no payment id.** What it has is the
+  `continuation` on `NextAction::Redirect`, and `Provider::resume` is the call
+  that takes one. Which of the two finishes a redirect is
+  `Capabilities::resume_by_continuation` rather than the provider's name: true
+  says the token is the only handle there is, false says the payment was named
+  when the flow opened and `charge_status` reads it. Only iyzico's classic form
+  answers true, and a consumer never has to know that.
+- `resume` finishes what `charge` started, and nothing else. iyzico has one
+  result endpoint for a form that takes the money and a form that holds it, and
+  its answer does not say which was opened — so a hold opened by
+  `classic::Client::start_checkout_form_preauth` is read by
+  `classic::Client::checkout_result_preauth`. Reading it back through the wrong
+  one writes a sale into a ledger for money nobody has taken.
+- An identifier says what it names as well as who issued it, so handing a
+  `classic::FormToken` to a call that takes a `PaymentId` does not compile.
 
 ## No card number goes through kasapay
 

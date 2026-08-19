@@ -45,6 +45,28 @@ order releases happen, newest first.
   actually for — a timeout, a pinned API version, an account to act on behalf
   of.
 
+- **`Provider::resume`** and **`Capabilities::resume_by_continuation`**, so the
+  *return* leg of a hosted form is portable too. #150: opening iyzico's form
+  through the trait was half the problem, and the other half was that a payer
+  coming back had nothing generic to be read with — a form the payer has not
+  finished has no payment id, only the `continuation` on
+  `NextAction::Redirect`, and nothing in the trait took one.
+
+  A consumer now writes `if capabilities().resume_by_continuation { resume(&c) }
+  else { charge_status(&id) }` and never names a provider. Only iyzico's classic
+  form answers true; everywhere else the payment was named when the flow opened,
+  and each adapter's `resume` says so and names the call that does apply.
+
+  **A breaking change for anyone implementing `Provider`**: a new required
+  method and a new `Capabilities` field. `Capabilities` is `Default`, so
+  `..Capabilities::default()` covers the field.
+
+  `resume` finishes what `charge` started and nothing else: iyzico has one
+  result endpoint for a form that takes the money and one that holds it, its
+  answer does not say which was opened, and reading a hold back as a sale
+  writes money into a ledger nobody has taken. A hold is
+  `classic::Client::checkout_result_preauth`.
+
 - **A conformance suite**, `crates/kasapay/tests/conformance.rs`: the same
   questions asked of all six clients through nothing but `dyn Provider`, so a
   `Capabilities` flag can no longer disagree with the method below it. A
