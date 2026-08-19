@@ -92,7 +92,7 @@ pub use kasapay_core::{
     IdKind, IdSource, IdempotencyKey, Instrument, InstrumentId, ItemKind, Money, MoneyError,
     NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundReason,
     RefundRequest, RefundRequestBuilder, RefundRequestError, RefundStatus, RepeatedHeader, Secret,
-    Status, UnknownCurrency, Webhook, async_trait, kind,
+    Sequence, Status, UnknownCurrency, Webhook, async_trait, kind,
 };
 
 #[cfg(feature = "iyzico")]

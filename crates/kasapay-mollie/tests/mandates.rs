@@ -17,7 +17,7 @@
 
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, InstrumentId, Money, NextAction, OrderRef, Provider,
-    Secret, Status,
+    Secret, Sequence, Status,
 };
 use kasapay_mollie::{Config, CustomerId, MandateStatus, Mollie};
 use serde_json::json;
@@ -454,6 +454,99 @@ async fn a_recurring_payment_against_a_mandate_has_no_redirect() {
     assert!(body.contains(r#""sequenceType":"recurring""#), "{body}");
     assert!(body.contains(r#""mandateId":"mdt_uDPFVsxjR4""#), "{body}");
     assert!(body.contains(r#""customerId":"cst_tKt44u85MM""#), "{body}");
+}
+
+/// The same request through the trait, which is the point of #160: a host
+/// billing a subscription holds `Arc<dyn Provider>` and never names Mollie.
+#[tokio::test]
+async fn the_trait_charges_the_same_mandate() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments"))
+        .respond_with(
+            ResponseTemplate::new(201).set_body_json(recurring_payment_linked_to_customer()),
+        )
+        .mount(&server)
+        .await;
+
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("10.00", Currency::Eur).expect("valid amount"),
+    )
+    .description("Order #12345")
+    .return_url("https://example.com".parse().expect("valid url"))
+    .customer("cst_tKt44u85MM")
+    .instrument(InstrumentId::issued("mdt_uDPFVsxjR4"))
+    .sequence(Sequence::Unattended)
+    .build()
+    .expect("valid request");
+
+    let charge = client(&server)
+        .charge(&request)
+        .await
+        .expect("the recurring payment is charged");
+    assert!(charge.next_action.is_none());
+
+    let sent = &server.received_requests().await.expect("requests recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    // Byte for byte the same decision as charge_with_mandate above.
+    assert!(body.contains(r#""sequenceType":"recurring""#), "{body}");
+    assert!(body.contains(r#""mandateId":"mdt_uDPFVsxjR4""#), "{body}");
+}
+
+/// Mollie has one word for charging a mandate whether or not the payer is
+/// there, so the two sequences send the same request rather than one of them
+/// being refused for a distinction Mollie does not draw.
+#[tokio::test]
+async fn a_present_payer_spending_a_mandate_sends_what_an_absent_one_does() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments"))
+        .respond_with(
+            ResponseTemplate::new(201).set_body_json(recurring_payment_linked_to_customer()),
+        )
+        .mount(&server)
+        .await;
+
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("10.00", Currency::Eur).expect("valid amount"),
+    )
+    .description("Order #12345")
+    .return_url("https://example.com".parse().expect("valid url"))
+    .customer("cst_tKt44u85MM")
+    .instrument(InstrumentId::issued("mdt_uDPFVsxjR4"))
+    .build()
+    .expect("valid request");
+
+    client(&server).charge(&request).await.expect("charged");
+    let sent = &server.received_requests().await.expect("requests recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    assert!(body.contains(r#""sequenceType":"recurring""#), "{body}");
+}
+
+/// Establishing a standing permission and spending one are two requests, and
+/// asking for both at once is a caller who meant one of them.
+#[tokio::test]
+async fn a_first_payment_that_also_names_a_mandate_never_reaches_the_wire() {
+    let server = MockServer::start().await;
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("10.00", Currency::Eur).expect("valid amount"),
+    )
+    .description("Order #12345")
+    .return_url("https://example.com".parse().expect("valid url"))
+    .customer("cst_tKt44u85MM")
+    .instrument(InstrumentId::issued("mdt_uDPFVsxjR4"))
+    .sequence(Sequence::First)
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("a first payment establishes a mandate rather than spending one");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }
 
 /// A recurring payment is charged against a customer's mandate, and there is

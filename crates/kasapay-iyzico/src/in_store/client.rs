@@ -6,7 +6,7 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
-    RefundStatus, Secret, Status,
+    RefundStatus, Secret, Sequence, Status,
 };
 use url::Url;
 
@@ -311,6 +311,24 @@ impl Provider for Client {
     }
 
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        // The payer taps a card at a counter. There is no vault in this API,
+        // and no standing permission to establish or spend — refused rather
+        // than ignored, so a caller is never told a saved card was charged
+        // when a payer was asked to tap one.
+        if request.instrument.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "the In-Store API has no vault: the payer taps a card at the counter",
+            ));
+        }
+        if request.sequence != Sequence::Present {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "the In-Store API documents no standing permission to establish or spend",
+            ));
+        }
         if request.amount.currency() != Currency::Try {
             return Err(Error::new(
                 ErrorKind::Unsupported,

@@ -38,8 +38,8 @@
 )]
 
 use kasapay::{
-    ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId, Provider,
-    Secret,
+    ChargeRequest, ChargeRequestBuilder, Currency, ErrorKind, IdempotencyKey, InstrumentId, Money,
+    OrderRef, PaymentId, Provider, Secret, Sequence,
 };
 use serde_json::json;
 use wiremock::matchers::{any, method, path};
@@ -204,6 +204,32 @@ async fn every_adapter() -> Vec<Subject> {
     subjects.push(subject("stripe", Box::new(stripe), server, Currency::Eur).await);
 
     subjects
+}
+
+/// Everything any provider here asks for, so a test can vary one thing and know
+/// the answer turned on it. A request missing a field would be refused for the
+/// field instead, and would measure nothing.
+fn complete_request(currency: Currency) -> ChargeRequestBuilder {
+    ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::from_minor_units(1000, currency),
+    )
+    .description("Order #1")
+    .customer("cus-1")
+    .return_url("https://merchant.test/ok".parse().expect("valid url"))
+    .failure_url("https://merchant.test/no".parse().expect("valid url"))
+    .buyer(
+        kasapay::Buyer::new("Ayse", "ayse@example.test")
+            .surname("Yilmaz")
+            .identity_number("11111111111")
+            .phone("+905350000000")
+            .ip("203.0.113.7")
+            .address(kasapay::Address::new("Bagdat Cad. 1", "Istanbul", "Turkey")),
+    )
+    .item(
+        kasapay::BasketItem::new("sku-1", "Kahve", Money::from_minor_units(1000, currency))
+            .category("Icecek"),
+    )
 }
 
 fn a_payment() -> PaymentId {
@@ -427,6 +453,84 @@ async fn a_refused_instrument_list_never_reaches_the_network() {
     }
 }
 
+/// `saved_instruments` is what a checkout reads before it offers "use my saved
+/// card". Getting it wrong costs a payer a button that does nothing, or a shop
+/// a payment it thinks it took and did not.
+///
+/// The pair that matters is the one that used to be impossible to state: an
+/// adapter handed an instrument either charges it or **refuses**. Ignoring the
+/// field and opening a hosted form instead would answer a request to spend a
+/// card on file with a redirect nobody is waiting for.
+#[tokio::test]
+async fn charging_a_saved_instrument_answers_the_flag_that_describes_it() {
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let capable = subject.provider.capabilities().saved_instruments;
+        let request = complete_request(subject.currency)
+            .instrument(InstrumentId::issued("instrument-1"))
+            .sequence(Sequence::Unattended)
+            .build()
+            .expect("valid request");
+
+        let error = subject
+            .provider
+            .charge(&request)
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+        assert_eq!(
+            error.provider(),
+            subject.provider.id(),
+            "{who} answered for somebody else"
+        );
+
+        if capable {
+            assert_ne!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} says it charges a saved instrument and then refuses to"
+            );
+            assert!(
+                subject.reached().await > 0,
+                "{who} says it charges a saved instrument and never asked"
+            );
+        } else {
+            assert_eq!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} cannot charge a saved instrument and did not say so"
+            );
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused a saved instrument only after sending something"
+            );
+        }
+    }
+}
+
+/// A request that names no instrument and asks for nothing unusual is the one
+/// every caller wrote before any of this existed. It must reach exactly what
+/// it reached before.
+#[tokio::test]
+async fn the_default_sequence_changes_nothing() {
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let request = complete_request(subject.currency)
+            .build()
+            .expect("valid request");
+        let error = subject
+            .provider
+            .charge(&request)
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+        assert_ne!(
+            error.kind(),
+            ErrorKind::Unsupported,
+            "{who} refuses an ordinary payment"
+        );
+    }
+}
+
 /// The rule that lets `Currency` be more than a handful: every currency it
 /// names is either one this adapter settles in — and the request goes to the
 /// provider — or one it refuses **before a socket opens**. What is never
@@ -445,32 +549,7 @@ async fn every_currency_is_either_settled_or_refused_before_the_wire() {
         let mut before = subject.reached().await;
 
         for currency in Currency::KNOWN.iter().copied() {
-            // Everything any provider asks for, so the currency is the only
-            // thing that can decide the answer. A request missing a field
-            // would be refused for the field instead, and this would be
-            // measuring nothing.
-            let request = ChargeRequest::builder(
-                OrderRef::new("ord-1"),
-                Money::from_minor_units(1000, currency),
-            )
-            .description("Order #1")
-            .customer("cus-1")
-            .return_url("https://merchant.test/ok".parse().expect("valid url"))
-            .failure_url("https://merchant.test/no".parse().expect("valid url"))
-            .buyer(
-                kasapay::Buyer::new("Ayse", "ayse@example.test")
-                    .surname("Yilmaz")
-                    .identity_number("11111111111")
-                    .phone("+905350000000")
-                    .ip("203.0.113.7")
-                    .address(kasapay::Address::new("Bagdat Cad. 1", "Istanbul", "Turkey")),
-            )
-            .item(
-                kasapay::BasketItem::new("sku-1", "Kahve", Money::from_minor_units(1000, currency))
-                    .category("Icecek"),
-            )
-            .build()
-            .expect("valid request");
+            let request = complete_request(currency).build().expect("valid request");
 
             let error = subject
                 .provider

@@ -5,7 +5,7 @@ use std::fmt;
 
 use url::Url;
 
-use crate::id::PaymentId;
+use crate::id::{InstrumentId, PaymentId};
 use crate::money::{Money, MoneyError};
 use crate::party::{Address, BasketItem, Buyer};
 use crate::provider::ProviderId;
@@ -49,6 +49,43 @@ impl IdempotencyKey {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+/// Where a payment sits in a series, and whether anybody is watching it.
+///
+/// One fact under two provider names: Stripe's `off_session` and Mollie's
+/// `sequenceType` are the same question asked differently — is the payer here,
+/// and does this charge establish a standing permission or spend one.
+///
+/// Deliberately exhaustive, for the reason [`Currency`](crate::Currency) is:
+/// it decides which call an adapter makes, so a fourth variant is one every
+/// adapter has to answer for rather than one a wildcard arm quietly maps onto
+/// the wrong request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Sequence {
+    /// The payer is here, finishing this payment themselves.
+    ///
+    /// The default, and what every provider is sent when nothing says
+    /// otherwise — so a caller who never touches this is unaffected.
+    #[default]
+    Present,
+    /// The payer is here, and this payment also establishes the standing
+    /// permission a later [`Sequence::Unattended`] one spends.
+    ///
+    /// Mollie's `sequenceType: first`, which creates a mandate. A provider
+    /// that cannot promise the same thing answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// sending an ordinary payment that might happen to leave a card behind:
+    /// what a caller asked for here is a guarantee, and a charge that quietly
+    /// does not give one is a subscription whose second month fails.
+    First,
+    /// Nobody is watching — a renewal, a retry, a scheduled charge.
+    ///
+    /// Stripe's `off_session: true` and Mollie's `sequenceType: recurring`.
+    /// It is what tells a provider not to expect anybody to answer a
+    /// challenge, and getting it wrong is a renewal that stalls at
+    /// [`Status::RequiresAction`] in the middle of the night.
+    Unattended,
 }
 
 /// Where a payment stands.
@@ -264,6 +301,25 @@ pub struct ChargeRequest {
     /// what every provider but PayTR takes anyway — PayTR requires two URLs,
     /// and sends the payer to whichever matches the outcome.
     pub failure_url: Option<Url>,
+    /// Which saved instrument to charge, out of
+    /// [`Provider::instruments`](crate::Provider::instruments).
+    ///
+    /// `None` is a payment that collects an instrument rather than spending
+    /// one — a hosted form, a redirect, a card typed in at the provider.
+    ///
+    /// `Some` needs [`ChargeRequest::customer`] beside it: every provider here
+    /// that can charge a saved instrument names it in two halves, the vault
+    /// and the thing in it. Which providers can is
+    /// [`Capabilities::saved_instruments`](crate::Capabilities::saved_instruments),
+    /// and one that cannot answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// ignoring the field and opening a form — a caller who asked to charge a
+    /// card on file and got a redirect has been told a payment is under way
+    /// that nobody is going to finish.
+    pub instrument: Option<InstrumentId>,
+    /// Whether the payer is here, and what this payment does to their standing
+    /// permission.
+    pub sequence: Sequence,
     /// The person paying, where the provider requires one.
     ///
     /// iyzico's classic API and PayTR both refuse a payment without a buyer;
@@ -300,6 +356,8 @@ impl ChargeRequest {
             description: None,
             return_url: None,
             failure_url: None,
+            instrument: None,
+            sequence: Sequence::Present,
             buyer: None,
             billing_address: None,
             shipping_address: None,
@@ -319,6 +377,8 @@ pub struct ChargeRequestBuilder {
     description: Option<Box<str>>,
     return_url: Option<Url>,
     failure_url: Option<Url>,
+    instrument: Option<InstrumentId>,
+    sequence: Sequence,
     buyer: Option<Buyer>,
     billing_address: Option<Address>,
     shipping_address: Option<Address>,
@@ -356,6 +416,25 @@ impl ChargeRequestBuilder {
     #[must_use]
     pub fn failure_url(mut self, url: Url) -> Self {
         self.failure_url = Some(url);
+        self
+    }
+
+    /// Charges an instrument the provider already holds, rather than
+    /// collecting one.
+    ///
+    /// Set [`ChargeRequestBuilder::customer`] too: the vault and the thing in
+    /// it are two halves of one name everywhere this works.
+    #[must_use]
+    pub fn instrument(mut self, instrument: InstrumentId) -> Self {
+        self.instrument = Some(instrument);
+        self
+    }
+
+    /// Says whether the payer is here, and what this payment does to their
+    /// standing permission.
+    #[must_use]
+    pub const fn sequence(mut self, sequence: Sequence) -> Self {
+        self.sequence = sequence;
         self
     }
 
@@ -419,6 +498,8 @@ impl ChargeRequestBuilder {
             description: self.description,
             return_url: self.return_url,
             failure_url: self.failure_url,
+            instrument: self.instrument,
+            sequence: self.sequence,
             buyer: self.buyer,
             billing_address: self.billing_address,
             shipping_address: self.shipping_address,

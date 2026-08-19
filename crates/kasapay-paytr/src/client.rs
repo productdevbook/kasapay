@@ -8,7 +8,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
-    RefundStatus, Status,
+    RefundStatus, Sequence, Status,
 };
 use url::Url;
 
@@ -557,6 +557,30 @@ impl PayTr {
     }
 }
 
+/// PayTR's hosted form does store a card, and nothing here can spend one.
+///
+/// Refused rather than ignored: a caller who asked to charge a card on file
+/// and got a redirect has been told a payment is under way that nobody is
+/// going to finish. [`Capabilities::saved_instruments`] is `false` and says so
+/// before the call.
+fn unattended(request: &ChargeRequest) -> Result<(), Error> {
+    if request.instrument.is_some() {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            "PayTR's form stores a card but nothing here signs a request against one",
+        ));
+    }
+    if request.sequence != Sequence::Present {
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYTR,
+            "PayTR documents no way to establish or spend a standing permission here",
+        ));
+    }
+    Ok(())
+}
+
 /// What PayTR requires that a [`ChargeRequest`] may not have been given.
 fn missing(field: &str) -> Error {
     Error::new(
@@ -656,6 +680,7 @@ impl Provider for PayTr {
     /// [`NextAction::Redirect`] to PayTR's form. `idempotency_key` is ignored;
     /// `merchant_oid` is what PayTR refuses to charge twice.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        unattended(request)?;
         let payment = payment(request)?;
         self.start_payment(&payment).await
     }

@@ -3,6 +3,51 @@
 What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
+## Unreleased
+
+### Added
+
+- **`Provider::charge` charges a saved instrument**, so a host billing a
+  subscription can hold `Arc<dyn Provider>` and never name the adapter. #160:
+  `Provider::instruments` listed a saved card and nothing charged one, so the
+  three crates that could — `iyzico::classic::Client::pay_with_saved_card`,
+  `Stripe::charge_saved_card`, `Mollie::charge_with_mandate` — were reachable
+  only by naming their own type, which is the one thing holding a
+  `dyn Provider` was for.
+
+  New on `ChargeRequest` and its builder: `instrument`, an `InstrumentId` out
+  of `Provider::instruments`, and `sequence`. Both optional; `Sequence`
+  defaults to `Present`, which sends exactly what was sent before, so no
+  existing caller changes.
+
+  New in `kasapay-core` and re-exported from `kasapay`: `Sequence`, with
+  `Present`, `First` and `Unattended`. Stripe's `off_session` and Mollie's
+  `sequenceType` are one question under two names — is the payer here, and
+  does this charge establish a standing permission or spend one.
+
+  `Capabilities::saved_instruments` now means something a caller can act on:
+  `true` says `charge` will honour `instrument`, `false` says it refuses.
+  Conformance walks the pair across all six clients. An adapter that cannot
+  charge one **refuses rather than ignoring the field** — a caller who asked
+  to spend a card on file and got a redirect has been told a payment is under
+  way that nobody is going to finish.
+
+  `Sequence::First` is Mollie's alone. iyzico's form saves a card only if the
+  payer ticks the box, and Stripe establishes a standing permission with
+  `setup_future_usage` or a SetupIntent, which this crate does not call; both
+  refuse rather than answering a request for a guarantee with an ordinary
+  payment that might happen to leave a card behind.
+
+### Fixed
+
+- **Two recorded reasons had gone stale.** `Provider::instruments` and
+  `kasapay-core`'s own crate documentation both said charging a saved
+  instrument stayed off the trait because iyzico wanted a buyer and a basket
+  beside the token. `ChargeRequest` has carried both since 0.0.5, so a third
+  of that sentence had been describing an older type. What is still each
+  adapter's own is *forgetting* an instrument, and the documentation now says
+  only that.
+
 ## 0.0.5 — 2026-08-19
 
 ### Added

@@ -8,7 +8,7 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Delivery, Error, ErrorKind, Event, EventId, EventKind,
     IdempotencyKey, Instrument, InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider,
-    ProviderId, Raw, RefundReason, RefundRequest, RefundStatus, Secret, Status, Webhook,
+    ProviderId, Raw, RefundReason, RefundRequest, RefundStatus, Secret, Sequence, Status, Webhook,
 };
 use url::Url;
 
@@ -1185,7 +1185,46 @@ impl Provider for Mollie {
     ///
     /// The payment is captured automatically. [`Mollie::authorize`] is the one
     /// that holds the funds instead.
+    /// # A saved mandate, and where a payment sits in a series
+    ///
+    /// [`ChargeRequest::instrument`] is a mandate Mollie already holds, and
+    /// this is then [`Mollie::charge_with_mandate`] — no redirect comes back,
+    /// because there is nobody to send anywhere.
+    ///
+    /// [`Sequence::First`] with no instrument is [`Mollie::charge_first`],
+    /// which establishes the mandate a later charge spends. It still
+    /// redirects.
+    ///
+    /// Mollie has one word, `recurring`, for charging a mandate whether or not
+    /// the payer is watching, so [`Sequence::Present`] and
+    /// [`Sequence::Unattended`] send the same request when an instrument is
+    /// named. Nothing is lost: what the caller asked for is that mandate
+    /// charged, and Mollie charges it. [`Sequence::First`] *with* an
+    /// instrument is refused rather than guessed at — establishing a mandate
+    /// and spending one are two different requests and that asks for both.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        match (request.instrument.as_ref(), request.sequence) {
+            (Some(mandate), Sequence::Present | Sequence::Unattended) => {
+                return self.charge_with_mandate(request, mandate).await;
+            }
+            (Some(_), Sequence::First) => {
+                return Err(Error::new(
+                    ErrorKind::InvalidRequest,
+                    MOLLIE,
+                    "a first payment establishes a mandate and cannot also spend one; \
+                     drop ChargeRequest::instrument or ask for Sequence::Present",
+                ));
+            }
+            (None, Sequence::First) => return self.charge_first(request).await,
+            (None, Sequence::Unattended) => {
+                return Err(Error::new(
+                    ErrorKind::InvalidRequest,
+                    MOLLIE,
+                    "an unattended payment spends a mandate; set ChargeRequest::instrument",
+                ));
+            }
+            (None, Sequence::Present) => {}
+        }
         self.create(request, None, None, None).await
     }
 

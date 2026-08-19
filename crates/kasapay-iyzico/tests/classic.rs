@@ -9,7 +9,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
     Currency, ErrorKind, IdempotencyKey, InstrumentId, Money, NextAction, OrderRef, PaymentId,
-    Provider, RefundReason, RefundRequest, RefundStatus, Status,
+    Provider, RefundReason, RefundRequest, RefundStatus, Sequence, Status,
 };
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{
@@ -382,6 +382,16 @@ fn saved_payment() -> saved::Payment {
 
 /// The body iyzico is sent, with the two handles where a card would be.
 fn saved_card_body() -> serde_json::Value {
+    saved_card_body_for("buyer-1")
+}
+
+/// The same, for a buyer iyzico is given a different merchant id for.
+///
+/// `Provider::charge` has one field for a payer and iyzico wants two ids, so
+/// it sends `ChargeRequest::customer` as both the `cardUserKey` and the
+/// buyer's own id. Everything else is byte for byte what the concrete call
+/// sends, which is what makes comparing the two worth anything.
+fn saved_card_body_for(buyer_id: &str) -> serde_json::Value {
     json!({
         "locale": "tr",
         "conversationId": "ord-1",
@@ -394,7 +404,7 @@ fn saved_card_body() -> serde_json::Value {
             "cardToken": "card-token-1",
         },
         "buyer": {
-            "id": "buyer-1", "name": "Ayse", "surname": "Yilmaz",
+            "id": buyer_id, "name": "Ayse", "surname": "Yilmaz",
             "identityNumber": "11111111111", "email": "ayse@example.test",
             "gsmNumber": "+905350000000", "registrationAddress": "Bagdat Cad. 1",
             "city": "Istanbul", "country": "Turkey",
@@ -429,6 +439,115 @@ fn saved_card_response(fraud_status: i64) -> serde_json::Value {
         // HMAC-SHA256("12345678:TRY:ord-1:ord-1:149.9:149.9", "secret-key")
         "signature": "d5595c2f02e49a4e81dd1cdc9b03d2b9d9bd90910b9f6ab004abfce1247b5440",
     })
+}
+
+/// The same call through the trait, which is what #160 asked for: a host
+/// billing a subscription holds `Arc<dyn Provider>` and never names iyzico.
+///
+/// The body matcher is the same one the concrete call is pinned against, so
+/// this passing means the two produce the same request rather than two
+/// requests that both happen to work.
+#[tokio::test]
+async fn the_trait_charges_the_same_stored_card() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .and(body_json(saved_card_body_for("card-user-key-1")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(saved_card_response(1)))
+        .mount(&server)
+        .await;
+
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .customer("card-user-key-1")
+    .instrument(InstrumentId::issued("card-token-1"))
+    .sequence(Sequence::Unattended)
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request");
+
+    let charge = client(&server)
+        .charge(&request)
+        .await
+        .expect("the stored card is charged");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.id, Some(PaymentId::issued("12345678")));
+    // No form, no redirect: the money is taken in the one call.
+    assert!(charge.next_action.is_none());
+}
+
+/// iyzico's form saves a card only if the payer ticks the box. Answering a
+/// request for a standing permission with a maybe is worse than refusing it,
+/// so this never reaches the wire.
+#[tokio::test]
+async fn a_first_payment_is_refused_because_iyzico_promises_nothing() {
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/callback".parse().expect("valid url"))
+    .customer("card-user-key-1")
+    .sequence(Sequence::First)
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("iyzico cannot promise a card will be there next time");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// A token with no vault to look it up in is half a name, and iyzico wants
+/// both halves.
+#[tokio::test]
+async fn a_stored_card_with_no_card_user_key_never_reaches_the_wire() {
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let request = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .instrument(InstrumentId::issued("card-token-1"))
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("a cardToken names nothing without its cardUserKey");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert!(error.to_string().contains("cardUserKey"), "{error}");
 }
 
 #[tokio::test]
