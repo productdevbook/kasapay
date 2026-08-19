@@ -9,8 +9,9 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
 
-# Every cargo call here is `--locked`: the tree that is checked is the one in
-# `Cargo.lock` and nothing else, so a red run can be reproduced by whoever
+# Every cargo call here is `--locked` bar one — `cargo hack --no-dev-deps`
+# rewrites the manifests it checks — so the tree that is checked is the one in
+# `Cargo.lock` and nothing else, and a red run can be reproduced by whoever
 # reads it. A pull request that changes a dependency fails here until the
 # **Lockfile** workflow has resolved the tree again — which is the point, and
 # is the only place that command runs. See CLAUDE.md.
@@ -109,4 +110,8 @@ jobs:
       - uses: taiki-e/install-action@68250fb3d551d72befef105162372ebb3e8016e0 # cargo-hack
         with:
           tool: cargo-hack
-      - run: cargo hack check --locked --each-feature --no-dev-deps --workspace
+      # The one job without `--locked`, and it cannot have it: `--no-dev-deps`
+      # rewrites every manifest to drop dev-dependencies, which changes what
+      # resolves, which is exactly what `--locked` refuses. The lockfile is
+      # still what the other five check.
+      - run: cargo hack check --each-feature --no-dev-deps --workspace

@@ -105,8 +105,9 @@ fmt, clippy with warnings denied, nextest, doctests, the MSRV check and the
 feature matrix. If something is wrong it is wrong there, and the next commit
 is the fix.
 
-`Cargo.lock` is committed, every cargo call in CI is `--locked`, and the
-lockfile is written by CI rather than here.
+`Cargo.lock` is committed, every cargo call in CI is `--locked` bar the feature
+matrix — `cargo hack --no-dev-deps` rewrites the manifests, which is what
+`--locked` refuses — and the lockfile is written by CI rather than here.
 `cargo generate-lockfile` resolves dependencies and compiles nothing, which is
 cheap — but the rule is "cargo fmt only" rather than "only what is cheap", so
 the **Lockfile** workflow is what runs it: by hand after a dependency changes,
