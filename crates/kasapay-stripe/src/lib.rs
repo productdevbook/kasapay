@@ -13,7 +13,8 @@
 //!   [`NextAction::ConfirmOnClient`](kasapay_core::NextAction::ConfirmOnClient)
 //!   carrying the `client_secret` for Stripe.js.
 //! - [`Stripe::refund`] gives money back, and [`Stripe::cancel`] withdraws a
-//!   payment that was never captured. Neither is on the shared trait yet.
+//!   payment that was never captured. Both are on the shared trait, so a
+//!   caller holding `dyn Provider` reaches them without naming Stripe.
 //! - A refunded PaymentIntent still reads `succeeded`, so how much of a
 //!   payment has been given back is [`Stripe::refunds`] summed rather than a
 //!   status to read.

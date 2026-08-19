@@ -37,7 +37,7 @@
 //!   the same split `kasapay_mollie::Mollie::refund` draws between a
 //!   payment and its capture. Whole or partial, and repeatable up to what
 //!   was captured.
-//! - **No shipping/items, no webhooks, no PATCH, no listing refunds.** The
+//! - **No shipping/items, no PATCH, no listing refunds.** The
 //!   Orders and Payments APIs together are well over sixty operations across
 //!   create/read/update, confirm, capture, authorize, void, reauthorize,
 //!   refund and package tracking; this crate maps eight.

@@ -50,6 +50,21 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **Eight published claims that a crate could not do something it now does**
+  (#171). Every one was accurate when written and went stale underneath: Mollie
+  and PayPal saying they have no webhooks, when both implement `Webhook`;
+  Stripe saying `refund` and `cancel` are not on the shared trait, when both
+  are; PayPal saying it never creates an order with `intent: AUTHORIZE`, when
+  `PayPal::authorize` is exactly that; iyzico saying it signs no callback
+  anywhere, when its own `Signed::Callback` names the fields of one.
+
+  Four counts went with them. `kasapay-iyzico`'s crate docs said fifty-seven
+  operations were implemented *"which `python3 scripts/coverage.py` counts
+  rather than anybody remembering"* — and that tool says 88 of 96. The numbers
+  are gone rather than corrected: a count in prose is wrong the moment a module
+  lands, and the docs now name where to get it. Two more said six currencies
+  were refused, which has been 116 since `Currency` grew to 119.
+
 - **`Provider::lookup` could answer `Status::Captured` with a zero amount for a
   payment iyzico had really taken** (#166). `reporting`'s parse answers `None`
   both for an amount iyzico never sent and for one it sent that this crate

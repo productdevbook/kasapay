@@ -411,7 +411,8 @@ impl From<&str> for PlanPaymentType {
 /// That is narrower than the rest of iyzico, and narrower than one part of it
 /// this crate already speaks: an [iyzico Link](crate::iyzilink) is documented
 /// in seven currencies, roubles, francs and kroner among them, and a plan in
-/// three. So the other six are refused here rather than sent — being a
+/// three. So every other currency `Currency` names is refused here rather
+/// than sent — being a
 /// currency [`Currency`] can name is not the same as being one iyzico will
 /// take a subscription in.
 fn plan_currency(currency: Currency) -> Result<(), PlanError> {

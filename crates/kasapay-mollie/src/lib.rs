@@ -76,8 +76,9 @@
 //! So the body of a webhook is not information. It is a prompt to call
 //! [`charge_status`](kasapay_core::Provider::charge_status) with that id and
 //! believe the answer, which arrives over TLS from Mollie's own host. Two
-//! things follow for whoever writes the handler, and neither is done by this
-//! crate:
+//! things follow for whoever writes the handler, the first of which
+//! [`Mollie`]'s own [`Webhook::verify`](kasapay_core::Webhook::verify) does
+//! for them:
 //!
 //! - **Act on nothing in the request but the id.** An amount, a status or an
 //!   order reference posted to that address is whatever the sender typed.
@@ -90,9 +91,12 @@
 //! handler that returns 500 while it works out what to do is one Mollie will
 //! call again.
 //!
-//! Verifying a signature there is nothing to verify is not what this crate is
-//! missing — [`kasapay_core`] has no webhook type yet, and Mollie would have
-//! nothing to put in one.
+//! So [`Webhook::verify`](kasapay_core::Webhook::verify) here does not check a
+//! signature — there is none to check. It reads the id out of the form body
+//! and asks Mollie what that payment is, which is the only thing about a
+//! Mollie delivery that can be trusted, and answers an
+//! [`Event`](kasapay_core::Event) built from the answer rather than from the
+//! request.
 //!
 //! # Nothing here says a payment was refunded
 //!
