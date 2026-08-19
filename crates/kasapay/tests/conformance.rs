@@ -643,6 +643,15 @@ async fn the_default_sequence_changes_nothing() {
 /// This is the proof that replaced that prohibition. It costs one pass over a
 /// hundred-odd currencies per adapter and it is the only reason widening the
 /// enum is safe.
+///
+/// # What this does not prove
+///
+/// That the code on the wire is the one asked for. Providers spell them
+/// differently — PayTR writes lira as `TL` — so checking the spelling is each
+/// adapter's own test, and several have one. What this asserts is the property
+/// the enum's own documentation rests on: every currency is either refused
+/// before a socket opens or sent to the provider, and never settled in
+/// silence.
 #[tokio::test]
 async fn every_currency_is_either_settled_or_refused_before_the_wire() {
     for subject in every_adapter().await {
@@ -673,6 +682,14 @@ async fn every_currency_is_either_settled_or_refused_before_the_wire() {
                 );
                 refused += 1;
             } else {
+                // The half this branch used to leave unasserted. An adapter
+                // that settled a currency without sending anything would have
+                // counted here and passed, which is exactly the silence the
+                // refusal branch above exists to forbid.
+                assert!(
+                    after > before,
+                    "{who} neither refused {currency} nor sent anything for it"
+                );
                 settled += 1;
             }
             before = after;

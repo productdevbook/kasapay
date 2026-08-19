@@ -46,7 +46,9 @@ macro_rules! currencies {
         /// something is the thing that was never allowed; refusing it before a
         /// socket opens is the thing this type exists for, and
         /// `crates/kasapay/tests/conformance.rs` walks every variant here past
-        /// every adapter to prove each one does one or the other.
+        /// every adapter to prove each one does one or the other. What it does
+        /// not prove is which code went out: providers spell them differently,
+        /// and that is each adapter's own test.
         ///
         /// The list came from ISO 4217 as the `iso-codes` dataset publishes
         /// it, intersected with the currencies `async-stripe` names, on
