@@ -228,6 +228,21 @@ Implement `Provider` in a `kasapay-<name>` crate, add a spec fetcher under
 `scripts/`, add a feature to `kasapay`. Tests run against `wiremock`; no
 credentials, no network.
 
+## What is read off a document rather than observed
+
+Nothing here has been run against a live account, and
+[`UNVERIFIED.md`](UNVERIFIED.md) is the list of places where that matters: a
+status iyzico infers rather than states, a field their prose and their schema
+spell differently, a PayTR response nobody has ever seen the shape of. Each
+entry says what the library does today, why the reading might be wrong, and the
+one call that would settle it.
+
+Where being wrong could take money twice or refund it twice, the implementation
+takes the side that fails loudly or does nothing at all — sending both spellings
+of an optional field, refusing an idempotency key rather than dropping it,
+reporting a payment as pending rather than paid. That is what makes the list a
+set of readings to confirm rather than a set of bugs.
+
 ## Examples
 
 `crates/kasapay/examples/` — a Stripe charge and refund, an iyzico hosted
