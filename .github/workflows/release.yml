@@ -1,7 +1,10 @@
 name: Release
 
-# Publishes to crates.io from CI, never from a developer's machine. Runs only
-# when a tag is pushed, so a release is always a deliberate act.
+# Publishes to crates.io from CI, never from a developer's machine. Runs for a
+# tag, so a release is always a deliberate act — either the tag push itself, or
+# Cut a release dispatching this at the tag it has just pushed, which is what
+# actually happens: a tag pushed by a workflow's own GITHUB_TOKEN starts no
+# other workflow, by design.
 #
 # Needs a CARGO_REGISTRY_TOKEN repository secret with publish-new-crates and
 # publish-update scopes.
@@ -48,12 +51,18 @@ jobs:
       # telling of it, because two accounts of one release drift and the
       # changelog is the one that says what an upgrade costs. No section for
       # this tag fails the step rather than publishing an empty note.
+      #
+      # The condition is "something was published", not "this was a tag push".
+      # Cut a release dispatches this workflow rather than relying on its own
+      # tag push to start it — a tag pushed with GITHUB_TOKEN starts nothing —
+      # so keying the note on the event name published 0.0.3 to crates.io and
+      # left GitHub with no release at all.
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || inputs.dry_run == false
         with:
           python-version: "3.13"
       - name: Write the release note from the changelog
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || inputs.dry_run == false
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

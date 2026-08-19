@@ -26,6 +26,10 @@ on:
 
 permissions:
   contents: write
+  # To dispatch Release at the tag this pushes. A tag pushed with GITHUB_TOKEN
+  # does not start a workflow on its own — GitHub's guard against recursion —
+  # so without this the tag lands and nothing publishes.
+  actions: write
 
 jobs:
   cut:
@@ -124,3 +128,17 @@ jobs:
           git commit -am "chore: release $VERSION"
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin main "refs/tags/v$VERSION"
+
+      # `release.yml` listens for a tag push and will not hear this one: a tag
+      # pushed with GITHUB_TOKEN starts no workflow, which is GitHub's guard
+      # against a workflow triggering itself for ever. A dispatch is the
+      # documented exception, so this asks for the run the tag cannot.
+      #
+      # It is not a formality. 0.0.3 was published by hand because this step
+      # did not exist and nobody noticed the tag had started nothing.
+      - name: Start the release for the tag
+        if: inputs.dry_run == false
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref "v$VERSION" -f dry_run=false
