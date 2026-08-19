@@ -153,10 +153,18 @@ itself to a gitignored path when somebody needs to read it. Do not commit one.
 
 iyzico's side is a sweep of their entire documentation site in both languages —
 96 operations across 11 groups, one file each, grouped by API path rather than
-by documentation URL. `kasapay-iyzico` implements four of them. Before adding an
-endpoint, read that group's `latest.yaml` and the `notes` for it in the dated
-index rather than the documentation page: neither language documents everything,
-and where they overlap they sometimes disagree.
+by documentation URL. Before adding an endpoint, read that group's
+`latest.yaml` and the `notes` for it in the dated index rather than the
+documentation page: neither language documents everything, and where they
+overlap they sometimes disagree.
+
+How many of the 96 are implemented is not written here, because a number in
+prose is wrong the moment a module lands. `python3 scripts/coverage.py` counts
+it from the endpoint strings the code actually calls, and answers two lists
+that matter more than the total: an operation nothing calls and nothing
+explains, and an explanation that no longer describes anything. Both are work.
+The eight it does not reach today are six that take a card number and two that
+are twins of something already implemented.
 
 The specs carry only what iyzico states. Most operations document no
 authentication at all, and that absence is recorded rather than filled in — if

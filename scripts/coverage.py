@@ -3,8 +3,13 @@
     python3 scripts/coverage.py
 
 For iyzico this is a command instead of a hand count, because a hand count is
-wrong the moment a module lands: issue #8 has had its title edited five times
-in one day, each time by someone re-counting `pub async fn` and hoping.
+wrong the moment a module lands — the issue that once tracked it had its title
+edited five times in one day, each time by someone re-counting `pub async fn`
+and hoping.
+
+What it answers is not a number. It is two lists: operations nothing calls and
+nothing here explains, and explanations that no longer describe anything.
+Either one is work. A total that has not moved is not.
 
 ## What "documented" means
 
@@ -414,6 +419,24 @@ def match_iyzico(
 # Reporting
 # ---------------------------------------------------------------------------
 
+# Every documented iyzico operation this workspace does not call, and why.
+#
+# The point of writing them down is the two lists this produces: one for an
+# operation that is unreached and has no reason here, and one for a reason that
+# no longer describes anything. A number on its own says neither. It used to
+# compare against a count in issue #8, which is closed — a claim measured
+# against a closed issue is the one most trusted and the most quietly false.
+NOT_REACHED_ON_PURPOSE: dict[tuple[str, str, str], str] = {
+    ("cardstorage", "POST", "/cardstorage/card"): "takes a card number",
+    ("in-store", "POST", "/v2/in-store/crypt/decrypt"): "App2App V2; this client is V3 throughout",
+    ("in-store", "POST", "/v3/in-store/payment/query"): "the POST twin of the GET that is implemented",
+    ("payment", "POST", "/payment/3dsecure/initialize"): "takes a card number",
+    ("payment", "POST", "/payment/3dsecure/initialize/preauth"): "takes a card number",
+    ("payment", "POST", "/payment/3dsecure/auth"): "finishes a flow only the initialize above can start",
+    ("payment", "POST", "/payment/v2/3dsecure/auth"): "finishes a flow only the initialize above can start",
+    ("subscription", "POST", "/v2/subscription/initialize"): "takes a card number",
+}
+
 
 def print_iyzico_report() -> int:
     documented = documented_iyzico()
@@ -440,18 +463,37 @@ def print_iyzico_report() -> int:
             print(f"    {method:<7}{route}")
         print()
 
-    claimed = 42
-    print(f"## against issue #8's claim of {claimed}\n")
-    if total_impl == claimed:
-        print(f"Agrees: {total_impl} of {total_doc}.")
-    else:
-        print(f"Disagrees: this script counts {total_impl} of {total_doc}, issue #8 says {claimed}.")
-        print(
-            "The difference is worth reading as a diff, not a verdict — a hand count and a"
-            " heuristic can each be wrong in different directions. Rerun with the evidence"
-            " below to see which operations moved."
-        )
+    print("## what is not reached, and why\n")
+    unreached = {
+        (area, method, route)
+        for area, ops in documented.items()
+        for method, route in ops
+        if (area, method, route) not in matched
+    }
+    unaccounted = sorted(unreached - set(NOT_REACHED_ON_PURPOSE))
+    stale = sorted(set(NOT_REACHED_ON_PURPOSE) - unreached)
+
+    for key in sorted(unreached & set(NOT_REACHED_ON_PURPOSE)):
+        _, method, route = key
+        print(f"    {method:<7}{route:<45}{NOT_REACHED_ON_PURPOSE[key]}")
     print()
+
+    if unaccounted:
+        print(f"Unaccounted for ({len(unaccounted)}) — either implement it or say why here:")
+        for _, method, route in unaccounted:
+            print(f"    {method:<7}{route}")
+        print()
+    if stale:
+        print(f"Accounted for but now reached ({len(stale)}) — drop the entry:")
+        for _, method, route in stale:
+            print(f"    {method:<7}{route}")
+        print()
+    if not unaccounted and not stale:
+        print(
+            f"{total_impl} of {total_doc} reached; the other {len(unreached)} are all"
+            " accounted for above."
+        )
+        print()
     print("Evidence, one call site per matched operation (first match only):")
     for key in sorted(matched):
         area, method, route = key
