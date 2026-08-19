@@ -364,6 +364,22 @@ impl Provider for Client {
         )
     }
 
+    /// Always [`ErrorKind::Unsupported`]: the callback carries more than the
+    /// token.
+    ///
+    /// The `continuation` this API hands over is the `paymentSessionToken`,
+    /// and it is genuinely needed — but iyzico posts the outcome as an
+    /// encrypted blob to the `x-callback-url`, and opening it needs that body
+    /// as well. [`Client::decrypt_callback`] takes both.
+    async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "iyzico posts the callback as an encrypted blob, and opening it needs that body \
+             as well as the session token; call Client::decrypt_callback",
+        ))
+    }
+
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         let numeric = numeric_payment_id(id)?;
         let request = self
@@ -539,6 +555,8 @@ impl Provider for Client {
             repeated_refund: false,
             // payment/query takes iyzico's own paymentId and nothing else.
             lookup_by_order: false,
+            // decrypt_callback needs the encrypted body too, not only the token.
+            resume_by_continuation: false,
             // The payer taps a card at a counter; there is no vault in this API.
             saved_instruments: false,
         }

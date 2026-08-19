@@ -1233,6 +1233,20 @@ impl Provider for PayPal {
         self.create_order(request).await
     }
 
+    /// Always [`ErrorKind::Unsupported`]: PayPal names an order as it creates
+    /// one, so there is no token to resume from.
+    ///
+    /// [`Provider::charge_status`] on the [`Charge::id`] the order came back
+    /// with is what reads it, and [`Provider::capture`] is what takes the
+    /// money once the payer has approved.
+    async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYPAL,
+            "PayPal names an order when it opens one; read it back with Provider::charge_status",
+        ))
+    }
+
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         self.order(id).await
     }
@@ -1397,6 +1411,7 @@ impl Provider for PayPal {
             partial_refund: true,
             repeated_refund: true,
             lookup_by_order: false,
+            resume_by_continuation: false,
             saved_instruments: false,
         }
     }

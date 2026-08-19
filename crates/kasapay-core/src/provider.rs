@@ -86,6 +86,16 @@ pub struct Capabilities {
     /// caller whose request timed out has nothing to ask and must rely on
     /// whatever idempotency the provider offers instead.
     pub lookup_by_order: bool,
+    /// [`Provider::resume`] can read back a flow by the token
+    /// [`NextAction::Redirect`](crate::NextAction::Redirect) handed over,
+    /// without the payment ever having been named.
+    ///
+    /// What a caller reads when the payer comes back from a hosted form. False
+    /// does not mean the flow cannot be finished — it means the provider named
+    /// the payment when it opened the flow, so
+    /// [`Provider::charge_status`] is what finishes it and the continuation is
+    /// not needed. True is the case that has no payment id yet at all.
+    pub resume_by_continuation: bool,
     /// An instrument [`Provider::instruments`] lists can be charged, through a
     /// call of this adapter's own — with the payer entering nothing.
     ///
@@ -145,6 +155,38 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// everywhere is the one carrying what the strictest provider asks, and
     /// swapping to a laxer one costs nothing: the extra fields are ignored.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error>;
+
+    /// Finishes a flow [`Provider::charge`] started, by the token it handed
+    /// over.
+    ///
+    /// # The one call that needs it
+    ///
+    /// A hosted form the payer has not finished is not a payment: the provider
+    /// has nothing to name it by, so [`Charge::id`] is `None` and
+    /// [`Provider::charge_status`] has nothing to take. What it does have is
+    /// the `continuation` on
+    /// [`NextAction::Redirect`](crate::NextAction::Redirect), and this is the
+    /// call that takes one.
+    ///
+    /// # How a caller decides which to use, without naming a provider
+    ///
+    /// [`Capabilities::resume_by_continuation`]. True is a provider that names
+    /// the payment only once the payer is done, so the continuation is the
+    /// only handle there is and this is what reads it. False is a provider
+    /// that named the payment when it opened the flow, so
+    /// [`Provider::charge_status`] finishes it and this answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) saying so.
+    ///
+    /// # It finishes what `charge` started, and nothing else
+    ///
+    /// Not every flow an adapter can open comes back through here. iyzico's
+    /// classic API has one result endpoint for a form that takes the money and
+    /// a form that holds it, and its answer does not say which was opened — so
+    /// reading a hold back through the wrong one writes a sale into a ledger
+    /// for money nobody has taken. [`Provider::charge`] opens the form that
+    /// takes the money, this reads that one back, and a hold opened by the
+    /// adapter's own call is read back by the adapter's own call.
+    async fn resume(&self, continuation: &str) -> Result<Charge, Error>;
 
     /// Reads a charge back.
     ///

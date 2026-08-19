@@ -1189,6 +1189,19 @@ impl Provider for Mollie {
         self.create(request, None, None, None).await
     }
 
+    /// Always [`ErrorKind::Unsupported`]: Mollie names a payment as it opens
+    /// one, so there is no token to resume from.
+    ///
+    /// [`Provider::charge_status`] on the [`Charge::id`] the payment came back
+    /// with is what finishes a Mollie redirect.
+    async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            MOLLIE,
+            "Mollie names a payment when it opens one; read it back with Provider::charge_status",
+        ))
+    }
+
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         let raw = self
             .send(
@@ -1350,6 +1363,7 @@ impl Provider for Mollie {
             partial_refund: true,
             repeated_refund: true,
             lookup_by_order: false,
+            resume_by_continuation: false,
             saved_instruments: true,
         }
     }

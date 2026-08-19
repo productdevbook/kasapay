@@ -331,6 +331,51 @@ async fn lookup_answers_the_flag_that_describes_it() {
     }
 }
 
+/// `resume_by_continuation` is what a caller reads when the payer comes back
+/// from a hosted form, to decide between the token it kept and the payment id
+/// it may not have. Getting it wrong is a shop that cannot tell whether it was
+/// paid.
+#[tokio::test]
+async fn resume_answers_the_flag_that_describes_it() {
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let capable = subject.provider.capabilities().resume_by_continuation;
+        let error = subject
+            .provider
+            .resume("continuation-1")
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+
+        assert_eq!(
+            error.provider(),
+            subject.provider.id(),
+            "{who} answered for somebody else"
+        );
+        if capable {
+            assert_ne!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} says it resumes by continuation and then refuses to"
+            );
+            assert!(
+                subject.reached().await > 0,
+                "{who} says it resumes by continuation and never asked"
+            );
+        } else {
+            assert_eq!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} cannot resume by continuation and did not say so"
+            );
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused a resume only after sending it"
+            );
+        }
+    }
+}
+
 /// A refusal that costs a request costs a timeout too, in the retry path where
 /// that matters most.
 #[tokio::test]

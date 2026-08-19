@@ -432,6 +432,20 @@ impl Provider for Stripe {
         into_charge(&intent)
     }
 
+    /// Always [`ErrorKind::Unsupported`]: Stripe names a PaymentIntent as it
+    /// creates one, so there is no token to resume from.
+    ///
+    /// [`Provider::charge_status`] on the [`Charge::id`] the intent came back
+    /// with is what finishes a Stripe redirect.
+    async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "Stripe names a PaymentIntent when it opens one; read it back with \
+             Provider::charge_status",
+        ))
+    }
+
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         let intent = RetrievePaymentIntent::new(id.as_str().to_owned())
             .customize()
@@ -570,6 +584,7 @@ impl Provider for Stripe {
             partial_refund: true,
             repeated_refund: true,
             lookup_by_order: false,
+            resume_by_continuation: false,
             saved_instruments: true,
         }
     }

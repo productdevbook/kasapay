@@ -60,6 +60,28 @@ impl Provider for Kumbara {
         })
     }
 
+    /// Kumbara's redirect hands over a session token, and this is what takes
+    /// it back — the flow a hosted form has, without naming a provider.
+    async fn resume(&self, continuation: &str) -> Result<Charge, Error> {
+        if continuation != "kmb-session" {
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                Self::ID,
+                "kumbara has no session by that name",
+            ));
+        }
+        Ok(Charge {
+            id: Some(PaymentId::issued("kmb_ord-1")),
+            order: Some(OrderRef::new("ord-1")),
+            amount: Money::from_minor_units(1000, Currency::Try),
+            order_amount: None,
+            status: Status::Captured,
+            next_action: None,
+            provider: Self::ID,
+            raw: Raw::from_text(r#"{"provider":"kumbara"}"#),
+        })
+    }
+
     async fn charge_status(&self, id: &PaymentId) -> Result<Charge, Error> {
         let mut seen = self.seen.lock().expect("the mutex is not poisoned");
         let settled = seen.iter().any(|s| s == id.as_str());
@@ -155,6 +177,7 @@ impl Provider for Kumbara {
             separate_capture: true,
             partial_capture: true,
             lookup_by_order: true,
+            resume_by_continuation: true,
             ..Capabilities::default()
         }
     }
@@ -329,6 +352,10 @@ impl Provider for Yastik {
             provider: Self::ID,
             raw: Raw::default(),
         })
+    }
+
+    async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
+        Err(Self::unnamed())
     }
 
     async fn charge_status(&self, _id: &PaymentId) -> Result<Charge, Error> {
