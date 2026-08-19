@@ -109,10 +109,11 @@
 //!
 //! [`Provider::instruments`] lists what a customer has on file — every
 //! adapter answers the same shape, an [`Instrument`] carrying the identity and
-//! something to show a person choosing between them. Charging one is not:
-//! iyzico wants a buyer and a basket beside the token, Stripe an
-//! `off_session` flag, Mollie a `sequenceType`, so that call stays each
-//! adapter's own.
+//! something to show a person choosing between them. Charging one is
+//! [`Provider::charge`] with [`ChargeRequest::instrument`] set beside
+//! [`ChargeRequest::customer`], the two halves of the name, and
+//! [`Capabilities::saved_instruments`] says which providers can. Whether the
+//! payer is there for it is [`Sequence`].
 //!
 //! # Amounts
 //!
@@ -138,7 +139,7 @@ mod webhook;
 #[doc(inline)]
 pub use crate::charge::{
     Charge, ChargeRequest, ChargeRequestBuilder, ChargeRequestError, IdempotencyKey, NextAction,
-    OrderRef, Status,
+    OrderRef, Sequence, Status,
 };
 #[doc(inline)]
 pub use crate::error::{Error, ErrorKind};

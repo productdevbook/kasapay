@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Instrument, Money,
     NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundReason, RefundRequest,
-    RefundStatus, Secret, Status,
+    RefundStatus, Secret, Sequence, Status,
 };
 use url::Url;
 
@@ -1229,7 +1229,31 @@ impl Provider for PayPal {
     }
 
     /// Creates an order with `intent: CAPTURE`, through [`PayPal::create_order`].
+    /// # No vault reachable from here
+    ///
+    /// PayPal holds a payer's funding instruments and this crate has no call
+    /// that lists or charges one, so [`ChargeRequest::instrument`] and any
+    /// [`Sequence`] but [`Sequence::Present`] are
+    /// [`ErrorKind::Unsupported`] — refused rather than ignored, because a
+    /// caller who asked to charge something on file and got a redirect has
+    /// been told a payment is under way that nobody is going to finish.
+    /// [`Capabilities::saved_instruments`] is `false` and says so before the
+    /// call.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        if request.instrument.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PAYPAL,
+                "nothing in this crate lists or charges a PayPal funding instrument",
+            ));
+        }
+        if request.sequence != Sequence::Present {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PAYPAL,
+                "nothing in this crate establishes or spends a PayPal billing agreement",
+            ));
+        }
         self.create_order(request).await
     }
 

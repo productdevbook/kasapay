@@ -7,7 +7,7 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, Instrument, InstrumentId, Money,
     NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundId, RefundReason,
-    RefundRequest, RefundStatus, Secret,
+    RefundRequest, RefundStatus, Secret, Sequence,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_client_core::{RequestBuilder, StripeMethod};
@@ -395,7 +395,61 @@ impl Provider for Stripe {
         convert::PROVIDER
     }
 
+    /// # A saved card, and whether the payer is watching
+    ///
+    /// [`ChargeRequest::instrument`] is a `pm_…` Stripe already holds, and
+    /// this is then [`Stripe::charge_saved_card`] — confirmed in the same
+    /// call, so no `client_secret` comes back to confirm in a browser.
+    /// [`ChargeRequest::customer`] has to be set beside it: Stripe refuses a
+    /// `payment_method` attached to a different customer than the one named.
+    ///
+    /// [`Sequence::Unattended`] is Stripe's `off_session: true` — what tells
+    /// it nobody is there to answer a challenge. [`Sequence::Present`] is the
+    /// same call without it.
+    ///
+    /// [`Sequence::First`] is [`ErrorKind::Unsupported`]. Stripe establishes a
+    /// standing permission with `setup_future_usage` or a SetupIntent, and
+    /// this crate calls neither — sending an ordinary payment instead would
+    /// answer a request for a guarantee with something that does not give one.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        if request.sequence == Sequence::First {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                convert::PROVIDER,
+                "Stripe establishes a standing permission with setup_future_usage or a \
+                 SetupIntent, and this crate calls neither",
+            ));
+        }
+        if let Some(instrument) = &request.instrument {
+            let customer = request.customer.as_deref().ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    convert::PROVIDER,
+                    "Stripe refuses a payment_method attached to another customer; set \
+                     ChargeRequest::customer",
+                )
+            })?;
+            let mut payment = saved::Payment::builder(
+                request.order.clone(),
+                request.amount,
+                customer,
+                instrument.clone(),
+            );
+            if request.sequence == Sequence::Unattended {
+                payment = payment.off_session();
+            }
+            if let Some(description) = &request.description {
+                payment = payment.description(description.clone());
+            }
+            if let Some(key) = &request.idempotency_key {
+                payment = payment.idempotency_key(key.clone());
+            }
+            let payment = payment.build().map_err(|e| {
+                Error::new(ErrorKind::InvalidRequest, convert::PROVIDER, e.to_string())
+                    .with_source(e)
+            })?;
+            return self.charge_saved_card(&payment).await;
+        }
         let mut create = CreatePaymentIntent::new(
             request.amount.minor_units(),
             convert::currency(request.amount.currency())?,

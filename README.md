@@ -137,6 +137,21 @@ the Terminal API's fourteen.
 - iyzico's In-Store settles in lira only and requires `customer` and
   `return_url`. Ask it for USD and you get `ErrorKind::Unsupported` before a
   socket opens.
+- **A saved card is charged through the trait, not past it.**
+  `ChargeRequest::instrument` names one of the instruments
+  `Provider::instruments` listed and `ChargeRequest::customer` the vault it
+  sits in — every provider here that can charge a saved instrument names it in
+  two halves. `Capabilities::saved_instruments` says which can: Stripe, Mollie
+  and iyzico's classic API. The other three refuse rather than ignore the
+  field, because a caller who asked to spend a card on file and got a redirect
+  has been told a payment is under way that nobody is going to finish.
+- **`Sequence` is one question under two provider names.** Stripe's
+  `off_session` and Mollie's `sequenceType` both ask whether the payer is here
+  and whether this charge establishes a standing permission or spends one.
+  `Present` is the default and changes nothing. `Unattended` is a renewal.
+  `First` establishes the permission, and only Mollie can promise it —
+  iyzico's form saves a card if the payer ticks a box, which is not a promise,
+  so it refuses rather than answering a guarantee with a maybe.
 - **`Currency` names 119 currencies and every adapter says what it does with
   each.** It is still an exhaustive enum and adding one is still a breaking
   change; what a currency match may now do is carry a wildcard arm **where that

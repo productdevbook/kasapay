@@ -10,7 +10,9 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{Currency, ErrorKind, InstrumentId, Money, OrderRef, Provider, Status};
+use kasapay_core::{
+    ChargeRequest, Currency, ErrorKind, InstrumentId, Money, OrderRef, Provider, Sequence, Status,
+};
 use kasapay_stripe::Stripe;
 use kasapay_stripe::saved::{Brand, Funding, Payment};
 use serde_json::json;
@@ -276,6 +278,115 @@ async fn charging_a_saved_card_confirms_a_payment_intent_and_capabilities_say_so
 
     assert_eq!(charge.status, Status::Captured);
     assert_eq!(charge.amount.minor_units(), 1999);
+}
+
+/// The same call through the trait, which is what #160 asked for: a host
+/// billing a subscription holds `Arc<dyn Provider>` and never names Stripe.
+#[tokio::test]
+async fn the_trait_charges_the_same_saved_card_off_session() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents"))
+        .and(body_string_contains("customer=cus_kasapay1"))
+        .and(body_string_contains(
+            "payment_method=pm_1Pgc75B7WZ01zgkWlHVgdEGJ",
+        ))
+        .and(body_string_contains("confirm=true"))
+        .and(body_string_contains("off_session=true"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(confirmed_intent("succeeded")))
+        .mount(&server)
+        .await;
+
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::from_minor_units(1999, Currency::Usd),
+    )
+    .customer("cus_kasapay1")
+    .instrument(InstrumentId::issued("pm_1Pgc75B7WZ01zgkWlHVgdEGJ"))
+    .sequence(Sequence::Unattended)
+    .build()
+    .expect("valid request");
+
+    let charge = client(&server)
+        .charge(&request)
+        .await
+        .expect("the saved card is charged");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.amount.minor_units(), 1999);
+}
+
+/// `off_session` is a claim about whether anybody is there to answer a
+/// challenge, and the default must not make it.
+#[tokio::test]
+async fn the_trait_sends_no_off_session_for_a_payer_who_is_present() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(confirmed_intent("succeeded")))
+        .mount(&server)
+        .await;
+
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::from_minor_units(1999, Currency::Usd),
+    )
+    .customer("cus_kasapay1")
+    .instrument(InstrumentId::issued("pm_1Pgc75B7WZ01zgkWlHVgdEGJ"))
+    .build()
+    .expect("valid request");
+
+    client(&server).charge(&request).await.expect("charged");
+
+    let sent: Vec<Request> = server.received_requests().await.expect("recorded");
+    let body = String::from_utf8(sent[0].body.clone()).expect("utf-8");
+    assert!(!body.contains("off_session"), "{body}");
+}
+
+/// Stripe refuses a `payment_method` attached to a different customer than the
+/// one named, so a request with only half the name never reaches it.
+#[tokio::test]
+async fn a_saved_card_with_no_customer_never_reaches_stripe() {
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::from_minor_units(1999, Currency::Usd),
+    )
+    .instrument(InstrumentId::issued("pm_1Pgc75B7WZ01zgkWlHVgdEGJ"))
+    .sequence(Sequence::Unattended)
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("a payment method names nothing without its customer");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert!(error.to_string().contains("customer"), "{error}");
+}
+
+/// Stripe establishes a standing permission with `setup_future_usage` or a
+/// SetupIntent, and this crate calls neither. Sending an ordinary payment
+/// would answer a request for a guarantee with something that does not give
+/// one.
+#[tokio::test]
+async fn a_first_payment_is_refused_rather_than_sent_as_an_ordinary_one() {
+    let server = MockServer::start().await;
+    // No mock: a request reaching the network would fail the test.
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::from_minor_units(1999, Currency::Usd),
+    )
+    .customer("cus_kasapay1")
+    .sequence(Sequence::First)
+    .build()
+    .expect("valid request");
+
+    let error = client(&server)
+        .charge(&request)
+        .await
+        .expect_err("this crate calls neither setup_future_usage nor SetupIntent");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
 
 #[tokio::test]

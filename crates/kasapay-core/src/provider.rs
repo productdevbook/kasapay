@@ -96,23 +96,20 @@ pub struct Capabilities {
     /// [`Provider::charge_status`] is what finishes it and the continuation is
     /// not needed. True is the case that has no payment id yet at all.
     pub resume_by_continuation: bool,
-    /// An instrument [`Provider::instruments`] lists can be charged, through a
-    /// call of this adapter's own — with the payer entering nothing.
+    /// An instrument [`Provider::instruments`] lists can be charged — with the
+    /// payer entering nothing.
     ///
-    /// What a checkout reads before it offers "use my saved card". This
-    /// describes *charging*, not *listing*: every adapter answers
+    /// What a checkout reads before it offers "use my saved card", and what
+    /// says whether [`Provider::charge`] will honour
+    /// [`ChargeRequest::instrument`] or refuse it with
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported).
+    ///
+    /// This describes *charging*, not *listing*: every adapter answers
     /// [`Provider::instruments`] regardless of this flag, and the two do not
     /// have to agree. PayTR's hosted form does store a card — a vault exists —
     /// but nothing here can list it or charge it, so both answer
-    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported), for two
-    /// different reasons that happen to give the same result: `false` here
-    /// says specifically that this adapter has no call that charges one, which
-    /// is the answer a checkout needs before it offers the button.
-    ///
-    /// The charging call itself is the adapter's own: it needs what that
-    /// provider demands around a saved-instrument payment, which is not the
-    /// same list twice at any two of them, and neither [`Provider::charge`]
-    /// nor [`Provider::instruments`] carries any of it.
+    /// `Unsupported`, for two different reasons that happen to give the same
+    /// result.
     pub saved_instruments: bool,
 }
 
@@ -350,14 +347,24 @@ pub trait Provider: fmt::Debug + Send + Sync {
     ///
     /// This is the shape every provider can answer: an identity and something
     /// to show somebody choosing between them. It is not a card number and
-    /// carries no field one could go in. What it is not, on purpose, is a way
-    /// to charge one or to forget one — those stay each adapter's own call,
-    /// because forgetting a card needs iyzico's `cardUserKey` *and* its token
-    /// where Stripe's needs only the instrument, and charging one takes a
-    /// buyer and a basket at iyzico, an `off_session` flag at Stripe, a
-    /// `sequenceType` at Mollie — three requests this trait cannot honestly
-    /// narrow to one signature. See [`Capabilities::saved_instruments`] for
-    /// what that leaves this trait able to say about charging one.
+    /// carries no field one could go in.
+    ///
+    /// **Charging one is [`Provider::charge`]** with
+    /// [`ChargeRequest::instrument`] set to an [`Instrument::id`] this
+    /// answered and [`ChargeRequest::customer`] to the same `customer` it was
+    /// asked with — the two halves of the name. That used to be each adapter's
+    /// own call, on the reasoning that iyzico wanted a buyer and a basket
+    /// beside the token, Stripe an `off_session` flag and Mollie a
+    /// `sequenceType`. The first of those stopped being true when
+    /// `ChargeRequest` gained a buyer and a basket, and the other two are one
+    /// question under two names, which is [`Sequence`](crate::Sequence).
+    ///
+    /// What is still each adapter's own is **forgetting** one: iyzico needs
+    /// its `cardUserKey` *and* its token where Stripe needs only the
+    /// instrument, and nothing here narrows that to one signature.
+    ///
+    /// See [`Capabilities::saved_instruments`] for which providers can charge
+    /// one at all.
     ///
     /// A provider with no vault at all — or one this crate has no working call
     /// against, which is PayTR's case: it does store a card, but nothing here

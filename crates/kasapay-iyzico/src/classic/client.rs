@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use kasapay_core::{
     Address, BasketItem, Buyer, Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind,
     IdempotencyKey, Instrument, InstrumentId, ItemKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Refund, RefundReason, RefundRequest, RefundStatus, Status,
+    Provider, ProviderId, Raw, Refund, RefundReason, RefundRequest, RefundStatus, Sequence, Status,
 };
 use serde_json::value::RawValue;
 use url::Url;
@@ -1743,18 +1743,24 @@ fn basket_item(item: &BasketItem) -> Result<checkout::BasketItem, Error> {
     })
 }
 
-/// Builds the hosted form iyzico wants out of the shared request.
+/// Everything iyzico wants around a payment, whichever way it is taken.
 ///
-/// `price` is what the basket comes to and `paid_price` is
-/// [`ChargeRequest::amount`], which is iyzico's own distinction: the second is
-/// what the card is charged, and it is larger than the first under an
-/// instalment surcharge.
-fn checkout_form(request: &ChargeRequest) -> Result<CheckoutForm, Error> {
+/// Both `/payment/auth` against a saved card and the hosted form ask for the
+/// same buyer, the same two addresses and the same itemised basket. Assembled
+/// once, because a second copy is a second place for the two to drift.
+struct Parts {
+    buyer: checkout::Buyer,
+    billing_address: checkout::Address,
+    shipping_address: checkout::Address,
+    basket: Vec<checkout::BasketItem>,
+    /// What the basket comes to, which is iyzico's `price`.
+    price: Money,
+}
+
+/// Reads them out of the shared request, naming the first field that is not
+/// there.
+fn parts(request: &ChargeRequest) -> Result<Parts, Error> {
     let buyer = request.buyer.as_ref().ok_or_else(|| missing("a buyer"))?;
-    let callback_url = request
-        .return_url
-        .clone()
-        .ok_or_else(|| missing("a return_url to send the payer back to"))?;
     let billing = request
         .billing_address
         .as_ref()
@@ -1780,45 +1786,100 @@ fn checkout_form(request: &ChargeRequest) -> Result<CheckoutForm, Error> {
             Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e)
         })?;
 
-    let iyzico_buyer = checkout::Buyer {
-        id: request
-            .customer
-            .clone()
-            .unwrap_or_else(|| buyer.email.clone()),
-        name: buyer.name.clone(),
-        surname: buyer
-            .surname
-            .clone()
-            .ok_or_else(|| missing("the buyer's surname"))?,
-        identity_number: buyer
-            .identity_number
-            .clone()
-            .ok_or_else(|| missing("the buyer's identity number"))?,
-        email: buyer.email.clone(),
-        phone: buyer
-            .phone
-            .clone()
-            .ok_or_else(|| missing("the buyer's phone number"))?,
-        registration_address: registration.line.clone(),
-        city: registration.city.clone(),
-        country: registration.country.clone(),
-        zip_code: registration.zip_code.clone(),
-        ip: buyer.ip.clone(),
-    };
+    Ok(Parts {
+        buyer: checkout::Buyer {
+            id: request
+                .customer
+                .clone()
+                .unwrap_or_else(|| buyer.email.clone()),
+            name: buyer.name.clone(),
+            surname: buyer
+                .surname
+                .clone()
+                .ok_or_else(|| missing("the buyer's surname"))?,
+            identity_number: buyer
+                .identity_number
+                .clone()
+                .ok_or_else(|| missing("the buyer's identity number"))?,
+            email: buyer.email.clone(),
+            phone: buyer
+                .phone
+                .clone()
+                .ok_or_else(|| missing("the buyer's phone number"))?,
+            registration_address: registration.line.clone(),
+            city: registration.city.clone(),
+            country: registration.country.clone(),
+            zip_code: registration.zip_code.clone(),
+            ip: buyer.ip.clone(),
+        },
+        billing_address: address(billing, buyer),
+        shipping_address: request
+            .shipping_address
+            .as_ref()
+            .map_or_else(|| address(billing, buyer), |it| address(it, buyer)),
+        basket,
+        price,
+    })
+}
 
-    let mut form = CheckoutForm::builder(request.order.clone(), price, callback_url, iyzico_buyer)
-        .paid_price(request.amount)
-        .billing_address(address(billing, buyer));
-    if let Some(shipping) = request.shipping_address.as_ref() {
-        form = form.shipping_address(address(shipping, buyer));
-    }
+/// Builds the hosted form iyzico wants out of the shared request.
+///
+/// `price` is what the basket comes to and `paid_price` is
+/// [`ChargeRequest::amount`], which is iyzico's own distinction: the second is
+/// what the card is charged, and it is larger than the first under an
+/// instalment surcharge.
+fn checkout_form(request: &ChargeRequest) -> Result<CheckoutForm, Error> {
+    let callback_url = request
+        .return_url
+        .clone()
+        .ok_or_else(|| missing("a return_url to send the payer back to"))?;
+    let parts = parts(request)?;
+
+    let mut form = CheckoutForm::builder(
+        request.order.clone(),
+        parts.price,
+        callback_url,
+        parts.buyer,
+    )
+    .paid_price(request.amount)
+    .billing_address(parts.billing_address)
+    .shipping_address(parts.shipping_address);
     if let Some(customer) = request.customer.as_ref() {
         form = form.card_user_key(customer.clone());
     }
-    for item in basket {
+    for item in parts.basket {
         form = form.item(item);
     }
     form.build()
+        .map_err(|e| Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e))
+}
+
+/// Builds the saved-card payment out of the shared request.
+///
+/// `/payment/auth` wants the buyer, both addresses and the itemised basket
+/// beside the token — which is why charging a saved card used to sit outside
+/// this trait, and stopped being a reason when `ChargeRequest` gained them.
+///
+/// No `return_url` is required: there is nowhere to send anybody.
+fn saved_payment(request: &ChargeRequest, token: &InstrumentId) -> Result<saved::Payment, Error> {
+    let user_key = request.customer.clone().ok_or_else(|| {
+        missing("the cardUserKey that names the vault, as ChargeRequest::customer")
+    })?;
+    let card = saved::Card::new(user_key, token.clone()).map_err(|e| {
+        Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e)
+    })?;
+    let parts = parts(request)?;
+
+    let mut payment =
+        saved::Payment::builder(request.order.clone(), parts.price, parts.buyer, card)
+            .paid_price(request.amount)
+            .billing_address(parts.billing_address)
+            .shipping_address(parts.shipping_address);
+    for item in parts.basket {
+        payment = payment.item(item);
+    }
+    payment
+        .build()
         .map_err(|e| Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e))
 }
 
@@ -1860,14 +1921,42 @@ impl Provider for Client {
     /// — the figure the card is charged. Charging more than the basket comes
     /// to is how an instalment surcharge is expressed, and iyzico allows it.
     ///
+    /// # A card iyzico already holds
+    ///
+    /// [`ChargeRequest::instrument`] is a `cardToken`, and
+    /// [`ChargeRequest::customer`] the `cardUserKey` that names the vault it
+    /// sits in — iyzico wants both. The call is then
+    /// [`Client::pay_with_saved_card`], which takes the money outright: no
+    /// form, no redirect, and a [`Charge`] that already names its payment.
+    ///
+    /// iyzico has no word for whether the payer is watching, so
+    /// [`Sequence::Present`] and [`Sequence::Unattended`] send the same
+    /// request. [`Sequence::First`] is [`ErrorKind::Unsupported`]: the form
+    /// saves a card only if the payer ticks the box, so nothing here can
+    /// promise a later charge will have one to spend, and answering a request
+    /// for a guarantee with a maybe is worse than refusing it.
+    ///
     /// # The charge that comes back has no payment id
     ///
-    /// Nothing has happened yet: the answer is [`Status::RequiresAction`] with
-    /// [`NextAction::Redirect`] to iyzico's form. The payment id arrives with
+    /// That is the hosted form, below. Nothing has happened yet: the answer is
+    /// [`Status::RequiresAction`] with [`NextAction::Redirect`] to iyzico's
+    /// form. The payment id arrives with
     /// [`Client::checkout_result`], which is also where the money is either
     /// taken or refused. `idempotency_key` is ignored, as it is everywhere in
     /// this API — iyzico accepts no idempotency mechanism.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        if request.sequence == Sequence::First {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "iyzico's form saves a card only if the payer ticks the box, so nothing here \
+                 can promise a later charge will have one to spend",
+            ));
+        }
+        if let Some(token) = request.instrument.as_ref() {
+            let payment = saved_payment(request, token)?;
+            return self.pay_with_saved_card(&payment).await;
+        }
         let form = checkout_form(request)?;
         self.start_checkout_form(&form).await
     }
