@@ -91,7 +91,7 @@ pub enum EventKind {
 /// [`Charge`](crate::Charge) is: an adapter in someone else's repository has
 /// to be able to build one.
 ///
-/// # Why this is not an enum of [`Charge`] and [`Refund`](crate::Refund)
+/// # Why this is not an enum of [`Charge`](crate::Charge) and [`Refund`](crate::Refund)
 ///
 /// It was the other candidate, and it asks each adapter to build a whole
 /// charge out of a delivery. Stripe's webhook carries a PaymentIntent and can;
