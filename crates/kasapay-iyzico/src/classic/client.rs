@@ -1945,9 +1945,24 @@ impl Provider for Client {
     /// [`Status::RequiresAction`] with [`NextAction::Redirect`] to iyzico's
     /// form. The payment id arrives with
     /// [`Client::checkout_result`], which is also where the money is either
-    /// taken or refused. `idempotency_key` is ignored, as it is everywhere in
-    /// this API — iyzico accepts no idempotency mechanism.
+    /// taken or refused.
+    ///
+    /// [`ChargeRequest::idempotency_key`] is
+    /// [`ErrorKind::Unsupported`] rather than dropped. iyzico accepts no
+    /// idempotency mechanism anywhere in this API, and a key accepted and
+    /// dropped reads as a guarantee against opening a second form for one
+    /// order where there is none. [`Provider::lookup`] asks iyzico by the
+    /// order reference, which is the honest way to find out before sending
+    /// again.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "iyzico's classic API accepts no idempotency key; ask Provider::lookup by the \
+                 order reference before opening a second form",
+            ));
+        }
         if request.sequence == Sequence::First {
             return Err(Error::new(
                 ErrorKind::Unsupported,
