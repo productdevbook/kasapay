@@ -88,6 +88,39 @@
 //! merchant account can read the body today, and #73 is what a real one
 //! finishes.
 //!
+//! # What is not here, and the two reasons for it
+//!
+//! `specs/paytr/` records forty-two of PayTR's documentation pages. What this
+//! crate implements is the hosted form and everything that happens to a
+//! payment afterwards: opening one, its notice, its status, its refunds, the
+//! BIN service and the instalment rates. What it does not implement is not a
+//! backlog — every one of the rest is blocked on one of exactly two things.
+//!
+//! **A card number.** The Direkt API takes the number, expiry and CVC on the
+//! request, which puts the caller's server in PCI DSS scope on the merchant's
+//! longest self-assessment rather than its shortest. That is the same line
+//! [`kasapay_iyzico`](https://docs.rs/kasapay-iyzico) draws, and the hosted
+//! form is what this crate offers instead.
+//!
+//! **A hash PayTR documents as "see the sample code".** Every remaining
+//! service — the card vault's five calls, the Link API's four, the
+//! Havale/EFT iframe's two — documents its fields in full and then says of
+//! `paytr_token` only *"örnek kodları inceleyin"*. Their four sample programs
+//! each compute it differently enough that a field table cannot be read back
+//! into a formula, and **a signature guessed from one fails against every real
+//! merchant** — not in testing, where a mock accepts whatever it is sent, but
+//! on the first live call.
+//!
+//! The Link API is the one worth naming, because iyzico's equivalent —
+//! [`iyzilink`](https://docs.rs/kasapay-iyzico) — *is* implemented here, so
+//! its absence looks like an oversight rather than a wall. Creating a payment
+//! link, deleting one, sending one by SMS or email: all four are documented to
+//! the field, and all four are signed with a token whose calculation is a link
+//! to a PHP file.
+//!
+//! One real answer from PayTR — the formula, or one signed request to read it
+//! off — turns nine operations from blocked into ordinary work.
+//!
 //! # Retrying a payment is not documented as safe
 //!
 //! PayTR documents no idempotency mechanism for opening a payment, and does

@@ -224,6 +224,20 @@ same documented failure shape.
 
 ---
 
+### B3. The token hash PayTR documents as "see the sample code" — new
+
+Nine operations are blocked on one formula: the card vault's five calls, the
+Link API's four, and the Havale/EFT iframe's two are each documented to the
+field and then say of `paytr_token` only *"örnek kodları inceleyin"*. A
+signature guessed from a field table passes a mock and fails every real
+merchant, so none of them is implemented — `kasapay-paytr`'s own documentation
+says so where a reader meets it.
+
+**To settle it**, send one signed request from a merchant account for any of
+them — the Link API's create is the smallest — and paste the fields and the
+token it carried. One formula unblocks all nine, and PayTR's own support can
+answer it without an account being used at all.
+
 ## D. Read off prose rather than an example
 
 These need no account — they need a maintainer to decide the reading is wrong.
