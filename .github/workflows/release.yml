@@ -33,14 +33,16 @@ jobs:
       # --workspace resolves the crates against each other rather than against
       # crates.io, which is the only way to package a crate whose dependency
       # has not been published yet, and publishes them in dependency order.
+      # --locked publishes the tree CI checked rather than whatever resolves
+      # this morning, which is the whole point of committing the lockfile.
       - name: Package every crate
-        run: cargo package --workspace --all-features
+        run: cargo package --locked --workspace --all-features
 
       - name: Publish
         if: github.event_name == 'push' || inputs.dry_run == false
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --workspace --all-features
+        run: cargo publish --locked --workspace --all-features
 
       # The release note is the changelog's own section rather than a second
       # telling of it, because two accounts of one release drift and the

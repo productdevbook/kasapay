@@ -115,6 +115,12 @@ monthly on its own, and it opens a pull request whose own CI run says whether
 the tree it resolved is any good. The point of pinning it is that a red run on
 a pull request that touched nothing related can be reproduced at all.
 
+Cutting a release writes the lockfile too: **Cut a release** runs
+`cargo update --workspace` after the bump, which rewrites this workspace's own
+versions in `Cargo.lock` and leaves every third-party pin alone. Without it the
+release commit would land on `main` with a lockfile that disagrees with the
+manifests and turn every `--locked` job red.
+
 So **changing a dependency is two pull requests**: the one that edits
 `Cargo.toml`, which goes red on `--locked` because the lockfile no longer
 matches, and the Lockfile workflow's, which resolves the tree again. Merge the
