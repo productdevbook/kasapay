@@ -518,6 +518,7 @@ async fn capabilities_match_what_the_methods_actually_do() {
     assert!(!capabilities.separate_capture);
     assert!(!capabilities.partial_capture);
     assert!(capabilities.partial_refund);
+    assert!(!capabilities.lookup_by_order);
 
     // The capability and the refusal have to agree, or the capability is a lie.
     assert_eq!(
@@ -525,6 +526,14 @@ async fn capabilities_match_what_the_methods_actually_do() {
             .capture(&PaymentId::issued("1234567890"), None, None)
             .await
             .expect_err("separate_capture is false")
+            .kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        client
+            .lookup(&OrderRef::new("ord-1"))
+            .await
+            .expect_err("lookup_by_order is false")
             .kind(),
         ErrorKind::Unsupported
     );

@@ -7,13 +7,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
-    InstrumentId, Money, NextAction, PaymentId, Provider, ProviderId, Raw, Refund, RefundReason,
-    RefundRequest, RefundStatus, Status,
+    InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund,
+    RefundReason, RefundRequest, RefundStatus, Status,
 };
 use url::Url;
 
 use crate::classic::checkout::CheckoutForm;
 use crate::classic::{FormToken, saved, signature, wire};
+use crate::reporting;
 use crate::signing::Credentials;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
@@ -1088,6 +1089,44 @@ impl fmt::Display for ReasonCode {
     }
 }
 
+/// A reported payment as a [`Charge`], for [`Provider::lookup`].
+///
+/// The amount is what was collected — `paidPrice` — falling back to the basket
+/// total where iyzico sent no collected figure, which is a payment nobody has
+/// taken money for yet. A payment with neither is a zero in the currency
+/// iyzico named, and it is `None` for the currency too that leaves lira: the
+/// classic API settles in one by default and reporting names it on every
+/// payment it has, so a missing one is a payment with no amounts to be in a
+/// currency at all.
+fn detail_into_charge(detail: reporting::PaymentDetail, order: &OrderRef) -> Charge {
+    let currency = detail
+        .paid_price
+        .or(detail.price)
+        .map_or(Currency::Try, Money::currency);
+    let amount = detail
+        .paid_price
+        .or(detail.price)
+        .unwrap_or_else(|| Money::from_minor_units(0, currency));
+    let order_amount = detail.price.filter(|price| *price != amount);
+    Charge {
+        id: detail.payment_id,
+        order: Some(order.clone()),
+        amount,
+        order_amount,
+        status: match detail.payment_status {
+            Some(reporting::PaymentStatus::Success) => Status::Captured,
+            Some(reporting::PaymentStatus::CallbackThreeDs) => Status::RequiresAction,
+            // `2` is a refusal or a payment still at 3-D Secure, and iyzico
+            // does not say which; `Pending` is the reading that does not send
+            // a second payment after the first one's payer.
+            _ => Status::Pending,
+        },
+        next_action: None,
+        provider: PROVIDER,
+        raw: detail.raw,
+    }
+}
+
 /// The shared reason in iyzico's own words.
 ///
 /// Nothing is lost either way: iyzico's fourth code is `OTHER` and it takes a
@@ -1416,6 +1455,49 @@ impl Provider for Client {
         })
     }
 
+    /// Asks iyzico what became of a payment made under this `conversationId`.
+    ///
+    /// `GET /v2/reporting/payment/details` with `paymentConversationId`, which
+    /// iyzico documents as the alternative to a `paymentId` — and the
+    /// `conversationId` a checkout form is opened with is
+    /// [`CheckoutForm::order`], the caller's own reference. So this answers
+    /// the one question a caller whose request timed out can still ask.
+    ///
+    /// Reporting rather than `/payment/detail`, which takes the same field,
+    /// for one reason: it answers a **list**, and a list with nothing in it is
+    /// an answer. `/payment/detail` answers a payment or a refusal, and
+    /// iyzico documents no error code for a `conversationId` it has never
+    /// seen — so "no record" and "something else went wrong" would arrive
+    /// identically, and reading the second as the first is how a caller
+    /// charges twice.
+    ///
+    /// # A refused payment and one still at 3-D Secure read the same
+    ///
+    /// iyzico's `paymentStatus` is `2` for both — its own documentation does
+    /// not separate them, which is what
+    /// [`reporting::PaymentStatus::FailureOrInitThreeDs`] is named for. That
+    /// arrives here as [`Status::Pending`] rather than
+    /// [`Status::Failed`]: a payment mid-3-D-Secure read as failed is one a
+    /// caller sends again while the payer is still on the bank's page, and
+    /// two payments is worse than one poll too many.
+    ///
+    /// # Unverified against a live account
+    ///
+    /// That an unknown `conversationId` answers an empty list rather than a
+    /// refusal is iyzico's documented shape rather than something seen. See
+    /// #102 — it is one call from a sandbox account.
+    async fn lookup(&self, order: &OrderRef) -> Result<Option<Charge>, Error> {
+        let found = reporting::Client::new(self.clone())
+            .payment_details(&reporting::PaymentQuery::Conversation(
+                order.as_str().into(),
+            ))
+            .await?;
+        let Some(detail) = found.into_iter().next() else {
+            return Ok(None);
+        };
+        Ok(Some(detail_into_charge(detail, order)))
+    }
+
     /// Lists the cards stored under a `cardUserKey`.
     ///
     /// `customer` is iyzico's `cardUserKey` — the vault, not a payer as such —
@@ -1472,6 +1554,9 @@ impl Provider for Client {
             // amount still refundable, and "as long as that rule is followed,
             // more than one refund may be made in succession".
             repeated_refund: true,
+            // Reporting reads a payment back by the conversationId it was
+            // made with, which is the caller's own order reference.
+            lookup_by_order: true,
             // Client::stored_cards lists them and Client::pay_with_saved_card
             // charges one.
             saved_instruments: true,

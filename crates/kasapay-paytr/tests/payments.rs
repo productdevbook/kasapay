@@ -189,6 +189,55 @@ async fn reading_a_payment_back_names_it_by_the_order_reference() {
     assert_eq!(charge.amount.currency(), Currency::Try);
 }
 
+/// The question a caller asks when a charge timed out: did it land?
+#[tokio::test]
+async fn a_payment_is_found_by_the_reference_it_was_opened_with() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .and(body_string_contains("merchant_oid=ord-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payment_amount": "149.90",
+            "payment_total": "149.90",
+            "currency": "TL",
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client(&server);
+    assert!(client.capabilities().lookup_by_order);
+    let found = client
+        .lookup(&OrderRef::new("ord-1"))
+        .await
+        .expect("PayTR answers")
+        .expect("a payment under this reference");
+    assert_eq!(found.status, Status::Captured);
+    assert_eq!(found.amount.minor_units(), 14_990);
+}
+
+/// PayTR answers the same for a payment it refused and one it never heard of,
+/// and for this question both mean the same thing: no money moved.
+#[tokio::test]
+async fn a_reference_paytr_reports_no_payment_for_is_no_payment() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "failed",
+            "err_no": "010",
+            "reason": "islem bulunamadi",
+        })))
+        .mount(&server)
+        .await;
+
+    let found = client(&server)
+        .lookup(&OrderRef::new("ord-nope"))
+        .await
+        .expect("a payment PayTR has no record of is an answer, not a failure");
+    assert!(found.is_none());
+}
+
 /// PayTR settles in roubles and this crate opens payments in them, so reading
 /// one back must not answer that kasapay has no currency for it.
 #[tokio::test]

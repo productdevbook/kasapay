@@ -50,10 +50,17 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-paypal` | PayPal's Orders v2: create, read, capture — the spine, not the whole API |
 
 **The shared trait is `charge`, `charge_status`, `capture`, `cancel`,
-`refund` and `instruments`**, with `capabilities()` saying which of them a
+`refund`, `lookup` and `instruments`**, with `capabilities()` saying which of them a
 provider actually does — iyzico's In-Store flow takes the money at
 authorisation and has no capture step, and a caller planning a checkout needs
 to know that before it has a payment.
+
+**`lookup` is for the call whose answer never arrived.** A charge that times
+out is the one failure where nobody knows whether the money moved, and
+`charge_status` cannot help — it takes the provider's own identifier, which is
+what the lost reply never delivered. `lookup` is keyed by the caller's own
+order reference instead, and `Ok(None)` means no record and a safe retry. Two
+of the five can answer it; the other four say so, and say what to do instead.
 
 **`Webhook` is the second trait, and it is `async` because verification is
 not one mechanism.** Stripe signs the bytes it posts, PayTR signs three fields

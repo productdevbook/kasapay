@@ -497,6 +497,25 @@ impl Provider for Client {
         })
     }
 
+    /// Always [`ErrorKind::Unsupported`]: `payment/query` takes iyzico's own
+    /// `paymentId` and nothing else.
+    ///
+    /// The `orderId` the payment was opened with comes back *on* a query and
+    /// cannot be used to make one, so there is nothing here to ask with the
+    /// only identifier a caller whose request timed out still has. The
+    /// In-Store API documents no idempotency mechanism either — see
+    /// [`Provider::charge`], which refuses a key rather than dropping it — so
+    /// what is left is the callback: iyzico posts the outcome to the address
+    /// the payment named, and [`Client::decrypt_callback`] opens it.
+    async fn lookup(&self, _order: &OrderRef) -> Result<Option<Charge>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            "the In-Store API reads a payment back by iyzico's own paymentId and has no \
+             call keyed by the orderId it was opened with",
+        ))
+    }
+
     /// Always [`ErrorKind::Unsupported`]: the payer taps a card at a counter
     /// and nothing here is kept for later. There is no vault to list.
     async fn instruments(&self, _customer: &str) -> Result<Vec<Instrument>, Error> {
@@ -518,6 +537,8 @@ impl Provider for Client {
             partial_capture: false,
             partial_refund: true,
             repeated_refund: false,
+            // payment/query takes iyzico's own paymentId and nothing else.
+            lookup_by_order: false,
             // The payer taps a card at a counter; there is no vault in this API.
             saved_instruments: false,
         }

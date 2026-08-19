@@ -614,6 +614,34 @@ impl Provider for PayTr {
         })
     }
 
+    /// Asks PayTR what became of a payment opened under this reference.
+    ///
+    /// The one adapter here where this costs nothing new: PayTR names a
+    /// payment by the `merchant_oid` the merchant sent, so its status query is
+    /// already keyed by the caller's own reference. This is
+    /// [`Provider::charge_status`] with the identifier [`payment_id`] composes,
+    /// and its `NotFound` read as `Ok(None)`.
+    ///
+    /// # `Ok(None)` is "no money was taken", not "nothing happened"
+    ///
+    /// PayTR answers the same error for a payment it refused and an order it
+    /// has never heard of — `err_no` and nothing that separates them, which is
+    /// the same gap [`Provider::charge_status`] documents. For the question
+    /// this method exists to answer that is the right side of the line: either
+    /// way no money moved under this reference, and sending the charge again
+    /// is what a shop would do.
+    ///
+    /// What it cannot tell you is whether the payer tried and was declined.
+    /// That is on the payment notice — [`Notice::charge`](crate::Notice::charge)
+    /// — which is the only place PayTR reports a refusal.
+    async fn lookup(&self, order: &OrderRef) -> Result<Option<Charge>, Error> {
+        match self.charge_status(&payment_id(order)).await {
+            Ok(charge) => Ok(Some(charge)),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
     /// Always [`ErrorKind::Unsupported`].
     ///
     /// PayTR's hosted form does store a card against a `utoken`, so a vault
@@ -646,6 +674,9 @@ impl Provider for PayTr {
             partial_capture: false,
             partial_refund: true,
             repeated_refund: true,
+            // The status query is keyed by merchant_oid, which is the
+            // caller's own reference.
+            lookup_by_order: true,
             saved_instruments: false,
         }
     }

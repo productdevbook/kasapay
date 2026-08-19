@@ -488,6 +488,31 @@ impl Provider for Stripe {
         })
     }
 
+    /// Always [`ErrorKind::Unsupported`], and the alternative is better.
+    ///
+    /// The only call that finds a PaymentIntent by its metadata is
+    /// `POST /v1/payment_intents/search`, and Stripe documents it as
+    /// eventually consistent — *"don't use search in read-after-write flows
+    /// where strict consistency is necessary"*, searchable "in less than a
+    /// minute" and up to an hour behind during an outage. A charge that timed
+    /// out thirty seconds ago is exactly a read-after-write flow, and a search
+    /// answering "nothing" for one that exists is how a caller charges twice.
+    ///
+    /// What to do instead: send the charge again with the same
+    /// [`ChargeRequest::idempotency_key`](kasapay_core::ChargeRequest::idempotency_key).
+    /// Stripe answers the original PaymentIntent rather than opening a second
+    /// one, which is the guarantee this method would otherwise be working
+    /// around.
+    async fn lookup(&self, _order: &OrderRef) -> Result<Option<Charge>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            convert::PROVIDER,
+            "Stripe finds a payment by metadata only through its search API, which it \
+             documents as too far behind to answer this; retry the charge with the same \
+             idempotency key instead",
+        ))
+    }
+
     /// Lists a customer's saved cards, through [`Stripe::stored_cards`].
     async fn instruments(&self, customer: &str) -> Result<Vec<Instrument>, Error> {
         Ok(self
@@ -508,6 +533,7 @@ impl Provider for Stripe {
             partial_capture: true,
             partial_refund: true,
             repeated_refund: true,
+            lookup_by_order: false,
             saved_instruments: true,
         }
     }
