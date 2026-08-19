@@ -171,3 +171,156 @@ pub(crate) fn text(value: &RawValue) -> &str {
 pub(crate) fn integer(value: &RawValue) -> Option<i64> {
     text(value).parse().ok()
 }
+
+/// The subscriber, as every subscription request wants them.
+#[derive(Debug, Serialize)]
+pub(crate) struct SubscriberBody<'a> {
+    pub(crate) name: &'a str,
+    pub(crate) surname: &'a str,
+    pub(crate) email: &'a str,
+    #[serde(rename = "gsmNumber")]
+    pub(crate) gsm_number: &'a str,
+    #[serde(rename = "identityNumber")]
+    pub(crate) identity_number: &'a str,
+    #[serde(rename = "billingAddress")]
+    pub(crate) billing_address: AddressBody<'a>,
+    #[serde(rename = "shippingAddress", skip_serializing_if = "Option::is_none")]
+    pub(crate) shipping_address: Option<AddressBody<'a>>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct AddressBody<'a> {
+    #[serde(rename = "contactName")]
+    pub(crate) contact_name: &'a str,
+    pub(crate) address: &'a str,
+    pub(crate) city: &'a str,
+    pub(crate) country: &'a str,
+    #[serde(rename = "zipCode", skip_serializing_if = "Option::is_none")]
+    pub(crate) zip_code: Option<&'a str>,
+}
+
+/// `POST /v2/subscription/checkoutform/initialize` — the hosted way in.
+#[derive(Debug, Serialize)]
+pub(crate) struct SubscriptionFormRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId", skip_serializing_if = "Option::is_none")]
+    pub(crate) conversation_id: Option<&'a str>,
+    #[serde(rename = "callbackUrl")]
+    pub(crate) callback_url: &'a str,
+    #[serde(rename = "pricingPlanReferenceCode")]
+    pub(crate) pricing_plan_reference_code: &'a str,
+    #[serde(rename = "subscriptionInitialStatus")]
+    pub(crate) subscription_initial_status: &'a str,
+    pub(crate) customer: SubscriberBody<'a>,
+}
+
+/// What that answers: a token and the form itself.
+#[derive(Debug, Deserialize)]
+pub(crate) struct SubscriptionFormResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    pub(crate) token: Option<String>,
+    #[serde(rename = "checkoutFormContent")]
+    pub(crate) checkout_form_content: Option<String>,
+    #[serde(rename = "tokenExpireTime")]
+    pub(crate) token_expire_time: Option<i64>,
+}
+
+/// `POST /v2/subscription/initialize/with-customer` — subscribing somebody
+/// iyzico already holds a card for.
+#[derive(Debug, Serialize)]
+pub(crate) struct SubscribeExistingRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId", skip_serializing_if = "Option::is_none")]
+    pub(crate) conversation_id: Option<&'a str>,
+    #[serde(rename = "customerReferenceCode")]
+    pub(crate) customer_reference_code: &'a str,
+    #[serde(rename = "pricingPlanReferenceCode")]
+    pub(crate) pricing_plan_reference_code: &'a str,
+    #[serde(rename = "subscriptionInitialStatus")]
+    pub(crate) subscription_initial_status: &'a str,
+}
+
+/// `POST /v2/subscription/card-update/checkoutform/initialize`.
+#[derive(Debug, Serialize)]
+pub(crate) struct CardUpdateFormRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "callbackUrl")]
+    pub(crate) callback_url: &'a str,
+    #[serde(
+        rename = "customerReferenceCode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) customer_reference_code: Option<&'a str>,
+    #[serde(
+        rename = "subscriptionReferenceCode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) subscription_reference_code: Option<&'a str>,
+}
+
+/// `POST /v2/subscription/subscriptions/{ref}/upgrade`.
+#[derive(Debug, Serialize)]
+pub(crate) struct UpgradeRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "newPricingPlanReferenceCode")]
+    pub(crate) new_pricing_plan_reference_code: &'a str,
+    #[serde(rename = "upgradePeriod")]
+    pub(crate) upgrade_period: &'a str,
+    #[serde(rename = "useTrial")]
+    pub(crate) use_trial: bool,
+    #[serde(rename = "resetRecurrenceCount")]
+    pub(crate) reset_recurrence_count: bool,
+}
+
+/// `POST /v2/subscription/operation/retry`.
+#[derive(Debug, Serialize)]
+pub(crate) struct RetryRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "referenceCode")]
+    pub(crate) reference_code: &'a str,
+}
+
+/// One subscription, out of a read or a listing.
+#[derive(Debug, Deserialize)]
+pub(crate) struct SubscriptionItem {
+    #[serde(rename = "referenceCode")]
+    pub(crate) reference_code: Option<String>,
+    #[serde(rename = "subscriptionStatus")]
+    pub(crate) subscription_status: Option<String>,
+    #[serde(rename = "pricingPlanReferenceCode")]
+    pub(crate) pricing_plan_reference_code: Option<String>,
+    #[serde(rename = "pricingPlanName")]
+    pub(crate) pricing_plan_name: Option<String>,
+    #[serde(rename = "productReferenceCode")]
+    pub(crate) product_reference_code: Option<String>,
+    #[serde(rename = "productName")]
+    pub(crate) product_name: Option<String>,
+    #[serde(rename = "customerReferenceCode")]
+    pub(crate) customer_reference_code: Option<String>,
+    #[serde(rename = "customerEmail")]
+    pub(crate) customer_email: Option<String>,
+    #[serde(rename = "trialDays")]
+    pub(crate) trial_days: Option<i64>,
+    /// Epoch milliseconds in one place and `YYYY-MM-DD hh:mm:ss` in another,
+    /// so kept as iyzico's own bytes — the same as a plan's `createdDate`.
+    #[serde(rename = "startDate")]
+    pub(crate) start_date: Option<Box<RawValue>>,
+    #[serde(rename = "endDate")]
+    pub(crate) end_date: Option<Box<RawValue>>,
+}
+
+/// One subscriber, out of a read or a listing.
+#[derive(Debug, Deserialize)]
+pub(crate) struct SubscriberItem {
+    #[serde(rename = "referenceCode")]
+    pub(crate) reference_code: Option<String>,
+    pub(crate) name: Option<String>,
+    pub(crate) surname: Option<String>,
+    pub(crate) email: Option<String>,
+    #[serde(rename = "gsmNumber")]
+    pub(crate) gsm_number: Option<String>,
+}

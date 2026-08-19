@@ -7,6 +7,24 @@ order releases happen, newest first.
 
 ### Added
 
+- **iyzico's subscription module can subscribe somebody.** It had the
+  catalogue — products and plans — and nothing that sold one. Thirteen
+  operations: `start_subscription_form` and `subscription_form_result`,
+  `subscribe` for a customer iyzico already holds a card for,
+  `start_card_update_form`, `subscription`, `subscriptions`, `activate`,
+  `cancel`, `upgrade`, `retry_payment`, `subscriber`, `subscribers` and
+  `update_subscriber`.
+
+  Twenty-three of iyzico's twenty-four. The one left out is
+  `POST /v2/subscription/initialize`, which takes a card number — so every way
+  into a subscription here goes through a form iyzico hosts, including
+  replacing the card an existing subscription is charged to.
+
+  `Upgrade` is where the decisions with money in them are: when the new plan
+  applies, whether its trial is given to somebody who has already paid, and
+  whether the count of payments starts again. All three default to the answer
+  that does not give anything away.
+
 - **iyzico's marketplace can pay a sub-merchant now.**
   `onboarding::Client::approve_item`, `disapprove_item` and
   `update_item_payout` — iyzico holds a split line's share until the platform

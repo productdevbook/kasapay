@@ -10,6 +10,7 @@ use crate::classic;
 use crate::subscription::catalogue::{
     NewPlan, NewProduct, PaymentInterval, PlanPaymentType, PlanUpdate, ProductUpdate,
 };
+use crate::subscription::subscriber::{self, InitialStatus, NewSubscription, Subscriber, Upgrade};
 use crate::subscription::wire;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
@@ -28,6 +29,20 @@ const RECURRING: &str = "RECURRING";
 const LOCALE: &str = "tr";
 /// The query every call that has no body carries.
 const LOCALE_QUERY: &str = "?locale=tr";
+/// The hosted form that starts a subscription.
+const SUBSCRIPTION_FORM: &str = "/v2/subscription/checkoutform/initialize";
+/// Where that form's result is read back.
+const SUBSCRIPTION_FORM_RESULT: &str = "/v2/subscription/checkoutform";
+/// Subscribing somebody iyzico already holds a card for.
+const SUBSCRIBE_EXISTING: &str = "/v2/subscription/initialize/with-customer";
+/// The hosted form that replaces the card a subscription is charged to.
+const CARD_UPDATE_FORM: &str = "/v2/subscription/card-update/checkoutform/initialize";
+/// Running subscriptions.
+const SUBSCRIPTIONS: &str = "/v2/subscription/subscriptions";
+/// The people who hold them.
+const SUBSCRIBERS: &str = "/v2/subscription/customers";
+/// Taking a failed payment again.
+const RETRY: &str = "/v2/subscription/operation/retry";
 
 /// Talks to iyzico's subscription API.
 ///
@@ -259,6 +274,395 @@ impl Client {
             .await
     }
 
+    /// Opens the hosted form that starts a subscription.
+    ///
+    /// `POST /v2/subscription/checkoutform/initialize`. **This is the way a
+    /// subscription is started here**, and the only one that does not put a
+    /// card number through the caller's process: iyzico hosts the form, takes
+    /// the card on its own page, and posts the outcome to
+    /// [`NewSubscription::callback_url`].
+    ///
+    /// What comes back is a [`SubscriptionForm`]: the token to read the result
+    /// with, and iyzico's own HTML for the form. Unlike the classic checkout
+    /// form, iyzico answers **no page URL** here — their schema documents
+    /// `checkoutFormContent` and nothing to redirect to — so a caller embeds
+    /// what they sent rather than sending the payer somewhere.
+    ///
+    /// [`NewSubscription::initial_status`] decides whether the subscription
+    /// starts running when the payer finishes or waits for
+    /// [`Client::activate`].
+    pub async fn start_subscription_form(
+        &self,
+        subscription: &NewSubscription,
+    ) -> Result<SubscriptionForm, Error> {
+        let body = wire::SubscriptionFormRequest {
+            locale: LOCALE,
+            conversation_id: subscription.conversation_id.as_deref(),
+            callback_url: &subscription.callback_url,
+            pricing_plan_reference_code: &subscription.plan_reference,
+            subscription_initial_status: subscription.initial_status.as_str(),
+            customer: subscriber_body(&subscription.subscriber),
+        };
+        let (response, raw) = self
+            .classic
+            .request::<_, wire::SubscriptionFormResponse>(
+                Method::POST,
+                SUBSCRIPTION_FORM,
+                "",
+                Some(&body),
+            )
+            .await?;
+        if let Some(error) = classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to open the subscription form",
+        ) {
+            return Err(error);
+        }
+        Ok(SubscriptionForm {
+            token: response.token.map(String::into_boxed_str).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Malformed,
+                    PROVIDER,
+                    "an opened subscription form carried no token",
+                )
+            })?,
+            content: response.checkout_form_content.map(String::into_boxed_str),
+            expires_in_seconds: response.token_expire_time,
+            raw,
+        })
+    }
+
+    /// Reads what became of a subscription form, by the token it was opened
+    /// with.
+    ///
+    /// `GET /v2/subscription/checkoutform/{token}`. The answer is whatever
+    /// iyzico put in `data` — the subscription if the payer finished, and
+    /// nothing this crate models beyond that, because their schema documents
+    /// the field as an object and names nothing inside it.
+    ///
+    /// So this hands back [`FormResult::raw`] and the token, and a caller who
+    /// needs the subscription reads it there or asks
+    /// [`Client::subscriptions`] for the subscriber's own.
+    pub async fn subscription_form_result(&self, token: &str) -> Result<FormResult, Error> {
+        let path = format!("{SUBSCRIPTION_FORM_RESULT}/{}", path_segment(token)?);
+        let (response, raw) = self
+            .classic
+            .request::<(), wire::Envelope>(Method::GET, &path, LOCALE_QUERY, None)
+            .await?;
+        if let Some(error) = classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to read the subscription form",
+        ) {
+            return Err(error);
+        }
+        Ok(FormResult {
+            token: token.into(),
+            raw,
+        })
+    }
+
+    /// Subscribes somebody iyzico already holds a card for.
+    ///
+    /// `POST /v2/subscription/initialize/with-customer`, keyed by a
+    /// `customerReferenceCode` — the subscriber iyzico made when an earlier
+    /// subscription was started. **No card number crosses this process**, and
+    /// none is asked for: iyzico charges the card the earlier subscription
+    /// left it with.
+    ///
+    /// This is the second subscription a customer takes, and the first is
+    /// [`Client::start_subscription_form`].
+    pub async fn subscribe(
+        &self,
+        subscriber_reference: &str,
+        plan_reference: &str,
+        initial_status: InitialStatus,
+    ) -> Result<Subscription, Error> {
+        let body = wire::SubscribeExistingRequest {
+            locale: LOCALE,
+            conversation_id: None,
+            customer_reference_code: subscriber_reference,
+            pricing_plan_reference_code: plan_reference,
+            subscription_initial_status: initial_status.as_str(),
+        };
+        let (response, _) = self
+            .classic
+            .request::<_, wire::Envelope>(Method::POST, SUBSCRIBE_EXISTING, "", Some(&body))
+            .await?;
+        one(
+            response,
+            "iyzico refused to start the subscription",
+            Subscription::read,
+        )
+    }
+
+    /// Opens the hosted form that replaces the card a subscription is charged
+    /// to.
+    ///
+    /// `POST /v2/subscription/card-update/checkoutform/initialize`. The other
+    /// place a card would otherwise have to be typed into a merchant's page,
+    /// and iyzico hosts this one too.
+    ///
+    /// One of `subscription_reference` and `subscriber_reference` is enough:
+    /// iyzico documents both as optional and the difference is scope — a
+    /// subscription's card, or every subscription that subscriber holds. Both
+    /// absent is [`ErrorKind::InvalidRequest`] before a socket opens, because
+    /// a card update against nothing is not a request iyzico can answer.
+    pub async fn start_card_update_form(
+        &self,
+        subscription_reference: Option<&str>,
+        subscriber_reference: Option<&str>,
+        callback_url: &str,
+    ) -> Result<SubscriptionForm, Error> {
+        if subscription_reference.is_none() && subscriber_reference.is_none() {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "a card update names the subscription or the subscriber whose card is \
+                 being replaced, and this named neither",
+            ));
+        }
+        let body = wire::CardUpdateFormRequest {
+            locale: LOCALE,
+            callback_url,
+            customer_reference_code: subscriber_reference,
+            subscription_reference_code: subscription_reference,
+        };
+        let (response, raw) = self
+            .classic
+            .request::<_, wire::SubscriptionFormResponse>(
+                Method::POST,
+                CARD_UPDATE_FORM,
+                "",
+                Some(&body),
+            )
+            .await?;
+        if let Some(error) = classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to open the card update form",
+        ) {
+            return Err(error);
+        }
+        Ok(SubscriptionForm {
+            token: response.token.map(String::into_boxed_str).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Malformed,
+                    PROVIDER,
+                    "an opened card update form carried no token",
+                )
+            })?,
+            content: response.checkout_form_content.map(String::into_boxed_str),
+            expires_in_seconds: response.token_expire_time,
+            raw,
+        })
+    }
+
+    /// Reads one subscription back.
+    pub async fn subscription(&self, reference: &str) -> Result<Subscription, Error> {
+        let path = format!("{SUBSCRIPTIONS}/{}", path_segment(reference)?);
+        let (response, _) = self
+            .classic
+            .request::<(), wire::Envelope>(Method::GET, &path, LOCALE_QUERY, None)
+            .await?;
+        one(
+            response,
+            "iyzico refused to read the subscription",
+            Subscription::read,
+        )
+    }
+
+    /// Lists subscriptions, one page at a time.
+    ///
+    /// `page` counts from one, the same as every other listing here. iyzico
+    /// documents six filters on this endpoint — by subscription, subscriber,
+    /// plan, parent, status and a date range — and none is sent: they go into
+    /// the query string, which is not signed, and a caller who wants one can
+    /// filter what comes back. Adding them would mean deciding what a date
+    /// looks like on iyzico's side, which their own documentation does not say.
+    pub async fn subscriptions(&self, page: u32, count: u32) -> Result<Page<Subscription>, Error> {
+        let query = paging(page, count)?;
+        let (response, raw) = self
+            .classic
+            .request::<(), wire::ListEnvelope>(Method::GET, SUBSCRIPTIONS, &query, None)
+            .await?;
+        read_page(
+            response,
+            raw,
+            "iyzico refused the subscription listing",
+            Subscription::read,
+        )
+    }
+
+    /// Starts a subscription that was created pending.
+    ///
+    /// `POST /v2/subscription/subscriptions/{ref}/activate`. **The first
+    /// payment is taken here**, not when the subscription was created — which
+    /// is the whole point of [`InitialStatus::Pending`].
+    pub async fn activate(&self, reference: &str) -> Result<(), Error> {
+        self.act_on(
+            reference,
+            "activate",
+            "iyzico refused to activate the subscription",
+        )
+        .await
+    }
+
+    /// Stops a subscription.
+    ///
+    /// `POST /v2/subscription/subscriptions/{ref}/cancel`. No further payments
+    /// are taken; what has already been paid is not given back, which is a
+    /// refund and
+    /// [`classic::Client::refund`](crate::classic::Client::refund).
+    pub async fn cancel(&self, reference: &str) -> Result<(), Error> {
+        self.act_on(
+            reference,
+            "cancel",
+            "iyzico refused to cancel the subscription",
+        )
+        .await
+    }
+
+    /// Moves a subscription to another plan.
+    ///
+    /// `POST /v2/subscription/subscriptions/{ref}/upgrade`. [`Upgrade`] is
+    /// where the three decisions with money in them live: when it takes
+    /// effect, whether the new plan's trial applies to somebody who has
+    /// already paid, and whether the count of payments starts again.
+    pub async fn upgrade(&self, reference: &str, upgrade: &Upgrade) -> Result<(), Error> {
+        let path = format!("{SUBSCRIPTIONS}/{}/upgrade", path_segment(reference)?);
+        let body = wire::UpgradeRequest {
+            locale: LOCALE,
+            new_pricing_plan_reference_code: &upgrade.plan_reference,
+            upgrade_period: upgrade.period.as_str(),
+            use_trial: upgrade.use_trial,
+            reset_recurrence_count: upgrade.reset_recurrence_count,
+        };
+        let (response, _) = self
+            .classic
+            .request::<_, wire::Ack>(Method::POST, &path, "", Some(&body))
+            .await?;
+        match classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to upgrade the subscription",
+        ) {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
+    /// Takes a subscription payment that failed again.
+    ///
+    /// `POST /v2/subscription/operation/retry`, keyed by the **order's**
+    /// reference code rather than the subscription's — iyzico's `referenceCode`
+    /// here names one period's payment, which is what failed.
+    ///
+    /// A retry takes money. iyzico documents no idempotency mechanism for it,
+    /// so read the subscription back before sending a second one.
+    pub async fn retry_payment(&self, order_reference: &str) -> Result<(), Error> {
+        let body = wire::RetryRequest {
+            locale: LOCALE,
+            reference_code: order_reference,
+        };
+        let (response, _) = self
+            .classic
+            .request::<_, wire::Ack>(Method::POST, RETRY, "", Some(&body))
+            .await?;
+        match classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused to take the payment again",
+        ) {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
+    /// Reads one subscriber back.
+    pub async fn subscriber(&self, reference: &str) -> Result<SubscriberDetail, Error> {
+        let path = format!("{SUBSCRIBERS}/{}", path_segment(reference)?);
+        let (response, _) = self
+            .classic
+            .request::<(), wire::Envelope>(Method::GET, &path, LOCALE_QUERY, None)
+            .await?;
+        one(
+            response,
+            "iyzico refused to read the subscriber",
+            SubscriberDetail::read,
+        )
+    }
+
+    /// Lists subscribers, one page at a time.
+    pub async fn subscribers(
+        &self,
+        page: u32,
+        count: u32,
+    ) -> Result<Page<SubscriberDetail>, Error> {
+        let query = paging(page, count)?;
+        let (response, raw) = self
+            .classic
+            .request::<(), wire::ListEnvelope>(Method::GET, SUBSCRIBERS, &query, None)
+            .await?;
+        read_page(
+            response,
+            raw,
+            "iyzico refused the subscriber listing",
+            SubscriberDetail::read,
+        )
+    }
+
+    /// Replaces what iyzico holds about a subscriber.
+    ///
+    /// `POST /v2/subscription/customers/{ref}`. A replacement rather than a
+    /// patch, the same as [`Client::update_product`]: iyzico's request carries
+    /// every field, so one left out of [`Subscriber`] is one cleared.
+    ///
+    /// **This is not how the card is changed.** That is
+    /// [`Client::start_card_update_form`], because a card number does not go
+    /// through here.
+    pub async fn update_subscriber(
+        &self,
+        reference: &str,
+        subscriber: &Subscriber,
+    ) -> Result<SubscriberDetail, Error> {
+        let path = format!("{SUBSCRIBERS}/{}", path_segment(reference)?);
+        let body = subscriber_body(subscriber);
+        let (response, _) = self
+            .classic
+            .request::<_, wire::Envelope>(Method::POST, &path, "", Some(&body))
+            .await?;
+        one(
+            response,
+            "iyzico refused to update the subscriber",
+            SubscriberDetail::read,
+        )
+    }
+
+    /// Both of the calls that act on a subscription by name alone.
+    async fn act_on(&self, reference: &str, action: &str, fallback: &str) -> Result<(), Error> {
+        let path = format!("{SUBSCRIPTIONS}/{}/{action}", path_segment(reference)?);
+        let (response, _) = self
+            .classic
+            .request::<(), wire::Ack>(Method::POST, &path, LOCALE_QUERY, None)
+            .await?;
+        match classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            fallback,
+        ) {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
     /// Deletes whatever is at `path`, carrying nothing.
     ///
     /// Unlike the classic API's card delete, these carry no body: the reference
@@ -422,6 +826,248 @@ impl PricingPlan {
                 .map(|date| wire::text(date).into()),
             raw: Raw::from_text(value.get()),
         })
+    }
+}
+
+/// A hosted form iyzico has opened — for a new subscription, or for replacing
+/// the card an existing one is charged to.
+///
+/// **There is no URL to send the payer to.** iyzico's schema for both of these
+/// documents `checkoutFormContent` and nothing to redirect to, unlike the
+/// classic checkout form which answers a `paymentPageUrl`. So a caller embeds
+/// what iyzico sent.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct SubscriptionForm {
+    /// What reads the result back — [`Client::subscription_form_result`].
+    pub token: Box<str>,
+    /// iyzico's own HTML for the form.
+    pub content: Option<Box<str>>,
+    /// How long the token lasts, in seconds, as iyzico said.
+    pub expires_in_seconds: Option<i64>,
+    /// iyzico's own answer, untouched.
+    pub raw: Raw,
+}
+
+/// What a subscription form's own result carried.
+///
+/// Thin on purpose: iyzico documents this answer's `data` as an object and
+/// names no field inside it, in either language. Inventing a shape for it here
+/// would be a fixture standing in for a body nobody has seen — the same reason
+/// PayTR's instalment rates are untyped — so the body is kept whole and
+/// [`Client::subscription`] is what reads a subscription with fields.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct FormResult {
+    /// The token this was read with.
+    pub token: Box<str>,
+    /// iyzico's own answer, untouched. The subscription is in here.
+    pub raw: Raw,
+}
+
+/// A running subscription.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct Subscription {
+    /// What iyzico calls this subscription, and what every other call names it
+    /// by.
+    pub reference_code: Box<str>,
+    /// Where it stands — iyzico's `subscriptionStatus`.
+    pub status: Option<SubscriptionStatus>,
+    /// The plan it is sold on.
+    pub plan_reference: Option<Box<str>>,
+    /// What that plan is called.
+    pub plan_name: Option<Box<str>>,
+    /// The product the plan hangs off.
+    pub product_reference: Option<Box<str>>,
+    /// What that product is called.
+    pub product_name: Option<Box<str>>,
+    /// The subscriber, as iyzico names them.
+    pub subscriber_reference: Option<Box<str>>,
+    /// Their email, as iyzico echoes it.
+    pub subscriber_email: Option<Box<str>>,
+    /// How many trial days the plan gives.
+    pub trial_days: Option<i64>,
+    /// When iyzico says it started, exactly as they wrote it.
+    ///
+    /// Text rather than a timestamp, the same choice [`Product::created_date`]
+    /// makes and for the same reason: iyzico writes epoch milliseconds in one
+    /// place and `YYYY-MM-DD hh:mm:ss` in another for the same kind of field.
+    pub start_date: Option<Box<str>>,
+    /// When iyzico says it ends, where it says so.
+    pub end_date: Option<Box<str>>,
+    /// iyzico's own answer for this subscription, untouched. The periods
+    /// (`orders`) are in here.
+    pub raw: Raw,
+}
+
+impl Subscription {
+    fn read(value: &RawValue) -> Result<Self, Error> {
+        let item: wire::SubscriptionItem = serde_json::from_str(value.get()).map_err(|e| {
+            Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                "a subscription was not the JSON iyzico documents",
+            )
+            .with_source(e)
+        })?;
+        Ok(Self {
+            reference_code: item
+                .reference_code
+                .map(String::into_boxed_str)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Malformed,
+                        PROVIDER,
+                        "a subscription carried no referenceCode",
+                    )
+                })?,
+            status: item
+                .subscription_status
+                .as_deref()
+                .map(SubscriptionStatus::from),
+            plan_reference: item.pricing_plan_reference_code.map(String::into_boxed_str),
+            plan_name: item.pricing_plan_name.map(String::into_boxed_str),
+            product_reference: item.product_reference_code.map(String::into_boxed_str),
+            product_name: item.product_name.map(String::into_boxed_str),
+            subscriber_reference: item.customer_reference_code.map(String::into_boxed_str),
+            subscriber_email: item.customer_email.map(String::into_boxed_str),
+            trial_days: item.trial_days,
+            start_date: item
+                .start_date
+                .as_deref()
+                .map(|date| wire::text(date).into()),
+            end_date: item.end_date.as_deref().map(|date| wire::text(date).into()),
+            raw: Raw::from_text(value.get()),
+        })
+    }
+}
+
+/// Where a subscription stands.
+///
+/// iyzico documents five values on `subscriptionStatus`. A sixth they start
+/// sending is [`SubscriptionStatus::Other`] rather than an error: a status
+/// this crate has not met is still a subscription somebody is paying for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SubscriptionStatus {
+    /// Running, and being charged.
+    Active,
+    /// Created and waiting for [`Client::activate`].
+    Pending,
+    /// Stopped by [`Client::cancel`].
+    Canceled,
+    /// Stopped because a payment could not be taken.
+    Unpaid,
+    /// Ran to the end of what it was sold for.
+    Expired,
+    /// Something iyzico has started returning since this was written.
+    Other(Box<str>),
+}
+
+impl SubscriptionStatus {
+    /// The word iyzico uses on the wire.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Active => "ACTIVE",
+            Self::Pending => "PENDING",
+            Self::Canceled => "CANCELED",
+            Self::Unpaid => "UNPAID",
+            Self::Expired => "EXPIRED",
+            Self::Other(name) => name,
+        }
+    }
+}
+
+impl From<&str> for SubscriptionStatus {
+    fn from(value: &str) -> Self {
+        match value {
+            "ACTIVE" => Self::Active,
+            "PENDING" => Self::Pending,
+            "CANCELED" => Self::Canceled,
+            "UNPAID" => Self::Unpaid,
+            "EXPIRED" => Self::Expired,
+            other => Self::Other(other.into()),
+        }
+    }
+}
+
+impl fmt::Display for SubscriptionStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A subscriber, as iyzico holds them.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct SubscriberDetail {
+    /// What iyzico calls this subscriber, and what [`Client::subscribe`] takes.
+    pub reference_code: Box<str>,
+    /// Given name.
+    pub name: Option<Box<str>>,
+    /// Family name.
+    pub surname: Option<Box<str>>,
+    /// Email address.
+    pub email: Option<Box<str>>,
+    /// Mobile number.
+    pub gsm_number: Option<Box<str>>,
+    /// iyzico's own answer for this subscriber, untouched. The addresses and
+    /// the identity number are in here.
+    pub raw: Raw,
+}
+
+impl SubscriberDetail {
+    fn read(value: &RawValue) -> Result<Self, Error> {
+        let item: wire::SubscriberItem = serde_json::from_str(value.get()).map_err(|e| {
+            Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                "a subscriber was not the JSON iyzico documents",
+            )
+            .with_source(e)
+        })?;
+        Ok(Self {
+            reference_code: item
+                .reference_code
+                .map(String::into_boxed_str)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Malformed,
+                        PROVIDER,
+                        "a subscriber carried no referenceCode",
+                    )
+                })?,
+            name: item.name.map(String::into_boxed_str),
+            surname: item.surname.map(String::into_boxed_str),
+            email: item.email.map(String::into_boxed_str),
+            gsm_number: item.gsm_number.map(String::into_boxed_str),
+            raw: Raw::from_text(value.get()),
+        })
+    }
+}
+
+/// The subscriber, as every subscription request wants them.
+fn subscriber_body(subscriber: &Subscriber) -> wire::SubscriberBody<'_> {
+    wire::SubscriberBody {
+        name: &subscriber.name,
+        surname: &subscriber.surname,
+        email: &subscriber.email,
+        gsm_number: &subscriber.gsm_number,
+        identity_number: &subscriber.identity_number,
+        billing_address: address_body(&subscriber.billing_address),
+        shipping_address: subscriber.shipping_address.as_ref().map(address_body),
+    }
+}
+
+fn address_body(address: &subscriber::Address) -> wire::AddressBody<'_> {
+    wire::AddressBody {
+        contact_name: &address.contact_name,
+        address: &address.address,
+        city: &address.city,
+        country: &address.country,
+        zip_code: address.zip_code.as_deref(),
     }
 }
 
