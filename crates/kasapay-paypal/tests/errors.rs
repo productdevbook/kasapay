@@ -269,7 +269,7 @@ async fn an_order_in_a_currency_kasapay_cannot_name_is_not_guessed_at() {
             // first and mask the currency error this test is actually about.
             "status": "APPROVED",
             "purchase_units": [
-                { "amount": { "currency_code": "SEK", "value": "100.00" } }
+                { "amount": { "currency_code": "ISK", "value": "100.00" } }
             ],
             "links": [
                 { "href": "https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T", "rel": "self", "method": "GET" }
@@ -281,9 +281,9 @@ async fn an_order_in_a_currency_kasapay_cannot_name_is_not_guessed_at() {
     let error = paypal
         .charge_status(&PaymentId::issued("5O190127TN364715T"))
         .await
-        .expect_err("kasapay has no Currency for krona");
+        .expect_err("kasapay has no Currency for the króna");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert!(error.to_string().contains("SEK"), "{error}");
+    assert!(error.to_string().contains("ISK"), "{error}");
 }
 
 /// PayPal's `/v1/oauth2/token` answers a different, plain OAuth2 error shape

@@ -181,8 +181,11 @@ mod tests {
 
     #[test]
     fn a_currency_paypal_settles_in_and_kasapay_cannot_name_is_not_guessed() {
-        // Swedish krona: on PayPal's list, not in `Currency`.
-        let error = currency_back("SEK").expect_err("kasapay cannot name it");
+        // Icelandic króna: on PayPal's list, and left out of `Currency` on
+        // purpose — Stripe reads it as having no minor unit where ISO gives it
+        // two, and this library names no currency whose minor unit is argued
+        // about.
+        let error = currency_back("ISK").expect_err("kasapay cannot name it");
         assert_eq!(error.kind(), ErrorKind::Unsupported);
     }
 

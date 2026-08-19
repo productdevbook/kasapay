@@ -248,7 +248,7 @@ async fn a_payment_in_a_currency_kasapay_cannot_name_is_not_guessed_at() {
             "resource": "payment",
             "id": "tr_WDqYK6vllg",
             "mode": "live",
-            "amount": { "value": "100.00", "currency": "SEK" },
+            "amount": { "value": "100.00", "currency": "ISK" },
             "description": "Order 33",
             "status": "paid",
             "createdAt": "2024-03-20T09:13:37+00:00",
@@ -262,7 +262,7 @@ async fn a_payment_in_a_currency_kasapay_cannot_name_is_not_guessed_at() {
     let error = client(&server)
         .charge_status(&PaymentId::issued("tr_WDqYK6vllg"))
         .await
-        .expect_err("kasapay has no Currency for krona");
+        .expect_err("kasapay has no Currency for the króna");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert!(error.to_string().contains("SEK"), "{error}");
+    assert!(error.to_string().contains("ISK"), "{error}");
 }
