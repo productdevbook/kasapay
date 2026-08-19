@@ -677,9 +677,22 @@ impl Provider for PayTr {
     ///
     /// PayTR issues none: the order reference is what reads the payment back,
     /// and the answer here is [`Status::RequiresAction`] with
-    /// [`NextAction::Redirect`] to PayTR's form. `idempotency_key` is ignored;
-    /// `merchant_oid` is what PayTR refuses to charge twice.
+    /// [`NextAction::Redirect`] to PayTR's form.
+    ///
+    /// [`ChargeRequest::idempotency_key`] is [`ErrorKind::Unsupported`] rather
+    /// than dropped: PayTR documents no mechanism for one, and a key accepted
+    /// and dropped reads as a guarantee there is none. `merchant_oid` is what
+    /// PayTR refuses to charge twice, and [`Provider::lookup`] asks by it.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PAYTR,
+                "PayTR documents no idempotency mechanism for opening a payment; \
+                 merchant_oid is what it refuses to charge twice, and Provider::lookup \
+                 asks by it",
+            ));
+        }
         unattended(request)?;
         let payment = payment(request)?;
         self.start_payment(&payment).await

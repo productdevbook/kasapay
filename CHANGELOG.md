@@ -48,6 +48,41 @@ order releases happen, newest first.
   adapter's own is *forgetting* an instrument, and the documentation now says
   only that.
 
+### Fixed
+
+- **`Provider::charge` dropped `ChargeRequest::idempotency_key` at iyzico's
+  classic API and at PayTR** (#165). The workspace states in three places that
+  a provider either sends a key or refuses the request, because a key accepted
+  and dropped reads as a guarantee against a double charge where there is
+  none. Both now answer `ErrorKind::Unsupported` and name `Provider::lookup`
+  as the way to find out before sending again — which is what
+  `iyzico::in_store` already did, so the same crate had been implementing both
+  readings.
+
+  **Breaking for a caller who set a key against either.** It was doing nothing
+  before; it now says so.
+
+- **`RefundRequest::idempotency_key` documented the opposite rule to
+  `Provider::refund`** (#167), and the dangerous one — that a provider which
+  cannot honour a key ignores it. Every implementation refuses. Corrected.
+
+- **The class is now checked rather than remembered.** #154 fixed this on
+  `capture`'s documentation and the `charge` and `refund` halves were missed,
+  which is the second time one class has been found — so
+  `crates/kasapay/tests/conformance.rs` gains
+  `an_idempotency_key_is_sent_or_refused_but_never_dropped`, which walks every
+  adapter on both calls. On `charge` — a single request at every adapter here —
+  it asserts the key reaches the wire or the call is refused before a socket
+  opens. On `refund` it asserts refuse-with-nothing-sent or something-sent,
+  because PayPal reads the order first and Mollie reads the payment first, so
+  the request that would carry the key is never reached against a server that
+  fails everything; the test says so where a reader meets it.
+
+  The existing capture test proved only the refusal half — it had no `else`, so
+  an adapter that ignored the key passed. It has one now, and so does the
+  currency ratchet, whose `else` branch counted a settled currency and asserted
+  nothing at all.
+
 ## 0.0.5 — 2026-08-19
 
 ### Added

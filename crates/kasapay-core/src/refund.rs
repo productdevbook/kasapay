@@ -184,8 +184,13 @@ pub struct RefundRequest {
     /// Worth more here than on a charge. A replayed charge opens a second
     /// payment somebody can see and cancel; a replayed refund gives the money
     /// back twice, and the second one is the shop's. A provider that cannot
-    /// honour a key ignores it rather than refusing the call, and says so on
-    /// its own `refund`.
+    /// honour a key **refuses the refund** with
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// sending it without one, which is the rule
+    /// [`Provider::refund`](crate::Provider::refund) and
+    /// [`ChargeRequest::idempotency_key`](crate::ChargeRequest::idempotency_key)
+    /// both state: a key accepted and dropped reads as a guarantee against
+    /// giving the money back twice.
     pub idempotency_key: Option<IdempotencyKey>,
     /// The payer, in the provider's own terms, where the refund needs naming
     /// them again.

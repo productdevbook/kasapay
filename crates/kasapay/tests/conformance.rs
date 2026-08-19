@@ -39,7 +39,7 @@
 
 use kasapay::{
     ChargeRequest, ChargeRequestBuilder, Currency, ErrorKind, IdempotencyKey, InstrumentId, Money,
-    OrderRef, PaymentId, Provider, Secret, Sequence,
+    OrderRef, PaymentId, Provider, RefundRequest, Secret, Sequence,
 };
 use serde_json::json;
 use wiremock::matchers::{any, method, path};
@@ -61,6 +61,29 @@ struct Subject {
 }
 
 impl Subject {
+    /// Whether any request this subject sent carries the key, in a header or
+    /// in the body.
+    ///
+    /// Both, because the providers that take one disagree about where it
+    /// goes: Stripe and Mollie use an `Idempotency-Key` header and PayPal a
+    /// `PayPal-Request-Id`, and a provider that wanted it in the body would be
+    /// no less correct.
+    async fn sent_key(&self, key: &IdempotencyKey) -> bool {
+        let wanted = key.as_str();
+        self.server
+            .received_requests()
+            .await
+            .expect("the mock server records requests")
+            .iter()
+            .any(|request| {
+                request
+                    .headers
+                    .iter()
+                    .any(|(_, value)| value.to_str().is_ok_and(|v| v.contains(wanted)))
+                    || String::from_utf8_lossy(&request.body).contains(wanted)
+            })
+    }
+
     /// How many requests have reached the server since the client was built.
     async fn reached(&self) -> usize {
         self.server
@@ -308,6 +331,96 @@ async fn a_capture_refuses_an_idempotency_key_before_it_sends_anything() {
                 0,
                 "{who} refused the key only after sending the capture"
             );
+        } else {
+            assert!(
+                subject.sent_key(&key).await,
+                "{who} neither refused the key nor sent it"
+            );
+        }
+    }
+}
+
+/// An idempotency key is either **sent or refused**, never dropped, on every
+/// call that takes one.
+///
+/// This is the rule `ChargeRequest::idempotency_key`, `Provider::capture` and
+/// `Provider::refund` all state, and the reason it is a rule rather than a
+/// preference: a caller sets a key, the call times out, `is_retryable()`
+/// answers true, and they send it again. If the key reached the provider the
+/// retry is free. If it was quietly dropped, the retry is a second payment.
+///
+/// It is a check rather than a convention because the class has now been found
+/// twice — #154 on `capture`'s documentation, #165 and #167 on `charge` and
+/// `refund`. Fixing a bug twice is when the rule gets written down.
+///
+/// # What this does not prove
+///
+/// That the key was sent *correctly* — only that its value appears somewhere
+/// in a request this call made. A provider whose idempotency header is
+/// misspelled would pass. It also cannot see a key folded into a signature
+/// rather than sent verbatim; no adapter here does that, and one that did
+/// would have to be named below rather than left to pass silently.
+///
+/// **The refund half is weaker than the charge half, and deliberately so.**
+/// PayPal reads the order to find the capture and Mollie reads the payment to
+/// find what is left, so their first request carries no key and the one that
+/// would is never reached against a server that fails everything. Asking for
+/// the key on the wire there would fail an adapter that is doing exactly the
+/// right thing. So refund asserts refuse-with-nothing-sent or something-sent,
+/// and `charge` — where every adapter here is a single call, and where the
+/// defect actually was — carries the full check.
+#[tokio::test]
+async fn an_idempotency_key_is_sent_or_refused_but_never_dropped() {
+    let key = IdempotencyKey::new("idem-ratchet-1");
+
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let request = complete_request(subject.currency)
+            .idempotency_key(key.clone())
+            .build()
+            .expect("valid request");
+        let error = subject
+            .provider
+            .charge(&request)
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+        if error.kind() == ErrorKind::Unsupported {
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused the key on charge only after sending something"
+            );
+        } else {
+            assert!(
+                subject.sent_key(&key).await,
+                "{who} neither refused the key on charge nor sent it"
+            );
+        }
+    }
+
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let request = RefundRequest::builder(a_payment())
+            .amount(Money::from_minor_units(500, subject.currency))
+            .idempotency_key(key.clone())
+            .build()
+            .expect("valid request");
+        let error = subject
+            .provider
+            .refund(&request)
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+        if error.kind() == ErrorKind::Unsupported {
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused the key on refund only after sending something"
+            );
+        } else {
+            assert!(
+                subject.reached().await > 0,
+                "{who} neither refused the key on refund nor sent anything"
+            );
         }
     }
 }
@@ -540,6 +653,15 @@ async fn the_default_sequence_changes_nothing() {
 /// This is the proof that replaced that prohibition. It costs one pass over a
 /// hundred-odd currencies per adapter and it is the only reason widening the
 /// enum is safe.
+///
+/// # What this does not prove
+///
+/// That the code on the wire is the one asked for. Providers spell them
+/// differently — PayTR writes lira as `TL` — so checking the spelling is each
+/// adapter's own test, and several have one. What this asserts is the property
+/// the enum's own documentation rests on: every currency is either refused
+/// before a socket opens or sent to the provider, and never settled in
+/// silence.
 #[tokio::test]
 async fn every_currency_is_either_settled_or_refused_before_the_wire() {
     for subject in every_adapter().await {
@@ -570,6 +692,14 @@ async fn every_currency_is_either_settled_or_refused_before_the_wire() {
                 );
                 refused += 1;
             } else {
+                // The half this branch used to leave unasserted. An adapter
+                // that settled a currency without sending anything would have
+                // counted here and passed, which is exactly the silence the
+                // refusal branch above exists to forbid.
+                assert!(
+                    after > before,
+                    "{who} neither refused {currency} nor sent anything for it"
+                );
                 settled += 1;
             }
             before = after;
