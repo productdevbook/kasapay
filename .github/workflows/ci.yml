@@ -89,6 +89,26 @@ jobs:
           python3 scripts/compare_specs.py --against-git "origin/${{ github.base_ref }}" \
             | tee -a "$GITHUB_STEP_SUMMARY" || true
 
+  # A tolerated list nothing enforces is a list that rots: this script measured
+  # itself against a closed issue's number for weeks before anybody looked. So
+  # the accounting in `NOT_REACHED_ON_PURPOSE` is checked on every push, and it
+  # is the two lists rather than the total that fail the job — an operation
+  # nothing calls and nothing explains, or an explanation that no longer
+  # describes anything.
+  coverage:
+    name: every documented operation is reached or explained
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+      - run: pip install pyyaml
+      # The detector before what it detects: a check nobody has seen fail is a
+      # check nobody knows works.
+      - run: python3 scripts/coverage.py --self-test
+      - run: python3 scripts/coverage.py
+
   dependencies:
     name: dependencies are sound and permissively licensed
     runs-on: ubuntu-latest
