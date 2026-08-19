@@ -547,7 +547,7 @@ async fn asking_for_the_single_payment_rate_says_so() {
     assert!(rates.max_instalments.is_none());
 }
 
-/// The request_id is signed, so a value PayTR would truncate is a token that
+/// The `request_id` is signed, so a value PayTR would truncate is a token that
 /// will not match. No mock is mounted: it never reaches the network.
 #[tokio::test]
 async fn a_request_id_longer_than_paytr_takes_is_refused_here() {
@@ -559,7 +559,7 @@ async fn a_request_id_longer_than_paytr_takes_is_refused_here() {
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }
 
-/// PayTR echoes the request id back, and an answer about another request is
+/// PayTR echoes the `request_id` back, and an answer about another request is
 /// not this one's answer.
 #[tokio::test]
 async fn an_answer_about_another_request_is_not_this_ones() {
