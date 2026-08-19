@@ -844,7 +844,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "kasapay-core",
  "kasapay-iyzico",
@@ -859,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay-core"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "serde",
@@ -870,7 +870,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay-iyzico"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -890,7 +890,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay-mollie"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "kasapay-core",
@@ -905,7 +905,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay-paypal"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "kasapay-core",
@@ -919,7 +919,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay-paytr"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "kasapay-stripe"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-stripe",
  "async-stripe-client-core",
