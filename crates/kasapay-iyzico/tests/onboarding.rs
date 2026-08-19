@@ -14,7 +14,7 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{Currency, ErrorKind};
+use kasapay_core::{Currency, ErrorKind, Money};
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic;
 use kasapay_iyzico::onboarding::{
@@ -383,4 +383,144 @@ async fn the_request_is_signed_over_the_path_and_the_exact_bytes_sent() {
         decoded.ends_with(&format!("signature:{expected}")),
         "the signature covered something other than the path and the body"
     );
+}
+
+/// The split id, which is the basket line rather than the payment.
+const SPLIT: &str = "17652320";
+
+#[tokio::test]
+async fn approving_a_line_names_the_split_and_not_the_payment() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/item/approve"))
+        .and(header_exists("authorization"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "paymentTransactionId": SPLIT,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "locale": "tr",
+            "systemTime": 1_770_000_000_i64,
+            "paymentTransactionId": SPLIT,
+        })))
+        .mount(&server)
+        .await;
+
+    let approved = client(&server)
+        .approve_item(SPLIT)
+        .await
+        .expect("the sub-merchant's share is released");
+    assert_eq!(&*approved.transaction, SPLIT);
+}
+
+#[tokio::test]
+async fn disapproving_a_line_holds_the_share_again() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/item/disapprove"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentTransactionId": SPLIT,
+        })))
+        .mount(&server)
+        .await;
+
+    let held = client(&server)
+        .disapprove_item(SPLIT)
+        .await
+        .expect("the approval is revoked");
+    assert_eq!(&*held.transaction, SPLIT);
+}
+
+/// Acting on the wrong split pays the wrong seller, so the echo is checked.
+#[tokio::test]
+async fn an_answer_about_another_split_is_not_this_calls() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/item/approve"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentTransactionId": "99999999",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .approve_item(SPLIT)
+        .await
+        .expect_err("that is another line's answer");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
+/// iyzico types these amounts as JSON numbers, and no money here goes through
+/// an `f64` in either direction.
+#[tokio::test]
+async fn changing_a_share_sends_a_number_and_reads_the_arithmetic_back() {
+    let server = MockServer::start().await;
+    Mock::given(method("PUT"))
+        .and(path("/payment/item"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "paymentTransactionId": SPLIT,
+            "subMerchantKey": "sub-merchant-key-1",
+            // A number, not a string.
+            "subMerchantPrice": 90.00,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "itemId": "item-1",
+            "paymentTransactionId": SPLIT,
+            "transactionStatus": 2,
+            "price": 100.00,
+            "paidPrice": 100.00,
+            "subMerchantKey": "sub-merchant-key-1",
+            "subMerchantPrice": 90.00,
+            "subMerchantPayoutAmount": 88.20,
+            "merchantPayoutAmount": 9.80,
+            "blockageResolvedDate": "2026-08-26 10:00:00",
+        })))
+        .mount(&server)
+        .await;
+
+    let payout = client(&server)
+        .update_item_payout(
+            SPLIT,
+            "sub-merchant-key-1",
+            Money::parse("90.00", Currency::Try).expect("valid amount"),
+        )
+        .await
+        .expect("iyzico answers the new arithmetic");
+
+    assert_eq!(payout.item_id.as_deref(), Some("item-1"));
+    assert_eq!(payout.transaction_status, Some(2));
+    assert_eq!(
+        payout.submerchant_price.map(Money::minor_units),
+        Some(9_000)
+    );
+    // What actually reaches them, after iyzico's blockage.
+    assert_eq!(
+        payout.submerchant_payout.map(Money::minor_units),
+        Some(8_820)
+    );
+    assert_eq!(payout.merchant_payout.map(Money::minor_units), Some(980));
+    assert_eq!(
+        payout.blockage_resolved.as_deref(),
+        Some("2026-08-26 10:00:00")
+    );
+}
+
+/// No mock is mounted: nothing is paid out for nothing.
+#[tokio::test]
+async fn a_share_of_nothing_never_reaches_iyzico() {
+    let server = MockServer::start().await;
+    let error = client(&server)
+        .update_item_payout(
+            SPLIT,
+            "sub-merchant-key-1",
+            Money::from_minor_units(0, Currency::Try),
+        )
+        .await
+        .expect_err("zero is not a share");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }

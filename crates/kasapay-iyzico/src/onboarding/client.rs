@@ -1,18 +1,29 @@
 //! The onboarding client.
 
-use kasapay_core::{Currency, Error, ErrorKind, ProviderId, Raw, Secret};
+use kasapay_core::{Currency, Error, ErrorKind, Money, ProviderId, Raw, Secret};
 use reqwest::Method;
+use serde_json::value::RawValue;
 
 use crate::classic;
+use crate::classic::instalments::number_as_money;
 use crate::onboarding::submerchant::{NewSubmerchant, SubmerchantKind, SubmerchantUpdate};
 use crate::onboarding::wire;
 
 const PROVIDER: ProviderId = ProviderId::IYZICO;
 
+/// The language iyzico answers in. Every request in this module sends it.
+const LOCALE: &str = "tr";
+
 /// Where a sub-merchant is created, updated and looked up.
 const SUBMERCHANT: &str = "/onboarding/submerchant";
 /// Where a sub-merchant's own details are read back.
 const SUBMERCHANT_DETAIL: &str = "/onboarding/submerchant/detail";
+/// Letting one basket line's payout go to the sub-merchant.
+const ITEM_APPROVE: &str = "/payment/iyzipos/item/approve";
+/// Taking that permission back.
+const ITEM_DISAPPROVE: &str = "/payment/iyzipos/item/disapprove";
+/// Changing what a sub-merchant is to be paid for one line.
+const ITEM: &str = "/payment/item";
 
 /// Talks to iyzico's marketplace onboarding API — creating, updating and
 /// reading back a sub-merchant.
@@ -128,6 +139,219 @@ impl Client {
         }
         Ok(SubmerchantDetail::read(response, raw))
     }
+
+    /// Lets one basket line's money go to the sub-merchant who earned it.
+    ///
+    /// `POST /payment/iyzipos/item/approve`. **This is the other half of a
+    /// marketplace**, and until it existed this module could open a
+    /// sub-merchant's account and never pay it: iyzico holds a split line's
+    /// share until the platform says the buyer got what they paid for, and
+    /// this is the platform saying it.
+    ///
+    /// `transaction` is the split's own `paymentTransactionId` — the id
+    /// iyzico answers per basket line on the payment, the same one
+    /// [`classic::Client::refund_transaction`] refunds a single line by. It is
+    /// not a payment id, and a payment with three lines has three of them.
+    ///
+    /// # Not signed
+    ///
+    /// iyzico's response here carries no `signature` field, so this answer is
+    /// only as trustworthy as the connection it arrived over — the same as
+    /// every other operation in this module.
+    pub async fn approve_item(&self, transaction: &str) -> Result<ItemAction, Error> {
+        let body = wire::ItemActionRequest {
+            locale: LOCALE,
+            conversation_id: None,
+            payment_transaction_id: transaction,
+        };
+        let (response, raw) = self
+            .classic
+            .request::<_, wire::ItemActionResponse>(Method::POST, ITEM_APPROVE, "", Some(&body))
+            .await?;
+        Self::read_action(
+            response,
+            raw,
+            transaction,
+            "iyzico refused to approve the item",
+        )
+    }
+
+    /// Takes back the permission [`Client::approve_item`] gave.
+    ///
+    /// `POST /payment/iyzipos/item/disapprove`, by the same split id. iyzico's
+    /// own words are that it revokes the approval of the line — the money goes
+    /// back to being held rather than back to the buyer, which is a refund and
+    /// a different call.
+    pub async fn disapprove_item(&self, transaction: &str) -> Result<ItemAction, Error> {
+        let body = wire::ItemActionRequest {
+            locale: LOCALE,
+            conversation_id: None,
+            payment_transaction_id: transaction,
+        };
+        let (response, raw) = self
+            .classic
+            .request::<_, wire::ItemActionResponse>(Method::POST, ITEM_DISAPPROVE, "", Some(&body))
+            .await?;
+        Self::read_action(
+            response,
+            raw,
+            transaction,
+            "iyzico refused to disapprove the item",
+        )
+    }
+
+    /// Changes what the sub-merchant is to be paid for one line.
+    ///
+    /// `PUT /payment/item`. What a marketplace reaches for when the split was
+    /// wrong: a commission agreed after the payment, a line the platform is
+    /// covering part of. The buyer paid what they paid — this moves the line
+    /// between the platform and the sub-merchant, and iyzico answers the whole
+    /// arithmetic back.
+    ///
+    /// `price` is what the sub-merchant is to receive, in the currency the
+    /// payment was taken in. iyzico's request has no currency field and
+    /// neither does its answer, so every [`Money`] here is in that same one —
+    /// the same shape [`classic::Client::instalments`] has, and for the same
+    /// reason.
+    pub async fn update_item_payout(
+        &self,
+        transaction: &str,
+        submerchant_key: &str,
+        price: Money,
+    ) -> Result<ItemPayout, Error> {
+        price.require_positive().map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "a sub-merchant's share is an amount above zero",
+            )
+            .with_source(e)
+        })?;
+        let currency = price.currency();
+        // The decimal string as a JSON number, without an f64 in the middle.
+        let decimal = RawValue::from_string(price.to_decimal_string()).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "the amount is not a number iyzico can be sent",
+            )
+            .with_source(e)
+        })?;
+        let body = wire::ItemPayoutUpdateRequest {
+            locale: LOCALE,
+            conversation_id: None,
+            payment_transaction_id: transaction,
+            sub_merchant_key: submerchant_key,
+            sub_merchant_price: &decimal,
+        };
+        let (response, raw) = self
+            .classic
+            .request::<_, wire::ItemPayoutUpdateResponse>(Method::PUT, ITEM, "", Some(&body))
+            .await?;
+        if let Some(error) = classic::refused(
+            response.status.as_deref(),
+            response.error_message.clone(),
+            response.error_code.clone(),
+            "iyzico refused to change the sub-merchant's share",
+        ) {
+            return Err(error);
+        }
+        let money = |value: Option<&RawValue>| {
+            value
+                .map(|raw| number_as_money(raw.get(), currency))
+                .transpose()
+        };
+        Ok(ItemPayout {
+            item_id: response.item_id.map(String::into_boxed_str),
+            transaction: transaction.into(),
+            submerchant_key: response.sub_merchant_key.map(String::into_boxed_str),
+            transaction_status: response.transaction_status,
+            price: money(response.price.as_deref())?,
+            paid_price: money(response.paid_price.as_deref())?,
+            submerchant_price: money(response.sub_merchant_price.as_deref())?,
+            submerchant_payout: money(response.sub_merchant_payout_amount.as_deref())?,
+            merchant_payout: money(response.merchant_payout_amount.as_deref())?,
+            blockage_resolved: response.blockage_resolved_date.map(String::into_boxed_str),
+            raw,
+        })
+    }
+
+    /// Both item actions, which differ in the path and in nothing else.
+    fn read_action(
+        response: wire::ItemActionResponse,
+        raw: Raw,
+        asked_about: &str,
+        refusal: &str,
+    ) -> Result<ItemAction, Error> {
+        if let Some(error) = classic::refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            refusal,
+        ) {
+            return Err(error);
+        }
+        // iyzico echoes the split it acted on. An answer about another line is
+        // not this call's answer, and acting on it would pay the wrong seller.
+        if let Some(acted) = response.payment_transaction_id.as_deref()
+            && acted != asked_about
+        {
+            return Err(Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                format!("asked about split {asked_about} and iyzico answered about {acted}"),
+            ));
+        }
+        Ok(ItemAction {
+            transaction: asked_about.into(),
+            raw,
+        })
+    }
+}
+
+/// One split line, after iyzico acted on it.
+#[derive(Debug, Clone)]
+pub struct ItemAction {
+    /// The split the call was about — iyzico's `paymentTransactionId`, echoed
+    /// back and checked against what was asked.
+    pub transaction: Box<str>,
+    /// iyzico's own response, untouched.
+    pub raw: Raw,
+}
+
+/// What a sub-merchant is to be paid for one line, after a change.
+///
+/// Every amount is in the currency the payment was taken in: iyzico's answer
+/// names none, so this carries the one the caller asked with.
+#[derive(Debug, Clone)]
+pub struct ItemPayout {
+    /// The basket line's own id, as the payment carried it.
+    pub item_id: Option<Box<str>>,
+    /// The split this changed, echoed from the request.
+    pub transaction: Box<str>,
+    /// The sub-merchant iyzico says the line belongs to.
+    pub submerchant_key: Option<Box<str>>,
+    /// iyzico's own code for where the line stands.
+    ///
+    /// Kept as the number they sent: their schema types it as an integer and
+    /// names no values for it anywhere, so there is nothing to map it onto
+    /// that would not be invented here.
+    pub transaction_status: Option<i64>,
+    /// What the line came to on the basket.
+    pub price: Option<Money>,
+    /// What was collected for it.
+    pub paid_price: Option<Money>,
+    /// What the sub-merchant is to receive — the figure this call changed.
+    pub submerchant_price: Option<Money>,
+    /// What will actually reach them after iyzico's blockage, where iyzico
+    /// worked it out.
+    pub submerchant_payout: Option<Money>,
+    /// What reaches the platform for this line.
+    pub merchant_payout: Option<Money>,
+    /// When iyzico says the blockage on this line lifts, as they wrote it.
+    pub blockage_resolved: Option<Box<str>>,
+    /// iyzico's own response, untouched.
+    pub raw: Raw,
 }
 
 impl From<classic::Client> for Client {

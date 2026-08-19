@@ -7,6 +7,16 @@ order releases happen, newest first.
 
 ### Added
 
+- **iyzico's marketplace can pay a sub-merchant now.**
+  `onboarding::Client::approve_item`, `disapprove_item` and
+  `update_item_payout` — iyzico holds a split line's share until the platform
+  says the buyer got what they paid for, and this module could open a
+  sub-merchant's account and never release its money. All three are keyed by
+  `paymentTransactionId`, the split's own id, which is a basket line rather
+  than a payment: a payment with three lines has three of them, and approving
+  the wrong one pays the wrong seller, so the id iyzico echoes is checked
+  against the one asked about.
+
 - **`PayPal::void_authorization`**, `POST /v2/payments/authorizations/{id}/void`.
   The one call in `kasapay-paypal` that gives a payer their limit back without
   money having moved — and the gap the crate had been documenting rather than

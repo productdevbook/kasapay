@@ -18,6 +18,29 @@
 //! | [`Client::update`] | `PUT /onboarding/submerchant` |
 //! | [`Client::detail`] | `POST /onboarding/submerchant/detail` |
 //!
+//! And the three that pay one: a marketplace that can open a sub-merchant's
+//! account and never release its money is half a marketplace, and this module
+//! was that until these landed.
+//!
+//! | | |
+//! |---|---|
+//! | [`Client::approve_item`] | `POST /payment/iyzipos/item/approve` |
+//! | [`Client::disapprove_item`] | `POST /payment/iyzipos/item/disapprove` |
+//! | [`Client::update_item_payout`] | `PUT /payment/item` |
+//!
+//! iyzico holds a split line's share until the platform says the buyer got
+//! what they paid for. [`Client::approve_item`] is the platform saying it,
+//! [`Client::disapprove_item`] takes it back — the money goes back to being
+//! held rather than back to the buyer, which is a refund and
+//! [`classic::Client::refund_transaction`](crate::classic::Client::refund_transaction) —
+//! and [`Client::update_item_payout`] changes what the sub-merchant is owed
+//! for the line before either.
+//!
+//! All three are keyed by `paymentTransactionId`, the split's own id, which
+//! iyzico answers per basket line on the payment. **Not a payment id**: a
+//! payment with three lines has three of them, and paying the wrong one pays
+//! the wrong seller.
+//!
 //! # What is not: the Agent API
 //!
 //! `specs/iyzico/agent/latest.yaml` documents two more operations —
@@ -208,7 +231,7 @@ mod submerchant;
 mod wire;
 
 #[doc(inline)]
-pub use crate::onboarding::client::{Client, Created, SubmerchantDetail};
+pub use crate::onboarding::client::{Client, Created, ItemAction, ItemPayout, SubmerchantDetail};
 #[doc(inline)]
 pub use crate::onboarding::submerchant::{
     CompanyUpdate, CompanyUpdateBuilder, LimitedJointSubmerchant, LimitedJointSubmerchantBuilder,
