@@ -70,15 +70,23 @@
 //! instalments through PayTR** — so it is the answer to "may I offer this payer
 //! instalments" as well as the value a Direkt API payment sends as `card_type`.
 //!
-//! # Instalment rates are not here
+//! # Instalment rates are here, and their shape is not
 //!
-//! PayTR's `/odeme/taksit-oranlari` is not wrapped, and deliberately: the
-//! service exists to return the `oranlar` field, and PayTR documents that field
-//! only as "the rates, by card family, in array format". It never says what one
-//! entry looks like — not in the field table, not in the PDF, not in any of the
-//! four sample programs, all of which print it and stop. There is nothing to
-//! model that would not be a guess, and a guess here fails at parse time
-//! against every real merchant.
+//! [`PayTr::instalment_rates`] calls `/odeme/taksit-oranlari` and answers the
+//! four fields PayTR documents — the status, the echoed `request_id`, the
+//! error message and `max_inst_non_bus` — with the body kept whole beside
+//! them.
+//!
+//! The rates themselves stay on [`InstalmentRates::raw`]. PayTR documents
+//! `oranlar` only as "the rates, by card family, in array format", and never
+//! says what one entry looks like: not in the field table, not in the PDF, not
+//! in any of the four sample programs, all of which print it and stop. A
+//! struct for it would be a shape invented in this crate, and a shape invented
+//! here fails at parse time against every real merchant.
+//!
+//! So the call is wrapped and the guess is not made. A caller who has a
+//! merchant account can read the body today, and #73 is what a real one
+//! finishes.
 //!
 //! # Retrying a payment is not documented as safe
 //!
@@ -136,7 +144,7 @@ mod wire;
 #[doc(inline)]
 pub use crate::card::{CardDetails, CardKind, CardScheme};
 #[doc(inline)]
-pub use crate::client::{Config, PAYTR, PayTr, RefundRecord, payment_id};
+pub use crate::client::{Config, InstalmentRates, PAYTR, PayTr, RefundRecord, payment_id};
 #[doc(inline)]
 pub use crate::notice::Notice;
 #[doc(inline)]

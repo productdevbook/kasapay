@@ -45,7 +45,7 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-core` | `Money`, `Charge`, `Error`, `Provider`. No network, no HTTP client |
 | `kasapay-stripe` | over [`async-stripe`](https://github.com/arlyon/async-stripe) |
 | `kasapay-iyzico` | three iyzico APIs: `in_store`, `terminal` and `classic` |
-| `kasapay-paytr` | PayTR's hosted form, status, refund, payment notice |
+| `kasapay-paytr` | PayTR's hosted form, status, refund, instalment rates, payment notice |
 | `kasapay-mollie` | Mollie's Payments API: hosted checkout, holds, captures, refunds |
 | `kasapay-paypal` | PayPal's Orders v2: create, read, capture — the spine, not the whole API |
 

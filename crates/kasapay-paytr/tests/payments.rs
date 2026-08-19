@@ -479,6 +479,107 @@ async fn the_shared_refund_refuses_what_paytr_cannot_do() {
     );
 }
 
+/// The request and its hash are documented in full; the answer's `oranlar` is
+/// not, so nothing here has a view about it.
+#[tokio::test]
+async fn instalment_rates_sign_the_request_id_and_keep_the_body_whole() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/taksit-oranlari"))
+        .and(body_string_contains("merchant_id=merchant-1"))
+        .and(body_string_contains("request_id=req-1"))
+        // base64(hmac_sha256("merchant-1" + "req-1" + salt, key)), computed
+        // from PayTR's formula rather than from the code under test.
+        .and(body_string_contains(urlencoding(
+            "0obv5dH1nbN89NeBumF0lvj4xwiS5OUVcvKqf2wfI2I=",
+        )))
+        // Neither optional flag was asked for, so neither is sent: an absent
+        // flag is not the same request as one carrying zero.
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "request_id": "req-1",
+            "max_inst_non_bus": 9,
+            // Whatever PayTR sends here, this crate does not model it.
+            "oranlar": { "bonus": [{ "taksit": 2, "oran": "0.0295" }] },
+        })))
+        .mount(&server)
+        .await;
+
+    let rates = client(&server)
+        .instalment_rates("req-1", false, false)
+        .await
+        .expect("PayTR answers");
+
+    assert_eq!(rates.max_instalments, Some(9));
+    assert_eq!(rates.request_id.as_deref(), Some("req-1"));
+    // The rates are readable and untyped, which is the whole point.
+    assert!(rates.raw.json().is_some());
+    assert_eq!(
+        rates.raw.text_at("/oranlar/bonus/0/oran").as_deref(),
+        Some("0.0295")
+    );
+
+    let sent = &server.received_requests().await.expect("recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    assert!(!body.contains("single_ratio"), "{body}");
+    assert!(!body.contains("abroad_ratio"), "{body}");
+}
+
+#[tokio::test]
+async fn asking_for_the_single_payment_rate_says_so() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/taksit-oranlari"))
+        .and(body_string_contains("single_ratio=1"))
+        .and(body_string_contains("abroad_ratio=1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "request_id": "req-1",
+        })))
+        .mount(&server)
+        .await;
+
+    let rates = client(&server)
+        .instalment_rates("req-1", true, true)
+        .await
+        .expect("PayTR answers");
+    // A field PayTR did not send is not a count of zero.
+    assert!(rates.max_instalments.is_none());
+}
+
+/// The `request_id` is signed, so a value PayTR would truncate is a token that
+/// will not match. No mock is mounted: it never reaches the network.
+#[tokio::test]
+async fn a_request_id_longer_than_paytr_takes_is_refused_here() {
+    let server = MockServer::start().await;
+    let error = client(&server)
+        .instalment_rates(&"r".repeat(33), false, false)
+        .await
+        .expect_err("PayTR takes at most 32 characters");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// PayTR echoes the `request_id` back, and an answer about another request is
+/// not this one's answer.
+#[tokio::test]
+async fn an_answer_about_another_request_is_not_this_ones() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/taksit-oranlari"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "request_id": "req-2",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .instalment_rates("req-1", false, false)
+        .await
+        .expect_err("that is somebody else's answer");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
 /// Every one of these is a code and a message from PayTR's own error list.
 #[tokio::test]
 async fn a_refund_paytr_says_to_retry_is_retryable() {

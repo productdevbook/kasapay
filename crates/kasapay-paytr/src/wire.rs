@@ -69,6 +69,23 @@ pub(crate) struct BinResponse {
     pub(crate) err_msg: Option<String>,
 }
 
+/// The answer to `/odeme/taksit-oranlari`, as far as PayTR documents it.
+///
+/// `oranlar` is deliberately absent from this struct. PayTR describes it as
+/// "the rates of the instalment counts defined for your store, by card type …
+/// returned in array format" and never says what one entry holds — not in
+/// either language's field table, not in the sample programs, not in their
+/// Postman collection. A shape invented here would be a fixture standing in
+/// for a body nobody has seen, so it is read off `Raw` instead. See #73.
+#[derive(Debug, Deserialize)]
+pub(crate) struct InstalmentRatesResponse {
+    pub(crate) status: Option<String>,
+    pub(crate) request_id: Option<String>,
+    pub(crate) err_msg: Option<String>,
+    /// The largest number of instalments the store is set up for.
+    pub(crate) max_inst_non_bus: Option<NumberOrText>,
+}
+
 /// PayTR documents `bankCode` as an int and gives `0010` as the example, which
 /// no int keeps. Both readings are accepted rather than one guessed at.
 #[derive(Debug, Deserialize)]

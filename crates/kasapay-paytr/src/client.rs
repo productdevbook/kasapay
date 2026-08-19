@@ -22,6 +22,9 @@ pub const PAYTR: ProviderId = ProviderId::new("paytr");
 /// The field PayTR names a payment by, since it issues no identifier of its own.
 const NAMED_BY: &[&str] = &["merchant_oid"];
 
+/// PayTR's own limit on `request_id`, documented as "at most 32 characters".
+const MAX_REQUEST_ID: usize = 32;
+
 /// How PayTR names the payment opened against an order reference.
 ///
 /// PayTR issues no identifier for a payment: `merchant_oid` — the reference the
@@ -340,6 +343,117 @@ impl PayTr {
                     .unwrap_or_else(|| "PayTR refused the BIN query".to_owned()),
             )),
         }
+    }
+
+    /// The instalment rates PayTR holds for this store.
+    ///
+    /// `POST /odeme/taksit-oranlari`. What a checkout reads before it offers
+    /// "pay in three": the surcharge is the store's own, set in PayTR's panel,
+    /// and it is not on any payment response.
+    ///
+    /// `request_id` is the caller's own — at most 32 characters, and PayTR
+    /// echoes it back. It is signed into the token with the merchant id, so it
+    /// is not a label: a reply carrying a different one is not the reply to
+    /// this request.
+    ///
+    /// `single_ratio` asks for the store's single-payment rate and
+    /// `abroad_ratio` for its rate on a card issued outside Turkey. Both are
+    /// PayTR's own flags and both default to off.
+    ///
+    /// # The rates themselves are on [`InstalmentRates::raw`]
+    ///
+    /// This is the whole reason the call was left out of #71 and why #73 was
+    /// opened. PayTR describes `oranlar` as *"the rates of the instalment
+    /// counts defined for your store, by card type … returned in array
+    /// format"* and **never says what one entry contains** — not in the
+    /// Turkish or English field tables, not in the PDF in their sample zip,
+    /// not in the PHP, Python, .NET or Node samples, which each `print_r` the
+    /// result and stop, not in their Postman collection, and not in any of
+    /// their repositories.
+    ///
+    /// So nothing here is typed for it. A guessed `(count, rate)` struct would
+    /// be a shape invented in this crate and a test that only confirmed the
+    /// invention. What is typed is what PayTR documents — the status, the
+    /// echoed `request_id`, the error message and `max_inst_non_bus` — and the
+    /// body is kept whole beside it:
+    ///
+    /// ```no_run
+    /// # use kasapay_paytr::PayTr;
+    /// # async fn read(paytr: &PayTr) -> Result<(), Box<dyn std::error::Error>> {
+    /// let rates = paytr.instalment_rates("req-1", false, false).await?;
+    /// println!("up to {:?} instalments", rates.max_instalments);
+    /// // Whatever PayTR actually sends, without this crate having a view.
+    /// println!("{}", rates.raw.as_str());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// One real response body finishes #73 and the typed shape can follow.
+    ///
+    /// <https://dev.paytr.com/direkt-api/taksit-sorgulama>
+    pub async fn instalment_rates(
+        &self,
+        request_id: &str,
+        single_ratio: bool,
+        abroad_ratio: bool,
+    ) -> Result<InstalmentRates, Error> {
+        // PayTR's own limit, and the field is signed: a value the server
+        // truncates is a token that will not match.
+        if request_id.is_empty() || request_id.len() > MAX_REQUEST_ID {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                PAYTR,
+                "PayTR takes a request_id of 1 to 32 characters",
+            ));
+        }
+        let merchant_id = self.inner.config.credentials.merchant_id();
+        let token = self
+            .inner
+            .config
+            .credentials
+            .token(&[merchant_id, request_id]);
+        let mut form = vec![
+            ("merchant_id", merchant_id),
+            ("request_id", request_id),
+            ("paytr_token", token.as_str()),
+        ];
+        // Sent only when asked for: PayTR documents both as optional, and an
+        // absent flag is not the same request as one carrying zero.
+        if single_ratio {
+            form.push(("single_ratio", "1"));
+        }
+        if abroad_ratio {
+            form.push(("abroad_ratio", "1"));
+        }
+
+        let (response, raw) = self
+            .post::<crate::wire::InstalmentRatesResponse>("/odeme/taksit-oranlari", &form)
+            .await?;
+        if response.status.as_deref() != Some("success") {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                PAYTR,
+                response
+                    .err_msg
+                    .unwrap_or_else(|| "PayTR refused the instalment query".to_owned()),
+            ));
+        }
+        let echoed = response.request_id.as_deref().unwrap_or_default();
+        if !echoed.is_empty() && echoed != request_id {
+            return Err(Error::new(
+                ErrorKind::Malformed,
+                PAYTR,
+                format!("asked about {request_id} and PayTR answered about {echoed}"),
+            ));
+        }
+        Ok(InstalmentRates {
+            request_id: response.request_id.map(String::into_boxed_str),
+            max_instalments: response
+                .max_inst_non_bus
+                .map(crate::wire::NumberOrText::into_string)
+                .and_then(|value| value.trim().parse().ok()),
+            raw,
+        })
     }
 
     /// The basket, as PayTR wants it: base64 of `[[name, price, quantity], …]`.
@@ -680,6 +794,26 @@ impl Provider for PayTr {
             saved_instruments: false,
         }
     }
+}
+
+/// What PayTR holds for a store's instalments.
+///
+/// Two documented fields and the body they arrived in. The rates themselves
+/// are on [`InstalmentRates::raw`] and not typed here — see
+/// [`PayTr::instalment_rates`] for why, which is the whole of #73.
+#[derive(Debug, Clone)]
+pub struct InstalmentRates {
+    /// The `request_id` this was asked with, as PayTR echoed it.
+    pub request_id: Option<Box<str>>,
+    /// The largest number of instalments this store is set up for —
+    /// `max_inst_non_bus`.
+    ///
+    /// `None` for a field PayTR did not send, or sent as something that is not
+    /// a count. Nothing here reads it as "no instalments": that is `1`, and a
+    /// missing field is not a figure.
+    pub max_instalments: Option<u8>,
+    /// PayTR's answer, kept whole. `oranlar` is in here.
+    pub raw: Raw,
 }
 
 /// A refund PayTR has recorded against a payment.
