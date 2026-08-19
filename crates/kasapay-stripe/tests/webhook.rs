@@ -132,7 +132,10 @@ async fn a_refunded_charge_answers_what_went_back_rather_than_what_was_taken() {
         event.payment.as_ref().map(kasapay_core::PaymentId::as_str),
         Some("pi_kasapay1")
     );
-    assert_eq!(event.amount.map(|m| m.minor_units()), Some(500));
+    assert_eq!(
+        event.amount.map(kasapay_core::Money::minor_units),
+        Some(500)
+    );
 }
 
 /// An event type this crate has never heard of is an ordinary delivery.

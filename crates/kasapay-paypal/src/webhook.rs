@@ -289,7 +289,10 @@ mod tests {
             order_id("PAYMENT.CAPTURE.COMPLETED", &body).as_deref(),
             Some("5O190127TN364715T")
         );
-        assert_eq!(amount(&body).map(|m| m.minor_units()), Some(10_000));
+        assert_eq!(
+            amount(&body).map(kasapay_core::Money::minor_units),
+            Some(10_000)
+        );
     }
 
     /// An order event is about the order, so its own id is the payment.
