@@ -105,13 +105,21 @@ fmt, clippy with warnings denied, nextest, doctests, the MSRV check and the
 feature matrix. If something is wrong it is wrong there, and the next commit
 is the fix.
 
-`Cargo.lock` is committed, and it is written by CI rather than here.
+`Cargo.lock` is committed, every cargo call in CI is `--locked` bar the feature
+matrix — `cargo hack --no-dev-deps` rewrites the manifests, which is what
+`--locked` refuses — and the lockfile is written by CI rather than here.
 `cargo generate-lockfile` resolves dependencies and compiles nothing, which is
 cheap — but the rule is "cargo fmt only" rather than "only what is cheap", so
 the **Lockfile** workflow is what runs it: by hand after a dependency changes,
 monthly on its own, and it opens a pull request whose own CI run says whether
 the tree it resolved is any good. The point of pinning it is that a red run on
 a pull request that touched nothing related can be reproduced at all.
+
+So **changing a dependency is two pull requests**: the one that edits
+`Cargo.toml`, which goes red on `--locked` because the lockfile no longer
+matches, and the Lockfile workflow's, which resolves the tree again. Merge the
+second and the first goes green. Anything else is a lockfile that says one
+thing while CI checks another.
 
 ## Where the boundary is
 

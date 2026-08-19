@@ -9,6 +9,13 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
 
+# Every cargo call here is `--locked` bar one — `cargo hack --no-dev-deps`
+# rewrites the manifests it checks — so the tree that is checked is the one in
+# `Cargo.lock` and nothing else, and a red run can be reproduced by whoever
+# reads it. A pull request that changes a dependency fails here until the
+# **Lockfile** workflow has resolved the tree again — which is the point, and
+# is the only place that command runs. See CLAUDE.md.
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -25,8 +32,8 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --all-features
-      - run: cargo doc --workspace --all-features --no-deps
+      - run: cargo clippy --locked --workspace --all-targets --all-features
+      - run: cargo doc --locked --workspace --all-features --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
 
@@ -42,9 +49,9 @@ jobs:
       - uses: taiki-e/install-action@68250fb3d551d72befef105162372ebb3e8016e0 # nextest
         with:
           tool: nextest
-      - run: cargo nextest run --workspace --all-features --profile ci
+      - run: cargo nextest run --locked --workspace --all-features --profile ci
       # nextest does not run doctests, and the crate-level examples are docs.
-      - run: cargo test --workspace --all-features --doc
+      - run: cargo test --locked --workspace --all-features --doc
 
   msrv:
     name: builds on the declared MSRV
@@ -58,7 +65,7 @@ jobs:
       # rust-toolchain.toml pins stable for developers; this job is the one
       # place the MSRV claim in Cargo.toml is actually checked.
       - run: rm rust-toolchain.toml
-      - run: cargo check --workspace --all-features
+      - run: cargo check --locked --workspace --all-features
 
   specs:
     name: specs are valid OpenAPI
@@ -103,4 +110,8 @@ jobs:
       - uses: taiki-e/install-action@68250fb3d551d72befef105162372ebb3e8016e0 # cargo-hack
         with:
           tool: cargo-hack
+      # The one job without `--locked`, and it cannot have it: `--no-dev-deps`
+      # rewrites every manifest to drop dev-dependencies, which changes what
+      # resolves, which is exactly what `--locked` refuses. The lockfile is
+      # still what the other five check.
       - run: cargo hack check --each-feature --no-dev-deps --workspace
