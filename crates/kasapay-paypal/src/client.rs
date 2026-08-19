@@ -6,7 +6,8 @@ use std::time::{Duration, SystemTime};
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Instrument, Money,
-    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundReason, RefundRequest,
+    RefundStatus, Secret, Status,
 };
 use url::Url;
 
@@ -452,6 +453,18 @@ impl PayPal {
         amount: Option<Money>,
         request_id: Option<&IdempotencyKey>,
     ) -> Result<Refund, Error> {
+        self.refund_capture(capture, amount, None, request_id).await
+    }
+
+    /// The one request behind both refunds — [`PayPal::refund`] and
+    /// [`Provider::refund`], which adds the note to the payer.
+    async fn refund_capture(
+        &self,
+        capture: &CaptureId,
+        amount: Option<Money>,
+        note_to_payer: Option<&str>,
+        request_id: Option<&IdempotencyKey>,
+    ) -> Result<Refund, Error> {
         let amount = amount
             .map(|money| {
                 money.require_positive().map_err(|e| {
@@ -469,7 +482,10 @@ impl PayPal {
             .send(
                 reqwest::Method::POST,
                 &format!("/v2/payments/captures/{}/refund", capture.as_str()),
-                Some(&wire::CreateRefund { amount }),
+                Some(&wire::CreateRefund {
+                    amount,
+                    note_to_payer,
+                }),
                 true,
                 request_id.map(IdempotencyKey::as_str),
             )
@@ -804,6 +820,20 @@ fn resolve_amount(unit: Option<&wire::PurchaseUnit>) -> Result<Money, Error> {
     convert::money(amount, "a purchase unit")
 }
 
+/// PayPal's own refund states, in the shared words.
+///
+/// A state this build has not met reads as [`RefundStatus::Pending`], the same
+/// reading every other adapter here gives an unknown one: it says the refund
+/// may still change, so a caller asks again rather than writing it off.
+fn refund_status(state: &RefundState) -> RefundStatus {
+    match state {
+        RefundState::Pending | RefundState::Other(_) => RefundStatus::Pending,
+        RefundState::Completed => RefundStatus::Succeeded,
+        RefundState::Failed => RefundStatus::Failed,
+        RefundState::Cancelled => RefundStatus::Canceled,
+    }
+}
+
 /// Reads the capture id off an order's first capture, for [`PayPal::refund`].
 ///
 /// PayPal nests it at `purchase_units[0].payments.captures[0].id` on
@@ -1126,6 +1156,58 @@ impl Provider for PayPal {
             PAYPAL,
             "PayPal's Orders v2 API has no operation that cancels or voids an order by its own id",
         ))
+    }
+
+    /// Gives money back off an order — and reads the order first, because
+    /// PayPal refunds a capture rather than an order.
+    ///
+    /// [`RefundRequest::payment`] is an order id, which is the only thing
+    /// [`Provider`] has to name a payment by. PayPal's refund is
+    /// `POST /v2/payments/captures/{id}/refund`, keyed by the capture taken
+    /// off that order and nested at
+    /// `purchase_units[0].payments.captures[0].id` — so this is
+    /// [`Provider::charge_status`] followed by [`capture_id`] followed by
+    /// [`PayPal::refund`], and it costs **two** requests. A caller holding the
+    /// capture id already calls [`PayPal::refund`] and pays for one.
+    ///
+    /// An order with no capture on it is [`ErrorKind::Malformed`] from
+    /// [`capture_id`]: there is no money to give back yet. **Only the first
+    /// capture is refunded** — an order with several is one this signature
+    /// cannot address, and [`PayPal::refund`] is the call for it.
+    ///
+    /// [`RefundReason::Other`]'s own words become PayPal's `note_to_payer`,
+    /// which reaches the payer in PayPal's own email about the refund. The
+    /// three named reasons are not sent: PayPal has no acquirer-facing reason
+    /// field, and "fraudulent" is not a sentence to send somebody about their
+    /// own refund.
+    ///
+    /// [`RefundRequest::idempotency_key`] is sent as `PayPal-Request-Id`, the
+    /// same key [`Provider::capture`] carries — and worth more here, because a
+    /// replayed refund gives the money back twice.
+    async fn refund(&self, request: &RefundRequest) -> Result<kasapay_core::Refund, Error> {
+        let order = self.order(&request.payment).await?;
+        let capture = capture_id(&order)?;
+        let note = match &request.reason {
+            Some(RefundReason::Other(words)) => Some(&**words),
+            _ => None,
+        };
+        let refund = self
+            .refund_capture(
+                &capture,
+                request.amount,
+                note,
+                request.idempotency_key.as_ref(),
+            )
+            .await?;
+        Ok(kasapay_core::Refund {
+            id: Some(refund.id),
+            payment: request.payment.clone(),
+            amount: refund.amount,
+            status: refund_status(&refund.state),
+            next_action: None,
+            provider: PAYPAL,
+            raw: refund.raw,
+        })
     }
 
     /// Always refused. PayPal's saved-instrument story is its Vault API — a

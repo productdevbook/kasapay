@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
-    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret, Status,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
+    RefundStatus, Secret, Status,
 };
 use url::Url;
 
@@ -417,6 +418,83 @@ impl Provider for Client {
             "the In-Store API holds no authorisation to release; \
              giving the money back is Client::refund",
         ))
+    }
+
+    /// Starts a refund, through [`Client::refund`] — the payer has to agree
+    /// to it.
+    ///
+    /// This is the one refund in the workspace that answers a
+    /// [`NextAction`]. iyzico hands back a deep link into its own app and the
+    /// money moves when the payer approves it there, so the answer is
+    /// [`RefundStatus::RequiresAction`] and never a settled refund. What
+    /// became of it arrives on the callback address, which
+    /// [`Client::decrypt_callback`] opens.
+    ///
+    /// # Three of the request's fields are required here and ignored elsewhere
+    ///
+    /// [`RefundRequest::customer`] carries iyzico's `userId` and
+    /// [`RefundRequest::return_url`] becomes the `x-callback-url` header —
+    /// both exactly as [`Provider::charge`] takes them, and both
+    /// [`ErrorKind::InvalidRequest`] when absent. There is no refund here
+    /// without a payer to approve it and somewhere to hear back.
+    ///
+    /// [`RefundRequest::idempotency_key`] is [`ErrorKind::Unsupported`], the
+    /// same answer [`Provider::charge`] gives it and for the same reason: the
+    /// In-Store API documents no idempotency mechanism, and sending the
+    /// request without the guarantee that was asked for would read as one.
+    /// [`RefundRequest::reason`] is dropped — iyzico's In-Store refund has no
+    /// field for it, and losing it costs a note rather than money.
+    ///
+    /// # `amount: None` costs a second request
+    ///
+    /// A full refund is `refundAmount` absent, which iyzico accepts — but then
+    /// nothing in the answer says how much is going back, and
+    /// [`Refund::amount`] would have to be invented. So this reads the payment
+    /// first, through [`Provider::charge_status`], and reports its amount.
+    /// Naming the amount is one call rather than two.
+    ///
+    /// That figure is the payment's own, which is right exactly as far as
+    /// [`Capabilities::repeated_refund`] being false is: iyzico documents
+    /// nothing about refunding an In-Store payment twice, so there is no
+    /// earlier refund to subtract. See #60 — the answer changes this reading.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "the In-Store API documents no idempotency mechanism; \
+                 read the payment back with Provider::charge_status instead",
+            ));
+        }
+        let user_id = request.customer.as_deref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "RefundRequest::customer carries iyzico's userId and is required",
+            )
+        })?;
+        let callback_url = request.return_url.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "RefundRequest::return_url is required: it becomes the x-callback-url header",
+            )
+        })?;
+        let amount = match request.amount {
+            Some(amount) => amount,
+            None => self.charge_status(&request.payment).await?.amount,
+        };
+        let started =
+            Client::refund(self, user_id, &request.payment, Some(amount), callback_url).await?;
+        Ok(Refund {
+            id: None,
+            payment: started.id.unwrap_or_else(|| request.payment.clone()),
+            amount,
+            status: RefundStatus::RequiresAction,
+            next_action: started.next_action,
+            provider: PROVIDER,
+            raw: started.raw,
+        })
     }
 
     /// Always [`ErrorKind::Unsupported`]: the payer taps a card at a counter

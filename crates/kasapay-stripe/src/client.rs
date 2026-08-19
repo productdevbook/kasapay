@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, Instrument, InstrumentId, Money,
-    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret,
+    NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundId, RefundReason,
+    RefundRequest, RefundStatus, Secret,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_client_core::{RequestBuilder, StripeMethod};
@@ -14,7 +15,7 @@ use stripe_core::payment_intent::{
     CancelPaymentIntent, CapturePaymentIntent, CreatePaymentIntent, CreatePaymentIntentOffSession,
     RetrievePaymentIntent,
 };
-use stripe_core::refund::{CreateRefund, ListRefund};
+use stripe_core::refund::{CreateRefund, CreateRefundReason, ListRefund};
 
 use crate::convert;
 use crate::saved;
@@ -84,20 +85,57 @@ impl Stripe {
         payment: &PaymentId,
         amount: Option<Money>,
     ) -> Result<Refund, Error> {
-        let mut create = CreateRefund::new().payment_intent(payment.as_str().to_owned());
+        let mut request = RefundRequest::builder(payment.clone());
         if let Some(amount) = amount {
+            request = request.amount(amount);
+        }
+        let request = request.build().map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                convert::PROVIDER,
+                "a refund takes an amount above zero, or None for the lot",
+            )
+            .with_source(e)
+        })?;
+        self.create_refund(&request).await
+    }
+
+    /// The one request behind both refunds — this crate's own and
+    /// [`Provider::refund`].
+    async fn create_refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        let mut create = CreateRefund::new().payment_intent(request.payment.as_str().to_owned());
+        if let Some(amount) = request.amount {
             create = create.amount(amount.minor_units());
         }
-        let refund = create
-            .customize()
-            .timeout(DEFAULT_TIMEOUT)
-            .send(self.inner.as_ref())
-            .await
-            .map_err(|e| convert::error(&e).with_source(e))?;
+        if let Some(reason) = request.reason.as_ref().and_then(refund_reason) {
+            create = create.reason(reason);
+        }
+        let metadata = refund_metadata(request);
+        if !metadata.is_empty() {
+            create = create.metadata(metadata);
+        }
+        let refund = match &request.idempotency_key {
+            Some(key) => {
+                create
+                    .customize()
+                    .request_strategy(RequestStrategy::Idempotent(idempotency_key(key)?))
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
+            None => {
+                create
+                    .customize()
+                    .timeout(DEFAULT_TIMEOUT)
+                    .send(self.inner.as_ref())
+                    .await
+            }
+        }
+        .map_err(|e| convert::error(&e).with_source(e))?;
 
-        let refund = into_refund(refund, payment)?;
+        let refund = into_refund(refund, &request.payment)?;
         let refunded = refund.amount;
-        if let Some(asked) = amount
+        if let Some(asked) = request.amount
             && asked.currency() != refunded.currency()
         {
             return Err(Error::new(
@@ -414,6 +452,42 @@ impl Provider for Stripe {
         Stripe::cancel(self, id).await
     }
 
+    /// Gives money back off a payment, through [`Stripe::refund`]'s own
+    /// request.
+    ///
+    /// `amount: None` is one call: Stripe refunds what is left of the payment
+    /// without being told the figure, and answers how much that was.
+    ///
+    /// [`RefundRequest::idempotency_key`] is sent as Stripe's own
+    /// `Idempotency-Key`, which is what makes replaying a refund safe — read
+    /// [`ErrorKind::is_retryable`] for what a timeout means without one.
+    ///
+    /// # The reason, and where the other one goes
+    ///
+    /// Stripe takes three: `duplicate`, `fraudulent` and
+    /// `requested_by_customer`, which are exactly
+    /// [`RefundReason`]'s three named ones. `fraudulent` is not a label — it
+    /// adds the card and the email to the account's Radar block lists — so it
+    /// is passed through rather than folded into anything.
+    ///
+    /// [`RefundReason::Other`] has no field on Stripe's refund, and dropping
+    /// the caller's sentence would lose the only record of why the money went
+    /// back. It goes into the refund's metadata under
+    /// [`REFUND_REASON_METADATA_KEY`] instead, beside whatever
+    /// [`RefundRequest::metadata`] carries.
+    async fn refund(&self, request: &RefundRequest) -> Result<kasapay_core::Refund, Error> {
+        let refund = self.create_refund(request).await?;
+        Ok(kasapay_core::Refund {
+            id: Some(RefundId::issued(refund.id)),
+            payment: refund.payment,
+            amount: refund.amount,
+            status: refund_status(&refund.status),
+            next_action: None,
+            provider: convert::PROVIDER,
+            raw: refund.raw,
+        })
+    }
+
     /// Lists a customer's saved cards, through [`Stripe::stored_cards`].
     async fn instruments(&self, customer: &str) -> Result<Vec<Instrument>, Error> {
         Ok(self
@@ -436,6 +510,49 @@ impl Provider for Stripe {
             repeated_refund: true,
             saved_instruments: true,
         }
+    }
+}
+
+/// [`RefundReason::Other`]'s own words travel as refund metadata under this
+/// key — Stripe's `reason` takes three values and none of them is free text.
+pub const REFUND_REASON_METADATA_KEY: &str = "kasapay_refund_reason";
+
+/// The three reasons Stripe names, and `None` for the one it does not.
+fn refund_reason(reason: &RefundReason) -> Option<CreateRefundReason> {
+    match reason {
+        RefundReason::Duplicate => Some(CreateRefundReason::Duplicate),
+        RefundReason::Fraudulent => Some(CreateRefundReason::Fraudulent),
+        RefundReason::RequestedByCustomer => Some(CreateRefundReason::RequestedByCustomer),
+        // `Unknown` is what `async-stripe` deserializes a value it has not met
+        // into, and it says itself that it is not for sending.
+        RefundReason::Other(_) => None,
+    }
+}
+
+fn refund_metadata(request: &RefundRequest) -> std::collections::HashMap<String, String> {
+    let mut pairs: std::collections::HashMap<String, String> = request
+        .metadata
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    if let Some(RefundReason::Other(words)) = &request.reason {
+        pairs.insert(REFUND_REASON_METADATA_KEY.to_owned(), words.to_string());
+    }
+    pairs
+}
+
+/// Stripe's own refund states, in the shared words.
+///
+/// A state this build has not met reads as [`RefundStatus::Pending`], the same
+/// way an unknown PaymentIntent status does: it says the refund may still
+/// change, so a caller asks again rather than writing it off.
+fn refund_status(state: &RefundState) -> RefundStatus {
+    match state {
+        RefundState::Pending | RefundState::Other(_) => RefundStatus::Pending,
+        RefundState::RequiresAction => RefundStatus::RequiresAction,
+        RefundState::Succeeded => RefundStatus::Succeeded,
+        RefundState::Failed => RefundStatus::Failed,
+        RefundState::Canceled => RefundStatus::Canceled,
     }
 }
 

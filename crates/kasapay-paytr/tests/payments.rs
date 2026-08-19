@@ -5,7 +5,10 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{Currency, ErrorKind, IdSource, Money, NextAction, OrderRef, Provider, Status};
+use kasapay_core::{
+    Currency, ErrorKind, IdSource, IdempotencyKey, Money, NextAction, OrderRef, Provider,
+    RefundRequest, RefundStatus, Status,
+};
 use kasapay_paytr::{Config, Credentials, PayTr, payment, payment_id};
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, method, path};
@@ -357,6 +360,73 @@ fn a_payment_needs_an_email_a_payer_ip_and_a_basket() {
             .build()
             .expect_err("PayTR refuses a token without the payer's IP"),
         payment::PaymentError::NoPayerIp
+    );
+}
+
+/// The shared refund is the same call, keyed by the identifier PayTR's own
+/// order reference composes.
+#[tokio::test]
+async fn the_shared_refund_takes_the_order_reference_back_out_of_the_payment_id() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/iade"))
+        .and(body_string_contains("merchant_oid=ord-1"))
+        .and(body_string_contains("return_amount=50.00"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "merchant_oid": "ord-1",
+            "return_amount": "50.00",
+            "is_test": 1,
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(payment_id(&OrderRef::new("ord-1")))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("PayTR takes the refund");
+
+    // PayTR has taken the request; whether the money went back turns up later
+    // on the payment's own status query.
+    assert_eq!(refund.status, RefundStatus::Pending);
+    assert!(refund.status.is_open());
+    assert_eq!(refund.amount.minor_units(), 5000);
+    // PayTR names a refund by nothing, the same way it names a payment by
+    // nothing.
+    assert!(refund.id.is_none());
+}
+
+/// Neither of these reaches the network, so no mock is mounted.
+#[tokio::test]
+async fn the_shared_refund_refuses_what_paytr_cannot_do() {
+    let server = MockServer::start().await;
+    let client = client(&server);
+
+    let no_amount = RefundRequest::builder(payment_id(&OrderRef::new("ord-1")))
+        .build()
+        .expect("valid request");
+    assert_eq!(
+        Provider::refund(&client, &no_amount)
+            .await
+            .expect_err("PayTR has no refund-the-rest request")
+            .kind(),
+        ErrorKind::InvalidRequest
+    );
+
+    let with_key = RefundRequest::builder(payment_id(&OrderRef::new("ord-1")))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .idempotency_key(IdempotencyKey::new("refund-1"))
+        .build()
+        .expect("valid request");
+    assert_eq!(
+        Provider::refund(&client, &with_key)
+            .await
+            .expect_err("a key PayTR cannot honour is not silently dropped")
+            .kind(),
+        ErrorKind::Unsupported
     );
 }
 

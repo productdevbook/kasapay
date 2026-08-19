@@ -20,14 +20,6 @@ pub mod kind {
         const NAMES: &'static str = "paypal capture";
     }
 
-    /// One refund taken off a capture.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub struct Refund;
-
-    impl kasapay_core::IdKind for Refund {
-        const NAMES: &'static str = "paypal refund";
-    }
-
     /// One hold placed on an `intent: AUTHORIZE` order.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct Authorization;
@@ -54,9 +46,12 @@ pub type CaptureId = Id<kind::Capture>;
 
 /// PayPal's identifier for one refund — `0K35355239430361V`.
 ///
-/// Not a [`PaymentId`](kasapay_core::PaymentId) or a [`CaptureId`], for the
-/// same reason neither is the other.
-pub type RefundId = Id<kind::Refund>;
+/// Core's own [`RefundId`], re-exported rather than a
+/// kind of PayPal's: [`Provider::refund`](kasapay_core::Provider::refund)
+/// answers a refund for every provider, so the concept is shared the way a
+/// payment is. Still not a [`PaymentId`](kasapay_core::PaymentId) or a
+/// [`CaptureId`], for the same reason neither of those is the other.
+pub use kasapay_core::RefundId;
 
 /// PayPal's identifier for one authorization — `0AW2184448108334S`.
 ///

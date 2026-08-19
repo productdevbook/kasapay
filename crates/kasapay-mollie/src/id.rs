@@ -4,7 +4,8 @@
 //! own strings: `tr_…` for the payment, `cpt_…` for a capture taken off it,
 //! `re_…` for a refund. [`IdSource`](kasapay_core::IdSource) cannot separate
 //! them — the provider issued all three — so the kind does, and the compiler
-//! holds it.
+//! holds it. Two of the three are Mollie's own kinds; the refund is core's,
+//! re-exported here, because core answers one now.
 //!
 //! A fourth is `cst_…`, the customer a mandate is hung on. `mdt_…`, the
 //! mandate itself, is not here: it is core's own
@@ -22,14 +23,6 @@ pub mod kind {
 
     impl kasapay_core::IdKind for Capture {
         const NAMES: &'static str = "mollie capture";
-    }
-
-    /// One refund taken off a payment.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub struct Refund;
-
-    impl kasapay_core::IdKind for Refund {
-        const NAMES: &'static str = "mollie refund";
     }
 
     /// One customer, existing so a mandate has somewhere to be hung.
@@ -50,9 +43,12 @@ pub type CaptureId = Id<kind::Capture>;
 
 /// Mollie's identifier for one refund — `re_…`.
 ///
-/// Not a [`PaymentId`](kasapay_core::PaymentId), for the same reason a
-/// [`CaptureId`] is not.
-pub type RefundId = Id<kind::Refund>;
+/// Core's own [`RefundId`], re-exported rather than a
+/// kind of Mollie's: [`Provider::refund`](kasapay_core::Provider::refund)
+/// answers a refund for every provider, so the concept is shared the way a
+/// payment is. Still not a [`PaymentId`](kasapay_core::PaymentId), for the
+/// same reason a [`CaptureId`] is not.
+pub use kasapay_core::RefundId;
 
 /// Mollie's identifier for one customer — `cst_…`.
 ///

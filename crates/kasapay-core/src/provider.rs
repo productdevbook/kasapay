@@ -7,6 +7,7 @@ use crate::error::Error;
 use crate::id::PaymentId;
 use crate::instrument::Instrument;
 use crate::money::Money;
+use crate::refund::{Refund, RefundRequest};
 
 /// Names a provider.
 ///
@@ -180,6 +181,48 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// than releasing anything twice, which is the whole reason
     /// [`Provider::capture`] carries a key and this does not.
     async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error>;
+
+    /// Gives money back off a payment.
+    ///
+    /// Capture has no inverse — captured money is refunded, not un-captured —
+    /// so this is the only way money goes back, and a
+    /// [`Provider`](crate::Provider) offering
+    /// [`capture`](Provider::capture) and not this is one a shop cannot use.
+    ///
+    /// Three refunds against one payment is ordinary: three returned items on
+    /// one order. Whether this provider allows that is
+    /// [`Capabilities::repeated_refund`], and whether it allows one for less
+    /// than was captured is [`Capabilities::partial_refund`]; both are
+    /// answerable before there is a payment to ask about.
+    ///
+    /// # `amount: None` is not one call everywhere
+    ///
+    /// `None` means all of it, and two providers have no request that says so
+    /// — they take an amount and only an amount. What each adapter does:
+    ///
+    /// | | `amount: None` | its own idempotency |
+    /// |---|---|---|
+    /// | Stripe | refunds what is left, in one call | `Idempotency-Key` |
+    /// | iyzico `classic` | [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest): send the amount | none — a key is refused |
+    /// | iyzico `in_store` | refunds all of it, in one call | none — a key is refused |
+    /// | PayTR | [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest): send the amount | none — a key is refused |
+    /// | Mollie | reads the payment's `amountRemaining` first, so **two** calls | `Idempotency-Key` |
+    /// | PayPal | refunds what is left, and reads the order first to find the capture, so **two** calls | `PayPal-Request-Id` |
+    ///
+    /// A provider that cannot honour
+    /// [`RefundRequest::idempotency_key`] refuses the refund with
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// sending it without one. That is
+    /// [`ChargeRequest::idempotency_key`](crate::ChargeRequest::idempotency_key)'s
+    /// own rule, and it matters more here: accepting a key and dropping it
+    /// reads as a guarantee against giving the money back twice, which is the
+    /// one thing the caller asked for.
+    ///
+    /// **A refund that cannot be replayed safely is read back, not resent.**
+    /// Each adapter has a call that lists what has already gone back —
+    /// `Stripe::refunds`, `PayTr::refunds`, Mollie's `amountRefunded` — and
+    /// reading is always safe.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error>;
 
     /// Lists what a customer has saved with this provider.
     ///

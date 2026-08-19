@@ -20,6 +20,19 @@
 //! authorisation — so [`Provider::capabilities`] says which, and it says so
 //! before there is a payment to ask about.
 //!
+//! # Giving money back
+//!
+//! [`Provider::refund`] is the only way money goes back: a capture has no
+//! inverse. A [`Refund`] is its own object with its own life — its own
+//! identifier where the provider issues one, its own [`RefundStatus`], and,
+//! at one provider, its own [`NextAction`] for the payer to approve.
+//!
+//! [`Status`] has no `Refunded` and will not grow one. No provider reports a
+//! refund as a payment's status — Stripe leaves a refunded PaymentIntent
+//! `succeeded` — so the variant would be a branch that never runs for most of
+//! them. "Has all of this gone back" is the refunds summed against
+//! [`Charge::amount`].
+//!
 //! # Identifiers
 //!
 //! [`OrderRef`] is the caller's own reference for an order, and [`PaymentId`]
@@ -85,6 +98,7 @@ mod instrument;
 mod money;
 mod provider;
 mod raw;
+mod refund;
 mod secret;
 
 #[doc(inline)]
@@ -95,7 +109,7 @@ pub use crate::charge::{
 #[doc(inline)]
 pub use crate::error::{Error, ErrorKind};
 #[doc(inline)]
-pub use crate::id::{Id, IdKind, IdSource, InstrumentId, PaymentId, kind};
+pub use crate::id::{Id, IdKind, IdSource, InstrumentId, PaymentId, RefundId, kind};
 #[doc(inline)]
 pub use crate::instrument::Instrument;
 #[doc(inline)]
@@ -104,5 +118,9 @@ pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
 pub use crate::provider::{Capabilities, Provider, ProviderId, async_trait};
 #[doc(inline)]
 pub use crate::raw::Raw;
+#[doc(inline)]
+pub use crate::refund::{
+    Refund, RefundReason, RefundRequest, RefundRequestBuilder, RefundRequestError, RefundStatus,
+};
 #[doc(inline)]
 pub use crate::secret::Secret;

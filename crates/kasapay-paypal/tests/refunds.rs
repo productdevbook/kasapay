@@ -19,7 +19,10 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay_core::{Currency, ErrorKind, IdempotencyKey, Money, PaymentId, Provider};
+use kasapay_core::{
+    Currency, ErrorKind, IdempotencyKey, Money, PaymentId, Provider, RefundId, RefundReason,
+    RefundRequest, RefundStatus,
+};
 use kasapay_paypal::{CaptureId, Config, PayPal, RefundState};
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, header, method, path};
@@ -243,6 +246,112 @@ async fn capture_id_reads_the_capture_off_a_captured_order() {
 
     let capture = kasapay_paypal::capture_id(&charge).expect("a capture id");
     assert_eq!(capture.as_str(), "3C679366HH908993F");
+}
+
+/// The shared refund is keyed by the order, so it reads the order first.
+///
+/// Both bodies are PayPal's own examples — `00_orders_capture` read back
+/// through `GET /v2/checkout/orders/{id}`, and
+/// `captures_refund_200_idempotent_response`.
+#[tokio::test]
+async fn the_shared_refund_finds_the_capture_on_the_order_first() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+
+    Mock::given(method("GET"))
+        .and(path("/v2/checkout/orders/5O190127TN364715T"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "5O190127TN364715T",
+            "status": "COMPLETED",
+            "purchase_units": [
+                {
+                    "reference_id": "d9f80740-38f0-11e8-b467-0ed5f89f718b",
+                    "amount": { "currency_code": "USD", "value": "100.00" },
+                    "payments": {
+                        "captures": [
+                            {
+                                "id": "3C679366HH908993F",
+                                "status": "COMPLETED",
+                                "amount": { "currency_code": "USD", "value": "100.00" },
+                                "final_capture": true,
+                                "create_time": "2018-04-01T21:20:49Z",
+                                "update_time": "2018-04-01T21:20:49Z"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "links": [
+                { "href": "https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T", "rel": "self", "method": "GET" }
+            ]
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/captures/3C679366HH908993F/refund"))
+        .and(header("PayPal-Request-Id", "refund-1"))
+        .and(body_string_contains(r#""note_to_payer":"iki kahve eksik""#))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "id": "58K15806CS993444T",
+            "amount": { "currency_code": "USD", "value": "10.00" },
+            "status": "COMPLETED",
+            "create_time": "2024-10-14T15:03:29-07:00",
+            "update_time": "2024-10-14T15:03:29-07:00",
+            "links": [
+                { "href": "https://api.msmaster.qa.paypal.com/v2/payments/refunds/58K15806CS993444T", "rel": "self", "method": "GET" }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("5O190127TN364715T"))
+        .amount(Money::parse("10.00", Currency::Usd).expect("valid amount"))
+        .reason(RefundReason::Other("iki kahve eksik".into()))
+        .idempotency_key(IdempotencyKey::new("refund-1"))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&paypal, &request)
+        .await
+        .expect("the refund is created");
+
+    // The payment is the order, not the capture the money actually came off.
+    assert_eq!(refund.payment.as_str(), "5O190127TN364715T");
+    assert_eq!(refund.amount.minor_units(), 1000);
+    assert_eq!(refund.status, RefundStatus::Succeeded);
+    assert_eq!(
+        refund.id.as_ref().map(RefundId::as_str),
+        Some("58K15806CS993444T")
+    );
+}
+
+/// An order with nothing captured is refused before a refund is sent.
+#[tokio::test]
+async fn the_shared_refund_refuses_an_order_that_has_taken_no_money() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+
+    Mock::given(method("GET"))
+        .and(path("/v2/checkout/orders/5O190127TN364715T"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "5O190127TN364715T",
+            "status": "CREATED",
+            "purchase_units": [
+                { "amount": { "currency_code": "USD", "value": "100.00" } }
+            ],
+            "links": [
+                { "href": "https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T", "rel": "self", "method": "GET" }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("5O190127TN364715T"))
+        .build()
+        .expect("valid request");
+    let error = Provider::refund(&paypal, &request)
+        .await
+        .expect_err("there is no money to give back");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
 }
 
 /// An order that has not been captured has nothing for `capture_id` to read.

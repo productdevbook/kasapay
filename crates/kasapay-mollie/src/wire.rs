@@ -38,6 +38,10 @@ pub(crate) struct Links {
 pub(crate) struct Payment {
     pub id: Option<String>,
     pub amount: Option<Amount>,
+    /// What is left to refund. Mollie sends it on a payment that has been
+    /// paid, and it is what `Provider::refund` asks for when the caller names
+    /// no amount.
+    pub amount_remaining: Option<Amount>,
     pub status: Option<String>,
     pub metadata: Option<serde_json::Value>,
     #[serde(rename = "_links")]
@@ -123,6 +127,12 @@ pub(crate) struct CreateCapture {
 }
 
 #[derive(Debug, serde::Serialize)]
-pub(crate) struct CreateRefund {
+pub(crate) struct CreateRefund<'a> {
     pub amount: AmountOut,
+    /// Shown to the payer on their statement, so it carries the caller's own
+    /// words and never one of the named reasons.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<&'a str>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<&'a str, &'a str>,
 }

@@ -7,7 +7,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
-    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Status,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
+    RefundStatus, Status,
 };
 use url::Url;
 
@@ -548,6 +549,69 @@ impl Provider for PayTr {
             PAYTR,
             "PayTR holds no authorisation to release; giving the money back is PayTr::refund",
         ))
+    }
+
+    /// Gives money back off a payment, through [`PayTr::refund`].
+    ///
+    /// [`RefundRequest::payment`] is what [`payment_id`] built out of the
+    /// order reference, and the reference is read back out of it — PayTR names
+    /// a payment by nothing else, so the two are the same string and
+    /// `/odeme/iade` takes it as `merchant_oid`.
+    ///
+    /// # Three of the request's fields have nowhere to go
+    ///
+    /// `amount: None` is [`ErrorKind::InvalidRequest`] before a socket opens.
+    /// PayTR's refund takes `return_amount` and has no form that means "the
+    /// rest", and the amount is signed into the token, so there is nothing to
+    /// send for a full refund but the figure — which the caller has and this
+    /// crate does not.
+    ///
+    /// [`RefundRequest::reason`] is dropped: PayTR's refund carries the
+    /// merchant id, the order, the amount and the hash of those three, and
+    /// nothing else — a reason has nowhere to go and losing it costs the
+    /// caller a note, not money.
+    ///
+    /// [`RefundRequest::idempotency_key`] is [`ErrorKind::Unsupported`]
+    /// instead, because losing *that* does cost money: PayTR documents no
+    /// idempotency mechanism for `/odeme/iade`, and a refund sent without the
+    /// key the caller asked for is one that can give the money back twice.
+    ///
+    /// # The answer says the request was taken, not that the money went back
+    ///
+    /// [`RefundStatus::Pending`] always. PayTR answers `status: success` for a
+    /// refund it has accepted and reports its completion later, as a
+    /// `date_completed` on the payment's own status query —
+    /// [`PayTr::refunds`] is where that is read. Nothing in the answer names
+    /// the refund, either, so [`Refund::id`] is `None`: PayTR issues no
+    /// identifier for one, the same way it issues none for a payment.
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PAYTR,
+                "PayTR documents no idempotency mechanism for a refund; \
+                 read PayTr::refunds before sending another",
+            ));
+        }
+        let amount = request.amount.ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PAYTR,
+                "PayTR's refund takes the amount to return and has no form that means \
+                 the rest of it; name the amount",
+            )
+        })?;
+        let order = OrderRef::new(request.payment.as_str());
+        let raw = PayTr::refund(self, &order, amount).await?;
+        Ok(Refund {
+            id: None,
+            payment: request.payment.clone(),
+            amount,
+            status: RefundStatus::Pending,
+            next_action: None,
+            provider: PAYTR,
+            raw,
+        })
     }
 
     /// Always [`ErrorKind::Unsupported`].

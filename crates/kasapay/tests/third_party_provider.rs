@@ -15,7 +15,8 @@ use std::sync::Mutex;
 
 use kasapay::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
-    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Status, async_trait,
+    Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId,
+    RefundRequest, RefundStatus, Status, async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -104,6 +105,20 @@ impl Provider for Kumbara {
             amount: Money::from_minor_units(1000, Currency::Try),
             order_amount: None,
             status: Status::Canceled,
+            next_action: None,
+            provider: Self::ID,
+            raw: Raw::default(),
+        })
+    }
+
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        Ok(Refund {
+            id: Some(RefundId::issued(format!("kmb_re_{}", request.payment))),
+            payment: request.payment.clone(),
+            amount: request
+                .amount
+                .unwrap_or_else(|| Money::from_minor_units(1000, Currency::Try)),
+            status: RefundStatus::Succeeded,
             next_action: None,
             provider: Self::ID,
             raw: Raw::default(),
@@ -210,6 +225,30 @@ async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them()
     assert!(!canceled.status.is_open());
 }
 
+#[tokio::test]
+async fn a_provider_outside_the_workspace_can_give_money_back() {
+    let providers: Vec<Box<dyn Provider>> = vec![Box::new(Kumbara::default())];
+    let request = RefundRequest::builder(PaymentId::issued("kmb_ord-1"))
+        .amount(Money::parse("4.00", Currency::Try).expect("valid amount"))
+        .reason(kasapay::RefundReason::RequestedByCustomer)
+        .build()
+        .expect("valid request");
+
+    for provider in &providers {
+        let refund = provider
+            .refund(&request)
+            .await
+            .expect("the money goes back");
+        assert_eq!(refund.amount.minor_units(), 400);
+        assert_eq!(refund.status, RefundStatus::Succeeded);
+        assert!(!refund.status.is_open());
+        assert_eq!(
+            refund.id.as_ref().map(RefundId::as_str),
+            Some("kmb_re_kmb_ord-1")
+        );
+    }
+}
+
 /// A provider that names a payment by nothing at all.
 ///
 /// Cash on delivery: no identifier of its own, and nothing sent to it that
@@ -263,6 +302,10 @@ impl Provider for Yastik {
     }
 
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Self::unnamed())
+    }
+
+    async fn refund(&self, _request: &RefundRequest) -> Result<Refund, Error> {
         Err(Self::unnamed())
     }
 

@@ -11,9 +11,9 @@
 
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, NextAction, OrderRef, PaymentId,
-    Provider, Status,
+    Provider, RefundId, RefundReason, RefundRequest, RefundStatus, Status,
 };
-use kasapay_stripe::{ORDER_METADATA_KEY, RefundState, Stripe};
+use kasapay_stripe::{ORDER_METADATA_KEY, REFUND_REASON_METADATA_KEY, RefundState, Stripe};
 use serde_json::json;
 use wiremock::matchers::{
     body_string_contains, header, method, path, query_param, query_param_is_missing,
@@ -389,6 +389,67 @@ async fn a_full_refund_sends_no_amount_at_all() {
     assert!(!body.contains("amount="), "unexpected amount in {body}");
     assert_eq!(refund.amount.minor_units(), 1999);
     assert_eq!(refund.status, RefundState::Pending);
+}
+
+/// The shared refund sends the reason Stripe names and the key it honours.
+#[tokio::test]
+async fn the_shared_refund_sends_stripes_own_reason_and_an_idempotency_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .and(header("idempotency-key", "refund-1"))
+        .and(body_string_contains("reason=requested_by_customer"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "succeeded")))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("pi_kasapay1"))
+        .amount(Money::parse("5.00", Currency::Usd).expect("valid amount"))
+        .reason(RefundReason::RequestedByCustomer)
+        .idempotency_key(IdempotencyKey::new("refund-1"))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("the refund goes through");
+
+    assert_eq!(refund.amount.minor_units(), 500);
+    assert_eq!(refund.status, RefundStatus::Succeeded);
+    assert_eq!(
+        refund.id.as_ref().map(RefundId::as_str),
+        Some("re_kasapay1")
+    );
+    assert!(refund.next_action.is_none());
+}
+
+/// Stripe's `reason` takes three values and the caller's own sentence is not
+/// one of them, so it is kept rather than dropped.
+#[tokio::test]
+async fn a_reason_stripe_has_no_word_for_travels_as_metadata() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "pending")))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("pi_kasapay1"))
+        .amount(Money::parse("5.00", Currency::Usd).expect("valid amount"))
+        .reason(RefundReason::Other("iki kahve eksik".into()))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("the refund goes through");
+    assert_eq!(refund.status, RefundStatus::Pending);
+
+    let sent = server.received_requests().await.expect("recorded");
+    let body = String::from_utf8(sent[0].body.clone()).expect("utf-8");
+    assert!(!body.contains("reason="), "unexpected reason in {body}");
+    assert!(
+        body.contains(&format!("metadata[{REFUND_REASON_METADATA_KEY}]")),
+        "the caller's words were dropped: {body}"
+    );
 }
 
 #[tokio::test]
