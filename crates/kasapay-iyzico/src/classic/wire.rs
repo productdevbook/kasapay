@@ -260,7 +260,10 @@ pub(crate) struct CheckoutFormResponse {
     #[serde(rename = "errorMessage")]
     pub(crate) error_message: Option<String>,
     pub(crate) token: Option<String>,
-    #[serde(rename = "paymentPageUrl")]
+    /// The page to send the payer to. iyzico names the same thing
+    /// `paymentPageUrl` on the checkout form and `payWithIyzicoPageUrl` on Pay
+    /// with iyzico, and answers one field or the other.
+    #[serde(rename = "paymentPageUrl", alias = "payWithIyzicoPageUrl")]
     pub(crate) payment_page_url: Option<String>,
     pub(crate) signature: Option<String>,
     #[serde(rename = "conversationId")]

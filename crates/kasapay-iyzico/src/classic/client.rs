@@ -33,6 +33,8 @@ const PAYMENT_INSTALMENTS: &str = "/payment/iyzipos/installment";
 const CHECKOUT_FORM_AUTH: &str = "/payment/iyzipos/checkoutform/initialize/auth/ecom";
 /// The same form, holding the money instead.
 const CHECKOUT_FORM_PREAUTH: &str = "/payment/iyzipos/checkoutform/initialize/preauth/ecom";
+/// Pay with iyzico: the payer's own iyzico account rather than a card.
+const PWI_INITIALIZE: &str = "/payment/pay-with-iyzico/initialize";
 
 /// Where the classic client points and what it signs with.
 #[derive(Debug, Clone)]
@@ -270,7 +272,7 @@ impl Client {
     /// [`CheckoutFormBuilder::card_user_key`](crate::classic::checkout::CheckoutFormBuilder::card_user_key)
     /// decides whose vault it joins.
     pub async fn start_checkout_form(&self, form: &CheckoutForm) -> Result<Charge, Error> {
-        self.open_form(form, false).await
+        self.open_form(form, Hosted::Capture).await
     }
 
     /// Opens a hosted checkout form that **holds** the money rather than
@@ -293,11 +295,49 @@ impl Client {
     /// finishes. It is [`Client::checkout_result`] that answers
     /// [`Status::Authorized`] once they have.
     pub async fn start_checkout_form_preauth(&self, form: &CheckoutForm) -> Result<Charge, Error> {
-        self.open_form(form, true).await
+        self.open_form(form, Hosted::Hold).await
     }
 
-    /// Both forms, which differ in the path and in nothing else.
-    async fn open_form(&self, form: &CheckoutForm, holds: bool) -> Result<Charge, Error> {
+    /// Opens a **Pay with iyzico** session and hands back where to send the
+    /// payer.
+    ///
+    /// `POST /payment/pay-with-iyzico/initialize`. The payer signs in to their
+    /// own iyzico account and pays with a card already there, rather than
+    /// typing one into a form. Same [`CheckoutForm`], same buyer, addresses and
+    /// basket, same [`FormToken`] back — iyzico's own machinery underneath.
+    ///
+    /// **Read the result with [`Client::checkout_result`]**, which is not an
+    /// approximation: iyzico documents Pay with iyzico's own retrieve at
+    /// `/payment/iyzipos/checkoutform/auth/ecom/detail`, the same path and the
+    /// same answer the checkout form is read back with. It carries two fields
+    /// more — the member's email and phone number, on
+    /// [`Charge::raw`](kasapay_core::Charge::raw) at `/memberEmail` and
+    /// `/memberGsmNumber` — because the payer here has an account rather than
+    /// only a card.
+    ///
+    /// # `cardUserKey` is not sent
+    ///
+    /// The checkout form takes one so a payer can save a card into a named
+    /// vault; Pay with iyzico's own request documents no such field, and the
+    /// card is already in the payer's account. A [`CheckoutForm`] built with
+    /// one still opens here, and the key is left out rather than sent to an
+    /// endpoint that documents nothing to do with it.
+    ///
+    /// # The signature is read the way the checkout form's start is
+    ///
+    /// `conversationId` then `token`, which is what iyzico's signature page
+    /// lists for a hosted form's start and what this answer carries. Their
+    /// page does not name Pay with iyzico separately, so that is a reading —
+    /// a loud one: a wrong field list is [`ErrorKind::Untrusted`] on the first
+    /// call rather than a payment that quietly goes elsewhere, and
+    /// [`Config::allow_unsigned`] is the escape while it is being sorted out.
+    pub async fn start_pay_with_iyzico(&self, form: &CheckoutForm) -> Result<Charge, Error> {
+        self.open_form(form, Hosted::PayWithIyzico).await
+    }
+
+    /// The three hosted starts, which differ in the path and in nothing a
+    /// caller passes.
+    async fn open_form(&self, form: &CheckoutForm, hosted: Hosted) -> Result<Charge, Error> {
         let currency = form.price.currency();
         let body = wire::CheckoutFormRequest {
             locale: "tr",
@@ -308,19 +348,35 @@ impl Client {
             basket_id: form.order.as_str(),
             callback_url: form.callback_url.to_string(),
             enabled_installments: form.instalments.clone(),
-            card_user_key: form.card_user_key.as_deref(),
+            // Pay with iyzico documents no `cardUserKey`: the card is already
+            // in the payer's own account.
+            card_user_key: match hosted {
+                Hosted::PayWithIyzico => None,
+                Hosted::Capture | Hosted::Hold => form.card_user_key.as_deref(),
+            },
             buyer: buyer_body(&form.buyer),
             billing_address: address_body(&form.billing_address),
             shipping_address: address_body(&form.shipping_address),
             basket_items: form.basket.iter().map(basket_item_body).collect(),
         };
 
-        let (response, raw) = if holds {
-            self.post::<_, wire::CheckoutFormResponse>(CHECKOUT_FORM_PREAUTH, &body)
-                .await?
-        } else {
-            self.post::<_, wire::CheckoutFormResponse>(CHECKOUT_FORM_AUTH, &body)
-                .await?
+        // Each arm names its own path rather than choosing one into a
+        // variable: `scripts/coverage.py` reads the endpoint a call sends to
+        // off the call itself, and a path behind a binding is a call it cannot
+        // see.
+        let (response, raw) = match hosted {
+            Hosted::Capture => {
+                self.post::<_, wire::CheckoutFormResponse>(CHECKOUT_FORM_AUTH, &body)
+                    .await?
+            }
+            Hosted::Hold => {
+                self.post::<_, wire::CheckoutFormResponse>(CHECKOUT_FORM_PREAUTH, &body)
+                    .await?
+            }
+            Hosted::PayWithIyzico => {
+                self.post::<_, wire::CheckoutFormResponse>(PWI_INITIALIZE, &body)
+                    .await?
+            }
         };
         if let Some(error) = refused(
             response.status.as_deref(),
@@ -1555,6 +1611,22 @@ fn into_bin_details(response: wire::BinCheckResponse, raw: Raw) -> Result<BinDet
         commercial: response.commercial == Some(1),
         raw,
     })
+}
+
+/// Which of iyzico's three hosted starts a form is being opened at.
+///
+/// One request body, three paths, and one difference a caller can see: what a
+/// finished payment is. [`Hosted::Hold`] answers
+/// [`Status::Authorized`](kasapay_core::Status::Authorized) through
+/// [`Client::checkout_result_preauth`]; the other two are money taken.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Hosted {
+    /// The ordinary form, which takes the money.
+    Capture,
+    /// The same form, holding it for a later capture.
+    Hold,
+    /// The payer's own iyzico account.
+    PayWithIyzico,
 }
 
 /// A value unique to this request, for the signature and the `x-iyzi-rnd` header.

@@ -6,10 +6,13 @@
 //!
 //! # What is here
 //!
-//! Fourteen operations, chosen because none of them touches a card number:
+//! Fifteen operations, chosen because none of them touches a card number:
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
+//! - [`Client::start_pay_with_iyzico`] — the same, where the payer signs in to
+//!   their own iyzico account instead of typing a card. Read back by
+//!   [`Client::checkout_result`], which iyzico documents for both
 //! - [`Client::checkout_result`] — read what became of it, by the
 //!   [`FormToken`] the form was opened with
 //! - [`Client::payment`] — read a finished payment back by its id
