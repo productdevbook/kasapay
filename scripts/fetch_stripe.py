@@ -1,5 +1,7 @@
 import json, sys, hashlib, subprocess, datetime, pathlib, yaml
 
+import dated
+
 SRC = "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
 # Only the operations kasapay maps onto. The full spec is ~7MB and its diffs are unreadable.
 KEEP = [
@@ -51,11 +53,18 @@ if __name__ == "__main__":
     # Only meta is dated here: the subset is still ~1.7MB because PaymentIntent reaches
     # most of Stripe's schemas, and a dated copy per fetch buys diffs nobody can read.
     (d / "latest.yaml").write_text(yaml.safe_dump(sub, allow_unicode=True, sort_keys=False, width=100), encoding="utf-8")
-    (d / f"{day}.meta.json").write_text(json.dumps({
+    # The meta is dated, and dated records are written on the day they say
+    # something new. `fetched` on its own is not something new — see
+    # scripts/dated.py. The subset above rolls forward in place either way, and
+    # rewriting it with the same bytes changes nothing in git.
+    meta = json.dumps({
         "source": SRC, "fetched": day,
         "api_version": spec["info"].get("version"),
         "upstream_sha256": hashlib.sha256(raw).hexdigest(),
         "kept_paths": list(paths), "missing_paths": missing,
         "schema_count": len(sub["components"]["schemas"]),
-    }, indent=2) + "\n", encoding="utf-8")
-    print(f"api_version={spec['info'].get('version')} paths={len(paths)} schemas={len(sub['components']['schemas'])} missing={missing}")
+    }, indent=2) + "\n"
+    previous = dated.newest_dated(d, ".meta.json")
+    moved = dated.write_if_moved(d / f"{day}.meta.json", meta, previous)
+    state = "moved" if moved else f"unchanged since {previous.name.split('.')[0]}"
+    print(f"api_version={spec['info'].get('version')} paths={len(paths)} schemas={len(sub['components']['schemas'])} missing={missing} — {state}")

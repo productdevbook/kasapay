@@ -26,6 +26,8 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+import dated
+
 import yaml
 
 SITEMAP = "https://dev.paytr.com/sitemap.xml"
@@ -154,16 +156,17 @@ def main() -> int:
     }
 
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / f"{day}.yaml").write_text(
-        yaml.safe_dump(document, allow_unicode=True, sort_keys=False, width=100),
-        encoding="utf-8",
-    )
-    latest = OUT / "latest.yaml"
-    latest.unlink(missing_ok=True)
-    latest.symlink_to(f"{day}.yaml")
+    # Only written on the day it says something new — the `fetched:` line is
+    # not something new. See scripts/dated.py.
+    body = yaml.safe_dump(document, allow_unicode=True, sort_keys=False, width=100)
+    previous = dated.newest_dated(OUT, ".yaml")
+    moved = dated.write_if_moved(OUT / f"{day}.yaml", body, previous)
+    if moved:
+        dated.point_latest_at(OUT, f"{day}.yaml")
 
     tables = sum(len(page["tables"]) for page in recorded)
-    print(f"{len(recorded)} pages, {tables} tables -> specs/paytr/{day}.yaml")
+    where = f"specs/paytr/{day}.yaml" if moved else f"unchanged since {previous.stem}"
+    print(f"{len(recorded)} pages, {tables} tables -> {where}")
     return 0
 
 

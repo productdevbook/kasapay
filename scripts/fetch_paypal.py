@@ -41,6 +41,8 @@ import sys
 
 import yaml
 
+import dated
+
 
 @dataclasses.dataclass(frozen=True)
 class Document:
@@ -164,29 +166,32 @@ def fetch_one(document: Document, day: str, directory: pathlib.Path) -> tuple[st
         for verb, operation in item.items()
         if verb in VERBS and isinstance(operation, dict)
     )
-    (directory / f"{stem}{day}.meta.json").write_text(
-        json.dumps(
-            {
-                "source": document.src,
-                "fetched": day,
-                "api_version": spec["info"].get("version"),
-                # Not in either document's own info block — read from
-                # LICENSE in paypal/paypal-rest-api-specifications, checked
-                # by hand.
-                "licence": "Apache-2.0",
-                "document_kept": True,
-                "upstream_sha256": hashlib.sha256(raw).hexdigest(),
-                "kept_paths": list(paths),
-                "missing_paths": missing,
-                "operations": operations,
-                "component_counts": {
-                    section: len(items) for section, items in sorted(components.items())
-                },
+    meta = json.dumps(
+        {
+            "source": document.src,
+            "fetched": day,
+            "api_version": spec["info"].get("version"),
+            # Not in either document's own info block — read from
+            # LICENSE in paypal/paypal-rest-api-specifications, checked
+            # by hand.
+            "licence": "Apache-2.0",
+            "document_kept": True,
+            "upstream_sha256": hashlib.sha256(raw).hexdigest(),
+            "kept_paths": list(paths),
+            "missing_paths": missing,
+            "operations": operations,
+            "component_counts": {
+                section: len(items) for section, items in sorted(components.items())
             },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+        },
+        indent=2,
+    ) + "\n"
+    # Dated records are written on the day they say something new, and
+    # `fetched` on its own is not something new. See scripts/dated.py.
+    dated.write_if_moved(
+        directory / f"{stem}{day}.meta.json",
+        meta,
+        dated.newest_dated(directory, ".meta.json", prefix=stem),
     )
 
     return spec["info"].get("version"), len(paths), len(operations), missing

@@ -13,6 +13,26 @@ permissive like Stripe's MIT, so its subset is kept the same way Stripe's is.
 `.github/workflows/spec-drift.yml` refetches weekly and opens a PR when
 anything moved.
 
+## A dated record is written on the day it says something new
+
+Not on the day it was fetched. A refetch that finds the same document leaves
+the tree alone, so `<YYYY-MM-DD>` on a file is **when that description last
+changed** rather than when somebody last looked.
+
+That was measured before it was decided. Five days after the records here were
+written, all five fetchers were re-run: eleven iyzico areas byte for byte
+identical, PayTR's document identical but for its own `fetched:` line, Stripe's
+and PayPal's subsets identical, and one thing moved — Mollie's
+`upstream_sha256`, and not their `subset_sha256`, so not a path kasapay maps.
+Writing all of it anyway would have meant a weekly pull request twelve files
+wide whose whole content was a date, and a reviewer who stops reading them,
+which is the one thing the drift job exists to prevent.
+
+When a description was last *looked at* is the workflow's own run history,
+which is where a check that found nothing belongs. `scripts/dated.py` is the
+rule, and it ignores `fetched` when comparing — that field is the date, not the
+description.
+
 ## iyzico — `specs/iyzico/`
 
 iyzico publishes no OpenAPI file. Their documentation embeds one small OpenAPI

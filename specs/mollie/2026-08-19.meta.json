@@ -1,0 +1,56 @@
+{
+  "source": "https://raw.githubusercontent.com/mollie/openapi/main/specs.yaml",
+  "fetched": "2026-08-19",
+  "api_version": "1.0.0",
+  "licence": {
+    "name": "Attribution-NonCommercial-ShareAlike 4.0 International",
+    "identifier": "CC-BY-NC-SA-4.0"
+  },
+  "document_kept": false,
+  "checked": "reference objects and pointers, after the repairs below",
+  "upstream_sha256": "0cbba39eed3c1b5ddd6cb815170a106a0877d45d22403364dfb4d8c18d99e993",
+  "subset_sha256": "097dfcc8db66884e232e95bcfd4a49c189b3995cd1421ac774233cba85f14f73",
+  "kept_paths": [
+    "/v2/payments",
+    "/v2/payments/{paymentId}",
+    "/v2/payments/{paymentId}/captures",
+    "/v2/payments/{paymentId}/refunds",
+    "/v2/payments/{paymentId}/release-authorization",
+    "/v2/customers",
+    "/v2/customers/{customerId}/mandates",
+    "/v2/customers/{customerId}/mandates/{mandateId}"
+  ],
+  "missing_paths": [],
+  "operations": [
+    "cancel-payment",
+    "create-capture",
+    "create-customer",
+    "create-mandate",
+    "create-payment",
+    "create-refund",
+    "get-mandate",
+    "get-payment",
+    "list-captures",
+    "list-customers",
+    "list-mandates",
+    "list-payments",
+    "list-refunds",
+    "release-authorization",
+    "revoke-mandate",
+    "update-payment"
+  ],
+  "repaired_reference_objects": [
+    "POST /v2/payments parameters[0] (#/components/parameters/include)",
+    "GET /v2/payments/{paymentId} parameters[0] (#/components/parameters/include)",
+    "GET /v2/payments/{paymentId} parameters[1] (#/components/parameters/embed)",
+    "GET /v2/payments/{paymentId}/captures parameters[2] (#/components/parameters/embed)",
+    "GET /v2/payments/{paymentId}/refunds parameters[2] (#/components/parameters/embed)"
+  ],
+  "component_counts": {
+    "examples": 6,
+    "parameters": 8,
+    "responses": 3,
+    "schemas": 118,
+    "securitySchemes": 4
+  }
+}
