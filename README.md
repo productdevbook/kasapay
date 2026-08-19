@@ -47,7 +47,7 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-iyzico` | three iyzico APIs: `in_store`, `terminal` and `classic` |
 | `kasapay-paytr` | PayTR's hosted form, status, refund, instalment rates, payment notice |
 | `kasapay-mollie` | Mollie's Payments API: hosted checkout, holds, captures, refunds |
-| `kasapay-paypal` | PayPal's Orders v2: create, read, capture — the spine, not the whole API |
+| `kasapay-paypal` | PayPal's Orders v2 and Payments v2: create, read, capture, hold, release, refund |
 
 **The shared trait is `charge`, `charge_status`, `capture`, `cancel`,
 `refund`, `lookup` and `instruments`**, with `capabilities()` saying which of them a

@@ -7,6 +7,24 @@ order releases happen, newest first.
 
 ### Added
 
+- **`PayPal::void_authorization`**, `POST /v2/payments/authorizations/{id}/void`.
+  The one call in `kasapay-paypal` that gives a payer their limit back without
+  money having moved — and the gap the crate had been documenting rather than
+  closing: `Provider::cancel` refuses because Orders v2 withdraws nothing by an
+  order id, and a caller who placed a hold and decided not to take it had
+  nothing here.
+
+  It is still not `Provider::cancel`, and cannot be: PayPal voids the
+  authorization and that signature takes a `PaymentId`, which names the order.
+
+  PayPal answers `204 No Content` by default and the authorization when
+  `Prefer: return=representation` is sent. This sends the header, the way every
+  call in the crate does, and reads the empty body as the success it is —
+  `Voided::amount` is `None` there rather than a figure invented from a request
+  that carries none either.
+
+  `specs/paypal/` keeps the operation now, which is why its dated meta moves.
+
 - **`Mollie::refunds`**, and `Mollie::mandates` walks to the end now. Listing
   refunds was left out because "that call paginates, and half a list is worse
   than none" — which was the right reason and the wrong conclusion: a

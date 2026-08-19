@@ -26,13 +26,12 @@
 //!   follow-up call after the payer approves regardless — either
 //!   [`PayPal::capture_order`] or [`PayPal::authorize_order`] then
 //!   [`PayPal::capture_authorization`] — so `AUTHORIZE` buys a longer hold
-//!   rather than skipping a step this crate would otherwise need. What is
-//!   still not here: releasing a hold without capturing it. PayPal documents
-//!   `POST /v2/payments/authorizations/{id}/void` for that, and it is keyed
-//!   by the authorization's own id rather than the order's — the same split
-//!   [`PayPal::capture_authorization`] has — but this crate does not call
-//!   it. See [`Provider::cancel`](kasapay_core::Provider::cancel)'s own
-//!   documentation on [`PayPal`] for what that leaves a caller with.
+//!   rather than skipping a step this crate would otherwise need. Releasing a
+//!   hold without capturing it is [`PayPal::void_authorization`], keyed by the
+//!   authorization's own id rather than the order's — the same split
+//!   [`PayPal::capture_authorization`] has, and the reason
+//!   [`Provider::cancel`](kasapay_core::Provider::cancel) still cannot reach
+//!   it.
 //! - **Refunds are against a capture, not an order.** [`PayPal::refund`]
 //!   is `POST /v2/payments/captures/{id}/refund`, keyed by [`CaptureId`] —
 //!   the same split `kasapay_mollie::Mollie::refund` draws between a
@@ -61,15 +60,16 @@
 //!
 //! **That assumption is what actually breaks with `intent: AUTHORIZE` in the
 //! picture — not a missing operation.** PayPal's Authorizations resource
-//! does document a void, `POST /v2/payments/authorizations/{id}/void`, for a
-//! hold [`PayPal::authorize_order`] places. It releases the hold by the
-//! hold's own id, the same [`AuthorizationId`] [`PayPal::capture_authorization`]
-//! is keyed by rather than the order's, and
+//! documents a void, `POST /v2/payments/authorizations/{id}/void`, for a hold
+//! [`PayPal::authorize_order`] places, and [`PayPal::void_authorization`] is
+//! that call. It releases the hold by the hold's own id, the same
+//! [`AuthorizationId`] [`PayPal::capture_authorization`] is keyed by rather
+//! than the order's, while
 //! [`Provider::cancel`](kasapay_core::Provider::cancel) takes only a
-//! [`PaymentId`](kasapay_core::PaymentId). This crate does not implement it,
-//! so a caller who places a hold and decides not to take it has no release
-//! call here — the same honest gap `Provider::cancel` already had for a
-//! plain `intent: CAPTURE` order, for a sharper reason.
+//! [`PaymentId`](kasapay_core::PaymentId) — so the release exists and the
+//! shared trait still cannot reach it. A caller who places a hold and decides
+//! not to take it calls this crate directly; what stays missing behind the
+//! trait is withdrawing an *order*, which PayPal has no operation for at all.
 //!
 //! # OAuth2, and why the client renews its own token
 //!
@@ -253,7 +253,7 @@ pub const PAYPAL: ProviderId = ProviderId::new("paypal");
 
 #[doc(inline)]
 pub use crate::client::{
-    Capture, Config, PayPal, Refund, RefundState, authorization_id, capture_id,
+    Capture, Config, PayPal, Refund, RefundState, Voided, authorization_id, capture_id,
 };
 #[doc(inline)]
 pub use crate::id::{AuthorizationId, CaptureId, RefundId};
