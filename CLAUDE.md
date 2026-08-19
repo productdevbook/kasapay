@@ -185,6 +185,11 @@ CI, with a token that lives only as a repository secret.
 
 ## Unverified against a live API
 
+The whole list is [`UNVERIFIED.md`](UNVERIFIED.md), by the account each entry
+needs: what the library does today, why the reading might be wrong, and the
+call that would settle it. What follows is the short version for the two an
+adapter's own code most depends on.
+
 iyzico's `/payment/query` status mapping. The documented response body has no
 status field, so `receipt.approved` and `isRefundable` are what
 `query_into_charge` reads. Check it first against a sandbox account.

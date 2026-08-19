@@ -55,9 +55,16 @@ impl ErrorKind {
     /// | Mollie | safe — `ChargeRequest::idempotency_key` is sent as `Idempotency-Key`, and Mollie replays the first answer for an hour |
     /// | PayPal | safe — `ChargeRequest::idempotency_key` is sent as `PayPal-Request-Id`, and PayPal returns the first answer for a repeated key |
     ///
-    /// Where it is not safe, read the payment back with
-    /// [`Provider::charge_status`](crate::Provider::charge_status) before
-    /// sending it again. Reading is always safe.
+    /// Where it is not safe, read the payment back before sending it again.
+    /// Reading is always safe — but **which call reads it back depends on what
+    /// you still have.** A charge that answered and then failed later leaves a
+    /// [`Charge::id`](crate::Charge::id), and
+    /// [`Provider::charge_status`](crate::Provider::charge_status) takes it. A
+    /// charge whose *answer never arrived* leaves nothing but the order
+    /// reference, and that is
+    /// [`Provider::lookup`](crate::Provider::lookup) — which is exactly the
+    /// timeout case, and exactly the two providers whose replay is not
+    /// documented as safe: iyzico and PayTR can both be asked.
     ///
     /// **Replaying a capture is a narrower question, because a capture takes
     /// money rather than opening a request for it.**

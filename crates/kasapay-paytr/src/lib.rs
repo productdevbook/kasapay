@@ -97,9 +97,11 @@
 //!
 //! [`Error::is_retryable`](kasapay_core::Error::is_retryable) can therefore be
 //! true for a failure whose retry might take the money twice. Read the payment
-//! back with [`charge_status`](kasapay_core::Provider::charge_status) before
-//! sending it again — that call is always safe, and PayTR answers an error for
-//! a payment it does not know.
+//! back before sending it again — that is always safe, and here it costs
+//! nothing extra: PayTR names a payment by the reference the caller chose, so
+//! [`lookup`](kasapay_core::Provider::lookup) answers `Ok(None)` when PayTR
+//! has no record of it and `Ok(Some(..))` when it does. `Ok(None)` is the
+//! licence to send it again.
 //!
 //! # Example
 //!

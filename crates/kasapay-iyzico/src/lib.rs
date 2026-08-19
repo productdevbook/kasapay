@@ -36,7 +36,12 @@
 //! So [`Error::is_retryable`](kasapay_core::Error::is_retryable) can be true
 //! for a failure whose retry might take the money twice. A bank timeout is
 //! exactly that case: nobody knows whether the first attempt went through.
-//! Read the payment back before sending it again.
+//! Read the payment back before sending it again — and if the timeout means
+//! there is no payment id to read it back *by*,
+//! [`Provider::lookup`](kasapay_core::Provider::lookup) on [`classic`] asks
+//! iyzico by the `conversationId` the charge was sent with. `Ok(None)` there
+//! is iyzico having no record, which is the only honest licence to send it
+//! again.
 //!
 //! # Where the types come from
 //!
