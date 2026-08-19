@@ -509,12 +509,7 @@ pub enum RequestError {
 fn terminal_currency(currency: Currency) -> Result<(), RequestError> {
     match currency {
         Currency::Try | Currency::Usd | Currency::Eur => Ok(()),
-        Currency::Gbp
-        | Currency::Jpy
-        | Currency::Kwd
-        | Currency::Rub
-        | Currency::Chf
-        | Currency::Nok => Err(RequestError::UnsupportedCurrency(currency)),
+        _ => Err(RequestError::UnsupportedCurrency(currency)),
     }
 }
 

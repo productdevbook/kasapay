@@ -493,7 +493,7 @@ async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
     let server = MockServer::start().await;
     let mut body = plan();
     // Not a currency iyzico documents a plan in, and not one `Currency` names.
-    body["currencyCode"] = json!("SEK");
+    body["currencyCode"] = json!("ISK");
     Mock::given(method("GET"))
         .and(path(format!("/v2/subscription/pricing-plans/{PLAN}")))
         .respond_with(ResponseTemplate::new(200).set_body_json(envelope(&body)))
@@ -504,7 +504,7 @@ async fn a_price_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
 
     // The plan still reads, and the amount stays where iyzico put it.
     assert_eq!(read.price, None);
-    assert_eq!(read.raw.text_at("/currencyCode").as_deref(), Some("SEK"));
+    assert_eq!(read.raw.text_at("/currencyCode").as_deref(), Some("ISK"));
 }
 
 #[tokio::test]

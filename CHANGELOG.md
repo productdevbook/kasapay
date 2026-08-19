@@ -45,6 +45,49 @@ order releases happen, newest first.
   actually for — a timeout, a pinned API version, an account to act on behalf
   of.
 
+- **`Currency` names 119 currencies instead of nine**, so a shop selling in
+  PLN, SEK, CAD, AUD or DKK can put its Stripe integration behind this trait at
+  all. #149: the enum was shared by every adapter in the workspace including
+  Stripe's, whose real list is nowhere near nine, and a request in a currency
+  it did not name could not even be built.
+
+  **Breaking**: `Currency` has 119 variants where it had nine, so a `match` on
+  it that enumerated them all no longer compiles. The fix is a `_ =>` arm that
+  **refuses** — see below. Its variants are also in code order now rather than
+  the order they were added, which changes the derived `Ord`.
+
+  New: `Currency::KNOWN`, every currency it names, which is what a test walks.
+
+  What kept the old enum safe was that adding a variant stopped every adapter
+  compiling until it said what the currency mapped to. What that was protecting
+  against is *mapping* an unknown currency onto something; a wildcard arm that
+  **refuses** was always safe, and past a hundred variants it is the only
+  workable shape. So the rule is now that a currency match may carry `_ =>`
+  where that arm returns an error and may not where it returns a value, and
+  `crates/kasapay/tests/conformance.rs` walks every currency past every adapter
+  asserting each is either settled or refused before a socket opens. That test
+  is what holds the guarantee up now.
+
+  Which currencies: ISO 4217 currently defines it, its minor unit is **exactly
+  two decimal places**, and some provider here settles in it — plus the nine
+  the library shipped with. The two-decimal rule is a safety rule. Zero- and
+  three-decimal currencies are where a provider's reading and ISO's diverge —
+  Stripe treats the Icelandic króna as having no minor unit, and wants a
+  three-decimal amount as a multiple of ten — and being wrong about one is a
+  payment out by a factor of a hundred.
+
+  No adapter settles in more than it did, bar Stripe, which now maps by ISO
+  code rather than by a hand-kept list and so takes everything Stripe names.
+  **iyzico's classic API gained a settlement list it never had**: it sent
+  whatever currency it was given, which was harmless while the enum held nine
+  plausible ones and would not be now. It is the six
+  `specs/iyzico/payment/latest.yaml` names — TRY, USD, EUR, GBP, NOK, CHF —
+  refused where a payment is *started* and nowhere else, because a capture or a
+  refund carries whatever iyzico already took the money in.
+
+  `Currency::numeric` now answers ISO's own zero-padded three digits. Nothing
+  changes for the nine, whose numeric codes were all already three digits.
+
 - **`Provider::resume`** and **`Capabilities::resume_by_continuation`**, so the
   *return* leg of a hosted form is portable too. #150: opening iyzico's form
   through the trait was half the problem, and the other half was that a payer

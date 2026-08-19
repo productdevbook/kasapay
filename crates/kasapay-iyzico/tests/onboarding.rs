@@ -293,7 +293,7 @@ async fn a_currency_kasapay_cannot_name_reads_back_as_none_and_stays_in_raw() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "status": "success",
             "subMerchantExternalId": "ext-9",
-            "currency": "SEK",
+            "currency": "ISK",
         })))
         .mount(&server)
         .await;
@@ -304,7 +304,7 @@ async fn a_currency_kasapay_cannot_name_reads_back_as_none_and_stays_in_raw() {
         .expect("the sub-merchant is read back");
 
     assert_eq!(detail.currency, None);
-    assert_eq!(detail.raw.text_at("/currency").as_deref(), Some("SEK"));
+    assert_eq!(detail.raw.text_at("/currency").as_deref(), Some("ISK"));
 }
 
 #[tokio::test]

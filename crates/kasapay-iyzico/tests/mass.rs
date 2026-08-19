@@ -515,7 +515,7 @@ async fn a_line_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
                 "referenceCode": REFERENCE,
                 "itemStatus": "SUCCESS",
                 "totalAmount": 100.50,
-                "currencyCode": "SEK",
+                "currencyCode": "ISK",
             },
         })))
         .mount(&server)
@@ -525,7 +525,7 @@ async fn a_line_in_a_currency_kasapay_cannot_name_stays_in_the_raw_body() {
 
     assert_eq!(item.currency, None);
     assert_eq!(item.total_amount, None);
-    assert_eq!(item.raw.text_at("/currencyCode").as_deref(), Some("SEK"));
+    assert_eq!(item.raw.text_at("/currencyCode").as_deref(), Some("ISK"));
 }
 
 #[tokio::test]

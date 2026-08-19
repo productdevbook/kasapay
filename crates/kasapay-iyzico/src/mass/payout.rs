@@ -490,12 +490,7 @@ pub enum PayoutRef {
 fn payout_currency(currency: Currency) -> Result<(), PayoutError> {
     match currency {
         Currency::Try | Currency::Usd | Currency::Eur => Ok(()),
-        Currency::Gbp
-        | Currency::Jpy
-        | Currency::Kwd
-        | Currency::Rub
-        | Currency::Chf
-        | Currency::Nok => Err(PayoutError::UnsupportedCurrency(currency)),
+        _ => Err(PayoutError::UnsupportedCurrency(currency)),
     }
 }
 

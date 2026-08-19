@@ -351,7 +351,7 @@ fn iyzilink_currency(currency: Currency) -> Result<(), LinkError> {
         | Currency::Rub
         | Currency::Chf
         | Currency::Nok => Ok(()),
-        Currency::Jpy | Currency::Kwd => Err(LinkError::UnsupportedCurrency(currency)),
+        _ => Err(LinkError::UnsupportedCurrency(currency)),
     }
 }
 

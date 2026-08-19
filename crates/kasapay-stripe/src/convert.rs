@@ -1,45 +1,53 @@
 //! Moving between kasapay's vocabulary and Stripe's.
 
+use std::str::FromStr;
+
 use kasapay_core::{Currency, Error, ErrorKind, Money, ProviderId, Status};
 
 pub(crate) const PROVIDER: ProviderId = ProviderId::STRIPE;
 
 /// Maps a currency kasapay knows onto Stripe's, where Stripe has one.
 ///
-/// Not every currency survives the trip. Stripe settles in nothing with three
-/// decimal places, so a Kuwaiti dinar has nowhere to go and is refused rather
-/// than rounded into something else.
+/// By the ISO code rather than by a hundred-odd match arms, because
+/// `stripe_types::Currency` reads one and the two lists are not the same list:
+/// kasapay names currencies Stripe has never heard of and Stripe settles in
+/// ones kasapay does not name.
+///
+/// **A code Stripe does not know is refused, not sent.** `async-stripe` reads
+/// an unknown code into `Currency::Unknown` and would put it on the wire
+/// happily; that is the one answer this must never pass on, because a payment
+/// in a currency Stripe cannot settle is a payment that fails after the money
+/// has been asked for rather than before.
+///
+/// The Kuwaiti dinar is that case and the reason it is worth stating: Stripe
+/// names no currency with three decimal places, so a dinar has nowhere to go
+/// and is refused rather than rounded into something else.
 pub(crate) fn currency(currency: Currency) -> Result<stripe_types::Currency, Error> {
-    match currency {
-        Currency::Try => Ok(stripe_types::Currency::TRY),
-        Currency::Usd => Ok(stripe_types::Currency::USD),
-        Currency::Eur => Ok(stripe_types::Currency::EUR),
-        Currency::Gbp => Ok(stripe_types::Currency::GBP),
-        Currency::Jpy => Ok(stripe_types::Currency::JPY),
-        Currency::Rub => Ok(stripe_types::Currency::RUB),
-        Currency::Chf => Ok(stripe_types::Currency::CHF),
-        Currency::Nok => Ok(stripe_types::Currency::NOK),
-        Currency::Kwd => Err(Error::new(
+    let refuse = || {
+        Error::new(
             ErrorKind::Unsupported,
             PROVIDER,
             format!("Stripe does not settle in {currency}"),
-        )),
+        )
+    };
+    // Irrefutable: the error type is Infallible, because an unrecognised code
+    // becomes Unknown rather than an error — which is the answer that must not
+    // be passed on.
+    let Ok(mapped) = stripe_types::Currency::from_str(&currency.code().to_ascii_lowercase());
+    if matches!(mapped, stripe_types::Currency::Unknown(_)) {
+        return Err(refuse());
     }
+    Ok(mapped)
 }
 
 /// Maps a currency Stripe reports back onto kasapay's.
+///
+/// `None` for a currency kasapay does not name — including Stripe's own
+/// `Unknown`, whose `Display` is whatever string arrived. Reading an amount in
+/// a currency whose minor unit is unknown is how a hundredfold error is
+/// written into a ledger, so it is refused rather than guessed.
 pub(crate) fn currency_back(currency: &stripe_types::Currency) -> Option<Currency> {
-    match currency {
-        stripe_types::Currency::TRY => Some(Currency::Try),
-        stripe_types::Currency::USD => Some(Currency::Usd),
-        stripe_types::Currency::EUR => Some(Currency::Eur),
-        stripe_types::Currency::GBP => Some(Currency::Gbp),
-        stripe_types::Currency::JPY => Some(Currency::Jpy),
-        stripe_types::Currency::RUB => Some(Currency::Rub),
-        stripe_types::Currency::CHF => Some(Currency::Chf),
-        stripe_types::Currency::NOK => Some(Currency::Nok),
-        _ => None,
-    }
+    currency.to_string().to_ascii_uppercase().parse().ok()
 }
 
 /// Reads a PaymentIntent's amount, in the currency Stripe settled it in.
@@ -171,7 +179,7 @@ mod tests {
     /// back as one it has no name for.
     #[test]
     fn every_currency_stripe_settles_survives_the_round_trip() {
-        for currency in every_currency() {
+        for currency in Currency::KNOWN.iter().copied() {
             if let Ok(there) = super::currency(currency) {
                 assert_eq!(
                     super::currency_back(&there),
@@ -180,39 +188,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    /// Every currency there is.
-    ///
-    /// The `match` is what keeps this list honest: adding a variant to
-    /// `Currency` stops it compiling until somebody comes here and decides
-    /// whether Stripe settles in it.
-    fn every_currency() -> Vec<Currency> {
-        let every = vec![
-            Currency::Try,
-            Currency::Usd,
-            Currency::Eur,
-            Currency::Gbp,
-            Currency::Jpy,
-            Currency::Kwd,
-            Currency::Rub,
-            Currency::Chf,
-            Currency::Nok,
-        ];
-        for currency in &every {
-            match currency {
-                Currency::Try
-                | Currency::Usd
-                | Currency::Eur
-                | Currency::Gbp
-                | Currency::Jpy
-                | Currency::Kwd
-                | Currency::Rub
-                | Currency::Chf
-                | Currency::Nok => {}
-            }
-        }
-        every
     }
 
     #[test]

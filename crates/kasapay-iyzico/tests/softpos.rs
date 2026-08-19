@@ -211,7 +211,7 @@ async fn a_transaction_in_a_currency_kasapay_cannot_name_stays_in_raw() {
                 {
                     "xact_id": "xact-2",
                     "amount": 10.00,
-                    "currency": "SEK",
+                    "currency": "ISK",
                 }
             ],
         })))
@@ -227,7 +227,7 @@ async fn a_transaction_in_a_currency_kasapay_cannot_name_stays_in_raw() {
     assert_eq!(transactions[0].amount, None);
     assert_eq!(
         transactions[0].raw.text_at("/currency").as_deref(),
-        Some("SEK")
+        Some("ISK")
     );
 }
 

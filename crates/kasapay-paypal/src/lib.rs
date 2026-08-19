@@ -86,11 +86,11 @@
 //!
 //! # Currencies
 //!
-//! PayPal's [currency codes reference][codes] lists twenty-five. kasapay
-//! names nine, and the overlap is seven — **PayPal takes neither Turkish lira
-//! nor Kuwaiti dinar**, the same two Mollie refuses, for the same reason: both
-//! are simply absent from PayPal's list. Refused in
-//! `convert::currency` before a socket opens.
+//! PayPal's [currency codes reference][codes] lists twenty-five, and this
+//! crate sends seven of them. Anything else kasapay names is refused in
+//! `convert::currency` before a socket opens — **PayPal takes neither Turkish
+//! lira nor Kuwaiti dinar**, the same two Mollie refuses, for the same reason:
+//! both are simply absent from PayPal's list.
 //!
 //! # `ChargeRequest` fields PayPal has nowhere to put
 //!

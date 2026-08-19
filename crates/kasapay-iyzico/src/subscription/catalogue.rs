@@ -417,12 +417,7 @@ impl From<&str> for PlanPaymentType {
 fn plan_currency(currency: Currency) -> Result<(), PlanError> {
     match currency {
         Currency::Try | Currency::Usd | Currency::Eur => Ok(()),
-        Currency::Gbp
-        | Currency::Jpy
-        | Currency::Kwd
-        | Currency::Rub
-        | Currency::Chf
-        | Currency::Nok => Err(PlanError::UnsupportedCurrency(currency)),
+        _ => Err(PlanError::UnsupportedCurrency(currency)),
     }
 }
 
