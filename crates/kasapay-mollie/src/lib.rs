@@ -93,8 +93,9 @@
 //! # Nothing here says a payment was refunded
 //!
 //! Mollie's payment statuses have no refunded state: a fully refunded payment
-//! still reads `paid`. Mollie does answer the figures directly, though, which
-//! is more than the other adapters in this workspace get — `amountRefunded`,
+//! still reads `paid`. [`Mollie::refunds`] is the list to sum, and Mollie
+//! answers the figures directly as well, which is more than the other adapters
+//! in this workspace get — `amountRefunded`,
 //! `amountRemaining` and `amountCaptured` sit on the payment, and
 //! [`Charge::raw`](kasapay_core::Charge::raw) is where they are read:
 //!
@@ -187,9 +188,16 @@
 //! or not at all: payment methods and the `method` field, `lines` and the
 //! addresses that go with them, `statusReason` — which Mollie documents as
 //! point-of-sale only — subscriptions, payment links, chargebacks,
-//! settlements, and Mollie Connect. Listing refunds is not here either: that
-//! call paginates, and half a list is worse than none. Revoking a mandate is
-//! the same kind of gap on the customer side.
+//! settlements, and Mollie Connect. Revoking a mandate is a gap of the same
+//! kind on the customer side.
+//!
+//! Listing refunds **is** here now — [`Mollie::refunds`] — and it walks
+//! Mollie's pages to the end. That was the reason it was left out: half a list
+//! of refunds undercounts what has gone back, and a shop acting on the total
+//! refunds money it has already returned. [`Mollie::mandates`] walks them too,
+//! which matters because
+//! [`Provider::instruments`](kasapay_core::Provider::instruments) is that call
+//! and a customer with more than fifty mandates was quietly getting fifty.
 //!
 //! # Example
 //!
