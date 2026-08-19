@@ -61,6 +61,17 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **A delivery carrying a signature header twice is refused rather than
+  resolved.** `Delivery::header` answers the first of two and says nothing
+  about the second, and Stripe's and PayPal's verifiers both read through it —
+  so a delivery with two `Stripe-Signature` headers verified against whichever
+  one happened to be first, while whatever wrote the other believed it had
+  signed something else. That disagreement is the whole of a header-smuggling
+  attack. New `Delivery::signed_header` refuses it with the new
+  `RepeatedHeader`, and both verifiers now answer `ErrorKind::Untrusted`
+  without asking the provider anything. `Delivery::header` keeps its lenient
+  meaning for everything a signature does not depend on.
+
 - **`Provider::capture`'s documentation said the opposite of the rule the rest
   of the library states**: that a provider which cannot honour an idempotency
   key *ignores* it. Every adapter refuses, which is right and is what

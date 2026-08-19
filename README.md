@@ -67,7 +67,10 @@ not one mechanism.** Stripe signs the bytes it posts, PayTR signs three fields
 of them, Mollie signs nothing at all and posts an identifier to read back, and
 PayPal verifies a delivery for you over its own API. Four implementations,
 three mechanisms, one `verify(&Delivery) -> Result<Event, Error>`. An unsigned
-body never becomes an `Event`; an event type the library does not model is
+body never becomes an `Event`, and neither does a **doubly** signed one:
+`Delivery::signed_header` refuses a delivery carrying two of a header the
+signature depends on rather than picking one, because two claims about one
+delivery mean something in front of the verifier read it differently; an event type the library does not model is
 `EventKind::Other` and never an error, because refusing one earns days of
 redeliveries for something nobody wanted.
 
