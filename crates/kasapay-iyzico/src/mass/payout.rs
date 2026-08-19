@@ -485,7 +485,8 @@ pub enum PayoutRef {
 /// Three — `TRY`, `USD` and `EUR` — and that list comes from the Turkish page
 /// alone: the English one types the field `string` and names no currencies at
 /// all. Where one page constrains and the other is silent, the constraint is
-/// the only thing either of them actually says, so the other six are refused
+/// the only thing either of them actually says, so every other currency
+/// `Currency` names is refused
 /// here rather than sent out to a bank.
 fn payout_currency(currency: Currency) -> Result<(), PayoutError> {
     match currency {

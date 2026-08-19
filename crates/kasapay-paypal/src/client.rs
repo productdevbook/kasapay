@@ -167,11 +167,11 @@ impl PayPal {
 
     /// Creates an order with `intent: CAPTURE`.
     ///
-    /// [`Provider::charge`] is this call. This crate never creates one with
-    /// `intent: AUTHORIZE` — see the crate docs for why — so every order this
-    /// client makes still needs an explicit [`PayPal::capture_order`]
-    /// afterwards regardless: PayPal's `CAPTURE` intent decides what a
-    /// capture call does to the order, not whether one is still required.
+    /// [`Provider::charge`] is this call; [`PayPal::authorize`] is the same
+    /// request with `intent: AUTHORIZE`, which buys a longer hold. Either way
+    /// the order still needs an explicit [`PayPal::capture_order`] afterwards:
+    /// PayPal's intent decides what a capture call does to the order, not
+    /// whether one is still required.
     ///
     /// `ChargeRequest::customer` is not read: Orders v2 has no field for a
     /// payer's identity outside PayPal's Vault API, which is out of scope

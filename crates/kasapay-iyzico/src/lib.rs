@@ -12,7 +12,7 @@
 //! | Where | [`in_store`] | [`terminal`] | [`agent`], [`softpos`] | [`classic`], with [`iyzilink`], [`subscription`], [`mass`] and [`reporting`] over the same client |
 //! | Authentication | three plain headers | an OAuth2 bearer token that expires | a dealer secret key, then a session key — **not iyzico's own scheme, and not iyzico's own host** | [`IYZWSv2`](Credentials) request signing |
 //! | Currency | Turkish lira only | lira, dollars, euro | Turkish lira only, by inference — see [`softpos`] | several |
-//! | Implemented here | seven of the twelve filed under In-Store | four of fourteen, and the three-call login filed under In-Store | all five | thirty-eight of seventy |
+//! | Implemented here | see `scripts/coverage.py` | the three-call login is filed under In-Store | all five | see `scripts/coverage.py` |
 //!
 //! A till that cannot hold a secret key safely cannot sign one, which is the
 //! likely reason [`in_store`] does not. Whether its plain headers are the
@@ -54,8 +54,11 @@
 //! security scheme means the fragment was silent, not that the endpoint is
 //! open.
 //!
-//! Ninety-six operations across eleven groups. Fifty-seven are implemented,
-//! which `python3 scripts/coverage.py` counts rather than anybody remembering.
+//! Ninety-six operations across eleven groups. How many are implemented is
+//! not written here, because a number in prose is wrong the moment a module
+//! lands: `python3 scripts/coverage.py` counts it from the endpoint strings
+//! the code actually calls, and CI fails when one is neither reached nor
+//! explained.
 //!
 //! Grouping is by path, which is why three of [`terminal`]'s belong to a group
 //! named after another product: its login sits at `/in-store/oauth2/…` and is
@@ -90,10 +93,12 @@
 //! So it is [`in_store::Client::decrypt_callback`], which takes that token,
 //! and it stays that way until either iyzico posts something that names its
 //! own session or the shared trait grows somewhere to put the caller's own
-//! state. Signing a callback is not what iyzico does anywhere: what they sign
-//! is the *response* to a request, which is what
-//! [`Credentials::verify_response`] checks and what the classic API's own
-//! calls already do.
+//! state. Signing *this* callback is not what iyzico does: the In-Store one
+//! arrives encrypted rather than signed. Elsewhere they do sign — the classic
+//! API signs the *response* to a request, which is what
+//! [`Credentials::verify_response`] checks, and its hosted-form callback has a
+//! signature of its own that [`classic::signature::Signed::Callback`] names
+//! the fields of.
 //!
 //! [Response Signature Validation]: https://docs.iyzico.com/en/advanced/response-signature-validation
 
