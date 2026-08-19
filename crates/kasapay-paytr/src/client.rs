@@ -664,7 +664,7 @@ impl Provider for PayTr {
     /// token.
     ///
     /// The token opens the form and PayTR never asks for it again. What tells
-    /// a merchant what happened is the payment notice — [`Notice::charge`] —
+    /// a merchant what happened is the payment notice — [`Notice::charge`](crate::Notice::charge) —
     /// and [`Provider::lookup`] asks by the order reference for the case where
     /// the notice has not arrived.
     async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
