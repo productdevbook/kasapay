@@ -1,6 +1,6 @@
 //! The Mollie client.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
@@ -302,17 +302,21 @@ impl Mollie {
     /// link this needs is the cursor. A `next` this cannot read a `from` out
     /// of ends the walk rather than silently starting again at the top.
     ///
-    /// # A cursor that does not move ends the walk
+    /// # A cursor that has been followed already ends the walk
     ///
-    /// The other way a paginated read goes wrong: a `next` pointing at the
-    /// page that was just read is a loop that never ends and never says so.
-    /// This stops there — with what it has, rather than an error, because the
-    /// items already collected are Mollie's own answer and the fault is in the
-    /// cursor.
+    /// The other way a paginated read goes wrong: a `next` that leads back
+    /// somewhere the walk has already been is a loop that never ends and never
+    /// says so. Comparing against the **last** cursor only catches the
+    /// simplest shape of that — a page pointing at itself — and misses two
+    /// pages pointing at each other, so every cursor followed is remembered
+    /// and one seen twice ends the walk.
+    ///
+    /// It ends with what it has rather than an error: the items already
+    /// collected are Mollie's own answer, and the fault is in the cursor.
     async fn list(&self, path: &str, embedded: &str) -> Result<Vec<serde_json::Value>, Error> {
         let mut items = Vec::new();
         let mut from: Option<String> = None;
-        let mut previous: Option<String> = None;
+        let mut followed: HashSet<String> = HashSet::new();
         loop {
             let page = match from.take() {
                 Some(cursor) => format!("{path}?limit={LIST_PAGE_SIZE}&from={cursor}"),
@@ -354,10 +358,9 @@ impl Mollie {
             }) else {
                 return Ok(items);
             };
-            if previous.as_deref() == Some(cursor.as_str()) {
+            if !followed.insert(cursor.clone()) {
                 return Ok(items);
             }
-            previous = Some(cursor.clone());
             from = Some(cursor);
         }
     }
