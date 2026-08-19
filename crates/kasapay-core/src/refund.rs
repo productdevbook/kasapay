@@ -21,8 +21,15 @@ use crate::raw::Raw;
 /// three, and iyzico's four are these three plus its own `OTHER`. What each
 /// adapter does with them, and with [`RefundReason::Other`], is on that
 /// adapter's `refund`.
+///
+/// # Exhaustive, for the same reason [`Currency`](crate::Currency) is
+///
+/// This is a value travelling *out* to a provider rather than one a caller
+/// reads back, and an adapter that met a reason it had no word for would
+/// quietly send none — which is the failure this type exists to prevent.
+/// Adding a variant is a breaking change, and it forces every adapter to say
+/// what it maps to.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum RefundReason {
     /// The same money was taken twice.
     Duplicate,

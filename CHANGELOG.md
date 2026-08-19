@@ -41,6 +41,11 @@ order releases happen, newest first.
   `Refund::id` is an `Option` for the provider that issues none, the same
   reason `Charge::id` is.
 
+- **`RefundReason` is exhaustive.** Not `#[non_exhaustive]`, for the reason
+  `Currency` is not: it travels out to a provider rather than back to a caller,
+  and an adapter meeting a reason it has no word for would send none at all.
+  Adding one later is a breaking change that makes every adapter answer.
+
 - **`RefundRequest` carries a `customer` and a `return_url`.** iyzico's
   In-Store API wants a `userId` and a callback address on a refund exactly as
   it does on a payment, and its refund is the one in the workspace that answers
