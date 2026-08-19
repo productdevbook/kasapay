@@ -71,9 +71,17 @@ order releases happen, newest first.
   which is the second time one class has been found — so
   `crates/kasapay/tests/conformance.rs` gains
   `an_idempotency_key_is_sent_or_refused_but_never_dropped`, which walks every
-  adapter on both calls and asserts each either refuses before the wire or
-  puts the key on it. The existing capture test proved only the refusal half —
-  it had no `else`, so an adapter that ignored the key passed. It has one now.
+  adapter on both calls. On `charge` — a single request at every adapter here —
+  it asserts the key reaches the wire or the call is refused before a socket
+  opens. On `refund` it asserts refuse-with-nothing-sent or something-sent,
+  because PayPal reads the order first and Mollie reads the payment first, so
+  the request that would carry the key is never reached against a server that
+  fails everything; the test says so where a reader meets it.
+
+  The existing capture test proved only the refusal half — it had no `else`, so
+  an adapter that ignored the key passed. It has one now, and so does the
+  currency ratchet, whose `else` branch counted a settled currency and asserted
+  nothing at all.
 
 ## 0.0.5 — 2026-08-19
 

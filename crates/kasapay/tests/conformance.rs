@@ -360,6 +360,15 @@ async fn a_capture_refuses_an_idempotency_key_before_it_sends_anything() {
 /// misspelled would pass. It also cannot see a key folded into a signature
 /// rather than sent verbatim; no adapter here does that, and one that did
 /// would have to be named below rather than left to pass silently.
+///
+/// **The refund half is weaker than the charge half, and deliberately so.**
+/// PayPal reads the order to find the capture and Mollie reads the payment to
+/// find what is left, so their first request carries no key and the one that
+/// would is never reached against a server that fails everything. Asking for
+/// the key on the wire there would fail an adapter that is doing exactly the
+/// right thing. So refund asserts refuse-with-nothing-sent or something-sent,
+/// and `charge` — where every adapter here is a single call, and where the
+/// defect actually was — carries the full check.
 #[tokio::test]
 async fn an_idempotency_key_is_sent_or_refused_but_never_dropped() {
     let key = IdempotencyKey::new("idem-ratchet-1");
@@ -392,6 +401,7 @@ async fn an_idempotency_key_is_sent_or_refused_but_never_dropped() {
     for subject in every_adapter().await {
         let who = subject.label;
         let request = RefundRequest::builder(a_payment())
+            .amount(Money::from_minor_units(500, subject.currency))
             .idempotency_key(key.clone())
             .build()
             .expect("valid request");
@@ -408,8 +418,8 @@ async fn an_idempotency_key_is_sent_or_refused_but_never_dropped() {
             );
         } else {
             assert!(
-                subject.sent_key(&key).await,
-                "{who} neither refused the key on refund nor sent it"
+                subject.reached().await > 0,
+                "{who} neither refused the key on refund nor sent anything"
             );
         }
     }
