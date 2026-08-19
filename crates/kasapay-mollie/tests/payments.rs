@@ -16,7 +16,9 @@ use kasapay_core::{
 };
 use kasapay_mollie::{CaptureState, Config, Mollie, RefundState};
 use serde_json::json;
-use wiremock::matchers::{body_string_contains, header, method, path};
+use wiremock::matchers::{
+    body_string_contains, header, method, path, query_param, query_param_is_missing,
+};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn client(server: &MockServer) -> Mollie {
@@ -625,6 +627,143 @@ async fn only_the_callers_own_words_are_shown_to_the_payer() {
     let body = String::from_utf8_lossy(&sent.body);
     assert!(body.contains("iki kahve eksik"), "{body}");
     assert!(!body.contains("fraudulent"), "{body}");
+}
+
+/// One refund object, as Mollie's `get-refund` example shapes them.
+fn refund_item(id: &str, value: &str) -> serde_json::Value {
+    json!({
+        "resource": "refund",
+        "id": id,
+        "amount": { "currency": "EUR", "value": value },
+        "status": "refunded",
+        "paymentId": "tr_5B8cwPMGnU6qLbRvo7qEZo",
+        "createdAt": "2023-03-14T17:09:02+00:00",
+    })
+}
+
+/// Half a list of refunds undercounts what has gone back, so the walk finishes.
+#[tokio::test]
+async fn listing_refunds_walks_mollies_pages_to_the_end() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param_is_missing("from"))
+        // Mollie's largest page, asked for rather than its default of fifty.
+        .and(query_param("limit", "250"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_first", "5.95")] },
+            "_links": {
+                "self": { "href": "...", "type": "application/hal+json" },
+                "previous": null,
+                "next": {
+                    "href": "https://api.mollie.com/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds?from=re_second&limit=250",
+                    "type": "application/hal+json"
+                },
+            }
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param("from", "re_second"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_second", "4.05")] },
+            "_links": {
+                "self": { "href": "...", "type": "application/hal+json" },
+                "previous": null,
+                "next": null,
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .await
+        .expect("both pages read back");
+
+    assert_eq!(refunds.len(), 2);
+    // Summed, this is what has gone back — which is the only reason the second
+    // page matters.
+    let total = refunds
+        .iter()
+        .try_fold(Money::from_minor_units(0, Currency::Eur), |sum, refund| {
+            sum.checked_add(refund.amount)
+        })
+        .expect("one currency");
+    assert_eq!(total.minor_units(), 1000);
+    assert_eq!(refunds[0].state, RefundState::Refunded);
+}
+
+/// The cursor is followed; the address it came in is not.
+///
+/// A response that can send the next request anywhere is one that decides
+/// where a merchant's API key goes. The second page here is mounted on the
+/// mock server, and the `next` link points somewhere else entirely — so a walk
+/// that fetched the link would fail to connect rather than pass.
+#[tokio::test]
+async fn the_next_link_supplies_a_cursor_and_not_an_address() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param_is_missing("from"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_first", "5.95")] },
+            "_links": {
+                "next": {
+                    "href": "https://somewhere-else.invalid/v2/payments/x/refunds?from=re_second",
+                    "type": "application/hal+json"
+                },
+            }
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param("from", "re_second"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 0,
+            "_embedded": { "refunds": [] },
+            "_links": { "next": null }
+        })))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .await
+        .expect("the cursor was followed against this crate's own base");
+    assert_eq!(refunds.len(), 1);
+}
+
+/// A `next` pointing at the page just read is a loop that never says so.
+#[tokio::test]
+async fn a_cursor_that_does_not_move_ends_the_walk() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_first", "5.95")] },
+            "_links": {
+                "next": {
+                    "href": "https://api.mollie.com/v2/payments/x/refunds?from=re_stuck",
+                    "type": "application/hal+json"
+                },
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .await
+        .expect("what it has, rather than for ever");
+    // Page one, and page two under the same cursor, which is where it stops.
+    assert_eq!(refunds.len(), 2);
 }
 
 /// Mollie answers this one 202 with nothing in it, which is why it is not

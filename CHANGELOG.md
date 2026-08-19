@@ -7,6 +7,21 @@ order releases happen, newest first.
 
 ### Added
 
+- **`Mollie::refunds`**, and `Mollie::mandates` walks to the end now. Listing
+  refunds was left out because "that call paginates, and half a list is worse
+  than none" — which was the right reason and the wrong conclusion: a
+  half-read list of refunds undercounts what has gone back, and a shop acting
+  on the total refunds money it has already returned. Both calls now ask for
+  Mollie's largest page and follow `_links.next` until there is none.
+
+  `Provider::instruments` is `Mollie::mandates`, so a customer with more than
+  fifty mandates was quietly getting fifty.
+
+  The cursor is followed and the address it arrived in is not: `_links.next` is
+  a whole URL, and this reads the `from` out of it and asks its own base. A
+  response that can send the next request anywhere decides where a merchant's
+  API key goes. A cursor that does not move ends the walk rather than looping.
+
 - **`classic::Client::start_pay_with_iyzico`**, iyzico's
   `/payment/pay-with-iyzico/initialize`. The payer signs in to their own iyzico
   account and pays with a card already there. The same `CheckoutForm` opens it

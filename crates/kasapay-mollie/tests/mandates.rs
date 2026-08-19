@@ -21,7 +21,7 @@ use kasapay_core::{
 };
 use kasapay_mollie::{Config, CustomerId, MandateStatus, Mollie};
 use serde_json::json;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{method, path, query_param, query_param_is_missing};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn client(server: &MockServer) -> Mollie {
@@ -142,12 +142,31 @@ async fn creating_a_customer_answers_its_id() {
     assert_eq!(customer.email.as_deref(), Some("test@mollie.com"));
 }
 
-/// Mollie's `list-mandates-200-1` example.
+/// Mollie's `list-mandates-200-1` example, which carries a `next` link — so
+/// the walk asks for a second page, and there has to be one.
 #[tokio::test]
 async fn listing_mandates_reads_each_ones_own_status() {
     let server = MockServer::start().await;
+    // The page after the example's cursor. Mollie publishes no two-page
+    // example, so this is their list shape with nothing left in it.
     Mock::given(method("GET"))
         .and(path("/v2/customers/cst_4qqhO89gsT/mandates"))
+        .and(query_param("from", "mdt_pWUnw6pkBN"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 0,
+            "_embedded": { "mandates": [] },
+            "_links": {
+                "self": { "href": "...", "type": "application/hal+json" },
+                "previous": null,
+                "next": null,
+                "documentation": { "href": "...", "type": "text/html" }
+            }
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v2/customers/cst_4qqhO89gsT/mandates"))
+        .and(query_param_is_missing("from"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "count": 1,
             "_embedded": {

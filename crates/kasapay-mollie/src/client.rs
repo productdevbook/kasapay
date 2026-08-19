@@ -17,6 +17,9 @@ use crate::convert;
 use crate::id::{CaptureId, CustomerId, RefundId};
 use crate::wire;
 
+/// Mollie's largest page. Its default is fifty, which most payments fit in.
+const LIST_PAGE_SIZE: u16 = 250;
+
 /// The order reference travels as payment metadata under this key.
 ///
 /// Mollie has no field of its own for the merchant's order number — their
@@ -216,36 +219,17 @@ impl Mollie {
 
     /// Every mandate on a customer.
     ///
-    /// Mollie paginates this and this call does not: it answers the one page
-    /// Mollie sends back, the same choice this crate makes for refunds. Each
-    /// [`Mandate::raw`] is that mandate's own object out of the list, not the
-    /// list body it arrived in.
+    /// **Every one**, not the first page: Mollie answers fifty at a time and
+    /// this walks its `_links.next` to the end — see [`Mollie::refunds`] for
+    /// why that matters more than it looks. Each [`Mandate::raw`] is that
+    /// mandate's own object out of the list, not the list body it arrived in.
     pub async fn mandates(&self, customer: &CustomerId) -> Result<Vec<Mandate>, Error> {
-        let raw = self
-            .send(
-                reqwest::Method::GET,
+        let items = self
+            .list(
                 &format!("/v2/customers/{}/mandates", customer.as_str()),
-                None::<&()>,
-                None,
+                "mandates",
             )
             .await?;
-        let value = raw.json().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Malformed,
-                MOLLIE,
-                "a list of mandates was not the JSON Mollie documents",
-            )
-        })?;
-        let items = value
-            .pointer("/_embedded/mandates")
-            .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Malformed,
-                    MOLLIE,
-                    "a list of mandates carried no _embedded.mandates",
-                )
-            })?;
         items
             .iter()
             .map(|item| {
@@ -260,6 +244,122 @@ impl Mollie {
                 Mandate::read(&mandate, Raw::from_json(item))
             })
             .collect()
+    }
+
+    /// Every refund taken off a payment.
+    ///
+    /// This is how "has all of it been given back" is answered without
+    /// trusting a single figure: kasapay has no refunded status, and Mollie's
+    /// own `amountRefunded` on the payment is one number where this is the
+    /// list it was made of. Sum these with
+    /// [`Money::checked_add`](kasapay_core::Money::checked_add) and compare
+    /// against [`Charge::amount`](kasapay_core::Charge::amount).
+    ///
+    /// # It walks to the end
+    ///
+    /// Mollie pages this fifty at a time and answers `_links.next` while there
+    /// is more. **A half-read list of refunds is worse than none**: it
+    /// undercounts what has gone back, and a shop that acts on the total
+    /// refunds money it has already returned. So this asks for Mollie's
+    /// largest page and follows the cursor until there is no next link, which
+    /// costs one round trip per two hundred and fifty refunds.
+    ///
+    /// Each [`Refund::raw`] is that refund's own object out of the list.
+    pub async fn refunds(&self, payment: &PaymentId) -> Result<Vec<Refund>, Error> {
+        let items = self
+            .list(
+                &format!("/v2/payments/{}/refunds", payment.as_str()),
+                "refunds",
+            )
+            .await?;
+        items
+            .iter()
+            .map(|item| {
+                let refund: wire::Refund = serde_json::from_value(item.clone()).map_err(|e| {
+                    Error::new(
+                        ErrorKind::Malformed,
+                        MOLLIE,
+                        "one refund in the list was not the JSON Mollie documents",
+                    )
+                    .with_source(e)
+                })?;
+                Refund::read(&refund, Raw::from_json(item))
+            })
+            .collect()
+    }
+
+    /// Walks one of Mollie's lists to the end, and answers every item in it.
+    ///
+    /// `embedded` is the key the items sit under in `_embedded`, which Mollie
+    /// names after the resource.
+    ///
+    /// # Following the cursor rather than the address
+    ///
+    /// `_links.next` is a whole URL, and this reads the `from` out of it and
+    /// asks its own base for the next page rather than fetching what the body
+    /// says. A response that can send the next request anywhere is a response
+    /// that decides where a merchant's API key goes, and the only part of that
+    /// link this needs is the cursor. A `next` this cannot read a `from` out
+    /// of ends the walk rather than silently starting again at the top.
+    ///
+    /// # A cursor that does not move ends the walk
+    ///
+    /// The other way a paginated read goes wrong: a `next` pointing at the
+    /// page that was just read is a loop that never ends and never says so.
+    /// This stops there — with what it has, rather than an error, because the
+    /// items already collected are Mollie's own answer and the fault is in the
+    /// cursor.
+    async fn list(&self, path: &str, embedded: &str) -> Result<Vec<serde_json::Value>, Error> {
+        let mut items = Vec::new();
+        let mut from: Option<String> = None;
+        let mut previous: Option<String> = None;
+        loop {
+            let page = match from.take() {
+                Some(cursor) => format!("{path}?limit={LIST_PAGE_SIZE}&from={cursor}"),
+                None => format!("{path}?limit={LIST_PAGE_SIZE}"),
+            };
+            let raw = self
+                .send(reqwest::Method::GET, &page, None::<&()>, None)
+                .await?;
+            let value = raw.json().ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Malformed,
+                    MOLLIE,
+                    format!("a list of {embedded} was not the JSON Mollie documents"),
+                )
+            })?;
+            let page_items = value
+                .pointer(&format!("/_embedded/{embedded}"))
+                .and_then(serde_json::Value::as_array)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Malformed,
+                        MOLLIE,
+                        format!("a list of {embedded} carried no _embedded.{embedded}"),
+                    )
+                })?;
+            items.extend(page_items.iter().cloned());
+
+            // Mollie sends `next: null` on the last page, which is the end.
+            let Some(next) = value
+                .pointer("/_links/next/href")
+                .and_then(serde_json::Value::as_str)
+            else {
+                return Ok(items);
+            };
+            let Some(cursor) = Url::parse(next).ok().and_then(|link| {
+                link.query_pairs()
+                    .find(|(key, _)| key == "from")
+                    .map(|(_, value)| value.into_owned())
+            }) else {
+                return Ok(items);
+            };
+            if previous.as_deref() == Some(cursor.as_str()) {
+                return Ok(items);
+            }
+            previous = Some(cursor.clone());
+            from = Some(cursor);
+        }
     }
 
     /// Reads one mandate back by id.
