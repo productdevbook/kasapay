@@ -13,24 +13,33 @@
 //! - [`Client::create_plan`], [`Client::update_plan`], [`Client::plan`],
 //!   [`Client::plans`], [`Client::delete_plan`]
 //!
+//! # And the subscriptions themselves
+//!
+//! Thirteen more, which is everything except the one that takes a card number:
+//!
+//! - [`Client::start_subscription_form`] — the hosted form that starts one,
+//!   and [`Client::subscription_form_result`] to read what became of it
+//! - [`Client::subscribe`] — a second subscription for somebody iyzico already
+//!   holds a card for
+//! - [`Client::start_card_update_form`] — the hosted form that replaces the
+//!   card a subscription is charged to
+//! - [`Client::subscription`], [`Client::subscriptions`],
+//!   [`Client::activate`], [`Client::cancel`], [`Client::upgrade`],
+//!   [`Client::retry_payment`]
+//! - [`Client::subscriber`], [`Client::subscribers`],
+//!   [`Client::update_subscriber`]
+//!
 //! # What is not
 //!
-//! Fourteen of iyzico's twenty-four subscription operations, and they are the
-//! ones that start and run a subscription rather than describe what is on
-//! offer. None is guessed at here; each is left because of something specific.
+//! One operation of twenty-four.
 //!
 //! | Not implemented | Why |
 //! |---|---|
-//! | `POST /v2/subscription/initialize` | takes the card number, expiry and CVC on the request, which puts the caller in PCI scope. The same reason the classic API's own non-3-D payment is not implemented |
-//! | `POST /v2/subscription/checkoutform/initialize`, `GET /v2/subscription/checkoutform/{token}` | the hosted-form way to start one, and the way it should be started. It needs the subscriber, both addresses and a callback — the shape [`classic::CheckoutForm`](crate::classic::checkout::CheckoutForm) has for a one-off payment, and not the same shape |
-//! | `POST /v2/subscription/initialize/with-customer`, `POST /v2/subscription/card-update/checkoutform/initialize` | follow from a subscription existing, which nothing here can make |
-//! | `GET`/`POST /v2/subscription/customers…` | the subscriber, who only exists once a subscription has been started |
-//! | `GET /v2/subscription/subscriptions…`, `activate`, `cancel`, `upgrade`, `operation/retry` | reading and steering a running subscription |
+//! | `POST /v2/subscription/initialize` | takes the card number, expiry and CVC on the request, which puts the caller in PCI scope. The same reason the classic API's own non-3-D payment is not implemented, and the same reason `POST /cardstorage/card` is not |
 //!
-//! The half that is here is the half a merchant sets up once and the half that
-//! iyzico documents completely. The rest is worth adding, and worth adding
-//! together with the subscriber type it all hangs off rather than one call at
-//! a time.
+//! Every other way in goes through a form iyzico hosts, so no card number
+//! crosses a caller's process to start a subscription, to take a second one,
+//! or to change the card an existing one is charged to.
 //!
 //! # It runs on the classic client
 //!
@@ -146,6 +155,7 @@
 
 mod catalogue;
 mod client;
+mod subscriber;
 mod wire;
 
 #[doc(inline)]
@@ -154,4 +164,12 @@ pub use crate::subscription::catalogue::{
     PlanPaymentType, PlanUpdate, PlanUpdateBuilder, ProductUpdate, ProductUpdateBuilder,
 };
 #[doc(inline)]
-pub use crate::subscription::client::{Client, Page, PricingPlan, Product, RecordStatus};
+pub use crate::subscription::client::{
+    Client, FormResult, Page, PricingPlan, Product, RecordStatus, SubscriberDetail, Subscription,
+    SubscriptionForm, SubscriptionStatus,
+};
+#[doc(inline)]
+pub use crate::subscription::subscriber::{
+    Address, InitialStatus, NewSubscription, NewSubscriptionBuilder, Subscriber, SubscriberBuilder,
+    Upgrade, UpgradePeriod,
+};

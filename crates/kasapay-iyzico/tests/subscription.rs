@@ -18,11 +18,14 @@ use kasapay_core::{Currency, ErrorKind, Money};
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic;
 use kasapay_iyzico::subscription::{
-    Client, NewPlan, NewProduct, PaymentInterval, PlanError, PlanPaymentType, PlanUpdate,
-    ProductUpdate, RecordStatus,
+    Address, Client, InitialStatus, NewPlan, NewProduct, NewSubscription, PaymentInterval,
+    PlanError, PlanPaymentType, PlanUpdate, ProductUpdate, RecordStatus, Subscriber,
+    SubscriptionStatus, Upgrade,
 };
 use serde_json::json;
-use wiremock::matchers::{body_json, header, header_exists, method, path, query_param};
+use wiremock::matchers::{
+    body_json, body_string_contains, header, header_exists, method, path, query_param,
+};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 const PRODUCT: &str = "b7f3a1c2-4d5e-4f60-8a91-2c3d4e5f6071";
@@ -651,4 +654,310 @@ fn a_price_of_nothing_is_refused_by_the_builder() {
             .is_err(),
         "a plan that charges nothing is not a plan"
     );
+}
+
+const SUBSCRIPTION: &str = "3f2e1d0c-9b8a-4756-8493-2a1b0c9d8e7f";
+const SUBSCRIBER: &str = "5a4b3c2d-1e0f-49a8-b7c6-d5e4f3a2b1c0";
+
+fn subscriber() -> Subscriber {
+    Subscriber::builder(
+        "Ayse",
+        "Yilmaz",
+        "ayse@example.test",
+        "+905350000000",
+        "11111111111",
+        Address::new("Ayse Yilmaz", "Bagdat Cad. 1", "Istanbul", "Turkey"),
+    )
+    .build()
+}
+
+/// One subscription, as iyzico's `SubscriptionDetailItem` documents it.
+fn subscription_item(status: &str) -> serde_json::Value {
+    json!({
+        "referenceCode": SUBSCRIPTION,
+        "parentReferenceCode": null,
+        "pricingPlanName": "A Dergisi aylık",
+        "pricingPlanReferenceCode": PLAN,
+        "productName": "A Dergisi",
+        "productReferenceCode": PRODUCT,
+        "customerEmail": "ayse@example.test",
+        "customerGsmNumber": "+905350000000",
+        "customerReferenceCode": SUBSCRIBER,
+        "subscriptionStatus": status,
+        "trialDays": 14,
+        "startDate": 1_770_000_000_000_i64,
+        "endDate": null,
+        "orders": [],
+    })
+}
+
+/// The way in that does not put a card number through a caller's process.
+#[tokio::test]
+async fn the_subscription_form_carries_the_plan_the_person_and_where_to_answer() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/subscription/checkoutform/initialize"))
+        .and(header_exists("authorization"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "callbackUrl": "https://merchant.test/subscribed",
+            "pricingPlanReferenceCode": PLAN,
+            "subscriptionInitialStatus": "ACTIVE",
+            "customer": {
+                "name": "Ayse",
+                "surname": "Yilmaz",
+                "email": "ayse@example.test",
+                "gsmNumber": "+905350000000",
+                "identityNumber": "11111111111",
+                "billingAddress": {
+                    "contactName": "Ayse Yilmaz",
+                    "address": "Bagdat Cad. 1",
+                    "city": "Istanbul",
+                    "country": "Turkey",
+                },
+            },
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "systemTime": 1_770_000_000_000_i64,
+            "token": "sub-token-1",
+            "checkoutFormContent": "<script>iyzico</script>",
+            "tokenExpireTime": 1800,
+        })))
+        .mount(&server)
+        .await;
+
+    let form = client(&server)
+        .start_subscription_form(
+            &NewSubscription::builder(PLAN, subscriber(), "https://merchant.test/subscribed")
+                .build(),
+        )
+        .await
+        .expect("the form opens");
+
+    assert_eq!(&*form.token, "sub-token-1");
+    assert_eq!(form.expires_in_seconds, Some(1800));
+    // iyzico answers the form's HTML here rather than a page to redirect to.
+    assert!(form.content.expect("the form itself").contains("iyzico"));
+}
+
+/// `PENDING` is what a shop uses when something outside iyzico has to happen
+/// first, and the first payment waits for `activate`.
+#[tokio::test]
+async fn a_pending_subscription_says_so_on_the_way_out() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/subscription/checkoutform/initialize"))
+        .and(body_string_contains(
+            r#""subscriptionInitialStatus":"PENDING""#,
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "token": "sub-token-1",
+        })))
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .start_subscription_form(
+            &NewSubscription::builder(PLAN, subscriber(), "https://merchant.test/subscribed")
+                .initial_status(InitialStatus::Pending)
+                .build(),
+        )
+        .await
+        .expect("the form opens");
+}
+
+/// A second subscription for somebody iyzico already holds a card for.
+#[tokio::test]
+async fn subscribing_an_existing_customer_sends_no_card_and_no_person() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/subscription/initialize/with-customer"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "customerReferenceCode": SUBSCRIBER,
+            "pricingPlanReferenceCode": PLAN,
+            "subscriptionInitialStatus": "ACTIVE",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "data": subscription_item("ACTIVE"),
+        })))
+        .mount(&server)
+        .await;
+
+    let subscription = client(&server)
+        .subscribe(SUBSCRIBER, PLAN, InitialStatus::Active)
+        .await
+        .expect("the subscription starts");
+
+    assert_eq!(&*subscription.reference_code, SUBSCRIPTION);
+    assert_eq!(subscription.status, Some(SubscriptionStatus::Active));
+    assert_eq!(subscription.plan_reference.as_deref(), Some(PLAN));
+    assert_eq!(subscription.trial_days, Some(14));
+    // Epoch milliseconds here, `YYYY-MM-DD hh:mm:ss` elsewhere for the same
+    // kind of field, so it is kept as iyzico's own bytes.
+    assert_eq!(subscription.start_date.as_deref(), Some("1770000000000"));
+}
+
+#[tokio::test]
+async fn a_status_iyzico_has_started_sending_is_not_an_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path(format!(
+            "/v2/subscription/subscriptions/{SUBSCRIPTION}"
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "data": subscription_item("SOMETHING_NEW"),
+        })))
+        .mount(&server)
+        .await;
+
+    let subscription = client(&server)
+        .subscription(SUBSCRIPTION)
+        .await
+        .expect("a subscription somebody is paying for");
+    assert_eq!(
+        subscription.status,
+        Some(SubscriptionStatus::Other("SOMETHING_NEW".into()))
+    );
+}
+
+#[tokio::test]
+async fn activating_and_cancelling_name_the_subscription_in_the_path() {
+    for (action, expected) in [("activate", "activate"), ("cancel", "cancel")] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/v2/subscription/subscriptions/{SUBSCRIPTION}/{expected}"
+            )))
+            .and(query_param("locale", "tr"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "status": "success" })))
+            .mount(&server)
+            .await;
+
+        let client = client(&server);
+        match action {
+            "activate" => client.activate(SUBSCRIPTION).await,
+            _ => client.cancel(SUBSCRIPTION).await,
+        }
+        .expect("iyzico accepts it");
+    }
+}
+
+/// The three decisions with money in them, and their defaults.
+#[tokio::test]
+async fn an_upgrade_sends_when_it_applies_and_what_it_does_not_reset() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(format!(
+            "/v2/subscription/subscriptions/{SUBSCRIPTION}/upgrade"
+        )))
+        .and(body_json(json!({
+            "locale": "tr",
+            "newPricingPlanReferenceCode": PLAN,
+            "upgradePeriod": "NOW",
+            "useTrial": false,
+            "resetRecurrenceCount": false,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "status": "success" })))
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .upgrade(SUBSCRIPTION, &Upgrade::to(PLAN))
+        .await
+        .expect("the plan changes");
+}
+
+/// A card update names the subscription or the subscriber, and this names
+/// neither — so no mock is mounted.
+#[tokio::test]
+async fn a_card_update_against_nothing_never_reaches_iyzico() {
+    let server = MockServer::start().await;
+    let error = client(&server)
+        .start_card_update_form(None, None, "https://merchant.test/card")
+        .await
+        .expect_err("there is nothing to update the card of");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+#[tokio::test]
+async fn a_card_update_form_opens_against_one_subscription() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/subscription/card-update/checkoutform/initialize"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "callbackUrl": "https://merchant.test/card",
+            "subscriptionReferenceCode": SUBSCRIPTION,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "token": "card-token-1",
+            "checkoutFormContent": "<script>iyzico</script>",
+        })))
+        .mount(&server)
+        .await;
+
+    let form = client(&server)
+        .start_card_update_form(Some(SUBSCRIPTION), None, "https://merchant.test/card")
+        .await
+        .expect("the form opens");
+    assert_eq!(&*form.token, "card-token-1");
+}
+
+#[tokio::test]
+async fn a_retry_names_the_order_rather_than_the_subscription() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/subscription/operation/retry"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "referenceCode": "order-ref-1",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "status": "success" })))
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .retry_payment("order-ref-1")
+        .await
+        .expect("iyzico takes it again");
+}
+
+#[tokio::test]
+async fn subscribers_are_listed_a_page_at_a_time() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/subscription/customers"))
+        .and(query_param("page", "1"))
+        .and(query_param("count", "10"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "data": {
+                "totalCount": 1,
+                "currentPage": 1,
+                "pageCount": 1,
+                "items": [{
+                    "referenceCode": SUBSCRIBER,
+                    "name": "Ayse",
+                    "surname": "Yilmaz",
+                    "email": "ayse@example.test",
+                    "gsmNumber": "+905350000000",
+                }],
+            },
+        })))
+        .mount(&server)
+        .await;
+
+    let page = client(&server)
+        .subscribers(1, 10)
+        .await
+        .expect("the listing reads back");
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(&*page.items[0].reference_code, SUBSCRIBER);
+    assert_eq!(page.items[0].email.as_deref(), Some("ayse@example.test"));
 }
