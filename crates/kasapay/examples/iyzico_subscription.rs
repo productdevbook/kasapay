@@ -63,7 +63,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .build()?,
         )
         .await?;
-    println!("plan {} — {}", monthly.reference_code, monthly.price);
+    // `price` is an Option: iyzico answers a plan without one for a plan
+    // whose payment type is not a fixed recurring amount.
+    println!("plan {} — {:?}", monthly.reference_code, monthly.price);
 
     // The subscriber. Every field but the shipping address is iyzico's own
     // requirement: a subscription is a standing authority to take money, and
