@@ -122,11 +122,16 @@ impl Instalment {
     /// What the instalments add on top of the amount asked about.
     ///
     /// Negative where a bank charges less for instalments than for a single
-    /// payment, which some do as a promotion. `None` if the two amounts are
-    /// in different currencies, which iyzico's answer cannot express.
+    /// payment, which some do as a promotion — which is why this is
+    /// [`Money::checked_sub`] rather than anything that clamps at zero.
+    ///
+    /// `None` if the two amounts are in different currencies, which is not
+    /// something iyzico's answer can express: it names no currency at all, so
+    /// a mismatch means the caller asked with one [`Money`] and compared with
+    /// another.
     #[must_use]
     pub fn surcharge(&self, asked: Money) -> Option<Money> {
-        self.total.checked_sub(asked)
+        self.total.checked_sub(asked).ok()
     }
 }
 
