@@ -1,6 +1,7 @@
 //! The request and response bodies of the onboarding API, as iyzico documents them.
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 
 use crate::onboarding::submerchant::{CompanyUpdate, NewSubmerchant, SubmerchantUpdate};
 
@@ -352,4 +353,74 @@ mod tests {
         assert!(json.get("iban").is_none());
         assert!(json.get("taxOffice").is_none());
     }
+}
+
+/// `POST /payment/iyzipos/item/approve` and its disapprove twin: one basket
+/// line, named by the split id iyzico answered on the payment.
+#[derive(Debug, Serialize)]
+pub(crate) struct ItemActionRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId", skip_serializing_if = "Option::is_none")]
+    pub(crate) conversation_id: Option<&'a str>,
+    #[serde(rename = "paymentTransactionId")]
+    pub(crate) payment_transaction_id: &'a str,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ItemActionResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "paymentTransactionId")]
+    pub(crate) payment_transaction_id: Option<String>,
+}
+
+/// `PUT /payment/item` — what the sub-merchant is to be paid for one line.
+///
+/// `subMerchantPrice` is a [`RawValue`] for the reason
+/// [`crate::classic::instalments`] gives: iyzico types it as a JSON number,
+/// and no money in this workspace goes through an `f64`.
+#[derive(Debug, Serialize)]
+pub(crate) struct ItemPayoutUpdateRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId", skip_serializing_if = "Option::is_none")]
+    pub(crate) conversation_id: Option<&'a str>,
+    #[serde(rename = "paymentTransactionId")]
+    pub(crate) payment_transaction_id: &'a str,
+    #[serde(rename = "subMerchantKey")]
+    pub(crate) sub_merchant_key: &'a str,
+    #[serde(rename = "subMerchantPrice")]
+    pub(crate) sub_merchant_price: &'a RawValue,
+}
+
+/// The line, as iyzico reports it after the change. Every amount is a
+/// [`RawValue`] for the same reason the request's is.
+#[derive(Debug, Deserialize)]
+pub(crate) struct ItemPayoutUpdateResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "itemId")]
+    pub(crate) item_id: Option<String>,
+    #[serde(rename = "paymentTransactionId")]
+    pub(crate) payment_transaction_id: Option<String>,
+    #[serde(rename = "transactionStatus")]
+    pub(crate) transaction_status: Option<i64>,
+    pub(crate) price: Option<Box<RawValue>>,
+    #[serde(rename = "paidPrice")]
+    pub(crate) paid_price: Option<Box<RawValue>>,
+    #[serde(rename = "subMerchantKey")]
+    pub(crate) sub_merchant_key: Option<String>,
+    #[serde(rename = "subMerchantPrice")]
+    pub(crate) sub_merchant_price: Option<Box<RawValue>>,
+    #[serde(rename = "subMerchantPayoutAmount")]
+    pub(crate) sub_merchant_payout_amount: Option<Box<RawValue>>,
+    #[serde(rename = "merchantPayoutAmount")]
+    pub(crate) merchant_payout_amount: Option<Box<RawValue>>,
+    #[serde(rename = "blockageResolvedDate")]
+    pub(crate) blockage_resolved_date: Option<String>,
 }
