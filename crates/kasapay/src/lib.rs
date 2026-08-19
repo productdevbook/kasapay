@@ -21,9 +21,9 @@
 //!
 //! # What the trait answers
 //!
-//! [`Provider`] is `charge`, `charge_status`, `capture`, `cancel`, `refund`,
-//! `lookup` and `instruments`, and [`Capabilities`] says which of them a given
-//! provider actually does — before there is a payment to ask about. A
+//! [`Provider`] is `charge`, `resume`, `charge_status`, `capture`, `cancel`,
+//! `refund`, `lookup` and `instruments`, and [`Capabilities`] says which of
+//! them a given provider actually does — before there is a payment to ask about. A
 //! capability that says yes and a call that then fails is a bug in the
 //! adapter.
 //!
