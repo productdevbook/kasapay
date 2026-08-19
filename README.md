@@ -137,6 +137,21 @@ the Terminal API's fourteen.
 - iyzico's In-Store settles in lira only and requires `customer` and
   `return_url`. Ask it for USD and you get `ErrorKind::Unsupported` before a
   socket opens.
+- **`Currency` names 119 currencies and every adapter says what it does with
+  each.** It is still an exhaustive enum and adding one is still a breaking
+  change; what a currency match may now do is carry a wildcard arm **where that
+  arm refuses**, which was always the safe answer and became the only workable
+  one past a hundred variants. Mapping an unknown currency onto something is
+  what was never allowed. `crates/kasapay/tests/conformance.rs` walks every
+  currency past every adapter and asserts each is either settled or refused
+  before a socket opens, which is what holds the guarantee up now that the
+  compiler no longer does.
+- **A currency is named when ISO 4217 currently defines it, its minor unit is
+  exactly two decimal places, and some provider here settles in it** — plus the
+  nine this library shipped with, whatever their exponent. The two-decimal rule
+  is the safety rule: zero- and three-decimal currencies are exactly where a
+  provider's reading and ISO's diverge, and being wrong about one is a payment
+  out by a factor of a hundred.
 - **Mollie takes neither lira nor Kuwaiti dinar**, which is to say the home
   currency of the two Turkish providers here and the one currency with three
   decimal places. Same answer, same place: `Unsupported`, before a socket

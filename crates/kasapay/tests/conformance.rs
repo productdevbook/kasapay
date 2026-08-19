@@ -427,6 +427,84 @@ async fn a_refused_instrument_list_never_reaches_the_network() {
     }
 }
 
+/// The rule that lets `Currency` be more than a handful: every currency it
+/// names is either one this adapter settles in — and the request goes to the
+/// provider — or one it refuses **before a socket opens**. What is never
+/// allowed is the third answer, mapping an unknown currency onto something and
+/// sending it, which is what a wildcard arm used to be forbidden to prevent.
+///
+/// This is the proof that replaced that prohibition. It costs one pass over a
+/// hundred-odd currencies per adapter and it is the only reason widening the
+/// enum is safe.
+#[tokio::test]
+async fn every_currency_is_either_settled_or_refused_before_the_wire() {
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let mut settled = 0_usize;
+        let mut refused = 0_usize;
+        let mut before = subject.reached().await;
+
+        for currency in Currency::KNOWN.iter().copied() {
+            // Everything any provider asks for, so the currency is the only
+            // thing that can decide the answer. A request missing a field
+            // would be refused for the field instead, and this would be
+            // measuring nothing.
+            let request = ChargeRequest::builder(
+                OrderRef::new("ord-1"),
+                Money::from_minor_units(1000, currency),
+            )
+            .description("Order #1")
+            .customer("cus-1")
+            .return_url("https://merchant.test/ok".parse().expect("valid url"))
+            .failure_url("https://merchant.test/no".parse().expect("valid url"))
+            .buyer(
+                kasapay::Buyer::new("Ayse", "ayse@example.test")
+                    .surname("Yilmaz")
+                    .identity_number("11111111111")
+                    .phone("+905350000000")
+                    .ip("203.0.113.7")
+                    .address(kasapay::Address::new("Bagdat Cad. 1", "Istanbul", "Turkey")),
+            )
+            .item(
+                kasapay::BasketItem::new("sku-1", "Kahve", Money::from_minor_units(1000, currency))
+                    .category("Icecek"),
+            )
+            .build()
+            .expect("valid request");
+
+            let error = subject
+                .provider
+                .charge(&request)
+                .await
+                .expect_err("the server answers 500 to everything it is asked");
+            assert_eq!(
+                error.provider(),
+                subject.provider.id(),
+                "{who} answered for somebody else"
+            );
+
+            let after = subject.reached().await;
+            if error.kind() == ErrorKind::Unsupported {
+                assert_eq!(
+                    after, before,
+                    "{who} refused {currency} only after sending it"
+                );
+                refused += 1;
+            } else {
+                settled += 1;
+            }
+            before = after;
+        }
+
+        // Not a threshold anybody tuned: every adapter here settles in at
+        // least one currency and refuses at least one, so a zero on either
+        // side is a mapping that stopped discriminating rather than a
+        // provider that changed.
+        assert!(settled > 0, "{who} refuses every currency kasapay names");
+        assert!(refused > 0, "{who} settles in every currency kasapay names");
+    }
+}
+
 /// `partial_capture` is only meaningful where there is a capture step, and a
 /// pair that says otherwise is a caller offering a partial shipment against a
 /// provider that takes the money up front.

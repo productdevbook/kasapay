@@ -906,7 +906,7 @@ fn onboarding_currency(currency: Currency) -> Result<(), SubmerchantError> {
         | Currency::Rub
         | Currency::Chf
         | Currency::Nok => Ok(()),
-        Currency::Jpy | Currency::Kwd => Err(SubmerchantError::UnsupportedCurrency(currency)),
+        _ => Err(SubmerchantError::UnsupportedCurrency(currency)),
     }
 }
 

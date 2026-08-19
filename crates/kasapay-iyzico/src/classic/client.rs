@@ -339,6 +339,7 @@ impl Client {
     /// caller passes.
     async fn open_form(&self, form: &CheckoutForm, hosted: Hosted) -> Result<Charge, Error> {
         let currency = form.price.currency();
+        settles_in(currency)?;
         let body = wire::CheckoutFormRequest {
             locale: "tr",
             conversation_id: form.order.as_str(),
@@ -638,6 +639,7 @@ impl Client {
         holds: bool,
     ) -> Result<Charge, Error> {
         let currency = payment.price.currency();
+        settles_in(currency)?;
         let body = wire::SavedCardPaymentRequest {
             locale: "tr",
             conversation_id: payment.order.as_str(),
@@ -1660,6 +1662,34 @@ fn http_error(status: reqwest::StatusCode, body: &str) -> Error {
         _ => ErrorKind::Provider,
     };
     Error::new(kind, PROVIDER, format!("HTTP {status}: {body}"))
+}
+
+/// The six currencies iyzico's payment API documents.
+///
+/// From the `currency` enum in `specs/iyzico/payment/latest.yaml`, which names
+/// TRY, USD, EUR, GBP, NOK and CHF and nothing else — not the rouble, which
+/// iyzico Link does take, because these are different products with different
+/// lists.
+///
+/// Refused where a payment is **started**, and nowhere else. A capture or a
+/// refund carries whatever currency iyzico already took the money in, and
+/// refusing one of those would lose a capture that has already happened — #88
+/// is that case, a payment authorised in sterling answering a currency this
+/// response's own schema forbids.
+fn settles_in(currency: Currency) -> Result<(), Error> {
+    match currency {
+        Currency::Try
+        | Currency::Usd
+        | Currency::Eur
+        | Currency::Gbp
+        | Currency::Nok
+        | Currency::Chf => Ok(()),
+        other => Err(Error::new(
+            ErrorKind::Unsupported,
+            PROVIDER,
+            format!("iyzico's payment API documents TRY, USD, EUR, GBP, NOK and CHF, not {other}"),
+        )),
+    }
 }
 
 /// What iyzico's hosted form needs that a [`ChargeRequest`] may not have been

@@ -30,7 +30,7 @@ pub(crate) fn currency(currency: Currency) -> Result<&'static str, Error> {
         Currency::Rub => Ok("RUB"),
         Currency::Chf => Ok("CHF"),
         Currency::Nok => Ok("NOK"),
-        Currency::Try | Currency::Kwd => Err(Error::new(
+        _ => Err(Error::new(
             ErrorKind::Unsupported,
             MOLLIE,
             format!("Mollie does not settle in {currency}"),
@@ -41,7 +41,7 @@ pub(crate) fn currency(currency: Currency) -> Result<&'static str, Error> {
 /// What Mollie calls a currency, read back.
 ///
 /// The seven [`currency`] sends. A payment created outside this crate may be
-/// in one of the twenty others, and that is
+/// in one of Mollie's others, and that is
 /// [`ErrorKind::Unsupported`] rather than a guess: `Money` cannot hold an
 /// amount whose minor unit it does not know.
 pub(crate) fn currency_back(code: &str) -> Result<Currency, Error> {
@@ -132,7 +132,7 @@ mod tests {
     /// a currency missing from it.
     #[test]
     fn every_currency_mollie_is_sent_can_be_read_back() {
-        for money in every_currency() {
+        for money in Currency::KNOWN.iter().copied() {
             if let Ok(sent) = currency(money) {
                 assert_eq!(
                     currency_back(sent).ok(),
@@ -173,38 +173,5 @@ mod tests {
         // Mollie's document allows one this build has not met.
         assert_eq!(status("something_new"), Status::Pending);
         assert!(status("something_new").is_open());
-    }
-
-    /// Every currency there is.
-    ///
-    /// The `match` is what keeps this list honest: adding a variant to
-    /// `Currency` stops it compiling until somebody comes here and decides
-    /// whether Mollie takes it.
-    fn every_currency() -> Vec<Currency> {
-        let every = vec![
-            Currency::Try,
-            Currency::Usd,
-            Currency::Eur,
-            Currency::Gbp,
-            Currency::Jpy,
-            Currency::Kwd,
-            Currency::Rub,
-            Currency::Chf,
-            Currency::Nok,
-        ];
-        for money in &every {
-            match money {
-                Currency::Try
-                | Currency::Usd
-                | Currency::Eur
-                | Currency::Gbp
-                | Currency::Jpy
-                | Currency::Kwd
-                | Currency::Rub
-                | Currency::Chf
-                | Currency::Nok => {}
-            }
-        }
-        every
     }
 }

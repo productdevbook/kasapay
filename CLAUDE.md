@@ -133,9 +133,28 @@ thing while CI checks another.
 its own. Anything that is true of one provider and not another belongs in that
 provider's crate, not in core.
 
-`Currency` is deliberately exhaustive: adding one is a breaking change, so
-every adapter is forced to say what it maps to. Do not add `#[non_exhaustive]`
-to it, and do not add a wildcard arm to a currency match.
+`Currency` is deliberately exhaustive: adding one is a breaking change. Do not
+add `#[non_exhaustive]` to it.
+
+The rule about wildcard arms changed in #158, and the reason is worth carrying:
+what was never allowed is **mapping** an unknown currency onto something. A
+wildcard that **refuses** was always the safe answer, and once the enum grew
+past a hundred variants it became the only workable one. So a currency match
+may carry `_ =>` where that arm returns an error, and may not where it returns
+a value. `crates/kasapay/tests/conformance.rs` walks every `Currency::KNOWN`
+past every adapter and asserts each one is either settled or refused before a
+socket opens; that test is what replaced the compiler as the thing holding the
+guarantee up, and it is not optional.
+
+What decides whether a currency is named at all: ISO 4217 currently defines
+it, its minor unit is **exactly two decimal places**, and some provider here
+settles in it — plus the nine the library shipped with, whatever their
+exponent. The two-decimal rule is a safety rule, not tidiness. Zero- and
+three-decimal currencies are where a provider's reading and ISO's diverge
+(Stripe treats the Icelandic króna as having no minor unit, and wants its
+three-decimal amounts as a multiple of ten), and being wrong about one is a
+payment out by a factor of a hundred. Adding such a currency means reading that
+provider's documentation first; `money.rs`'s own tests fail until somebody has.
 
 `Charge` is open — every field public, no `#[non_exhaustive]` — because an
 adapter in someone else's repository has to be able to build one.

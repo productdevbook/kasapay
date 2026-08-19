@@ -7,10 +7,10 @@ use crate::wire;
 
 /// What PayPal calls a currency, where PayPal takes it at all.
 ///
-/// PayPal's [currency codes reference][codes] lists twenty-five currencies.
-/// kasapay names nine, and the overlap is seven — the same seven Mollie takes,
-/// for the same reason: **PayPal settles in neither Turkish lira nor Kuwaiti
-/// dinar.** Refused here rather than sent, before a socket opens.
+/// PayPal's [currency codes reference][codes] lists twenty-five currencies
+/// and this sends seven of them — the same seven Mollie takes, and everything
+/// else kasapay names is refused here rather than sent, before a socket opens.
+/// **PayPal settles in neither Turkish lira nor Kuwaiti dinar.**
 ///
 /// PayPal's `checkout_orders_v2` OpenAPI document types `currency_code` as a
 /// bare three-letter string with no `enum`, so the list comes from their
@@ -26,7 +26,7 @@ pub(crate) fn currency(currency: Currency) -> Result<&'static str, Error> {
         Currency::Rub => Ok("RUB"),
         Currency::Chf => Ok("CHF"),
         Currency::Nok => Ok("NOK"),
-        Currency::Try | Currency::Kwd => Err(Error::new(
+        _ => Err(Error::new(
             ErrorKind::Unsupported,
             PAYPAL,
             format!("PayPal does not settle in {currency}"),
@@ -159,7 +159,7 @@ mod tests {
     /// a currency missing from it.
     #[test]
     fn every_currency_paypal_is_sent_can_be_read_back() {
-        for money in every_currency() {
+        for money in Currency::KNOWN.iter().copied() {
             if let Ok(sent) = currency(money) {
                 assert_eq!(
                     currency_back(sent).ok(),
@@ -222,38 +222,5 @@ mod tests {
         assert_eq!(authorization_status("PARTIALLY_CAPTURED"), Status::Captured);
         assert_eq!(authorization_status("DENIED"), Status::Failed);
         assert_eq!(authorization_status("VOIDED"), Status::Canceled);
-    }
-
-    /// Every currency there is.
-    ///
-    /// The `match` is what keeps this list honest: adding a variant to
-    /// `Currency` stops it compiling until somebody comes here and decides
-    /// whether PayPal takes it.
-    fn every_currency() -> Vec<Currency> {
-        let every = vec![
-            Currency::Try,
-            Currency::Usd,
-            Currency::Eur,
-            Currency::Gbp,
-            Currency::Jpy,
-            Currency::Kwd,
-            Currency::Rub,
-            Currency::Chf,
-            Currency::Nok,
-        ];
-        for money in &every {
-            match money {
-                Currency::Try
-                | Currency::Usd
-                | Currency::Eur
-                | Currency::Gbp
-                | Currency::Jpy
-                | Currency::Kwd
-                | Currency::Rub
-                | Currency::Chf
-                | Currency::Nok => {}
-            }
-        }
-        every
     }
 }

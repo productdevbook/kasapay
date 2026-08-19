@@ -22,11 +22,15 @@
 //!
 //! # Mollie takes neither lira nor Kuwaiti dinar
 //!
-//! Mollie settles in many more currencies than kasapay names, and the overlap
-//! is seven of kasapay's nine: USD, EUR, GBP, JPY, RUB, CHF and NOK. A charge
-//! in TRY or KWD is
+//! Mollie's [multicurrency table][] is where their list comes from, and this
+//! crate sends seven of it: USD, EUR, GBP, JPY, RUB, CHF and NOK. Anything
+//! else kasapay names — Turkish lira and the Kuwaiti dinar included, which is
+//! to say the home currency of the two Turkish providers here and the one
+//! currency with three decimal places — is
 //! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported) **before a
 //! socket opens**, rather than a request with a currency Mollie will not read.
+//!
+//! [multicurrency table]: https://docs.mollie.com/docs/multicurrency
 //!
 //! Mollie's OpenAPI document enumerates no currencies at all — `currency` is
 //! described there as "a three-character ISO 4217 currency code" and nothing
