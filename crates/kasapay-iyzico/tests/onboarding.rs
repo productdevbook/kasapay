@@ -510,6 +510,32 @@ async fn changing_a_share_sends_a_number_and_reads_the_arithmetic_back() {
     );
 }
 
+/// The same check as the item actions, and it matters more here: this call
+/// moves money between the platform and a seller.
+#[tokio::test]
+async fn a_payout_answer_about_another_split_is_refused() {
+    let server = MockServer::start().await;
+    Mock::given(method("PUT"))
+        .and(path("/payment/item"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentTransactionId": "99999999",
+            "subMerchantPrice": 90.00,
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .update_item_payout(
+            SPLIT,
+            "sub-merchant-key-1",
+            Money::parse("90.00", Currency::Try).expect("valid amount"),
+        )
+        .await
+        .expect_err("that is another seller's arithmetic");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
 /// No mock is mounted: nothing is paid out for nothing.
 #[tokio::test]
 async fn a_share_of_nothing_never_reaches_iyzico() {

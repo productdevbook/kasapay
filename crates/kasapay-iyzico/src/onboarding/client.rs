@@ -256,6 +256,18 @@ impl Client {
         ) {
             return Err(error);
         }
+        // The same check the item actions make, and it matters more here: this
+        // call moves money between the platform and a seller, and an answer
+        // about another split is another seller's arithmetic.
+        if let Some(changed) = response.payment_transaction_id.as_deref()
+            && changed != transaction
+        {
+            return Err(Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                format!("asked about split {transaction} and iyzico answered about {changed}"),
+            ));
+        }
         let money = |value: Option<&RawValue>| {
             value
                 .map(|raw| number_as_money(raw.get(), currency))
