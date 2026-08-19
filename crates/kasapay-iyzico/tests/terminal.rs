@@ -23,8 +23,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{Currency, ErrorKind, Money, Secret};
 use kasapay_iyzico::terminal::{
-    CardType, Client, Config, Credentials, Login, Query, Reference, Refund, Sale, SalesType,
-    Timestamps, Void,
+    CardType, Client, Config, Credentials, EndOfDayRequest, Login, Query, Reference, Refund, Sale,
+    SalesType, Timestamps, Void,
 };
 use serde_json::json;
 use wiremock::matchers::{body_json, body_string_contains, header, method, path};
@@ -612,4 +612,98 @@ fn a_sale() -> Sale {
     )
     .build()
     .expect("a sale iyzico documents")
+}
+
+/// A till closes the day's batch, and the bank answers a line per acquirer.
+#[tokio::test]
+async fn closing_the_day_answers_a_total_for_each_acquiring_bank() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/terminal-host/eod"))
+        .and(header("authorization", format!("Bearer {TOKEN}")))
+        .and(body_json(json!({
+            "conversationId": "eod-1",
+            "locale": "tr",
+            "deviceUniqueId": DEVICE,
+            "useSummary": false,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "SUCCESS",
+            "locale": "tr",
+            "systemTime": 1_770_000_000_000_i64,
+            "conversationId": "eod-1",
+            "batchNo": "000123",
+            "resultMessage": "Gun sonu alindi",
+            "totals": [{
+                "acquirerId": "0062",
+                "acquirerName": "Garanti Bankasi",
+                "terminalId": "VP000001",
+                "bankMerchantId": "1234567",
+                "batchNo": "000123",
+                "totalTransactionAmount": "1499.00",
+                "totalTransactionCount": "7",
+                "responseCode": "00",
+            }],
+        })))
+        .mount(&server)
+        .await;
+
+    let closed = Client::new(config(&server), TOKEN)
+        .expect("client builds")
+        .end_of_day(&EndOfDayRequest::new("eod-1", DEVICE))
+        .await
+        .expect("the batch closes");
+
+    assert_eq!(closed.batch_no.as_deref(), Some("000123"));
+    assert_eq!(closed.totals.len(), 1);
+    let total = &closed.totals[0];
+    assert_eq!(total.acquirer_name.as_deref(), Some("Garanti Bankasi"));
+    // Text, because iyzico types it as a string and names no currency for it
+    // anywhere in this answer.
+    assert_eq!(total.total_amount.as_deref(), Some("1499.00"));
+    assert_eq!(total.total_count.as_deref(), Some("7"));
+}
+
+/// `useSummary` changes what the device prints, so it is sent as asked.
+#[tokio::test]
+async fn a_detailed_slip_asks_for_one() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/terminal-host/eod"))
+        .and(body_string_contains(r#""useSummary":true"#))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "SUCCESS",
+            "batchNo": "000123",
+        })))
+        .mount(&server)
+        .await;
+
+    Client::new(config(&server), TOKEN)
+        .expect("client builds")
+        .end_of_day(&EndOfDayRequest::new("eod-1", DEVICE).detailed_slip())
+        .await
+        .expect("the batch closes");
+}
+
+/// A batch that did not close is not a batch that closed, whatever the HTTP
+/// status was.
+#[tokio::test]
+async fn an_end_of_day_iyzico_refused_is_not_a_closed_batch() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/terminal-host/eod"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "FAILURE",
+            "errorCode": "380111",
+            "errorMessage": "Cihaz bulunamadi",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = Client::new(config(&server), TOKEN)
+        .expect("client builds")
+        .end_of_day(&EndOfDayRequest::new("eod-1", DEVICE))
+        .await
+        .expect_err("a 200 carrying FAILURE is a refusal");
+    assert_eq!(error.code(), Some("380111"));
 }

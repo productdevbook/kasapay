@@ -88,7 +88,7 @@ presented a card. `classic` is everything else, signed with `IYZWSv2`: the
 hosted checkout form, Pay with iyzico, pre-authorisation and capture, refunds,
 cancel, stored cards and charging one, BIN and instalment lookup — with `iyzilink`, pay-by-link, `subscription`, the products and plans a
 recurring charge is sold out of, and `mass`, money going out rather than coming
-in, over the same client. Seventy-eight of iyzico's ninety-six documented
+in, over the same client. Seventy-nine of iyzico's ninety-six documented
 operations — `scripts/coverage.py` says which — and none of them touches a
 card number.
 
