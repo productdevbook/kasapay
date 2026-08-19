@@ -739,6 +739,51 @@ async fn the_next_link_supplies_a_cursor_and_not_an_address() {
     assert_eq!(refunds.len(), 1);
 }
 
+/// Two pages pointing at each other is the shape a last-cursor check misses.
+#[tokio::test]
+async fn a_cursor_that_leads_back_where_the_walk_has_been_ends_it() {
+    let server = MockServer::start().await;
+    // Page one points at two, and page two points back at one. Comparing
+    // against the previous cursor alone would follow this for ever.
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param_is_missing("from"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_first", "5.95")] },
+            "_links": { "next": { "href": "https://api.mollie.com/x?from=re_second" } }
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param("from", "re_second"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_second", "4.05")] },
+            "_links": { "next": { "href": "https://api.mollie.com/x?from=re_third" } }
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(query_param("from", "re_third"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "count": 1,
+            "_embedded": { "refunds": [refund_item("re_third", "1.00")] },
+            "_links": { "next": { "href": "https://api.mollie.com/x?from=re_second" } }
+        })))
+        .mount(&server)
+        .await;
+
+    let refunds = client(&server)
+        .refunds(&PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .await
+        .expect("what it has, rather than for ever");
+    // Three pages, and then a cursor it had already followed.
+    assert_eq!(refunds.len(), 3);
+}
+
 /// A `next` pointing at the page just read is a loop that never says so.
 #[tokio::test]
 async fn a_cursor_that_does_not_move_ends_the_walk() {

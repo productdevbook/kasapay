@@ -1,5 +1,6 @@
 //! The Stripe client and its [`Provider`] implementation.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -168,6 +169,11 @@ impl Stripe {
     pub async fn refunds(&self, payment: &PaymentId) -> Result<Vec<Refund>, Error> {
         let mut refunds = Vec::new();
         let mut cursor: Option<String> = None;
+        // Every cursor already followed. `has_more` and a cursor that leads
+        // back somewhere this walk has been is a loop that never ends and
+        // never says so — and this call is how "how much has gone back" is
+        // answered, so hanging is worse than answering short.
+        let mut followed: HashSet<String> = HashSet::new();
         loop {
             let mut list = ListRefund::new()
                 .payment_intent(payment.as_str().to_owned())
@@ -188,6 +194,9 @@ impl Stripe {
             }
             // An empty page with `has_more` set would otherwise loop forever.
             if !page.has_more || cursor.is_none() {
+                return Ok(refunds);
+            }
+            if !followed.insert(cursor.clone().unwrap_or_default()) {
                 return Ok(refunds);
             }
         }
@@ -225,6 +234,8 @@ impl Stripe {
     pub async fn stored_cards(&self, customer: &str) -> Result<Vec<saved::StoredCard>, Error> {
         let mut cards = Vec::new();
         let mut cursor: Option<String> = None;
+        // The same guard [`Stripe::refunds`] carries, for the same reason.
+        let mut followed: HashSet<String> = HashSet::new();
         loop {
             let mut list = ListPaymentMethodsCustomer::new(customer.to_owned())
                 .type_(ListPaymentMethodsCustomerType::Card)
@@ -245,6 +256,9 @@ impl Stripe {
             }
             // An empty page with `has_more` set would otherwise loop forever.
             if !page.has_more || cursor.is_none() {
+                return Ok(cards);
+            }
+            if !followed.insert(cursor.clone().unwrap_or_default()) {
                 return Ok(cards);
             }
         }
