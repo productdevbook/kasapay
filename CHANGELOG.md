@@ -3,6 +3,54 @@
 What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
+## Unreleased
+
+### Breaking
+
+- **`Provider` gains `refund`.** Every adapter in this workspace implements it;
+  a `Provider` written outside has one more method to answer, and there is no
+  default because a provider that cannot refund has to say
+  `ErrorKind::Unsupported` itself rather than have it assumed. The shape is
+  `refund(&RefundRequest) -> Result<Refund, Error>` — a request built the way a
+  `ChargeRequest` is, and an answer with its own identifier, its own
+  `RefundStatus` and, at one provider, its own `NextAction`.
+
+  The provider-specific refunds are all still there and still the way to reach
+  what the trait cannot say: iyzico's per-line `refund_transaction`, PayPal's
+  refund against a capture id, Stripe's and PayTR's lists of what has already
+  gone back.
+
+- **`kasapay_mollie::RefundId` and `kasapay_paypal::RefundId` are core's.**
+  Both were `Id<kind::Refund>` over a kind of their own; both are now
+  `kasapay_core::RefundId`, because the shared trait answers a refund and the
+  concept is no longer one provider's. The name, the methods and the string on
+  the wire are unchanged — only code that named `kasapay_mollie::id::kind::Refund`
+  or its PayPal twin has anything to change, and it can name
+  `kasapay_core::kind::Refund` instead.
+
+- **Mollie's refund carries a description and metadata.** Internal to the
+  crate: `Mollie::refund` is unchanged, and `Provider::refund` is what fills
+  them in.
+
+### Added
+
+- **`RefundRequest`, `Refund`, `RefundStatus`, `RefundReason` and `RefundId` in
+  `kasapay-core`.** A refund is its own object with its own life, which is why
+  `Status` still has no `Refunded` — no provider reports one as a payment
+  status, so the variant would be a branch that never runs for most of them.
+  `Refund::id` is an `Option` for the provider that issues none, the same
+  reason `Charge::id` is.
+
+- **`RefundRequest` carries a `customer` and a `return_url`.** iyzico's
+  In-Store API wants a `userId` and a callback address on a refund exactly as
+  it does on a payment, and its refund is the one in the workspace that answers
+  a `NextAction`: the payer approves it in iyzico's app and the money moves
+  there. Every other adapter ignores both fields.
+
+- **`kasapay_stripe::REFUND_REASON_METADATA_KEY`.** Stripe's `reason` takes
+  three values and none of them is free text, so `RefundReason::Other`'s own
+  words travel as refund metadata under this key rather than being dropped.
+
 ## 0.0.2 — 2026-08-15
 
 Three more providers — PayTR, Mollie and PayPal — and a shared trait shaped by

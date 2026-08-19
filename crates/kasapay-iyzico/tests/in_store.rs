@@ -7,8 +7,8 @@
 use std::time::Duration;
 
 use kasapay_core::{
-    Charge, ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId,
-    Provider, Status,
+    Charge, ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, NextAction, OrderRef,
+    PaymentId, Provider, RefundRequest, RefundStatus, Status,
 };
 use kasapay_iyzico::in_store::{Client, Config};
 use serde_json::json;
@@ -594,6 +594,113 @@ async fn a_full_refund_names_no_amount_at_all() {
         )
         .await
         .expect("the refund starts");
+}
+
+/// The shared refund with no amount reads the payment first to find one.
+#[tokio::test]
+async fn the_shared_refund_reads_the_payment_to_learn_what_a_full_refund_is() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v3/in-store/payment/query"))
+        .and(query_param("paymentId", "4242424242"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": 4_242_424_242_i64,
+            "orderId": "ord-1",
+            "userId": "kasiyer-7",
+            "transactionDetail": {
+                "amount": 149.90,
+                "currencyCode": "TRY",
+                "isRefundable": true,
+                "receipt": { "approved": true },
+            },
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v3/in-store/payment/refund"))
+        .and(header("x-callback-url", "https://merchant.test/callback"))
+        // The figure the query answered, under both documented names.
+        .and(body_json(json!({
+            "userId": "kasiyer-7",
+            "paymentId": 4_242_424_242_i64,
+            "refundAmount": 149.90,
+            "refundPrice": 149.90,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "deepLinkUrl": "https://iyzi.link/refund-abc",
+            "paymentSessionToken": "tok-refund",
+            "paymentId": 4_242_424_242_i64,
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("4242424242"))
+        .customer("kasiyer-7")
+        .return_url("https://merchant.test/callback".parse().expect("valid url"))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("the refund starts");
+
+    // The money has not moved: the payer approves it in iyzico's app.
+    assert_eq!(refund.status, RefundStatus::RequiresAction);
+    assert!(refund.status.is_open());
+    assert_eq!(refund.amount.minor_units(), 14_990);
+    assert!(matches!(
+        refund.next_action,
+        Some(NextAction::Redirect { .. })
+    ));
+    assert!(refund.id.is_none());
+}
+
+/// Each of these is refused before a socket opens, so no mock is mounted.
+#[tokio::test]
+async fn the_shared_refund_needs_a_payer_and_somewhere_to_hear_back() {
+    let server = MockServer::start().await;
+    let client = client(&server);
+    let no_customer = RefundRequest::builder(PaymentId::issued("4242424242"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .return_url("https://merchant.test/callback".parse().expect("valid url"))
+        .build()
+        .expect("valid request");
+    assert_eq!(
+        Provider::refund(&client, &no_customer)
+            .await
+            .expect_err("there is no refund without iyzico's userId")
+            .kind(),
+        ErrorKind::InvalidRequest
+    );
+
+    let no_callback = RefundRequest::builder(PaymentId::issued("4242424242"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .customer("kasiyer-7")
+        .build()
+        .expect("valid request");
+    assert_eq!(
+        Provider::refund(&client, &no_callback)
+            .await
+            .expect_err("there is no refund with nowhere to hear back")
+            .kind(),
+        ErrorKind::InvalidRequest
+    );
+
+    let with_key = RefundRequest::builder(PaymentId::issued("4242424242"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .customer("kasiyer-7")
+        .return_url("https://merchant.test/callback".parse().expect("valid url"))
+        .idempotency_key(IdempotencyKey::new("refund-1"))
+        .build()
+        .expect("valid request");
+    assert_eq!(
+        Provider::refund(&client, &with_key)
+            .await
+            .expect_err("a key iyzico cannot honour is not silently dropped")
+            .kind(),
+        ErrorKind::Unsupported
+    );
 }
 
 #[tokio::test]

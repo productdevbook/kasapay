@@ -56,6 +56,14 @@ pub mod kind {
     impl super::IdKind for Instrument {
         const NAMES: &'static str = "saved instrument";
     }
+
+    /// One refund taken off a payment.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct Refund;
+
+    impl super::IdKind for Refund {
+        const NAMES: &'static str = "refund";
+    }
 }
 
 /// How a provider names one thing of kind `K`.
@@ -136,6 +144,16 @@ impl<K: IdKind> Id<K> {
 /// handle to something that is not a payment — the token of a checkout form the
 /// payer has not finished — is a different kind and will not fit here.
 pub type PaymentId = Id<kind::Payment>;
+
+/// How the provider names one refund, where it names it at all.
+///
+/// Three of the five providers here issue one — Stripe's `re_…`, Mollie's
+/// `re_…`, PayPal's own — and iyzico issues none: its refund answers the
+/// bank's `hostReference` and nothing else, which exists only once the money
+/// has gone and so cannot make the attempt idempotent. That is why
+/// [`Refund::id`](crate::Refund::id) is an `Option` rather than this type
+/// carrying a composed value in the field a real one lives in.
+pub type RefundId = Id<kind::Refund>;
 
 /// How the provider names one card it holds, so a payment need not carry one.
 ///

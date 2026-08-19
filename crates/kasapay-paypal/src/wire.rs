@@ -95,9 +95,13 @@ pub(crate) struct AuthorizationCapture {
 /// the capture in full; PayPal's own `captures_refund_empty_request` example
 /// sends `{}` for that.
 #[derive(Debug, serde::Serialize, Default)]
-pub(crate) struct CreateRefund {
+pub(crate) struct CreateRefund<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub amount: Option<AmountOut>,
+    /// Reaches the payer in PayPal's own email about the refund, so it carries
+    /// the caller's own words and never one of the named reasons.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note_to_payer: Option<&'a str>,
 }
 
 /// What `POST /v2/payments/captures/{id}/refund` answers. Carries no capture

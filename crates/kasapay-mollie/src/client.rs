@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Instrument,
-    InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Secret,
-    Status,
+    InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundReason,
+    RefundRequest, RefundStatus, Secret, Status,
 };
 use url::Url;
 
@@ -348,26 +348,87 @@ impl Mollie {
     /// because [`ChargeRequest`] is what carries one and a refund has no
     /// request object; read the refunds back before sending another.
     pub async fn refund(&self, payment: &PaymentId, amount: Money) -> Result<Refund, Error> {
-        let amount = amount.require_positive().map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidRequest,
-                MOLLIE,
-                "a refund takes an amount above zero",
-            )
-            .with_source(e)
-        })?;
+        let request = RefundRequest::builder(payment.clone())
+            .amount(amount)
+            .build()
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    MOLLIE,
+                    "a refund takes an amount above zero",
+                )
+                .with_source(e)
+            })?;
+        self.create_refund(&request).await
+    }
+
+    /// The one request behind both refunds — this crate's own and
+    /// [`Provider::refund`].
+    async fn create_refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        let amount = match request.amount {
+            Some(amount) => amount.require_positive().map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    MOLLIE,
+                    "a refund takes an amount above zero",
+                )
+                .with_source(e)
+            })?,
+            None => self.amount_remaining(&request.payment).await?,
+        };
+        let description = match &request.reason {
+            Some(RefundReason::Other(words)) => Some(&**words),
+            _ => None,
+        };
+        let metadata = request
+            .metadata
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
         let raw = self
             .send(
                 reqwest::Method::POST,
-                &format!("/v2/payments/{}/refunds", payment.as_str()),
+                &format!("/v2/payments/{}/refunds", request.payment.as_str()),
                 Some(&wire::CreateRefund {
                     amount: convert::amount_out(amount)?,
+                    description,
+                    metadata,
                 }),
-                None,
+                request.idempotency_key.as_ref(),
             )
             .await?;
         let refund: wire::Refund = parse(&raw, "a refund")?;
         Refund::read(&refund, raw)
+    }
+
+    /// What is left to refund on a payment, from Mollie's own
+    /// `amountRemaining`.
+    ///
+    /// The extra request [`Provider::refund`] makes when the caller names no
+    /// amount. Mollie sends this field on a payment that has been paid; a
+    /// payment carrying none is one there is nothing to work out a full refund
+    /// from, and that is [`ErrorKind::InvalidRequest`] rather than a guess at
+    /// the payment's own total — which would refund what has already gone
+    /// back a second time.
+    async fn amount_remaining(&self, payment: &PaymentId) -> Result<Money, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::GET,
+                &format!("/v2/payments/{}", payment.as_str()),
+                None::<&()>,
+                None,
+            )
+            .await?;
+        let read: wire::Payment = parse(&raw, "a payment")?;
+        let remaining = read.amount_remaining.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                MOLLIE,
+                "this payment carries no amountRemaining, so there is no figure to \
+                 refund the rest of it with; name the amount",
+            )
+        })?;
+        convert::money(remaining, "a payment's amountRemaining")
     }
 
     /// Releases the whole remaining hold on an authorised payment.
@@ -499,6 +560,23 @@ impl Mollie {
         } else {
             Err(refused(status, &text))
         }
+    }
+}
+
+/// Mollie's own refund states, in the shared words.
+///
+/// A state this build has not met reads as [`RefundStatus::Pending`], the same
+/// way an unknown payment status reads as [`Status::Pending`]: it says the
+/// refund may still change, so a caller asks again rather than writing it off.
+fn refund_status(state: &RefundState) -> RefundStatus {
+    match state {
+        RefundState::Queued
+        | RefundState::Pending
+        | RefundState::Processing
+        | RefundState::Other(_) => RefundStatus::Pending,
+        RefundState::Refunded => RefundStatus::Succeeded,
+        RefundState::Failed => RefundStatus::Failed,
+        RefundState::Canceled => RefundStatus::Canceled,
     }
 }
 
@@ -1066,6 +1144,48 @@ impl Provider for Mollie {
             .await?;
         let payment: wire::Payment = parse(&raw, "a payment")?;
         into_charge(&payment, raw)
+    }
+
+    /// Gives money back off a payment.
+    ///
+    /// # `amount: None` costs a second request
+    ///
+    /// Mollie has no "refund the rest" request: `POST /v2/payments/{id}/refunds`
+    /// takes an amount and nothing else means anything. So a refund with no
+    /// amount reads the payment first and asks for its `amountRemaining` —
+    /// Mollie's own figure for what is still refundable, which is the payment
+    /// less every refund already taken off it. Naming the amount is one call
+    /// rather than two, and is what [`Mollie::refund`] does.
+    ///
+    /// A payment Mollie sends no `amountRemaining` for is
+    /// [`ErrorKind::InvalidRequest`] rather than a full refund of the
+    /// payment's own total: that total is what was paid, not what is left, and
+    /// refunding it after a partial refund would give back money that has
+    /// already gone.
+    ///
+    /// # The reason is shown to the payer
+    ///
+    /// Mollie's `description` on a refund is what the payer sees on their bank
+    /// statement, so only [`RefundReason::Other`] reaches it — the caller's own
+    /// sentence, written for a person. `Fraudulent` is not something to print
+    /// on somebody's statement, and Mollie has no acquirer-facing field for it
+    /// the way Stripe and iyzico do, so the three named reasons are not sent.
+    ///
+    /// [`RefundRequest::idempotency_key`] goes as Mollie's own
+    /// `Idempotency-Key`. Mollie names a repeated partial refund as one of the
+    /// three cases where replaying a request is harmful, so it is worth
+    /// sending.
+    async fn refund(&self, request: &RefundRequest) -> Result<kasapay_core::Refund, Error> {
+        let refund = self.create_refund(request).await?;
+        Ok(kasapay_core::Refund {
+            id: Some(refund.id),
+            payment: refund.payment,
+            amount: refund.amount,
+            status: refund_status(&refund.state),
+            next_action: None,
+            provider: MOLLIE,
+            raw: refund.raw,
+        })
     }
 
     /// Lists a customer's mandates, through [`Mollie::mandates`].

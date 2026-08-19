@@ -49,12 +49,22 @@ synchronously, so kasapay does not pretend to.
 | `kasapay-mollie` | Mollie's Payments API: hosted checkout, holds, captures, refunds |
 | `kasapay-paypal` | PayPal's Orders v2: create, read, capture — the spine, not the whole API |
 
-**The shared trait is `charge`, `charge_status`, `capture` and `cancel`**, with
-`capabilities()` saying which of them a provider actually does — iyzico's
-In-Store flow takes the money at authorisation and has no capture step, and a
-caller planning a checkout needs to know that before it has a payment. Refunds,
-webhooks and saved cards live on the providers for now — they enter the trait
-once more than two providers have been written against them, not before.
+**The shared trait is `charge`, `charge_status`, `capture`, `cancel`,
+`refund` and `instruments`**, with `capabilities()` saying which of them a
+provider actually does — iyzico's In-Store flow takes the money at
+authorisation and has no capture step, and a caller planning a checkout needs
+to know that before it has a payment. Webhooks live on the providers for now —
+they enter the trait once more than two providers have been written against
+them, not before.
+
+**A refund is its own object, not a status on the payment.** `Status` has no
+`Refunded` and will not grow one: Stripe leaves a refunded PaymentIntent
+`succeeded`, so a caller branching on it would take the wrong path for every
+Stripe payment. `Provider::refund` answers a `Refund` with its own identifier
+where the provider issues one — iyzico issues none, and says so rather than
+handing back a composed key in the field a real one lives in — and, at iyzico's
+counter, its own `NextAction`, because there the payer has to approve the
+refund in an app before the money moves.
 
 **iyzico** is three APIs that barely resemble each other, and no two of them
 authenticate the same way. `in_store` is the counter flow, three plain headers,

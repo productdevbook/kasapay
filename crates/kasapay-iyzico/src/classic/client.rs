@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
-    InstrumentId, Money, NextAction, PaymentId, Provider, ProviderId, Raw, Status,
+    InstrumentId, Money, NextAction, PaymentId, Provider, ProviderId, Raw, Refund, RefundReason,
+    RefundRequest, RefundStatus, Status,
 };
 use url::Url;
 
@@ -1087,6 +1088,20 @@ impl fmt::Display for ReasonCode {
     }
 }
 
+/// The shared reason in iyzico's own words.
+///
+/// Nothing is lost either way: iyzico's fourth code is `OTHER` and it takes a
+/// free-text `description` beside it, which is exactly what
+/// [`RefundReason::Other`] carries.
+fn refund_reason(reason: &RefundReason) -> Reason {
+    match reason {
+        RefundReason::Duplicate => Reason::new(ReasonCode::DoublePayment),
+        RefundReason::Fraudulent => Reason::new(ReasonCode::Fraud),
+        RefundReason::RequestedByCustomer => Reason::new(ReasonCode::BuyerRequest),
+        RefundReason::Other(words) => Reason::new(ReasonCode::Other).describe(&**words),
+    }
+}
+
 /// Money taken back off a payment, by a refund or a cancel.
 #[derive(Debug, Clone)]
 pub struct Reversal {
@@ -1326,6 +1341,79 @@ impl Provider for Client {
             "voiding a classic payment answers a Reversal rather than a charge; \
              call Client::cancel",
         ))
+    }
+
+    /// Gives money back off a payment, through [`Client::refund`].
+    ///
+    /// `/v2/payment/refund`, which refunds against the payment as a whole.
+    /// **Not for a basket with more than one line** — iyzico picks which line
+    /// the money comes off, and [`Client::refund_transaction`] is the call
+    /// that names it. That call takes a `paymentTransactionId`, which is not a
+    /// [`PaymentId`] and has no place in this signature, so per-line refunds
+    /// stay this crate's own.
+    ///
+    /// # `amount: None` is refused
+    ///
+    /// iyzico's refund takes `price` and has no form that means "the rest".
+    /// Reading the payment back to work the figure out would answer what was
+    /// *paid* rather than what is still refundable — every earlier refund is
+    /// missing from it — so a full refund after a partial one would ask for
+    /// money that has already gone. [`ErrorKind::InvalidRequest`], and the
+    /// caller names the amount.
+    ///
+    /// # The reason reaches iyzico
+    ///
+    /// All four of [`RefundReason`]'s arms map onto
+    /// [`ReasonCode`]: `Duplicate` is `DOUBLE_PAYMENT`, `Fraudulent` is
+    /// `FRAUD`, `RequestedByCustomer` is `BUYER_REQUEST`, and `Other` is
+    /// `OTHER` with the caller's own words in the `description` iyzico keeps
+    /// beside it. This is the acquirer-facing field, not a note to the payer
+    /// — see [`ReasonCode`] for why sending it is worth doing.
+    ///
+    /// # An idempotency key is refused
+    ///
+    /// iyzico accepts no idempotency mechanism on any classic call, so a
+    /// refund carrying [`RefundRequest::idempotency_key`] is
+    /// [`ErrorKind::Unsupported`] rather than the same request sent without
+    /// the guarantee that was asked for. Read the payment back before sending
+    /// another; #54 is the open question about what a replay actually does.
+    ///
+    /// # The answer is a refund iyzico has already made
+    ///
+    /// [`RefundStatus::Succeeded`] always. `/v2/payment/refund` answers a
+    /// refund it accepted — there is no queued state and nothing to poll —
+    /// and a refusal is an [`Error`] rather than a failed [`Refund`].
+    /// [`Refund::id`] is `None`: iyzico issues no identifier for one, and the
+    /// bank reference it does answer is on
+    /// [`Reversal::host_reference`], readable from [`Refund::raw`].
+    async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
+        if request.idempotency_key.is_some() {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                PROVIDER,
+                "iyzico's classic API accepts no idempotency key; read the payment back \
+                 with Provider::charge_status before sending a refund again",
+            ));
+        }
+        let amount = request.amount.ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "iyzico's refund takes the amount to give back and has no form that means \
+                 the rest of it; name the amount",
+            )
+        })?;
+        let reason = request.reason.as_ref().map(refund_reason);
+        let reversal = Client::refund(self, &request.payment, amount, reason.as_ref()).await?;
+        Ok(Refund {
+            id: None,
+            payment: reversal.payment.unwrap_or_else(|| request.payment.clone()),
+            amount: reversal.amount,
+            status: RefundStatus::Succeeded,
+            next_action: None,
+            provider: PROVIDER,
+            raw: reversal.raw,
+        })
     }
 
     /// Lists the cards stored under a `cardUserKey`.

@@ -12,7 +12,7 @@
 
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdSource, IdempotencyKey, Money, NextAction, OrderRef,
-    Provider, Secret, Status,
+    PaymentId, Provider, RefundReason, RefundRequest, RefundStatus, Secret, Status,
 };
 use kasapay_mollie::{CaptureState, Config, Mollie, RefundState};
 use serde_json::json;
@@ -507,6 +507,124 @@ async fn a_fresh_refund_is_not_a_refunded_one() {
     // The money has not moved yet, and Mollie says so rather than pretending.
     assert_eq!(refund.state, RefundState::Pending);
     assert_ne!(refund.state, RefundState::Refunded);
+}
+
+/// The shared refund with no amount asks the payment what is left first.
+///
+/// The payment body is Mollie's `get-payment` example with the two figures
+/// their multicurrency documentation puts on a partly refunded payment.
+#[tokio::test]
+async fn the_shared_refund_with_no_amount_refunds_what_mollie_says_is_left() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "resource": "payment",
+            "id": "tr_5B8cwPMGnU6qLbRvo7qEZo",
+            "mode": "live",
+            "amount": { "value": "10.00", "currency": "EUR" },
+            "amountRefunded": { "value": "5.95", "currency": "EUR" },
+            "amountRemaining": { "value": "4.05", "currency": "EUR" },
+            "description": "Order #12345",
+            "status": "paid",
+            "createdAt": "2024-03-20T09:13:37+00:00",
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        // What is left, not what was paid: the 5.95 already refunded is gone.
+        .and(body_string_contains(r#""value":"4.05""#))
+        .and(header("idempotency-key", "refund-1"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "resource": "refund",
+            "id": "re_4qqhO89gsT",
+            "amount": { "currency": "EUR", "value": "4.05" },
+            "status": "queued",
+            "paymentId": "tr_5B8cwPMGnU6qLbRvo7qEZo",
+            "createdAt": "2023-03-14T17:09:02+00:00",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .idempotency_key(IdempotencyKey::new("refund-1"))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("the refund is created");
+
+    assert_eq!(refund.amount.minor_units(), 405);
+    assert_eq!(refund.status, RefundStatus::Pending);
+    assert!(refund.status.is_open());
+    assert_eq!(
+        refund.id.as_ref().map(kasapay_core::RefundId::as_str),
+        Some("re_4qqhO89gsT")
+    );
+}
+
+/// A payment Mollie sends no `amountRemaining` for is one there is no full
+/// refund to work out, and refunding its own total would give back what has
+/// already gone.
+#[tokio::test]
+async fn a_payment_with_no_remaining_amount_is_not_refunded_for_its_total() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "resource": "payment",
+            "id": "tr_5B8cwPMGnU6qLbRvo7qEZo",
+            "amount": { "value": "10.00", "currency": "EUR" },
+            "status": "open",
+            "createdAt": "2024-03-20T09:13:37+00:00",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .build()
+        .expect("valid request");
+    let error = Provider::refund(&client(&server), &request)
+        .await
+        .expect_err("there is no figure to refund the rest with");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// Mollie's refund description is printed on the payer's own statement, so
+/// only the caller's own words reach it.
+#[tokio::test]
+async fn only_the_callers_own_words_are_shown_to_the_payer() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo/refunds"))
+        .and(body_string_contains(r#""description":"iki kahve eksik""#))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "resource": "refund",
+            "id": "re_4qqhO89gsT",
+            "amount": { "currency": "EUR", "value": "5.95" },
+            "status": "refunded",
+            "paymentId": "tr_5B8cwPMGnU6qLbRvo7qEZo",
+            "createdAt": "2023-03-14T17:09:02+00:00",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("tr_5B8cwPMGnU6qLbRvo7qEZo"))
+        .amount(Money::parse("5.95", Currency::Eur).expect("valid amount"))
+        .reason(RefundReason::Other("iki kahve eksik".into()))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("the refund is created");
+    assert_eq!(refund.status, RefundStatus::Succeeded);
+
+    // A named reason is for an acquirer, and Mollie has no field for one.
+    let sent = &server.received_requests().await.expect("requests recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    assert!(body.contains("iki kahve eksik"), "{body}");
+    assert!(!body.contains("fraudulent"), "{body}");
 }
 
 /// Mollie answers this one 202 with nothing in it, which is why it is not

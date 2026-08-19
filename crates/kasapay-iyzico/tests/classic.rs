@@ -8,7 +8,8 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
-    Currency, ErrorKind, InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, Status,
+    Currency, ErrorKind, IdempotencyKey, InstrumentId, Money, NextAction, OrderRef, PaymentId,
+    Provider, RefundReason, RefundRequest, RefundStatus, Status,
 };
 use kasapay_iyzico::Credentials;
 use kasapay_iyzico::classic::{
@@ -1007,6 +1008,78 @@ async fn a_refund_takes_an_amount_back_and_is_verified() {
     assert_eq!(reversal.payment, Some(PaymentId::issued("12345678")));
     assert_eq!(reversal.amount.minor_units(), 5000);
     assert_eq!(reversal.host_reference.as_deref(), Some("host-ref-1"));
+}
+
+/// The shared refund is the same call, with the reason mapped onto iyzico's.
+#[tokio::test]
+async fn the_shared_refund_sends_iyzicos_own_reason_and_answers_a_settled_refund() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payment/refund"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "12345678",
+            "paymentId": "12345678",
+            "price": "50.00",
+            "currency": "TRY",
+            "reason": "OTHER",
+            "description": "shop closed",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "conversationId": "12345678",
+            "price": "50",
+            "currency": "TRY",
+            "hostReference": "host-ref-1",
+            "signature": "57967ab442a60d7d8e44162f5f9807680a9eaa94d41421f5b0b52b9a4a0609a8",
+        })))
+        .mount(&server)
+        .await;
+
+    let request = RefundRequest::builder(PaymentId::issued("12345678"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .reason(RefundReason::Other("shop closed".into()))
+        .build()
+        .expect("valid request");
+    let refund = Provider::refund(&client(&server), &request)
+        .await
+        .expect("the refund goes through");
+
+    assert_eq!(refund.amount.minor_units(), 5000);
+    assert_eq!(refund.status, RefundStatus::Succeeded);
+    assert!(!refund.status.is_open());
+    // iyzico names no refund; the bank reference on the body is all there is.
+    assert!(refund.id.is_none());
+    assert_eq!(
+        refund.raw.text_at("/hostReference").as_deref(),
+        Some("host-ref-1")
+    );
+}
+
+/// Both of these are refused before a socket opens, so no mock is mounted.
+#[tokio::test]
+async fn the_shared_refund_refuses_what_iyzico_cannot_do() {
+    let server = MockServer::start().await;
+    let client = client(&server);
+
+    let no_amount = RefundRequest::builder(PaymentId::issued("12345678"))
+        .build()
+        .expect("valid request");
+    let error = Provider::refund(&client, &no_amount)
+        .await
+        .expect_err("iyzico has no refund-the-rest request");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+
+    let with_key = RefundRequest::builder(PaymentId::issued("12345678"))
+        .amount(Money::parse("50.00", Currency::Try).expect("valid amount"))
+        .idempotency_key(IdempotencyKey::new("refund-1"))
+        .build()
+        .expect("valid request");
+    let error = Provider::refund(&client, &with_key)
+        .await
+        .expect_err("a key iyzico cannot honour is not silently dropped");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
 
 #[tokio::test]
