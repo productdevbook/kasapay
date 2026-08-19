@@ -15,6 +15,8 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+import dated
+
 INDEX = "https://docs.iyzico.com/llms.txt"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "specs" / "iyzico"
@@ -602,17 +604,19 @@ def main() -> None:
         "areas": {},
     }
 
+    unchanged = []
     for area_name, found in sorted(by_area.items()):
         spec, notes = merge(area_name, found)
         directory = OUT / area_name
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / f"{day}.yaml").write_text(
-            yaml.safe_dump(spec, allow_unicode=True, sort_keys=False, width=100),
-            encoding="utf-8",
-        )
-        latest = directory / "latest.yaml"
-        latest.unlink(missing_ok=True)
-        latest.symlink_to(f"{day}.yaml")
+        # A record is written on the day it says something new; an area that
+        # has not moved keeps the date it last moved on. See scripts/dated.py.
+        previous = dated.newest_dated(directory, ".yaml")
+        body = yaml.safe_dump(spec, allow_unicode=True, sort_keys=False, width=100)
+        if dated.write_if_moved(directory / f"{day}.yaml", body, previous):
+            dated.point_latest_at(directory, f"{day}.yaml")
+        else:
+            unchanged.append(area_name)
         index["areas"][area_name] = {
             "authentication": authentication(spec),
             "operations": sorted(
@@ -625,11 +629,15 @@ def main() -> None:
         }
 
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / f"{day}.index.json").write_text(
-        json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    dated.write_if_moved(
+        OUT / f"{day}.index.json",
+        json.dumps(index, indent=2, ensure_ascii=False) + "\n",
+        dated.newest_dated(OUT, ".index.json"),
     )
     total = sum(len(a["operations"]) for a in index["areas"].values())
     print(f"{len(by_area)} areas, {total} operations, {index['fragments']} fragments")
+    if unchanged:
+        print(f"unchanged, so not written again: {', '.join(unchanged)}")
     for name, a in sorted(index["areas"].items()):
         print(f"  {len(a['operations']):3d}  {name}")
 

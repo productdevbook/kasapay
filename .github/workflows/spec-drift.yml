@@ -3,6 +3,10 @@ name: Spec drift
 # Refetches each provider's API description and opens a pull request when it
 # has moved. A red diff here is the early warning that an adapter is about to
 # be wrong; nothing is applied automatically.
+#
+# A week where nothing moved leaves no diff and opens no pull request: the
+# fetchers write a dated record on the day it says something new rather than on
+# the day they ran. specs/README.md says why, and what was measured first.
 
 on:
   schedule:
@@ -57,8 +61,10 @@ jobs:
           commit-message: "specs: refetch provider API descriptions"
           body: |
             The scheduled refetch found a change in at least one provider's API
-            description. Read the diff under `specs/` before merging: a changed
-            operation or schema is a change the adapters may need.
+            description — this pull request exists only because something moved,
+            since a refetch that finds the same document writes nothing. Read
+            the diff under `specs/` before merging: a changed operation or
+            schema is a change the adapters may need.
 
             A **lost** field is the line to read first. It means either that the
             provider withdrew it, or that `merge_iyzico.py` dropped it — those

@@ -56,6 +56,8 @@ import sys
 
 import yaml
 
+import dated
+
 try:
     from openapi_spec_validator import validate
 except ImportError:  # a contributor without the package still gets everything else
@@ -262,39 +264,45 @@ def main() -> int:
         for verb, operation in item.items()
         if verb in VERBS and isinstance(operation, dict)
     )
-    (directory / f"{day}.meta.json").write_text(
-        json.dumps(
-            {
-                "source": SRC,
-                "fetched": day,
-                "api_version": spec["info"].get("version"),
-                "licence": spec["info"].get("license"),
-                "document_kept": False,
-                "checked": checked,
-                # The whole of what Mollie publishes. Moves when any of their
-                # eighty-seven paths does.
-                "upstream_sha256": hashlib.sha256(raw).hexdigest(),
-                # The subset this would have written. Moves only for the five
-                # paths kasapay maps, which is the sharper signal of the two.
-                "subset_sha256": hashlib.sha256(written.encode("utf-8")).hexdigest(),
-                "kept_paths": list(paths),
-                "missing_paths": missing,
-                "operations": operations,
-                "repaired_reference_objects": repaired,
-                "component_counts": {
-                    section: len(items) for section, items in sorted(components.items())
-                },
+    meta = json.dumps(
+        {
+            "source": SRC,
+            "fetched": day,
+            "api_version": spec["info"].get("version"),
+            "licence": spec["info"].get("license"),
+            "document_kept": False,
+            "checked": checked,
+            # The whole of what Mollie publishes. Moves when any of their
+            # eighty-seven paths does.
+            "upstream_sha256": hashlib.sha256(raw).hexdigest(),
+            # The subset this would have written. Moves only for the five
+            # paths kasapay maps, which is the sharper signal of the two.
+            "subset_sha256": hashlib.sha256(written.encode("utf-8")).hexdigest(),
+            "kept_paths": list(paths),
+            "missing_paths": missing,
+            "operations": operations,
+            "repaired_reference_objects": repaired,
+            "component_counts": {
+                section: len(items) for section, items in sorted(components.items())
             },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+        },
+        indent=2,
+    ) + "\n"
+    # Dated records are written on the day they say something new — and for
+    # Mollie there are two ways to say it: `upstream_sha256` moves when any of
+    # their eighty-seven paths does, `subset_sha256` only for the eight kasapay
+    # maps. Either writes a record; `fetched` on its own does not. See
+    # scripts/dated.py.
+    dated.write_if_moved(
+        directory / f"{day}.meta.json",
+        meta,
+        dated.newest_dated(directory, ".meta.json"),
     )
 
     if args.write_document:
-        dated = directory / f"{day}.yaml"
-        dated.write_text(written, encoding="utf-8")
-        print(f"wrote {dated.relative_to(directory.parent.parent)} (gitignored)")
+        document = directory / f"{day}.yaml"
+        document.write_text(written, encoding="utf-8")
+        print(f"wrote {document.relative_to(directory.parent.parent)} (gitignored)")
 
     print(
         f"api_version={spec['info'].get('version')} paths={len(paths)} "
