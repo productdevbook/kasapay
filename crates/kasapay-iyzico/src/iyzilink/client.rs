@@ -324,9 +324,9 @@ impl LinkDetails {
                     Money::parse(wire::decimal(price), currency)
                         .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?,
                 ),
-                // RUB, CHF and NOK are links iyzico takes and Currency cannot
-                // name. Refusing the whole listing over one of them would be
-                // worse than answering None and leaving it in raw.
+                // Currency names every code iyzico settles a link in, so
+                // nothing is expected here; refusing a whole listing over one
+                // unknown code would be worse than leaving it in raw.
                 Err(_) => None,
             },
             _ => None,
