@@ -57,6 +57,28 @@ impl Stripe {
         }
     }
 
+    /// Builds a client pointed at somewhere other than Stripe.
+    ///
+    /// A mock server in a test, or a proxy that logs. Every other adapter in
+    /// this workspace takes a base URL, and this is Stripe's — without it,
+    /// pointing the client anywhere means depending on `async-stripe`
+    /// directly and going through [`Stripe::with_client`].
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorKind::InvalidRequest`](kasapay_core::ErrorKind::InvalidRequest)
+    /// if `async-stripe` will not take the base.
+    pub fn at(base_url: &str, secret_key: &Secret) -> Result<Self, Error> {
+        // async-stripe builds `{base}v1{path}`, so the base has to end in a
+        // slash or every request loses its version segment.
+        let base = format!("{}/", base_url.trim_end_matches('/'));
+        let client = stripe::ClientBuilder::new(secret_key.expose())
+            .url(base)
+            .build()
+            .map_err(|e| convert::error(&e))?;
+        Ok(Self::with_client(client))
+    }
+
     /// Builds a client over an `async-stripe` client the caller configured.
     ///
     /// The escape hatch for anything this crate does not expose: timeouts,

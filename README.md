@@ -243,6 +243,29 @@ Implement `Provider` in a `kasapay-<name>` crate, add a spec fetcher under
 `scripts/`, add a feature to `kasapay`. Tests run against `wiremock`; no
 credentials, no network.
 
+## One contract, checked the same way against every adapter
+
+`Capabilities` is a promise about behaviour, and until `crates/kasapay/tests/
+conformance.rs` nothing made the promise and the behaviour agree: each adapter
+asserted its own answers in its own file, so a flag flipped in one place while
+the method below it kept doing what it always did would have passed every test
+in the workspace.
+
+That file asks the same questions of all six clients through nothing but
+`dyn Provider`, against a mock server that answers 500 to everything — which is
+how a call that is genuinely implemented (it fails *there*) is told apart from
+one that is refused (it never arrives):
+
+- where a capability is `false`, the paired call answers `Unsupported`;
+- where it is `true`, that call does **not**, and a request reaches the wire;
+- a refusal costs nothing — not one byte;
+- every error names the provider it came from;
+- a charge missing fields is `InvalidRequest`, never `Unsupported`, because
+  `Unsupported` means "never, for anyone" and this is "not with these fields".
+
+Six clients, five `ProviderId`s: `classic` and `in_store` are two APIs of
+iyzico's and both answer `iyzico`.
+
 ## What is read off a document rather than observed
 
 Nothing here has been run against a live account, and
