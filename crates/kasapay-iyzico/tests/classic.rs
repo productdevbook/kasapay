@@ -1700,6 +1700,42 @@ async fn a_conversation_id_iyzico_has_no_payment_for_is_no_payment() {
     assert!(found.is_none());
 }
 
+/// An amount iyzico sent and this crate could not read is not a zero.
+///
+/// `lookup` is the call somebody makes when a charge timed out and nobody
+/// knows whether the money moved. It used to answer `Captured` with `0.00 TRY`
+/// here, which is the one shape this workspace refuses everywhere else — and
+/// it was reachable for a real payment, because reporting's parse answers
+/// `None` both for an amount iyzico never sent and for one written with more
+/// decimal places than the currency has. iyzico writes `20.00000000` elsewhere
+/// in this same API.
+#[tokio::test]
+async fn a_payment_whose_amount_cannot_be_read_is_not_captured_for_nothing() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/reporting/payment/details"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payments": [{
+                "paymentId": "12345678",
+                "paymentStatus": 1,
+                // Real money, taken, written the way iyzico writes decimals in
+                // its Mass Payout responses.
+                "price": "149.90000000",
+                "paidPrice": "149.90000000",
+                "currency": "TRY",
+            }],
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .lookup(&OrderRef::new("ord-1"))
+        .await
+        .expect_err("a payment with no readable amount is not a payment for nothing");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
 /// `2` is a refusal **or** a payment still at 3-D Secure, and iyzico does not
 /// say which. Reading it as failed is how a caller sends a second payment
 /// after the first one's payer.

@@ -50,6 +50,19 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **`Provider::lookup` could answer `Status::Captured` with a zero amount for a
+  payment iyzico had really taken** (#166). `reporting`'s parse answers `None`
+  both for an amount iyzico never sent and for one it sent that this crate
+  could not read — a currency `Currency` has no name for, or more decimal
+  places than the currency has, which is not hypothetical: iyzico writes
+  decimals as `20.00000000` elsewhere in the same API. `detail_into_charge`
+  treated the second as the first and substituted a zero in lira.
+
+  `lookup` is the call a caller makes when a charge timed out and nobody knows
+  whether the money moved, so *captured, nothing* is the worst possible answer
+  there. It is now `ErrorKind::Malformed`, which is the side `Client::payment`
+  has always taken for the same failure.
+
 - **`Provider::charge` dropped `ChargeRequest::idempotency_key` at iyzico's
   classic API and at PayTR** (#165). The workspace states in three places that
   a provider either sends a key or refuses the request, because a key accepted
