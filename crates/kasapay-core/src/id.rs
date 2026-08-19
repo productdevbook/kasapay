@@ -64,6 +64,14 @@ pub mod kind {
     impl super::IdKind for Refund {
         const NAMES: &'static str = "refund";
     }
+
+    /// One delivery a provider made to a webhook address.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct Event;
+
+    impl super::IdKind for Event {
+        const NAMES: &'static str = "webhook event";
+    }
 }
 
 /// How a provider names one thing of kind `K`.
@@ -154,6 +162,16 @@ pub type PaymentId = Id<kind::Payment>;
 /// [`Refund::id`](crate::Refund::id) is an `Option` rather than this type
 /// carrying a composed value in the field a real one lives in.
 pub type RefundId = Id<kind::Refund>;
+
+/// How one delivery to a webhook address is named.
+///
+/// What a caller writes into a unique index before acting on a delivery, so
+/// that the second copy of it collides instead of shipping the order again.
+/// Whether that index is a guarantee or a heuristic is
+/// [`Id::source`]: Stripe issues `evt_…` and PayPal `WH-…`, while PayTR and
+/// Mollie issue nothing and kasapay composes one out of the fields they did
+/// send — which is unique exactly as far as those fields are.
+pub type EventId = Id<kind::Event>;
 
 /// How the provider names one card it holds, so a payment need not carry one.
 ///

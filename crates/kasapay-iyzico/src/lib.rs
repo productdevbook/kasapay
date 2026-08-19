@@ -72,6 +72,24 @@
 //! module says which of its calls are checked and which are only as
 //! trustworthy as the connection they arrived over.
 //!
+//! # Nothing here implements [`Webhook`](kasapay_core::Webhook)
+//!
+//! Not an omission — the trait cannot express what iyzico's callback needs.
+//! [`Webhook::verify`](kasapay_core::Webhook::verify) takes the headers and
+//! the bytes of a delivery, and In-Store's callback cannot be opened with
+//! those alone: the body is an encrypted `data` blob, and the only thing that
+//! opens it is `/crypt/decrypt` **with the `paymentSessionToken` of the
+//! payment it belongs to** — a value the merchant stored when the payment was
+//! opened, not one the delivery carries.
+//!
+//! So it is [`in_store::Client::decrypt_callback`], which takes that token,
+//! and it stays that way until either iyzico posts something that names its
+//! own session or the shared trait grows somewhere to put the caller's own
+//! state. Signing a callback is not what iyzico does anywhere: what they sign
+//! is the *response* to a request, which is what
+//! [`Credentials::verify_response`] checks and what the classic API's own
+//! calls already do.
+//!
 //! [Response Signature Validation]: https://docs.iyzico.com/en/advanced/response-signature-validation
 
 pub mod agent;

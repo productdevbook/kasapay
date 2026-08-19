@@ -33,6 +33,25 @@
 //! them. "Has all of this gone back" is the refunds summed against
 //! [`Charge::amount`].
 //!
+//! # What arrives without being asked for
+//!
+//! A payment that finishes out of band is not observable through
+//! [`Provider`] at all: the payer goes away and comes back somewhere else.
+//! [`Webhook::verify`] is the other half — it takes the bytes a provider
+//! posted, shows they are the provider's, and says what they mean as an
+//! [`Event`].
+//!
+//! It is a separate trait because it is a separate thing to hold: verifying
+//! needs a webhook secret the API credentials do not carry. It is `async`
+//! because verification is not one mechanism — Stripe signs the bytes, PayTR
+//! signs three fields of them, and Mollie signs nothing at all and posts an
+//! identifier to read back.
+//!
+//! An [`EventKind`] this crate does not model is [`EventKind::Other`] and
+//! never an error. A provider retries a delivery until it is acknowledged, so
+//! refusing an unknown type is how a shop earns a week of redeliveries for an
+//! event nobody wanted.
+//!
 //! # Identifiers
 //!
 //! [`OrderRef`] is the caller's own reference for an order, and [`PaymentId`]
@@ -100,6 +119,7 @@ mod provider;
 mod raw;
 mod refund;
 mod secret;
+mod webhook;
 
 #[doc(inline)]
 pub use crate::charge::{
@@ -109,7 +129,7 @@ pub use crate::charge::{
 #[doc(inline)]
 pub use crate::error::{Error, ErrorKind};
 #[doc(inline)]
-pub use crate::id::{Id, IdKind, IdSource, InstrumentId, PaymentId, RefundId, kind};
+pub use crate::id::{EventId, Id, IdKind, IdSource, InstrumentId, PaymentId, RefundId, kind};
 #[doc(inline)]
 pub use crate::instrument::Instrument;
 #[doc(inline)]
@@ -124,3 +144,5 @@ pub use crate::refund::{
 };
 #[doc(inline)]
 pub use crate::secret::Secret;
+#[doc(inline)]
+pub use crate::webhook::{Delivery, Event, EventKind, Webhook};

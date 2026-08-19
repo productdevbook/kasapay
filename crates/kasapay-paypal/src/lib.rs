@@ -243,6 +243,7 @@
 mod client;
 mod convert;
 pub mod id;
+mod webhook;
 mod wire;
 
 use kasapay_core::ProviderId;
@@ -256,3 +257,5 @@ pub use crate::client::{
 };
 #[doc(inline)]
 pub use crate::id::{AuthorizationId, CaptureId, RefundId};
+#[doc(inline)]
+pub use crate::webhook::Webhooks;
