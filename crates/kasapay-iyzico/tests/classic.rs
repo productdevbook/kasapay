@@ -554,10 +554,7 @@ async fn capturing_part_of_a_hold_sends_the_amount_to_postauth() {
     assert!(!charge.status.is_open());
     // What was taken, with the basket total beside it.
     assert_eq!(charge.amount.minor_units(), 10_000);
-    assert_eq!(
-        charge.order_amount.map(|price| price.minor_units()),
-        Some(14_990)
-    );
+    assert_eq!(charge.order_amount.map(Money::minor_units), Some(14_990));
 }
 
 /// iyzico's `paidPrice` is required, so a capture with no amount has to find
