@@ -577,7 +577,7 @@ impl PayPal {
         })
     }
 
-    async fn send<B: serde::Serialize>(
+    pub(crate) async fn send<B: serde::Serialize>(
         &self,
         method: reqwest::Method,
         path: &str,

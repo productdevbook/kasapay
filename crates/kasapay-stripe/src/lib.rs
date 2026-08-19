@@ -82,8 +82,11 @@
 mod client;
 mod convert;
 pub mod saved;
+mod webhook;
 
 #[doc(inline)]
 pub use crate::client::{
     DEFAULT_TIMEOUT, ORDER_METADATA_KEY, REFUND_REASON_METADATA_KEY, Refund, RefundState, Stripe,
 };
+#[doc(inline)]
+pub use crate::webhook::{DEFAULT_TOLERANCE, Webhooks};

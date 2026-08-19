@@ -53,9 +53,16 @@ synchronously, so kasapay does not pretend to.
 `refund` and `instruments`**, with `capabilities()` saying which of them a
 provider actually does — iyzico's In-Store flow takes the money at
 authorisation and has no capture step, and a caller planning a checkout needs
-to know that before it has a payment. Webhooks live on the providers for now —
-they enter the trait once more than two providers have been written against
-them, not before.
+to know that before it has a payment.
+
+**`Webhook` is the second trait, and it is `async` because verification is
+not one mechanism.** Stripe signs the bytes it posts, PayTR signs three fields
+of them, Mollie signs nothing at all and posts an identifier to read back, and
+PayPal verifies a delivery for you over its own API. Four implementations,
+three mechanisms, one `verify(&Delivery) -> Result<Event, Error>`. An unsigned
+body never becomes an `Event`; an event type the library does not model is
+`EventKind::Other` and never an error, because refusing one earns days of
+redeliveries for something nobody wanted.
 
 **A refund is its own object, not a status on the payment.** `Status` has no
 `Refunded` and will not grow one: Stripe leaves a refunded PaymentIntent

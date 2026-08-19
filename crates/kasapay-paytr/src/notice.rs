@@ -25,11 +25,22 @@
 //! string. Two formats in one API, and [`Notice::charge`] is what keeps them
 //! apart.
 
-use kasapay_core::{Charge, Currency, Error, ErrorKind, Money, OrderRef, Raw, Status};
+use kasapay_core::{
+    Charge, Currency, Delivery, Error, ErrorKind, Event, EventId, EventKind, Money, OrderRef,
+    ProviderId, Raw, Status, Webhook, async_trait,
+};
 use serde::Deserialize;
 
-use crate::client::{PAYTR, payment_id};
+use crate::client::{PAYTR, PayTr, payment_id};
 use crate::signing::Credentials;
+
+/// What a composed event identifier is composed of.
+///
+/// PayTR issues nothing that names a delivery, so the two fields it signs that
+/// say which payment and what became of it are what one is built from. A
+/// payment has one outcome, so a retry of the same notice composes the same
+/// key — which is what a caller's unique index needs.
+const EVENT_NAMED_BY: &[&str] = &["merchant_oid", "status"];
 
 /// A payment notice, as PayTR posts it.
 ///
@@ -132,7 +143,7 @@ impl Notice {
     ///
     /// The hash is left out: it is the signature over the rest, not something
     /// the payment is described by.
-    fn raw(&self) -> Raw {
+    pub(crate) fn raw(&self) -> Raw {
         Raw::from_json(&serde_json::json!({
             "merchant_oid": &*self.merchant_oid,
             "status": &*self.status,
@@ -160,4 +171,86 @@ fn minor_units(value: &str, currency: Currency) -> Result<Money, Error> {
             )
             .with_source(e)
         })
+}
+
+/// PayTR's notice is the only thing it posts, and [`PayTr`] already holds what
+/// signs it.
+///
+/// No second type and no second credential: PayTR's notice hash is keyed with
+/// the same merchant key and salt every request carries, unlike Stripe's
+/// endpoint secret. A caller that has a client has a verifier.
+#[async_trait]
+impl Webhook for PayTr {
+    fn provider(&self) -> ProviderId {
+        PAYTR
+    }
+
+    /// Reads a notice, checks its hash, and says what it means.
+    ///
+    /// # The amount is left out on purpose
+    ///
+    /// [`Event::amount`] is `None` for every PayTR notice. PayTR signs
+    /// `merchant_oid`, `status` and `total_amount` and **not** the currency, so
+    /// the figure that arrived is a number with no unit anybody can vouch for.
+    /// It is on [`Event::raw`], and [`Notice::charge`] is the call that turns
+    /// it into money — it takes the currency from the caller, who knows what
+    /// the payment was opened in.
+    ///
+    /// # A status PayTR does not document is not a failure
+    ///
+    /// [`Notice::charge`] answers [`ErrorKind::Malformed`] for one, because a
+    /// [`Charge`] has to say `Captured` or `Failed` and neither would be true.
+    /// An [`Event`] has [`EventKind::Other`], which is the honest answer and
+    /// the one that does not earn a week of redeliveries.
+    ///
+    /// **Answer `OK` whatever this returns.** PayTR retries any other reply
+    /// for days; the `Err` says do not act, not what to say.
+    async fn verify(&self, delivery: &Delivery<'_>) -> Result<Event, Error> {
+        let body = delivery.body_str().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PAYTR,
+                "a notice whose body is not UTF-8",
+            )
+        })?;
+        let notice: Notice = serde_urlencoded::from_str(body).map_err(|e| {
+            Error::new(
+                ErrorKind::Malformed,
+                PAYTR,
+                "a notice that is not the form PayTR posts",
+            )
+            .with_source(e)
+        })?;
+
+        if !self.credentials().verify_callback(
+            &notice.hash,
+            &notice.merchant_oid,
+            &notice.status,
+            &notice.total_amount,
+        ) {
+            return Err(Error::new(
+                ErrorKind::Untrusted,
+                PAYTR,
+                "the notice is not signed the way PayTR signs one",
+            ));
+        }
+
+        let kind = match &*notice.status {
+            "success" => EventKind::Captured,
+            "failed" => EventKind::Failed,
+            other => EventKind::Other(other.into()),
+        };
+        let order = OrderRef::new(&*notice.merchant_oid);
+        Ok(Event {
+            id: EventId::derived(
+                format!("{}:{}", notice.merchant_oid, notice.status),
+                EVENT_NAMED_BY,
+            ),
+            kind,
+            payment: Some(payment_id(&order)),
+            amount: None,
+            provider: PAYTR,
+            raw: notice.raw(),
+        })
+    }
 }

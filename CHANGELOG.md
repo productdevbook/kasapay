@@ -7,6 +7,10 @@ order releases happen, newest first.
 
 ### Breaking
 
+- **`kasapay_paytr::PayTr` implements `kasapay_core::Webhook`.** A method named
+  `verify` on a trait now in scope can shadow an inherent one in code that
+  imports both; nothing else changes.
+
 - **`Provider` gains `refund`.** Every adapter in this workspace implements it;
   a `Provider` written outside has one more method to answer, and there is no
   default because a provider that cannot refund has to say
@@ -33,6 +37,27 @@ order releases happen, newest first.
   them in.
 
 ### Added
+
+- **`Webhook`, `Delivery`, `Event`, `EventKind` and `EventId` in
+  `kasapay-core`, and four implementations.** `Webhook::verify` takes the
+  headers and the bytes of a delivery, shows they are the provider's, and says
+  what they mean. It is a separate trait from `Provider` because verifying
+  needs a secret the API credentials do not carry, and it is `async` because
+  two of the four providers verify over the network rather than with a hash.
+
+  `kasapay_stripe::Webhooks` checks the `Stripe-Signature` HMAC over
+  `timestamp.body`, constant-time, with a five-minute tolerance a correctly
+  signed replay falls outside. `kasapay_paytr::PayTr` implements it directly —
+  PayTR's notice hash is keyed with the credentials the client already holds.
+  `kasapay_mollie::Mollie` reads the payment back, which is what Mollie's own
+  documentation says to do with an unsigned delivery.
+  `kasapay_paypal::Webhooks` asks PayPal, at
+  `/v1/notifications/verify-webhook-signature`.
+
+  `kasapay-iyzico` implements none, and its crate documentation says why: the
+  In-Store callback is an encrypted blob that only opens with the
+  `paymentSessionToken` of the payment it belongs to, which the delivery does
+  not carry and `verify(headers, body)` has nowhere to take.
 
 - **`RefundRequest`, `Refund`, `RefundStatus`, `RefundReason` and `RefundId` in
   `kasapay-core`.** A refund is its own object with its own life, which is why

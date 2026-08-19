@@ -6,9 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Instrument,
-    InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundReason,
-    RefundRequest, RefundStatus, Secret, Status,
+    Capabilities, Charge, ChargeRequest, Delivery, Error, ErrorKind, Event, EventId, EventKind,
+    IdempotencyKey, Instrument, InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider,
+    ProviderId, Raw, RefundReason, RefundRequest, RefundStatus, Secret, Status, Webhook,
 };
 use url::Url;
 
@@ -1226,5 +1226,89 @@ impl Provider for Mollie {
             repeated_refund: true,
             saved_instruments: true,
         }
+    }
+}
+
+/// What a composed event identifier is composed of.
+///
+/// Mollie names the delivery by nothing at all — the body is one field — so
+/// the identifier is the payment it named and the status that payment was in
+/// when it was read back.
+const EVENT_NAMED_BY: &[&str] = &["id", "status"];
+
+/// The one field Mollie posts to a webhook address.
+#[derive(serde::Deserialize)]
+struct WebhookBody {
+    id: String,
+}
+
+/// Mollie signs nothing, so the payment is read back instead.
+///
+/// This is why [`Webhook::verify`] is `async`. Mollie's own documentation is
+/// explicit that the delivery is not to be trusted and that the merchant is to
+/// fetch the resource over their own authenticated connection — the body
+/// carries one field, `id`, and no signature, no timestamp and no secret.
+///
+/// **The delivery is a hint; the answer is Mollie's.** Anybody who knows the
+/// address can post an identifier to it, and all that can do is have one of
+/// the merchant's own payments read back and reported truthfully. What cannot
+/// happen is a payment being reported as paid because somebody said so.
+#[async_trait::async_trait]
+impl Webhook for Mollie {
+    fn provider(&self) -> ProviderId {
+        MOLLIE
+    }
+
+    /// Reads back whatever the delivery named, and reports what Mollie says
+    /// about it.
+    ///
+    /// An identifier that is not a payment's is Mollie's own 404, which
+    /// arrives as [`ErrorKind::NotFound`] — Mollie posts a payment id here
+    /// even for a change to a refund of it, so there is nothing else this
+    /// could sensibly fetch.
+    ///
+    /// A status with no word in [`EventKind`] — `open`, `pending` — is
+    /// [`EventKind::Other`] carrying Mollie's own name for it. Those are real
+    /// deliveries and answering an error for one earns a redelivery rather
+    /// than a fix.
+    async fn verify(&self, delivery: &Delivery<'_>) -> Result<Event, Error> {
+        let body = delivery.body_str().ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                MOLLIE,
+                "a delivery whose body is not UTF-8",
+            )
+        })?;
+        let posted: WebhookBody = serde_urlencoded::from_str(body).map_err(|e| {
+            Error::new(
+                ErrorKind::Malformed,
+                MOLLIE,
+                "a delivery that is not the `id=…` form Mollie posts",
+            )
+            .with_source(e)
+        })?;
+
+        let payment = PaymentId::issued(posted.id);
+        let charge = self.charge_status(&payment).await?;
+        let status = charge
+            .raw
+            .text_at("/status")
+            .unwrap_or_else(|| "unknown".to_owned());
+        Ok(Event {
+            id: EventId::derived(format!("{payment}:{status}"), EVENT_NAMED_BY),
+            kind: match charge.status {
+                Status::Captured => EventKind::Captured,
+                Status::Authorized => EventKind::Authorized,
+                Status::Failed => EventKind::Failed,
+                Status::Canceled => EventKind::Canceled,
+                // `open` and `pending` are deliveries about a payment that has
+                // not decided yet, and there is no shared word for one.
+                _ => EventKind::Other(status.into()),
+            },
+            payment: Some(payment),
+            amount: Some(charge.amount),
+            provider: MOLLIE,
+            raw: charge.raw,
+        })
     }
 }

@@ -25,6 +25,10 @@ kasapay-stripe = { version = "0.0.2", path = "crates/kasapay-stripe" }
 async-trait = "0.1.92"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["raw_value"] }
+# Reads the form body PayTR and Mollie post to a webhook address. Already in
+# the tree under reqwest's `form` feature; named here because parsing one is
+# this workspace's own job rather than reqwest's.
+serde_urlencoded = "0.7.1"
 thiserror = "2.0.20"
 tracing = "0.1.44"
 reqwest = { version = "0.13.4", default-features = false, features = ["form", "json", "query", "rustls"] }
