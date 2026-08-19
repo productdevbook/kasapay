@@ -181,10 +181,21 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// before retrying one without a key: unlike
     /// [`Provider::charge`](crate::Provider::charge), a repeated capture can
     /// take the same money twice, and not every provider protects against it.
-    /// A provider that cannot honour a key ignores it rather than refusing the
-    /// call, the same way iyzico's `in_store` refuses one on
-    /// [`Provider::charge`](crate::Provider::charge) but a capture it does not
-    /// implement has nothing to refuse it *for*.
+    ///
+    /// A provider that cannot honour a key **refuses the capture** with
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported) rather than
+    /// sending it without one. That is the same rule
+    /// [`ChargeRequest::idempotency_key`](crate::ChargeRequest::idempotency_key)
+    /// and [`RefundRequest::idempotency_key`](crate::RefundRequest::idempotency_key)
+    /// state, and it is at its sharpest here: a capture is the call that takes
+    /// the money, so a key accepted and dropped reads as a guarantee against
+    /// taking it twice where there is none. iyzico's classic API is the one
+    /// that refuses; a provider with no capture step at all answers
+    /// `Unsupported` for the capture itself and never reaches the question.
+    ///
+    /// The refusal comes before the request, not after it. A key that is
+    /// discovered to be unusable only once the capture has been sent has
+    /// already taken the money.
     async fn capture(
         &self,
         id: &PaymentId,

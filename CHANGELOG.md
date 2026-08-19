@@ -45,11 +45,31 @@ order releases happen, newest first.
   actually for — a timeout, a pinned API version, an account to act on behalf
   of.
 
+- **A conformance suite**, `crates/kasapay/tests/conformance.rs`: the same
+  questions asked of all six clients through nothing but `dyn Provider`, so a
+  `Capabilities` flag can no longer disagree with the method below it. A
+  capability that is `false` pairs with `Unsupported`; one that is `true` pairs
+  with a request on the wire; a refusal costs no byte; every error names its
+  own provider; and a charge missing fields is `InvalidRequest` rather than
+  `Unsupported`.
+
 - **`Money::checked_mul`**, a unit price times a count, refusing the overflow
   that would wrap a line total round to a negative one.
   `BasketItem::line_total` is what uses it: `BasketItem::price` is what *one*
   costs, because PayTR takes the unit price and the count as two fields while
   iyzico takes one figure and has nowhere to put a count.
+
+### Fixed
+
+- **`Provider::capture`'s documentation said the opposite of the rule the rest
+  of the library states**: that a provider which cannot honour an idempotency
+  key *ignores* it. Every adapter refuses, which is right and is what
+  `ChargeRequest::idempotency_key` and `RefundRequest::idempotency_key` both
+  say — a key accepted and dropped reads as a guarantee against taking the
+  money twice where there is none, and capture is the call that takes it. No
+  behaviour changed; a third-party adapter written to that sentence would have
+  been wrong in the most expensive direction. The conformance suite now pins
+  that the refusal comes before the request rather than after it.
 
 ## 0.0.4 — 2026-08-19
 

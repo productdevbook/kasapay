@@ -37,7 +37,10 @@
     reason = "a fixture that cannot be built is a failed test"
 )]
 
-use kasapay::{ChargeRequest, Currency, ErrorKind, Money, OrderRef, PaymentId, Provider, Secret};
+use kasapay::{
+    ChargeRequest, Currency, ErrorKind, IdempotencyKey, Money, OrderRef, PaymentId, Provider,
+    Secret,
+};
 use serde_json::json;
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -247,6 +250,37 @@ async fn capture_answers_the_flag_that_describes_it() {
                 subject.reached().await,
                 0,
                 "{who} refused a capture only after sending it"
+            );
+        }
+    }
+}
+
+/// A key accepted and dropped reads as a guarantee against taking the money
+/// twice where there is none, so an adapter that cannot honour one refuses the
+/// call. What this pins is *when*: before the request rather than after it. A
+/// capture refused once it has already been sent has already taken the money,
+/// and the refusal would be a lie about what happened.
+#[tokio::test]
+async fn a_capture_refuses_an_idempotency_key_before_it_sends_anything() {
+    let key = IdempotencyKey::new("idem-1");
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let error = subject
+            .provider
+            .capture(&a_payment(), None, Some(&key))
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+
+        assert_eq!(
+            error.provider(),
+            subject.provider.id(),
+            "{who} answered for somebody else"
+        );
+        if error.kind() == ErrorKind::Unsupported {
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused the key only after sending the capture"
             );
         }
     }
