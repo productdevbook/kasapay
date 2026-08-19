@@ -670,4 +670,12 @@ async fn capabilities_say_stripe_separates_authorisation_from_capture() {
     assert!(capabilities.partial_capture);
     assert!(capabilities.partial_refund);
     assert!(capabilities.repeated_refund);
+
+    // Stripe's search is too far behind to answer this, and says so itself.
+    assert!(!capabilities.lookup_by_order);
+    let error = client(&server)
+        .lookup(&OrderRef::new("ord-1"))
+        .await
+        .expect_err("lookup_by_order is false");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
 }

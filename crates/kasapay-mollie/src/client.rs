@@ -1188,6 +1188,28 @@ impl Provider for Mollie {
         })
     }
 
+    /// Always [`ErrorKind::Unsupported`]: nothing at Mollie finds a payment by
+    /// its metadata.
+    ///
+    /// The order reference travels as `metadata.kasapay_order` and comes back
+    /// on the payment, but Mollie's payments list takes no filter for it —
+    /// walking every payment the account has ever taken to find one is not a
+    /// lookup.
+    ///
+    /// What to do instead: send the charge again with the same
+    /// [`ChargeRequest::idempotency_key`](kasapay_core::ChargeRequest::idempotency_key).
+    /// Mollie answers the first request's own response to a repeated key for
+    /// an hour, which covers the case this method is for as long as it lasts.
+    async fn lookup(&self, _order: &OrderRef) -> Result<Option<Charge>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            MOLLIE,
+            "Mollie has no call that finds a payment by its metadata; retry the charge \
+             with the same idempotency key instead, which Mollie answers from its own \
+             cache for an hour",
+        ))
+    }
+
     /// Lists a customer's mandates, through [`Mollie::mandates`].
     ///
     /// `customer` is Mollie's `cst_…`.
@@ -1224,6 +1246,7 @@ impl Provider for Mollie {
             partial_capture: true,
             partial_refund: true,
             repeated_refund: true,
+            lookup_by_order: false,
             saved_instruments: true,
         }
     }

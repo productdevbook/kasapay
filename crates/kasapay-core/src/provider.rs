@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::charge::{Charge, ChargeRequest, IdempotencyKey};
+use crate::charge::{Charge, ChargeRequest, IdempotencyKey, OrderRef};
 use crate::error::Error;
 use crate::id::PaymentId;
 use crate::instrument::Instrument;
@@ -77,6 +77,15 @@ pub struct Capabilities {
     pub partial_refund: bool,
     /// A payment can be refunded more than once, up to what was captured.
     pub repeated_refund: bool,
+    /// [`Provider::lookup`] can answer what became of a request keyed by the
+    /// caller's own reference.
+    ///
+    /// What a crash-recovery path reads before it decides between asking and
+    /// calling again. False does not mean the provider forgot the reference —
+    /// it means this adapter has no call that finds a payment by it, so a
+    /// caller whose request timed out has nothing to ask and must rely on
+    /// whatever idempotency the provider offers instead.
+    pub lookup_by_order: bool,
     /// An instrument [`Provider::instruments`] lists can be charged, through a
     /// call of this adapter's own — with the payer entering nothing.
     ///
@@ -223,6 +232,47 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// `Stripe::refunds`, `PayTr::refunds`, Mollie's `amountRefunded` — and
     /// reading is always safe.
     async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error>;
+
+    /// Asks what became of a request the caller sent under this reference.
+    ///
+    /// **For the call whose answer never arrived.** A charge that times out is
+    /// the one case where nobody knows whether the money moved: the request may
+    /// have been received and acted on, and the reply lost on the way back.
+    /// Calling [`Provider::charge`] again is only safe where the provider
+    /// honours an idempotency key, and
+    /// [`Provider::charge_status`](Provider::charge_status) cannot be used
+    /// either — it takes the provider's own identifier for the payment, which
+    /// is precisely what a lost reply never delivered.
+    ///
+    /// So this is keyed by [`ChargeRequest::order`], the caller's own
+    /// reference, which they had before they sent anything.
+    ///
+    /// - `Ok(None)` — the provider has no record of a payment under this
+    ///   reference. Nothing was taken, and sending the charge again is safe.
+    /// - `Ok(Some(charge))` — this is what became of it. Read
+    ///   [`Charge::status`]; sending the charge again would open a second one.
+    /// - `Err(_)` — the question could not be answered. **Not** the same as
+    ///   `Ok(None)`, and the difference is a double payment.
+    ///
+    /// # Two of the five can answer it
+    ///
+    /// [`Capabilities::lookup_by_order`] says which before there is a request
+    /// to ask about, and the four answers are different questions:
+    ///
+    /// | | |
+    /// |---|---|
+    /// | iyzico `classic` | yes — reporting reads a payment back by the `conversationId` it was made with |
+    /// | PayTR | yes — its status query is keyed by `merchant_oid`, which is the reference itself |
+    /// | Stripe | **no, on purpose** — the search API is the only way to find an intent by metadata, and Stripe documents it as eventually consistent and says not to use it in read-after-write flows. Retry the charge with the same `ChargeRequest::idempotency_key` instead: Stripe answers the original PaymentIntent rather than opening a second |
+    /// | Mollie | no — nothing finds a payment by its metadata. Its `Idempotency-Key` replays the first answer for an hour, which covers the same case for as long as it lasts |
+    /// | PayPal | no — Orders v2 has no lookup by `PayPal-Request-Id` or `custom_id`. Replaying with the same request id answers the original order |
+    /// | iyzico `in_store` | no — its query takes iyzico's own `paymentId` and nothing else |
+    ///
+    /// **A `false` here is not a gap to work around with a search that might
+    /// be stale.** An answer of "no record" that is merely late is how a
+    /// caller authorises twice, which is the failure this method exists to
+    /// prevent.
+    async fn lookup(&self, order: &OrderRef) -> Result<Option<Charge>, Error>;
 
     /// Lists what a customer has saved with this provider.
     ///

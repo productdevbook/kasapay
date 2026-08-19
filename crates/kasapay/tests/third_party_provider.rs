@@ -111,6 +111,23 @@ impl Provider for Kumbara {
         })
     }
 
+    /// Kumbara keeps every order reference it has been asked about.
+    async fn lookup(&self, order: &OrderRef) -> Result<Option<Charge>, Error> {
+        if order.as_str() == "ord-1" {
+            return Ok(Some(Charge {
+                id: Some(PaymentId::issued(format!("kmb_{order}"))),
+                order: Some(order.clone()),
+                amount: Money::from_minor_units(1000, Currency::Try),
+                order_amount: None,
+                status: Status::Captured,
+                next_action: None,
+                provider: Self::ID,
+                raw: Raw::default(),
+            }));
+        }
+        Ok(None)
+    }
+
     async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
         Ok(Refund {
             id: Some(RefundId::issued(format!("kmb_re_{}", request.payment))),
@@ -137,6 +154,7 @@ impl Provider for Kumbara {
         Capabilities {
             separate_capture: true,
             partial_capture: true,
+            lookup_by_order: true,
             ..Capabilities::default()
         }
     }
@@ -249,6 +267,31 @@ async fn a_provider_outside_the_workspace_can_give_money_back() {
     }
 }
 
+/// The question a caller asks when a charge timed out and nobody knows.
+#[tokio::test]
+async fn a_provider_outside_the_workspace_can_say_whether_a_call_landed() {
+    let providers: Vec<Box<dyn Provider>> = vec![Box::new(Kumbara::default())];
+    for provider in &providers {
+        assert!(provider.capabilities().lookup_by_order);
+
+        let landed = provider
+            .lookup(&OrderRef::new("ord-1"))
+            .await
+            .expect("kumbara answers");
+        assert_eq!(
+            landed.expect("a payment under this reference").status,
+            Status::Captured
+        );
+
+        // No record: nothing was taken, and sending the charge again is safe.
+        let missing = provider
+            .lookup(&OrderRef::new("ord-2"))
+            .await
+            .expect("kumbara answers");
+        assert!(missing.is_none());
+    }
+}
+
 /// A provider that names a payment by nothing at all.
 ///
 /// Cash on delivery: no identifier of its own, and nothing sent to it that
@@ -302,6 +345,10 @@ impl Provider for Yastik {
     }
 
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+        Err(Self::unnamed())
+    }
+
+    async fn lookup(&self, _order: &OrderRef) -> Result<Option<Charge>, Error> {
         Err(Self::unnamed())
     }
 

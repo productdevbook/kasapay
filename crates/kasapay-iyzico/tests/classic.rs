@@ -16,7 +16,7 @@ use kasapay_iyzico::classic::{
     Association, CardType, Client, Config, FormToken, Reason, ReasonCode, checkout, saved,
 };
 use serde_json::json;
-use wiremock::matchers::{body_json, header, header_exists, method, path};
+use wiremock::matchers::{body_json, header, header_exists, method, path, query_param};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 fn client(server: &MockServer) -> Client {
@@ -1080,6 +1080,90 @@ async fn the_shared_refund_refuses_what_iyzico_cannot_do() {
         .await
         .expect_err("a key iyzico cannot honour is not silently dropped");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// The question a caller asks when a charge timed out: did it land?
+#[tokio::test]
+async fn a_payment_is_found_by_the_conversation_id_it_was_made_with() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/reporting/payment/details"))
+        .and(query_param("paymentConversationId", "ord-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payments": [{
+                "paymentId": "12345678",
+                "paymentStatus": 1,
+                "price": "50.00",
+                "paidPrice": "50.00",
+                "currency": "TRY",
+                "paymentConversationId": "ord-1",
+            }],
+        })))
+        .mount(&server)
+        .await;
+
+    let found = client(&server)
+        .lookup(&OrderRef::new("ord-1"))
+        .await
+        .expect("iyzico answers")
+        .expect("a payment under this reference");
+
+    assert_eq!(found.status, Status::Captured);
+    assert_eq!(found.amount.minor_units(), 5000);
+    assert_eq!(found.id.as_ref().map(PaymentId::as_str), Some("12345678"));
+    assert_eq!(found.order.as_ref().map(OrderRef::as_str), Some("ord-1"));
+}
+
+/// Nothing under the reference: the charge never landed, and sending it again
+/// is safe.
+#[tokio::test]
+async fn a_conversation_id_iyzico_has_no_payment_for_is_no_payment() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/reporting/payment/details"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payments": [],
+        })))
+        .mount(&server)
+        .await;
+
+    let found = client(&server)
+        .lookup(&OrderRef::new("ord-1"))
+        .await
+        .expect("iyzico answers");
+    assert!(found.is_none());
+}
+
+/// `2` is a refusal **or** a payment still at 3-D Secure, and iyzico does not
+/// say which. Reading it as failed is how a caller sends a second payment
+/// after the first one's payer.
+#[tokio::test]
+async fn a_payment_that_may_still_be_at_three_d_secure_is_not_reported_as_failed() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/reporting/payment/details"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payments": [{
+                "paymentId": "12345678",
+                "paymentStatus": 2,
+                "price": "50.00",
+                "paidPrice": "50.00",
+                "currency": "TRY",
+            }],
+        })))
+        .mount(&server)
+        .await;
+
+    let found = client(&server)
+        .lookup(&OrderRef::new("ord-1"))
+        .await
+        .expect("iyzico answers")
+        .expect("a payment under this reference");
+    assert_eq!(found.status, Status::Pending);
+    assert!(found.status.is_open());
 }
 
 #[tokio::test]

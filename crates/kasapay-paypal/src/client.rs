@@ -1210,6 +1210,27 @@ impl Provider for PayPal {
         })
     }
 
+    /// Always refused. Orders v2 has no lookup by anything the caller chose.
+    ///
+    /// An order carries the reference — `purchase_units[0].custom_id` — and
+    /// there is no operation that reads an order back by it. PayPal's
+    /// Transaction Search API is a different, reporting-side product whose own
+    /// documentation puts new transactions up to three hours behind, which is
+    /// not an answer to "did the call I made a minute ago land".
+    ///
+    /// What to do instead: send the charge again with the same
+    /// [`ChargeRequest::idempotency_key`](kasapay_core::ChargeRequest::idempotency_key).
+    /// PayPal takes it as `PayPal-Request-Id` and answers the original order
+    /// rather than opening a second one.
+    async fn lookup(&self, _order: &OrderRef) -> Result<Option<Charge>, Error> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            PAYPAL,
+            "PayPal's Orders v2 API reads an order back by its own id and nothing else; \
+             retry with the same PayPal-Request-Id instead",
+        ))
+    }
+
     /// Always refused. PayPal's saved-instrument story is its Vault API — a
     /// different, versioned resource this crate does not implement — so
     /// there is nothing here to list.
@@ -1248,6 +1269,7 @@ impl Provider for PayPal {
             partial_capture: false,
             partial_refund: true,
             repeated_refund: true,
+            lookup_by_order: false,
             saved_instruments: false,
         }
     }

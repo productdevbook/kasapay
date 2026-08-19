@@ -7,6 +7,14 @@ order releases happen, newest first.
 
 ### Breaking
 
+- **`Provider` gains `lookup`, and `Capabilities` a `lookup_by_order`.**
+  `lookup(&OrderRef) -> Result<Option<Charge>, Error>` answers what became of a
+  request the caller sent under their own reference — the question a charge
+  that timed out leaves, and the one `charge_status` cannot answer because it
+  takes an identifier the lost reply never delivered. A `Provider` written
+  outside this workspace has one more method with no default, and a
+  `Capabilities` built as a struct literal one more field.
+
 - **`kasapay_paytr::PayTr` implements `kasapay_core::Webhook`.** A method named
   `verify` on a trait now in scope can shadow an inherent one in code that
   imports both; nothing else changes.
@@ -37,6 +45,16 @@ order releases happen, newest first.
   them in.
 
 ### Added
+
+- **Two providers can say whether a call landed.** iyzico's `classic` reads a
+  payment back through reporting by the `conversationId` it was made with;
+  PayTR's status query is keyed by `merchant_oid`, which is the reference
+  itself. The other four answer `ErrorKind::Unsupported` and say what to do
+  instead on their own `lookup` — for all four it is retrying with the same
+  idempotency key, which those providers do honour. Stripe's is the one worth
+  reading: its search API is the only call that finds an intent by metadata,
+  and Stripe documents it as too far behind to be used in a read-after-write
+  flow, so answering `Ok(None)` from it would be how a caller charges twice.
 
 - **`Webhook`, `Delivery`, `Event`, `EventKind` and `EventId` in
   `kasapay-core`, and four implementations.** `Webhook::verify` takes the

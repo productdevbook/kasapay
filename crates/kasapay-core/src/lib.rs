@@ -33,6 +33,19 @@
 //! them. "Has all of this gone back" is the refunds summed against
 //! [`Charge::amount`].
 //!
+//! # The call whose answer never arrived
+//!
+//! A charge that times out is the one failure where nobody knows whether the
+//! money moved. [`Provider::lookup`] is the question to ask: keyed by
+//! [`OrderRef`] — the caller's own reference, which they had before they sent
+//! anything — rather than by an identifier the lost reply never delivered.
+//!
+//! `Ok(None)` says the provider has no record and the charge can be sent
+//! again. Two of the five can answer it, [`Capabilities::lookup_by_order`]
+//! says which, and the ones that cannot say what to do instead on
+//! [`Provider::lookup`] itself. Guessing is not on the list: an answer of "no
+//! record" that is merely late is how a caller authorises twice.
+//!
 //! # What arrives without being asked for
 //!
 //! A payment that finishes out of band is not observable through
