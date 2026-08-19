@@ -248,10 +248,12 @@ set of readings to confirm rather than a set of bugs.
 `crates/kasapay/examples/` — a Stripe charge and refund, an iyzico hosted
 checkout form end to end, an iyzico Link sold and taken down, a PayTR hosted
 payment with the notice it posts back, a Mollie payment beside a Mollie hold,
-a PayPal order opened and then captured once the payer has approved it, and a
-webhook handler answering three deliveries: one the provider signed, one nobody
-signed, and one carrying a status the provider does not document. All seven
-compile in CI, so they cannot drift from the API the way a README snippet can.
+a PayPal order opened and then captured once the payer has approved it, a
+subscription sold — product, plan and the hosted form that signs somebody up —
+and a webhook handler answering three deliveries: one the provider signed, one
+nobody signed, and one carrying a status the provider does not document. All
+eight compile in CI, so they cannot drift from the API the way a README snippet
+can.
 
 The webhook one is the one to read before writing a handler. It needs no
 credentials and talks to nobody — `cargo run -p kasapay --features paytr

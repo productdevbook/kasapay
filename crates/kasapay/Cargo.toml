@@ -58,6 +58,10 @@ required-features = ["paypal"]
 name = "webhook"
 required-features = ["paytr"]
 
+[[example]]
+name = "iyzico_subscription"
+required-features = ["iyzico"]
+
 [package.metadata.docs.rs]
 all-features = true
 
