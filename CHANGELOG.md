@@ -117,6 +117,15 @@ order releases happen, newest first.
   `33.329999999999998`, which `Money::parse` would refuse — correctly, and for
   the wrong reason.
 
+### Fixed
+
+- **A paginated read cannot loop for ever.** `Stripe::refunds` and
+  `Stripe::stored_cards` walk Stripe's cursor and stopped only on an empty
+  page, so a page repeating its own last id would have hung — and `refunds` is
+  how "how much has gone back" gets answered, which makes a hang a checkout
+  that hangs. Every cursor followed is remembered now, and one seen twice ends
+  the walk with what it has. Mollie's walks carry the same guard.
+
 ## 0.0.3 — 2026-08-19
 
 ### Breaking
