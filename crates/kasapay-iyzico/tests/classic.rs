@@ -469,6 +469,146 @@ async fn charging_a_stored_card_sends_two_handles_and_no_card_number() {
     }
 }
 
+/// The pre-authorisation is `/payment/auth`'s own body at another path, and
+/// what comes back is money held rather than money taken.
+#[tokio::test]
+async fn holding_money_on_a_stored_card_is_authorized_rather_than_captured() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/preauth"))
+        .and(body_json(saved_card_body()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(saved_card_response(1)))
+        .mount(&server)
+        .await;
+
+    let iyzipay = client(&server);
+    assert!(iyzipay.capabilities().separate_capture);
+    let charge = iyzipay
+        .preauth_with_saved_card(&saved_payment())
+        .await
+        .expect("the hold is placed");
+
+    assert_eq!(charge.status, Status::Authorized);
+    // Held is not settled: the money moves when the capture does.
+    assert!(charge.status.is_open());
+    assert_eq!(charge.amount.minor_units(), 14_990);
+}
+
+/// A hold iyzico's fraud filters are still reading is not a hold either.
+#[tokio::test]
+async fn a_preauth_under_fraud_review_is_not_reported_as_a_hold() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/preauth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(saved_card_response(0)))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .preauth_with_saved_card(&saved_payment())
+        .await
+        .expect("the request itself worked");
+    assert_eq!(charge.status, Status::Pending);
+}
+
+/// `paidPrice` is what postauth collects, and it may be less than was held.
+#[tokio::test]
+async fn capturing_part_of_a_hold_sends_the_amount_to_postauth() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/postauth"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "12345678",
+            "paymentId": "12345678",
+            "paidPrice": "100.00",
+            "currency": "TRY",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "100.00",
+            "price": "149.90",
+            "fraudStatus": 1,
+            // HMAC-SHA256("12345678:TRY:ord-1:ord-1:100:149.9", "secret-key")
+            "signature": "f3336037887854fee0c200de41e7e07adef6acf2b74687de6f1c3afe4c114c54",
+        })))
+        .mount(&server)
+        .await;
+
+    let iyzipay = client(&server);
+    assert!(iyzipay.capabilities().partial_capture);
+    let charge = iyzipay
+        .capture(
+            &PaymentId::issued("12345678"),
+            Some(Money::parse("100.00", Currency::Try).expect("valid amount")),
+            None,
+        )
+        .await
+        .expect("the hold is taken");
+
+    assert_eq!(charge.status, Status::Captured);
+    assert!(!charge.status.is_open());
+    // What was taken, with the basket total beside it.
+    assert_eq!(charge.amount.minor_units(), 10_000);
+    assert_eq!(
+        charge.order_amount.map(|price| price.minor_units()),
+        Some(14_990)
+    );
+}
+
+/// iyzico's `paidPrice` is required, so a capture with no amount has to find
+/// out what was held before it can ask for it.
+#[tokio::test]
+async fn a_capture_with_no_amount_reads_the_payment_first() {
+    let server = MockServer::start().await;
+    let mut authorised = saved_card_response(1);
+    authorised["paymentStatus"] = "SUCCESS".into();
+    Mock::given(method("POST"))
+        .and(path("/payment/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(authorised))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/payment/postauth"))
+        .and(body_json(json!({
+            "locale": "tr",
+            "conversationId": "12345678",
+            "paymentId": "12345678",
+            // The figure the payment answered, not a guess.
+            "paidPrice": "149.90",
+            "currency": "TRY",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(saved_card_response(1)))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .capture(&PaymentId::issued("12345678"), None, None)
+        .await
+        .expect("the whole hold is taken");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+}
+
+/// No mock is mounted: a key iyzico cannot honour never reaches the network.
+#[tokio::test]
+async fn a_capture_carrying_an_idempotency_key_is_refused() {
+    let server = MockServer::start().await;
+    let error = client(&server)
+        .capture(
+            &PaymentId::issued("12345678"),
+            Some(Money::parse("100.00", Currency::Try).expect("valid amount")),
+            Some(&IdempotencyKey::new("capture-1")),
+        )
+        .await
+        .expect_err("iyzico accepts no idempotency key");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
 #[tokio::test]
 async fn a_payment_iyzicos_fraud_filters_are_still_reading_is_not_money_taken() {
     let server = MockServer::start().await;
@@ -775,6 +915,73 @@ async fn a_form_the_payer_saved_a_card_on_answers_the_handles_for_it() {
     let card = saved::Card::new(key, InstrumentId::issued(token)).expect("a card to charge again");
     assert_eq!(card.user_key(), "card-user-key-1");
     assert_eq!(card.token().as_str(), "card-token-1");
+}
+
+/// The same form at another path, and the caller says which when they read it
+/// back — iyzico's answer does not.
+#[tokio::test]
+async fn a_form_that_holds_the_money_opens_at_the_preauth_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(
+            "/payment/iyzipos/checkoutform/initialize/preauth/ecom",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "conversationId": "ord-1",
+            "token": "cf-token-1",
+            "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=cf-token-1",
+            // HMAC-SHA256("ord-1:cf-token-1", "secret-key")
+            "signature": "f853d25b67c4d33bc566e9265922dcc1b83f6d980652f4463435b35044ef3f76",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .start_checkout_form_preauth(&form())
+        .await
+        .expect("the form opens");
+
+    // Nothing has happened yet either way: the payer has not finished.
+    assert_eq!(charge.status, Status::RequiresAction);
+    assert_eq!(charge.id, None);
+}
+
+/// iyzico answers `SUCCESS` for a payment taken and for one only held, so the
+/// caller who opened the form says which they opened.
+#[tokio::test]
+async fn a_finished_preauth_form_reports_money_held_rather_than_taken() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/checkoutform/auth/ecom/detail"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "paymentId": "12345678",
+            "basketId": "ord-1",
+            "conversationId": "ord-1",
+            "paidPrice": "149.90",
+            "price": "149.90",
+            "currency": "TRY",
+            "token": "cf-token-1",
+            "signature": "b929da899af8c2c2bc4de9cc44791977115a937c4ea712fa9256ef34a35fa946",
+        })))
+        .mount(&server)
+        .await;
+
+    let iyzipay = client(&server);
+    let held = iyzipay
+        .checkout_result_preauth(&FormToken::issued("cf-token-1"))
+        .await
+        .expect("the form reads back");
+    assert_eq!(held.status, Status::Authorized);
+
+    // The same bytes read as the other kind of form say the money was taken.
+    let taken = iyzipay
+        .checkout_result(&FormToken::issued("cf-token-1"))
+        .await
+        .expect("the form reads back");
+    assert_eq!(taken.status, Status::Captured);
 }
 
 #[tokio::test]
