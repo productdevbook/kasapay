@@ -6,7 +6,7 @@
 //!
 //! # What is here
 //!
-//! Thirteen operations, chosen because none of them touches a card number:
+//! Fourteen operations, chosen because none of them touches a card number:
 //!
 //! - [`Client::start_checkout_form`] — open a hosted form and get a URL to
 //!   send the payer to
@@ -14,6 +14,8 @@
 //!   [`FormToken`] the form was opened with
 //! - [`Client::payment`] — read a finished payment back by its id
 //! - [`Client::bin_check`] — what kind of card a BIN belongs to
+//! - [`Client::instalments`] — what a card may be paid in, and what each
+//!   count costs the payer
 //! - [`Client::stored_cards`] — the cards iyzico holds for a user
 //! - [`Client::pay_with_saved_card`] — charge one of them, by the pair that
 //!   names it rather than by a number
@@ -121,6 +123,7 @@
 
 pub mod checkout;
 mod client;
+pub mod instalments;
 pub mod saved;
 pub mod signature;
 mod wire;
@@ -131,6 +134,8 @@ use kasapay_core::Id;
 pub use crate::classic::client::{
     Association, BinDetails, CardType, Client, Config, Reason, ReasonCode, Reversal, StoredCard,
 };
+#[doc(inline)]
+pub use crate::classic::instalments::{Instalment, Instalments, Options};
 
 /// What a classic identifier names, where iyzico names something core has no
 /// kind for.

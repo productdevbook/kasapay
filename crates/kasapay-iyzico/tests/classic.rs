@@ -16,7 +16,9 @@ use kasapay_iyzico::classic::{
     Association, CardType, Client, Config, FormToken, Reason, ReasonCode, checkout, saved,
 };
 use serde_json::json;
-use wiremock::matchers::{body_json, header, header_exists, method, path, query_param};
+use wiremock::matchers::{
+    body_json, body_string_contains, header, header_exists, method, path, query_param,
+};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 fn client(server: &MockServer) -> Client {
@@ -1284,6 +1286,134 @@ async fn the_shared_refund_refuses_what_iyzico_cannot_do() {
         .await
         .expect_err("a key iyzico cannot honour is not silently dropped");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// The one endpoint in this API that types an amount as a number.
+#[tokio::test]
+async fn instalments_send_the_price_as_a_number_and_read_it_back_as_money() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/installment"))
+        // A number, not a string: iyzico types this field as one here and as a
+        // decimal string on every other endpoint of the same API.
+        .and(body_string_contains(r#""price":149.90"#))
+        .and(body_string_contains(r#""binNumber":"55440400""#))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "locale": "tr",
+            "systemTime": 1_770_000_000_i64,
+            "installmentDetails": [{
+                "binNumber": "55440400",
+                "price": 149.90,
+                "cardType": "CREDIT_CARD",
+                "cardAssociation": "MASTER_CARD",
+                "cardFamilyName": "Bonus",
+                "force3ds": 0,
+                "bankCode": 62,
+                "bankName": "Garanti Bankasi",
+                "forceCvc": 0,
+                "commercial": 0,
+                "dccEnabled": 0,
+                "agricultureEnabled": 0,
+                "installmentPrices": [
+                    { "installmentPrice": 149.90, "totalPrice": 149.90, "installmentNumber": 1 },
+                    { "installmentPrice": 27.13, "totalPrice": 162.78, "installmentNumber": 6 },
+                ],
+            }],
+        })))
+        .mount(&server)
+        .await;
+
+    let asked = Money::parse("149.90", Currency::Try).expect("valid amount");
+    let options = client(&server)
+        .instalments(asked, Some("55440400"))
+        .await
+        .expect("iyzico answers");
+
+    let card = options.cards.first().expect("one card family");
+    assert_eq!(card.card_type, Some(CardType::Credit));
+    assert_eq!(card.association, Some(Association::MasterCard));
+    assert_eq!(card.family.as_deref(), Some("Bonus"));
+    assert!(!card.force_3ds);
+    assert_eq!(card.price.minor_units(), 14_990);
+
+    // A single payment is one of the options rather than the absence of one.
+    let single = card.option(1).expect("paying it all at once");
+    assert_eq!(single.total.minor_units(), 14_990);
+    assert_eq!(single.surcharge(asked).map(Money::minor_units), Some(0));
+
+    let six = card.largest().expect("the longest iyzico allows");
+    assert_eq!(six.count, 6);
+    assert_eq!(six.each.minor_units(), 2713);
+    // What the payment opens for, and what it costs over the basket.
+    assert_eq!(six.total.minor_units(), 16_278);
+    assert_eq!(six.surcharge(asked).map(Money::minor_units), Some(1288));
+}
+
+/// Asking about the amount alone is what a checkout draws before the payer has
+/// typed a card number — which this crate never sees anyway.
+#[tokio::test]
+async fn instalments_without_a_bin_ask_about_the_amount_alone() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/iyzipos/installment"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "installmentDetails": [
+                { "cardFamilyName": "Bonus", "price": 100, "installmentPrices": [] },
+                { "cardFamilyName": "Axess", "price": 100, "installmentPrices": [
+                    { "installmentPrice": 34.0, "totalPrice": 102.0, "installmentNumber": 3 },
+                ]},
+            ],
+        })))
+        .mount(&server)
+        .await;
+
+    let options = client(&server)
+        .instalments(
+            Money::parse("100.00", Currency::Try).expect("valid amount"),
+            None,
+        )
+        .await
+        .expect("iyzico answers");
+
+    assert_eq!(options.cards.len(), 2);
+    // A family with no options is a card that cannot be paid in instalments
+    // here, which is an answer rather than a failure.
+    assert!(options.cards[0].options.is_empty());
+    assert!(options.cards[0].largest().is_none());
+    assert_eq!(options.cards[1].options.len(), 1);
+
+    let sent = &server.received_requests().await.expect("recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    assert!(!body.contains("binNumber"), "{body}");
+}
+
+/// Neither of these reaches the network, so no mock is mounted.
+#[tokio::test]
+async fn instalments_refuse_what_iyzico_would_refuse() {
+    let server = MockServer::start().await;
+    let iyzipay = client(&server);
+
+    assert_eq!(
+        iyzipay
+            .instalments(Money::from_minor_units(0, Currency::Try), None)
+            .await
+            .expect_err("nothing is paid in instalments")
+            .kind(),
+        ErrorKind::InvalidRequest
+    );
+    assert_eq!(
+        iyzipay
+            .instalments(
+                Money::parse("100.00", Currency::Try).expect("valid amount"),
+                Some("5544"),
+            )
+            .await
+            .expect_err("a BIN is 6 or 8 digits")
+            .kind(),
+        ErrorKind::InvalidRequest
+    );
 }
 
 /// The question a caller asks when a charge timed out: did it land?
