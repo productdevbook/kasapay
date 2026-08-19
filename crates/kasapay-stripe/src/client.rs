@@ -440,7 +440,7 @@ impl Provider for Stripe {
     async fn resume(&self, _continuation: &str) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
-            PROVIDER,
+            convert::PROVIDER,
             "Stripe names a PaymentIntent when it opens one; read it back with \
              Provider::charge_status",
         ))
