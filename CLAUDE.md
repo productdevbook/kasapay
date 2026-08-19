@@ -127,6 +127,39 @@ matches, and the Lockfile workflow's, which resolves the tree again. Merge the
 second and the first goes green. Anything else is a lockfile that says one
 thing while CI checks another.
 
+## The standards this repository is written against
+
+Four skills, and which one to open depends on what you are doing rather than
+on taste:
+
+- **`rust-guidelines`** — Microsoft's 89 pragmatic guidelines. Read *before*
+  writing: adding a public type, shaping an error, deciding whether to split a
+  crate or reach for a macro. This is a published library workspace, so the
+  applicable set is `universal`, `correctness`, `performance`, `project`,
+  `docs` and `ai`, plus all thirty-three under `libs`.
+- **`apollo-rust-review`** — Apollo's standard for judging Rust that already
+  exists, with a P0–P3 severity matrix. Read when reviewing a diff. Rank with
+  it, and do not report style as if it were correctness.
+- **`ratchets`** — how to find the bugs reading does not find, and how to stop
+  each one coming back. Its first half is a way of auditing that counts rather
+  than judges; its second is how to write a check that reads the codebase's own
+  source so a rule is enforced instead of remembered.
+- **`agent-briefs`** — writing the role files and the task briefs for a
+  multi-agent run. The five roles in `~/.claude/agents/kasapay-*.md` are
+  written to it.
+
+Two of them are worth knowing without opening anything, because they are what
+an agent writing Rust tends to get wrong:
+
+**M-TAUTOLOGICAL-TESTS.** A test that restates the constant it is testing
+passes by construction and adds noise.
+
+**M-NO-META-DESIGN-DOCUMENTATION.** Documentation records the end state, not
+the design journey — no "why we picked X over Y" essays, no self-graded tables
+of which rules were followed. The README was 367 lines of exactly that before
+it was cut to 225. Enduring architectural goals are the exception and belong in
+a README's own *Design principles* section.
+
 ## Where the boundary is
 
 `kasapay-core` holds no HTTP client and never will. A provider adapter brings
