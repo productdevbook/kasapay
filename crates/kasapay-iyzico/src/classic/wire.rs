@@ -1,6 +1,7 @@
 //! The request and response bodies of the classic API, as it sends them.
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 
 /// `POST /payment/bin/check`.
 #[derive(Debug, Serialize)]
@@ -125,6 +126,71 @@ pub(crate) struct CheckoutFormRequest<'a> {
     pub(crate) shipping_address: AddressBody<'a>,
     #[serde(rename = "basketItems")]
     pub(crate) basket_items: Vec<BasketItemBody<'a>>,
+}
+
+/// `POST /payment/iyzipos/installment` — what a card may be paid in.
+///
+/// `price` is a [`RawValue`] rather than a number or a string: iyzico types
+/// this field as a JSON number, and the only way to write a decimal as one
+/// without going through an `f64` is to write the text.
+#[derive(Debug, Serialize)]
+pub(crate) struct InstalmentRequest<'a> {
+    pub(crate) locale: &'a str,
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    pub(crate) price: &'a RawValue,
+    #[serde(rename = "binNumber", skip_serializing_if = "Option::is_none")]
+    pub(crate) bin_number: Option<&'a str>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct InstalmentResponse {
+    pub(crate) status: Option<String>,
+    #[serde(rename = "errorCode")]
+    pub(crate) error_code: Option<String>,
+    #[serde(rename = "errorMessage")]
+    pub(crate) error_message: Option<String>,
+    #[serde(rename = "installmentDetails")]
+    pub(crate) installment_details: Option<Vec<InstalmentDetail>>,
+}
+
+/// One card family's answer. Every amount is a [`RawValue`] for the reason
+/// [`InstalmentRequest::price`] is one.
+#[derive(Debug, Deserialize)]
+pub(crate) struct InstalmentDetail {
+    #[serde(rename = "binNumber")]
+    pub(crate) bin_number: Option<String>,
+    pub(crate) price: Option<Box<RawValue>>,
+    #[serde(rename = "cardType")]
+    pub(crate) card_type: Option<String>,
+    #[serde(rename = "cardAssociation")]
+    pub(crate) card_association: Option<String>,
+    #[serde(rename = "cardFamilyName")]
+    pub(crate) card_family_name: Option<String>,
+    pub(crate) force3ds: Option<i64>,
+    #[serde(rename = "bankCode")]
+    pub(crate) bank_code: Option<i64>,
+    #[serde(rename = "bankName")]
+    pub(crate) bank_name: Option<String>,
+    #[serde(rename = "forceCvc")]
+    pub(crate) force_cvc: Option<i64>,
+    pub(crate) commercial: Option<i64>,
+    #[serde(rename = "dccEnabled")]
+    pub(crate) dcc_enabled: Option<i64>,
+    #[serde(rename = "agricultureEnabled")]
+    pub(crate) agriculture_enabled: Option<i64>,
+    #[serde(rename = "installmentPrices")]
+    pub(crate) installment_prices: Option<Vec<InstalmentPrice>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct InstalmentPrice {
+    #[serde(rename = "installmentPrice")]
+    pub(crate) installment_price: Option<Box<RawValue>>,
+    #[serde(rename = "totalPrice")]
+    pub(crate) total_price: Option<Box<RawValue>>,
+    #[serde(rename = "installmentNumber")]
+    pub(crate) installment_number: Option<i64>,
 }
 
 /// `POST /payment/postauth` — turning a held authorisation into a sale.

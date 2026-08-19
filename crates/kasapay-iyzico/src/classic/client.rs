@@ -10,9 +10,11 @@ use kasapay_core::{
     InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund,
     RefundReason, RefundRequest, RefundStatus, Status,
 };
+use serde_json::value::RawValue;
 use url::Url;
 
 use crate::classic::checkout::CheckoutForm;
+use crate::classic::instalments::{self, flag, number_as_money};
 use crate::classic::{FormToken, saved, signature, wire};
 use crate::reporting;
 use crate::signing::Credentials;
@@ -25,6 +27,8 @@ const PAYMENT_AUTH: &str = "/payment/auth";
 const PAYMENT_PREAUTH: &str = "/payment/preauth";
 /// Turning a hold into a sale.
 const PAYMENT_POSTAUTH: &str = "/payment/postauth";
+/// What a card may be paid in.
+const PAYMENT_INSTALMENTS: &str = "/payment/iyzipos/installment";
 /// The hosted form that takes the money.
 const CHECKOUT_FORM_AUTH: &str = "/payment/iyzipos/checkoutform/initialize/auth/ecom";
 /// The same form, holding the money instead.
@@ -147,6 +151,105 @@ impl Client {
             .post::<_, wire::BinCheckResponse>("/payment/bin/check", &body)
             .await?;
         into_bin_details(response, raw)
+    }
+
+    /// What a card may be paid in instalments, and what each count costs.
+    ///
+    /// `POST /payment/iyzipos/installment`. The answer a Turkish checkout needs
+    /// before it draws its payment page: which counts this card's bank allows
+    /// for this amount, and what the payer pays for each. The surcharge is the
+    /// merchant's own arrangement with the bank and appears on nothing else.
+    ///
+    /// `bin` narrows it to one card. `None` asks about the amount alone, and
+    /// iyzico answers what every card family this merchant is set up with
+    /// would charge — which is the list to draw before the payer has typed a
+    /// number, and this crate never sees one anyway.
+    ///
+    /// # The amount comes back in the currency it went out in
+    ///
+    /// iyzico's request has no currency field and neither does its answer, so
+    /// every [`Money`] in the result is in `price`'s own currency. In practice
+    /// this service is lira; iyzico documents no other currency for it.
+    ///
+    /// # It is not signed
+    ///
+    /// iyzico's documented response carries no `signature`, so this answer is
+    /// only as trustworthy as the connection it arrived over — see
+    /// [`instalments`](crate::classic::instalments) for what that is worth for
+    /// a price list.
+    ///
+    /// ```no_run
+    /// # use kasapay_core::{Currency, Money};
+    /// # use kasapay_iyzico::classic::Client;
+    /// # async fn offer(iyzipay: &Client) -> Result<(), Box<dyn std::error::Error>> {
+    /// let asked = Money::parse("149.90", Currency::Try)?;
+    /// let options = iyzipay.instalments(asked, Some("55440400")).await?;
+    /// for card in &options.cards {
+    ///     for option in &card.options {
+    ///         // What the payer pays altogether is what the payment opens for.
+    ///         println!("{}× {} = {}", option.count, option.each, option.total);
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn instalments(
+        &self,
+        price: Money,
+        bin: Option<&str>,
+    ) -> Result<instalments::Options, Error> {
+        price.require_positive().map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "instalments are calculated for an amount above zero",
+            )
+            .with_source(e)
+        })?;
+        if let Some(bin) = bin
+            && (!matches!(bin.len(), 6 | 8) || !bin.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "a BIN is 6 or 8 digits; iyzico documents 8 for this service",
+            ));
+        }
+        let currency = price.currency();
+        // The decimal string, written into the request as a JSON number rather
+        // than through an f64 that would not hold it.
+        let decimal = RawValue::from_string(price.to_decimal_string()).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PROVIDER,
+                "the amount is not a number iyzico can be sent",
+            )
+            .with_source(e)
+        })?;
+        let conversation = random_key();
+        let body = wire::InstalmentRequest {
+            locale: "tr",
+            conversation_id: &conversation,
+            price: &decimal,
+            bin_number: bin,
+        };
+
+        let (response, raw) = self
+            .post::<_, wire::InstalmentResponse>(PAYMENT_INSTALMENTS, &body)
+            .await?;
+        if let Some(error) = refused(
+            response.status.as_deref(),
+            response.error_message,
+            response.error_code,
+            "iyzico refused the instalment query",
+        ) {
+            return Err(error);
+        }
+        let mut cards = Vec::new();
+        for detail in response.installment_details.unwrap_or_default() {
+            cards.push(read_instalments(detail, currency)?);
+        }
+        Ok(instalments::Options { cards, raw })
     }
 
     /// Opens a hosted checkout form and hands back where to send the payer.
@@ -1343,6 +1446,60 @@ pub struct BinDetails {
     pub commercial: bool,
     /// iyzico's own response, untouched.
     pub raw: Raw,
+}
+
+/// One card family's instalment answer, in this crate's words.
+///
+/// An option whose count iyzico wrote as something other than a small positive
+/// number is dropped rather than guessed at — `installmentNumber` is what a
+/// caller charges with, and there is no safe reading of a count that will not
+/// fit in a `u8`.
+fn read_instalments(
+    detail: wire::InstalmentDetail,
+    currency: Currency,
+) -> Result<instalments::Instalments, Error> {
+    let price = detail
+        .price
+        .as_deref()
+        .map(|raw| number_as_money(raw.get(), currency))
+        .transpose()?
+        .unwrap_or_else(|| Money::from_minor_units(0, currency));
+    let mut options = Vec::new();
+    for option in detail.installment_prices.unwrap_or_default() {
+        let Some(count) = option.installment_number.and_then(|n| u8::try_from(n).ok()) else {
+            continue;
+        };
+        let each = option
+            .installment_price
+            .as_deref()
+            .map(|raw| number_as_money(raw.get(), currency))
+            .transpose()?;
+        let total = option
+            .total_price
+            .as_deref()
+            .map(|raw| number_as_money(raw.get(), currency))
+            .transpose()?;
+        // Both amounts or neither: an option a payer cannot be quoted a price
+        // for is not one to offer them.
+        if let (Some(each), Some(total)) = (each, total) {
+            options.push(instalments::Instalment { count, each, total });
+        }
+    }
+    Ok(instalments::Instalments {
+        bin: detail.bin_number.map(String::into_boxed_str),
+        price,
+        card_type: detail.card_type.as_deref().map(CardType::from),
+        association: detail.card_association.as_deref().map(Association::from),
+        family: detail.card_family_name.map(String::into_boxed_str),
+        bank_name: detail.bank_name.map(String::into_boxed_str),
+        bank_code: detail.bank_code,
+        force_3ds: flag(detail.force3ds),
+        force_cvc: flag(detail.force_cvc),
+        commercial: flag(detail.commercial),
+        dcc_enabled: flag(detail.dcc_enabled),
+        agriculture_enabled: flag(detail.agriculture_enabled),
+        options,
+    })
 }
 
 /// What to show somebody choosing between saved cards: the alias they gave

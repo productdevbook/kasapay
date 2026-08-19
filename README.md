@@ -86,9 +86,9 @@ lira only. `terminal` is a cash register driving a physical POS device: an
 OAuth2 bearer token that expires, and a call that returns when somebody has
 presented a card. `classic` is everything else, signed with `IYZWSv2`: the
 hosted checkout form, pre-authorisation and capture, refunds, cancel, stored
-cards and charging one, BIN lookup — with `iyzilink`, pay-by-link, `subscription`, the products and plans a
+cards and charging one, BIN and instalment lookup — with `iyzilink`, pay-by-link, `subscription`, the products and plans a
 recurring charge is sold out of, and `mass`, money going out rather than coming
-in, over the same client. Sixty of iyzico's ninety-six documented
+in, over the same client. Sixty-one of iyzico's ninety-six documented
 operations — `scripts/coverage.py` says which — and none of them touches a
 card number.
 

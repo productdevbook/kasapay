@@ -3,6 +3,26 @@
 What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
+## Unreleased
+
+### Added
+
+- **`classic::Client::instalments`**, iyzico's `/payment/iyzipos/installment`.
+  What a Turkish checkout needs before it draws its payment page: which
+  instalment counts a card's bank allows for an amount, and what the payer pays
+  for each. Every count is typed, including the single payment, because unlike
+  PayTR's own instalment service iyzico documents the entry shape.
+
+  `Instalment::total` is what the payment is opened for — the surcharge is the
+  merchant's arrangement with the bank and appears on nothing else — and
+  `Instalment::surcharge` is the difference from the basket.
+
+  Amounts on this endpoint are JSON **numbers**, where the same API writes
+  decimal strings everywhere else. Both directions go through the literal text
+  rather than an `f64`: `33.33` through a float and back is
+  `33.329999999999998`, which `Money::parse` would refuse — correctly, and for
+  the wrong reason.
+
 ## 0.0.3 — 2026-08-19
 
 ### Breaking
