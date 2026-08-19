@@ -46,6 +46,14 @@ order releases happen, newest first.
 
 ### Added
 
+- **`PayTr::instalment_rates`**, `/odeme/taksit-oranlari` — what a checkout
+  reads before it offers "pay in three", since the surcharge is the store's own
+  and is on no payment response. The four fields PayTR documents are typed; the
+  rates themselves stay on `InstalmentRates::raw`, because PayTR describes
+  `oranlar` as "the rates … in array format" and nowhere says what one entry
+  holds. A struct for it would be a shape invented here, and #73 is what a real
+  response body finishes.
+
 - **iyzico holds money as well as taking it.**
   `classic::Client::start_checkout_form_preauth` opens the hosted form in
   pre-authorisation mode, `classic::Client::preauth_with_saved_card` is
