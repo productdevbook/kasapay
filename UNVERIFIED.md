@@ -254,6 +254,25 @@ Mollie's multicurrency table gives JPY zero decimal places, so `1200` goes out
 with no decimal point. No example anywhere shows a payment in a currency that
 has none.
 
+### D3. A recurring payment is refused here without a `redirectUrl`
+
+`Mollie::charge_with_mandate` — and so `Provider::charge` with
+`ChargeRequest::instrument` set — refuses a request with no
+`ChargeRequest::return_url`, because `create` requires one on every payment it
+sends. A recurring charge has nobody to redirect: no checkout opens and the
+answer carries no `NextAction`.
+
+If Mollie's own rule is that `redirectUrl` is required except on a recurring
+payment, this crate is stricter than Mollie and a caller billing a subscription
+has to invent a URL that is never used. It was left strict rather than loosened
+on a recollection: sending a field Mollie ignores costs nothing, and dropping a
+field it turns out to want fails every renewal.
+
+What settles it: create a payment with `sequenceType: recurring`, a `mandateId`
+and no `redirectUrl`, against a sandbox key. A `201` means the requirement here
+can go; a `422` naming `redirectUrl` means it stays and this entry becomes a
+comment.
+
 ---
 
 ## What to do with an answer

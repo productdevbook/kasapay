@@ -1829,11 +1829,14 @@ fn parts(request: &ChargeRequest) -> Result<Parts, Error> {
 /// what the card is charged, and it is larger than the first under an
 /// instalment surcharge.
 fn checkout_form(request: &ChargeRequest) -> Result<CheckoutForm, Error> {
+    // parts first: a request with nothing set complains about the buyer, which
+    // is the order this named fields in before the two builders shared one
+    // assembly, and no reason to change.
+    let parts = parts(request)?;
     let callback_url = request
         .return_url
         .clone()
         .ok_or_else(|| missing("a return_url to send the payer back to"))?;
-    let parts = parts(request)?;
 
     let mut form = CheckoutForm::builder(
         request.order.clone(),

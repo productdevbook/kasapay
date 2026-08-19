@@ -474,6 +474,7 @@ async fn the_trait_charges_the_same_mandate() {
         Money::parse("10.00", Currency::Eur).expect("valid amount"),
     )
     .description("Order #12345")
+    .return_url("https://example.com".parse().expect("valid url"))
     .customer("cst_tKt44u85MM")
     .instrument(InstrumentId::issued("mdt_uDPFVsxjR4"))
     .sequence(Sequence::Unattended)
@@ -512,6 +513,7 @@ async fn a_present_payer_spending_a_mandate_sends_what_an_absent_one_does() {
         Money::parse("10.00", Currency::Eur).expect("valid amount"),
     )
     .description("Order #12345")
+    .return_url("https://example.com".parse().expect("valid url"))
     .customer("cst_tKt44u85MM")
     .instrument(InstrumentId::issued("mdt_uDPFVsxjR4"))
     .build()
@@ -533,6 +535,7 @@ async fn a_first_payment_that_also_names_a_mandate_never_reaches_the_wire() {
         Money::parse("10.00", Currency::Eur).expect("valid amount"),
     )
     .description("Order #12345")
+    .return_url("https://example.com".parse().expect("valid url"))
     .customer("cst_tKt44u85MM")
     .instrument(InstrumentId::issued("mdt_uDPFVsxjR4"))
     .sequence(Sequence::First)
