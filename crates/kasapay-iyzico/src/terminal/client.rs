@@ -22,6 +22,7 @@ pub struct Config {
     base_url: Url,
     timeout: Duration,
     locale: Locale,
+    timestamps: Timestamps,
 }
 
 impl Config {
@@ -64,6 +65,7 @@ impl Config {
             base_url: Url::parse(base_url)?,
             timeout: Self::DEFAULT_TIMEOUT,
             locale: Locale::Turkish,
+            timestamps: Timestamps::Seconds,
         })
     }
 
@@ -81,8 +83,24 @@ impl Config {
         self
     }
 
+    /// Changes what unit `request_timestamp` is sent in, from
+    /// [`Timestamps::Seconds`].
+    ///
+    /// The switch for one of the two things #96 could not settle without a
+    /// till. Read [`Timestamps`] before flipping it: it exists so that being
+    /// wrong is a line of configuration rather than a fork of this crate.
+    #[must_use]
+    pub const fn timestamps(mut self, timestamps: Timestamps) -> Self {
+        self.timestamps = timestamps;
+        self
+    }
+
     pub(super) const fn request_timeout(&self) -> Duration {
         self.timeout
+    }
+
+    pub(super) const fn timestamp_unit(&self) -> Timestamps {
+        self.timestamps
     }
 
     pub(super) fn endpoint(&self, path: &str) -> Result<Url, Error> {
@@ -90,6 +108,28 @@ impl Config {
             Error::new(ErrorKind::InvalidRequest, PROVIDER, "endpoint is not a URL").with_source(e)
         })
     }
+}
+
+/// What unit `request_timestamp` is sent in.
+///
+/// iyzico asks for "the Unix timestamp value of the relevant request" and says
+/// nothing more, and their own classic API writes its own `systemTime` in
+/// milliseconds — so the two readings are both defensible and only one can be
+/// right. There is no Terminal API sandbox without a merchant agreement and a
+/// Pavo device, so nobody here has been able to ask.
+///
+/// This exists because being wrong about it would not be loud. A rejected
+/// timestamp comes back as a login that failed, which reads like bad
+/// credentials; a caller with a real till can flip this in one line instead of
+/// forking the crate to find out. See #96.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[non_exhaustive]
+pub enum Timestamps {
+    /// Seconds since the epoch, which is what a Unix timestamp is. The default.
+    #[default]
+    Seconds,
+    /// Milliseconds, which is what iyzico's classic API writes `systemTime` in.
+    Milliseconds,
 }
 
 /// Drives a POS terminal through iyzico's VUK 509 Terminal Host services.

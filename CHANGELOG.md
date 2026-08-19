@@ -46,6 +46,14 @@ order releases happen, newest first.
 
 ### Added
 
+- **`terminal::Config::timestamps`**, and `terminal::Timestamps`. iyzico asks
+  the Terminal API's login for "the Unix timestamp value of the relevant
+  request" and never says in what unit, while their own classic API writes
+  `systemTime` in milliseconds. Seconds is still what is sent; this is the
+  switch, and it exists because that particular guess fails *quietly* — a
+  rejected timestamp reads as a login that did not work. The other two things
+  #96 could not settle fail loudly and have no switch.
+
 - **`PayTr::instalment_rates`**, `/odeme/taksit-oranlari` — what a checkout
   reads before it offers "pay in three", since the surcharge is the store's own
   and is on no payment response. The four fields PayTR documents are typed; the

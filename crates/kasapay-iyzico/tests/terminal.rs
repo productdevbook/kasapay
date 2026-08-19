@@ -23,7 +23,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{Currency, ErrorKind, Money, Secret};
 use kasapay_iyzico::terminal::{
-    CardType, Client, Config, Credentials, Login, Query, Reference, Refund, Sale, SalesType, Void,
+    CardType, Client, Config, Credentials, Login, Query, Reference, Refund, Sale, SalesType,
+    Timestamps, Void,
 };
 use serde_json::json;
 use wiremock::matchers::{body_json, body_string_contains, header, method, path};
@@ -119,6 +120,35 @@ async fn mount_authorize(server: &MockServer) {
         .respond_with(ResponseTemplate::new(200).set_body_json(auth_code_response()))
         .mount(server)
         .await;
+}
+
+/// The unit iyzico did not name, and the switch for a caller who finds out.
+#[tokio::test]
+async fn a_login_can_be_told_to_send_milliseconds_instead() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/in-store/oauth2/authorize"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(auth_code_response()))
+        .mount(&server)
+        .await;
+
+    Login::new(
+        config(&server).timestamps(Timestamps::Milliseconds),
+        credentials(),
+    )
+    .expect("client builds")
+    .authorize()
+    .await
+    .expect("iyzico issues an auth code");
+
+    let sent = &server.received_requests().await.expect("recorded")[0];
+    let body = String::from_utf8_lossy(&sent.body);
+    let stamp = body
+        .split('&')
+        .find_map(|field| field.strip_prefix("request_timestamp="))
+        .expect("the timestamp is sent");
+    // Thirteen digits is milliseconds; ten is seconds, which is the default.
+    assert_eq!(stamp.len(), 13, "{body}");
 }
 
 #[tokio::test]
