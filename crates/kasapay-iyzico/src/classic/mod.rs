@@ -53,12 +53,15 @@
 //! they live in [`crate::iyzilink`], [`crate::subscription`] and
 //! [`crate::mass`], over this same [`Client`].
 //!
-//! [`Client`] implements [`Provider`](kasapay_core::Provider), and most of
-//! what starts a payment there answers
-//! [`ErrorKind::Unsupported`](kasapay_core::ErrorKind::Unsupported): the hosted
-//! form needs more than `ChargeRequest` carries to start, and what identifies
-//! one before the payer finishes is a [`FormToken`] rather than a
-//! [`PaymentId`](kasapay_core::PaymentId). What the trait does answer is
+//! [`Client`] implements [`Provider`](kasapay_core::Provider), and
+//! [`charge`](kasapay_core::Provider::charge) opens the hosted form: it builds
+//! a [`CheckoutForm`](checkout::CheckoutForm) out of [`ChargeRequest::buyer`](kasapay_core::ChargeRequest::buyer),
+//! the addresses and the basket, and names the field when one iyzico requires
+//! is not there. What the trait cannot reach is the form's own settings —
+//! holding the money rather than taking it, and which instalment counts are
+//! offered — and reading back a form the payer has not finished, because what
+//! identifies one is a [`FormToken`] rather than a
+//! [`PaymentId`](kasapay_core::PaymentId). The rest of the trait is
 //! [`capture`](kasapay_core::Provider::capture),
 //! [`refund`](kasapay_core::Provider::refund),
 //! [`charge_status`](kasapay_core::Provider::charge_status),

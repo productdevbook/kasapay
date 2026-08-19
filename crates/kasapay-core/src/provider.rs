@@ -129,6 +129,21 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// [`next_action`](Charge::next_action): a provider that redirects the
     /// payer answers [`Status::RequiresAction`](crate::Status::RequiresAction)
     /// here, and the payment is only decided once they come back.
+    ///
+    /// # A request that satisfies one provider may not satisfy another
+    ///
+    /// Everything past the order reference and the amount is optional on
+    /// [`ChargeRequest`], because what is mandatory is the provider's
+    /// decision rather than a payment's. iyzico's classic API refuses a
+    /// payment without a buyer's identity number, an address and an itemised
+    /// basket; PayTR refuses one without the payer's own IP address; Stripe
+    /// and Mollie ask for none of it.
+    ///
+    /// An adapter that is not given a field it needs answers
+    /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest)
+    /// **naming the field**, before a socket opens. So the request that works
+    /// everywhere is the one carrying what the strictest provider asks, and
+    /// swapping to a laxer one costs nothing: the extra fields are ignored.
     async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error>;
 
     /// Reads a charge back.

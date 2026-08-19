@@ -6,14 +6,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use kasapay_core::{
-    Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
-    InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund,
-    RefundReason, RefundRequest, RefundStatus, Status,
+    Address, BasketItem, Buyer, Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind,
+    IdempotencyKey, Instrument, InstrumentId, ItemKind, Money, NextAction, OrderRef, PaymentId,
+    Provider, ProviderId, Raw, Refund, RefundReason, RefundRequest, RefundStatus, Status,
 };
 use serde_json::value::RawValue;
 use url::Url;
 
-use crate::classic::checkout::CheckoutForm;
+use crate::classic::checkout::{self, CheckoutForm};
 use crate::classic::instalments::{self, flag, number_as_money};
 use crate::classic::{FormToken, saved, signature, wire};
 use crate::reporting;
@@ -1662,32 +1662,184 @@ fn http_error(status: reqwest::StatusCode, body: &str) -> Error {
     Error::new(kind, PROVIDER, format!("HTTP {status}: {body}"))
 }
 
-/// The hosted checkout form is not a flow the shared trait can drive.
+/// What iyzico's hosted form needs that a [`ChargeRequest`] may not have been
+/// given.
+fn missing(field: &str) -> Error {
+    Error::new(
+        ErrorKind::InvalidRequest,
+        PROVIDER,
+        format!("iyzico's hosted form requires {field}"),
+    )
+}
+
+/// The buyer's full name, for an address that names nobody.
+fn full_name(buyer: &Buyer) -> Box<str> {
+    match buyer.surname.as_deref() {
+        Some(surname) => format!("{} {surname}", buyer.name).into(),
+        None => buyer.name.clone(),
+    }
+}
+
+/// Turns a core address into iyzico's, naming whom it is for.
+fn address(source: &Address, buyer: &Buyer) -> checkout::Address {
+    checkout::Address {
+        contact_name: source
+            .contact_name
+            .clone()
+            .unwrap_or_else(|| full_name(buyer)),
+        address: source.line.clone(),
+        city: source.city.clone(),
+        country: source.country.clone(),
+        zip_code: source.zip_code.clone(),
+    }
+}
+
+/// Turns one basket line into iyzico's, which has no count of its own.
+fn basket_item(item: &BasketItem) -> Result<checkout::BasketItem, Error> {
+    Ok(checkout::BasketItem {
+        id: item.id.clone(),
+        name: item.name.clone(),
+        category: item
+            .category
+            .clone()
+            .ok_or_else(|| missing("a category on every basket line"))?,
+        kind: match item.kind {
+            ItemKind::Physical => checkout::ItemKind::Physical,
+            ItemKind::Virtual => checkout::ItemKind::Virtual,
+        },
+        price: item.line_total().map_err(|e| {
+            Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e)
+        })?,
+    })
+}
+
+/// Builds the hosted form iyzico wants out of the shared request.
 ///
-/// Every operation on it answers [`ErrorKind::Unsupported`], for two different
-/// reasons. `charge` cannot be honoured because the form needs a buyer's
-/// identity number, two addresses and an itemised basket, none of which
-/// [`ChargeRequest`] carries and none of which belongs in it. `charge_status`
-/// cannot, because what identifies an unfinished form is a [`FormToken`] and
-/// this trait names a payment by a [`PaymentId`]. The calls are
-/// [`Client::start_checkout_form`] and [`Client::checkout_result`]. What is
-/// left of the trait here is [`Provider::id`], [`Provider::instruments`] —
-/// the same `/cardstorage/cards` call [`Client::stored_cards`] makes,
-/// `customer` being the `cardUserKey` — and [`Provider::capabilities`], all of
-/// which a caller can still ask of this client alongside any other.
+/// `price` is what the basket comes to and `paid_price` is
+/// [`ChargeRequest::amount`], which is iyzico's own distinction: the second is
+/// what the card is charged, and it is larger than the first under an
+/// instalment surcharge.
+fn checkout_form(request: &ChargeRequest) -> Result<CheckoutForm, Error> {
+    let buyer = request.buyer.as_ref().ok_or_else(|| missing("a buyer"))?;
+    let callback_url = request
+        .return_url
+        .clone()
+        .ok_or_else(|| missing("a return_url to send the payer back to"))?;
+    let billing = request
+        .billing_address
+        .as_ref()
+        .or(buyer.address.as_ref())
+        .ok_or_else(|| missing("a billing address"))?;
+    let registration = buyer.address.as_ref().unwrap_or(billing);
+    if request.basket.is_empty() {
+        return Err(missing("a basket with at least one line"));
+    }
+
+    let basket = request
+        .basket
+        .iter()
+        .map(basket_item)
+        .collect::<Result<Vec<_>, _>>()?;
+    let price = basket
+        .iter()
+        .try_fold(
+            Money::from_minor_units(0, request.amount.currency()),
+            |sum, item| sum.checked_add(item.price),
+        )
+        .map_err(|e| {
+            Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e)
+        })?;
+
+    let iyzico_buyer = checkout::Buyer {
+        id: request
+            .customer
+            .clone()
+            .unwrap_or_else(|| buyer.email.clone()),
+        name: buyer.name.clone(),
+        surname: buyer
+            .surname
+            .clone()
+            .ok_or_else(|| missing("the buyer's surname"))?,
+        identity_number: buyer
+            .identity_number
+            .clone()
+            .ok_or_else(|| missing("the buyer's identity number"))?,
+        email: buyer.email.clone(),
+        phone: buyer
+            .phone
+            .clone()
+            .ok_or_else(|| missing("the buyer's phone number"))?,
+        registration_address: registration.line.clone(),
+        city: registration.city.clone(),
+        country: registration.country.clone(),
+        zip_code: registration.zip_code.clone(),
+        ip: buyer.ip.clone(),
+    };
+
+    let mut form = CheckoutForm::builder(request.order.clone(), price, callback_url, iyzico_buyer)
+        .paid_price(request.amount)
+        .billing_address(address(billing, buyer));
+    if let Some(shipping) = request.shipping_address.as_ref() {
+        form = form.shipping_address(address(shipping, buyer));
+    }
+    if let Some(customer) = request.customer.as_ref() {
+        form = form.card_user_key(customer.clone());
+    }
+    for item in basket {
+        form = form.item(item);
+    }
+    form.build()
+        .map_err(|e| Error::new(ErrorKind::InvalidRequest, PROVIDER, e.to_string()).with_source(e))
+}
+
+/// The hosted checkout form, driven from the shared trait where it can be.
+///
+/// [`Provider::charge`] opens one: it builds a [`CheckoutForm`] out of
+/// [`ChargeRequest::buyer`], the addresses and the basket, and refuses with
+/// [`ErrorKind::InvalidRequest`] **naming the field** when one iyzico requires
+/// is missing — before a socket opens. What it cannot reach is everything the
+/// form has and the shared request does not: holding the money rather than
+/// taking it, restricting which instalment counts are offered, and a
+/// `cardUserKey` that is not the customer reference. Those are
+/// [`Client::start_checkout_form`] and [`Client::start_checkout_form_preauth`].
+///
+/// [`Provider::charge_status`] still cannot read back an *unfinished* form,
+/// because what identifies one is a [`FormToken`] and this trait names a
+/// payment by a [`PaymentId`]; that is [`Client::checkout_result`].
 #[async_trait::async_trait]
 impl Provider for Client {
     fn id(&self) -> ProviderId {
         PROVIDER
     }
 
-    async fn charge(&self, _request: &ChargeRequest) -> Result<Charge, Error> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            PROVIDER,
-            "the classic API takes a payment through a hosted form, which needs a buyer, \
-             two addresses and a basket; call Client::start_checkout_form",
-        ))
+    /// Opens a hosted checkout form — the same call as
+    /// [`Client::start_checkout_form`], built out of the shared request.
+    ///
+    /// # What iyzico requires and a [`ChargeRequest`] does not
+    ///
+    /// A buyer with a surname, an identity number and a phone number; a
+    /// billing address, or an address on the buyer, which stands in for both;
+    /// a `return_url`; and a basket whose every line names a category. Each
+    /// missing one is [`ErrorKind::InvalidRequest`] naming it, which is a
+    /// better failure than iyzico's own numbered error code.
+    ///
+    /// # The basket sets the price, the request sets what is charged
+    ///
+    /// iyzico refuses a basket whose lines do not add up to `price`, so the
+    /// basket *is* the price here and [`ChargeRequest::amount`] is `paidPrice`
+    /// — the figure the card is charged. Charging more than the basket comes
+    /// to is how an instalment surcharge is expressed, and iyzico allows it.
+    ///
+    /// # The charge that comes back has no payment id
+    ///
+    /// Nothing has happened yet: the answer is [`Status::RequiresAction`] with
+    /// [`NextAction::Redirect`] to iyzico's form. The payment id arrives with
+    /// [`Client::checkout_result`], which is also where the money is either
+    /// taken or refused. `idempotency_key` is ignored, as it is everywhere in
+    /// this API — iyzico accepts no idempotency mechanism.
+    async fn charge(&self, request: &ChargeRequest) -> Result<Charge, Error> {
+        let form = checkout_form(request)?;
+        self.start_checkout_form(&form).await
     }
 
     /// Reads a payment back by its id, through [`Client::payment`].

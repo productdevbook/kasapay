@@ -130,11 +130,47 @@ async fn opening_a_payment_signs_the_documented_fields() {
     }
 }
 
+/// The same payment as `payment()`, as a `ChargeRequest`.
+fn charge_request() -> kasapay_core::ChargeRequest {
+    kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/ok".parse().expect("valid url"))
+    .failure_url("https://merchant.test/no".parse().expect("valid url"))
+    .buyer(
+        kasapay_core::Buyer::new("Ayse Yilmaz", "ayse@example.test")
+            .phone("+905350000000")
+            .ip("203.0.113.7")
+            .address(kasapay_core::Address::new(
+                "Bagdat Cad. 1",
+                "Istanbul",
+                "Turkey",
+            )),
+    )
+    .item(kasapay_core::BasketItem::new(
+        "item-1",
+        "Kahve",
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    ))
+    .build()
+    .expect("valid request")
+}
+
 /// What `reqwest`'s form encoder does to a base64 token.
 fn urlencoding(value: &str) -> String {
     value
         .replace('+', "%2B")
         .replace('/', "%2F")
+        .replace('=', "%3D")
+}
+
+/// The same, for a URL: `reqwest` escapes the colon and the slashes too.
+fn urlencoding_full(value: &str) -> String {
+    value
+        .replace(':', "%3A")
+        .replace('/', "%2F")
+        .replace('+', "%2B")
         .replace('=', "%3D")
 }
 
@@ -348,22 +384,126 @@ async fn a_payment_paytr_does_not_know_is_not_found() {
 }
 
 #[tokio::test]
-async fn starting_a_payment_through_the_shared_trait_is_refused_with_the_way_out() {
+async fn the_trait_opens_the_same_payment_out_of_a_charge_request() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/api/get-token"))
+        // The same signature the hand-built payment produces: what goes on the
+        // wire is identical, and the hash would move if any field were not.
+        .and(body_string_contains(urlencoding(
+            "fYtW58G/x2bj+w89dUrab6MyxiTd9WMUHZC/cN6fP1o=",
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "token": "form-token-1",
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = client(&server)
+        .charge(&charge_request())
+        .await
+        .expect("the payment opens");
+
+    assert_eq!(charge.status, Status::RequiresAction);
+    assert_eq!(charge.amount.minor_units(), 14_990);
+}
+
+/// One URL where PayTR insists on two. A caller that reads the outcome off the
+/// payment rather than off which page the payer landed on has one, and PayTR
+/// would refuse the token without the second.
+#[tokio::test]
+async fn one_return_url_serves_for_both_outcomes() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/api/get-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "token": "form-token-1",
+        })))
+        .mount(&server)
+        .await;
+
+    let one_url = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/ok".parse().expect("valid url"))
+    .buyer(
+        kasapay_core::Buyer::new("Ayse Yilmaz", "ayse@example.test")
+            .phone("+905350000000")
+            .ip("203.0.113.7")
+            .address(kasapay_core::Address::new(
+                "Bagdat Cad. 1",
+                "Istanbul",
+                "Turkey",
+            )),
+    )
+    .item(kasapay_core::BasketItem::new(
+        "item-1",
+        "Kahve",
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    ))
+    .build()
+    .expect("valid request");
+
+    client(&server)
+        .charge(&one_url)
+        .await
+        .expect("the payment opens");
+
+    let sent = server.received_requests().await.expect("recorded");
+    let body = String::from_utf8(sent.first().expect("one request").body.clone()).expect("utf-8");
+    let ok = urlencoding_full("https://merchant.test/ok");
+    assert!(body.contains(&format!("merchant_ok_url={ok}")), "{body}");
+    assert!(body.contains(&format!("merchant_fail_url={ok}")), "{body}");
+}
+
+/// Each field PayTR requires and `ChargeRequest` does not, named before a
+/// socket opens. PayTR's own answer would be a numbered `err_no`.
+#[tokio::test]
+async fn a_charge_missing_what_paytr_requires_says_which_field() {
     let server = MockServer::start().await;
     // No mock: a request reaching the network would fail the test.
-    let request = kasapay_core::ChargeRequest::builder(
+    let bare = kasapay_core::ChargeRequest::builder(
         OrderRef::new("ord-1"),
         Money::parse("149.90", Currency::Try).expect("valid amount"),
     )
     .build()
     .expect("valid request");
-
     let error = client(&server)
-        .charge(&request)
+        .charge(&bare)
         .await
-        .expect_err("PayTR needs more than a ChargeRequest carries");
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert!(error.to_string().contains("start_payment"));
+        .expect_err("no buyer at all");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert!(error.to_string().contains("a buyer"), "{error}");
+
+    let no_ip = kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .return_url("https://merchant.test/ok".parse().expect("valid url"))
+    .buyer(
+        kasapay_core::Buyer::new("Ayse Yilmaz", "ayse@example.test")
+            .phone("+905350000000")
+            .address(kasapay_core::Address::new(
+                "Bagdat Cad. 1",
+                "Istanbul",
+                "Turkey",
+            )),
+    )
+    .item(kasapay_core::BasketItem::new(
+        "item-1",
+        "Kahve",
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    ))
+    .build()
+    .expect("valid request");
+    let error = client(&server)
+        .charge(&no_ip)
+        .await
+        .expect_err("PayTR refuses a token with no payer IP");
+    assert!(error.to_string().contains("came from"), "{error}");
 }
 
 #[tokio::test]

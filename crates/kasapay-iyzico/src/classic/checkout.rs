@@ -1,12 +1,19 @@
 //! The hosted checkout form: what iyzico needs to open one.
 //!
-//! Everything here is iyzico's shape rather than kasapay's, because the form
-//! needs more than [`ChargeRequest`](kasapay_core::ChargeRequest) carries and
-//! most of it is mandatory — a buyer's identity number, a billing and a
-//! shipping address, and the basket itemised. Those are what iyzico's
-//! compliance needs, not what every payment needs, so they stay here.
+//! Everything here is iyzico's shape rather than kasapay's — a buyer's
+//! identity number, a billing and a shipping address, the basket itemised, and
+//! the two prices iyzico keeps apart.
 //!
-//! What comes back is kasapay's shape: a [`Charge`](kasapay_core::Charge).
+//! Most callers do not build one.
+//! [`Provider::charge`](kasapay_core::Provider::charge) assembles it from a
+//! [`ChargeRequest`](kasapay_core::ChargeRequest) carrying a
+//! [`Buyer`](kasapay_core::Buyer) and a basket, which is the portable way in.
+//! This is what that is built out of, and what to build by hand for the two
+//! things the shared request has no word for: which instalment counts to
+//! offer, and a `cardUserKey` that is not the customer reference.
+//!
+//! What comes back is kasapay's shape either way: a
+//! [`Charge`](kasapay_core::Charge).
 
 use kasapay_core::{Money, MoneyError, OrderRef};
 

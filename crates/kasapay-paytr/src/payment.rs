@@ -1,10 +1,15 @@
 //! What PayTR needs to open a payment.
 //!
-//! More than [`ChargeRequest`](kasapay_core::ChargeRequest) carries, and all
-//! of it required: an email, the payer's own IP address, a name, an address, a
-//! phone number, two return URLs and an itemised basket. That is the third
-//! provider in a row whose payment form needs things the shared request cannot
-//! hold, which is why this type exists rather than the trait growing.
+//! All of it required: an email, the payer's own IP address, a name, an
+//! address, a phone number, two return URLs and an itemised basket.
+//!
+//! Most callers do not build one.
+//! [`Provider::charge`](kasapay_core::Provider::charge) assembles it from a
+//! [`ChargeRequest`](kasapay_core::ChargeRequest) carrying a
+//! [`Buyer`](kasapay_core::Buyer) and a basket, which is the portable way in.
+//! This is what to build by hand for the two things the shared request has no
+//! word for: refusing instalments altogether, and capping how many are
+//! offered.
 
 use kasapay_core::{Money, MoneyError, OrderRef};
 use url::Url;

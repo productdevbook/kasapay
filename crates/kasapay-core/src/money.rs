@@ -273,6 +273,20 @@ impl Money {
             .ok_or_else(|| MoneyError::Overflow(format!("{self} - {other}")))
     }
 
+    /// Multiplies by a count — a unit price by how many were bought.
+    ///
+    /// Fails on the overflow that would otherwise wrap a line total round to a
+    /// negative one.
+    pub fn checked_mul(self, count: u32) -> Result<Self, MoneyError> {
+        self.minor_units
+            .checked_mul(i64::from(count))
+            .map(|minor_units| Self {
+                minor_units,
+                currency: self.currency,
+            })
+            .ok_or_else(|| MoneyError::Overflow(format!("{self} x {count}")))
+    }
+
     /// Whether the amount is exactly zero.
     #[must_use]
     pub const fn is_zero(self) -> bool {
