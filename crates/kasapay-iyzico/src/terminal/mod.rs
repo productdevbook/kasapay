@@ -204,7 +204,10 @@
 //! - **`request_timestamp` has no unit.** "The Unix timestamp value of the
 //!   relevant request", and nothing more. [`Login::authorize`] sends seconds;
 //!   iyzico's classic API writes its own `systemTime` in milliseconds. Not
-//!   checked against a live account.
+//!   checked against a live account — and the one of these three whose failure
+//!   would not be loud, since a rejected timestamp reads as a login that did
+//!   not work. [`Config::timestamps`] is the switch, so a caller with a real
+//!   till changes a line rather than this crate.
 //!
 //! # Not checked against a live account
 //!
@@ -213,6 +216,12 @@
 //! The three worth checking first are `request_timestamp`'s unit, `salesType`,
 //! and whether a query by `paymentId` alone really may leave `deviceUniqueId`
 //! out — the prose says so and the schema says the opposite.
+//!
+//! Two of the three fail loudly if the reading is wrong: `salesType` is a
+//! required field, so the wrong spelling is a refusal, and a query missing a
+//! field iyzico wants is error `380111`. Loud is survivable — the answer
+//! arrives with the first call and the fix is one line here. The timestamp is
+//! the quiet one, which is why it is the only one with a switch.
 //!
 //! # Example
 //!
@@ -265,7 +274,7 @@ fn transport_error(error: &reqwest::Error) -> Error {
 }
 
 #[doc(inline)]
-pub use crate::terminal::client::{CardType, Client, Config, Payment};
+pub use crate::terminal::client::{CardType, Client, Config, Payment, Timestamps};
 #[doc(inline)]
 pub use crate::terminal::login::{AuthCode, Credentials, Login, Token};
 #[doc(inline)]

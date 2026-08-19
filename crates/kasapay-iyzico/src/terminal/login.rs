@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use kasapay_core::{Error, ErrorKind, Raw, Secret};
 use url::Url;
 
-use crate::terminal::client::Config;
+use crate::terminal::client::{Config, Timestamps};
 use crate::terminal::wire;
 use crate::terminal::{PROVIDER, transport_error};
 
@@ -207,10 +207,13 @@ impl Login {
     /// # `request_timestamp`
     ///
     /// iyzico asks for "the Unix timestamp value of the relevant request" and
-    /// does not say in what unit. This sends **seconds**, which is what a Unix
-    /// timestamp is; their classic API writes its own `systemTime` in
-    /// milliseconds, so the two readings are both defensible and only one can
-    /// be right. It has not been checked against a live account.
+    /// does not say in what unit. This sends **seconds** by default, which is
+    /// what a Unix timestamp is; their classic API writes its own `systemTime`
+    /// in milliseconds, so the two readings are both defensible and only one
+    /// can be right. It has not been checked against a live account, and
+    /// [`Config::timestamps`] is the switch for a caller who has one — see
+    /// [`Timestamps`](crate::terminal::Timestamps) for why that switch exists
+    /// rather than a guess held harder.
     pub async fn authorize(&self) -> Result<AuthCode, Error> {
         let credentials = &self.inner.credentials;
         let body = wire::AuthorizeRequest {
@@ -220,7 +223,7 @@ impl Login {
             response_type: RESPONSE_TYPE,
             username: credentials.username.expose(),
             password: credentials.password.expose(),
-            request_timestamp: unix_seconds()?,
+            request_timestamp: unix_timestamp(self.inner.config.timestamp_unit())?,
         };
         let request = self
             .inner
@@ -406,11 +409,14 @@ fn kind_for_status(status: reqwest::StatusCode, documented: ErrorKind) -> ErrorK
     }
 }
 
-/// Now, in whole seconds since the epoch.
-fn unix_seconds() -> Result<String, Error> {
+/// Now, in whatever unit the configuration says iyzico wants.
+fn unix_timestamp(unit: Timestamps) -> Result<String, Error> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|since| since.as_secs().to_string())
+        .map(|since| match unit {
+            Timestamps::Seconds => since.as_secs().to_string(),
+            Timestamps::Milliseconds => since.as_millis().to_string(),
+        })
         .map_err(|e| {
             Error::new(
                 ErrorKind::InvalidRequest,
@@ -423,7 +429,7 @@ fn unix_seconds() -> Result<String, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Token, unix_seconds};
+    use super::{Timestamps, Token, unix_timestamp};
     use kasapay_core::{Raw, Secret};
     use std::time::{Duration, SystemTime};
 
@@ -483,10 +489,17 @@ mod tests {
     }
 
     #[test]
-    fn a_timestamp_is_whole_seconds() {
-        let stamp = unix_seconds().expect("this machine's clock is after 1970");
-        assert!(stamp.bytes().all(|b| b.is_ascii_digit()));
+    fn a_timestamp_is_whole_seconds_unless_the_caller_says_otherwise() {
+        let seconds =
+            unix_timestamp(Timestamps::Seconds).expect("this machine's clock is after 1970");
+        assert!(seconds.bytes().all(|b| b.is_ascii_digit()));
         // Milliseconds would be thirteen digits until 2286; seconds are ten.
-        assert_eq!(stamp.len(), 10);
+        assert_eq!(seconds.len(), 10);
+
+        let millis =
+            unix_timestamp(Timestamps::Milliseconds).expect("this machine's clock is after 1970");
+        assert_eq!(millis.len(), 13);
+        // The same instant, and the unit is the only difference.
+        assert_eq!(&millis[..10], &seconds[..10]);
     }
 }
