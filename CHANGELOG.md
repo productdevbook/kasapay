@@ -7,6 +7,22 @@ order releases happen, newest first.
 
 ### Added
 
+- **`terminal::gmu`** — VUK 507, the Terminal API's other integration, all
+  nine operations of it. A merchant chooses this one or VUK 509 with iyzico,
+  and the difference is what a sale is: here the device issues the fiscal
+  document, so the sale carries every line with its unit code and VAT group,
+  the document type, and the buyer's tax office and number when the buyer is a
+  business.
+
+  Which makes its refund a different act too: `gmu::Client::refundable_sale`
+  answers what is still returnable per line, and a refund names the lines
+  coming back rather than an amount. And its partial payment holds a sale open
+  across three calls — a sale never completed is one nobody has been charged
+  for and the device is still holding.
+
+  With this, all fourteen `terminal-host` operations iyzico documents are
+  implemented.
+
 - **`terminal::Client::end_of_day`**, `POST /v2/terminal-host/eod`. A till runs
   this once a day and the bank expects it: until the batch is closed the day's
   sales are authorised and not settled. It answers a batch number and a total

@@ -84,11 +84,15 @@ refund in an app before the money moves.
 authenticate the same way. `in_store` is the counter flow, three plain headers,
 lira only. `terminal` is a cash register driving a physical POS device: an
 OAuth2 bearer token that expires, and a call that returns when somebody has
-presented a card. `classic` is everything else, signed with `IYZWSv2`: the
-hosted checkout form, Pay with iyzico, pre-authorisation and capture, refunds,
-cancel, stored cards and charging one, BIN and instalment lookup — with `iyzilink`, pay-by-link, `subscription`, the products and plans a
-recurring charge is sold out of, and `mass`, money going out rather than coming
-in, over the same client. Seventy-nine of iyzico's ninety-six documented
+presented a card — in both of the integrations iyzico offers for it, including
+the one where the device issues the fiscal receipt and a refund names the lines
+coming back rather than an amount. `classic` is everything else, signed with
+`IYZWSv2`: the hosted checkout form, Pay with iyzico, pre-authorisation and
+capture, refunds, cancel, stored cards and charging one, BIN and instalment
+lookup — with `iyzilink`, pay-by-link, `subscription`, the catalogue and the
+subscriptions sold out of it, `onboarding`, marketplace sellers and their
+payouts, and `mass`, money going out rather than coming in, over the same
+client. Eighty-eight of iyzico's ninety-six documented
 operations — `scripts/coverage.py` says which — and none of them touches a
 card number.
 

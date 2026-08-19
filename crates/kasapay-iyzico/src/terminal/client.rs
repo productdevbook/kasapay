@@ -324,33 +324,10 @@ impl Client {
         let (response, raw) = self
             .post::<wire::EndOfDayResponse>("v2/terminal-host/eod", &body)
             .await?;
-        Ok(EndOfDay {
-            batch_no: response.batch_no.map(String::into_boxed_str),
-            result_message: response.result_message.map(String::into_boxed_str),
-            conversation_id: response.conversation_id.map(String::into_boxed_str),
-            totals: response
-                .totals
-                .unwrap_or_default()
-                .into_iter()
-                .map(|total| BatchTotal {
-                    acquirer_id: total.acquirer_id.map(String::into_boxed_str),
-                    acquirer_name: total.acquirer_name.map(String::into_boxed_str),
-                    terminal_id: total.terminal_id.map(String::into_boxed_str),
-                    bank_merchant_id: total.bank_merchant_id.map(String::into_boxed_str),
-                    batch_no: total.batch_no.map(String::into_boxed_str),
-                    // Kept as iyzico wrote them: their schema types both as
-                    // strings and names no currency for the amount, so reading
-                    // either as a number here would be inventing one.
-                    total_amount: total.total_transaction_amount.map(String::into_boxed_str),
-                    total_count: total.total_transaction_count.map(String::into_boxed_str),
-                    response_code: total.response_code.map(String::into_boxed_str),
-                })
-                .collect(),
-            raw,
-        })
+        Ok(EndOfDay::read(response, raw))
     }
 
-    fn locale(&self) -> &'static str {
+    pub(crate) fn locale(&self) -> &'static str {
         self.inner.config.locale.as_str()
     }
 
@@ -361,7 +338,7 @@ impl Client {
 
     /// Every Terminal Host call: the bearer token, the JSON, and iyzico's own
     /// failure envelope read the same way whatever the operation answered.
-    async fn post<R: serde::de::DeserializeOwned>(
+    pub(crate) async fn post<R: serde::de::DeserializeOwned>(
         &self,
         path: &str,
         body: &impl serde::Serialize,
@@ -491,6 +468,38 @@ pub struct EndOfDay {
     pub totals: Vec<BatchTotal>,
     /// iyzico's own answer, untouched.
     pub raw: Raw,
+}
+
+impl EndOfDay {
+    /// The same answer for both integrations: VUK 509's own end of day and
+    /// [`gmu::Client::end_of_day`](crate::terminal::gmu::Client::end_of_day)
+    /// are documented with one body between them.
+    pub(crate) fn read(response: wire::EndOfDayResponse, raw: Raw) -> Self {
+        Self {
+            batch_no: response.batch_no.map(String::into_boxed_str),
+            result_message: response.result_message.map(String::into_boxed_str),
+            conversation_id: response.conversation_id.map(String::into_boxed_str),
+            totals: response
+                .totals
+                .unwrap_or_default()
+                .into_iter()
+                .map(|total| BatchTotal {
+                    acquirer_id: total.acquirer_id.map(String::into_boxed_str),
+                    acquirer_name: total.acquirer_name.map(String::into_boxed_str),
+                    terminal_id: total.terminal_id.map(String::into_boxed_str),
+                    bank_merchant_id: total.bank_merchant_id.map(String::into_boxed_str),
+                    batch_no: total.batch_no.map(String::into_boxed_str),
+                    // Kept as iyzico wrote them: their schema types both as
+                    // strings and names no currency for the amount, so reading
+                    // either as a number here would be inventing one.
+                    total_amount: total.total_transaction_amount.map(String::into_boxed_str),
+                    total_count: total.total_transaction_count.map(String::into_boxed_str),
+                    response_code: total.response_code.map(String::into_boxed_str),
+                })
+                .collect(),
+            raw,
+        }
+    }
 }
 
 /// What one acquiring bank settled in the batch just closed.

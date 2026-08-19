@@ -26,10 +26,10 @@
 //! | Takes | cards | cards, cash, meal cards, QR |
 //! | Produces | no fiscal receipt; e-invoice elsewhere | a fiscal receipt, with the sale's line items |
 //! | Paths | `/v2/terminal-host/…` | `/v2/terminal-host/gmu/…` |
-//! | Here | the four payment operations | none |
+//! | Here | [`Client`], five operations | [`gmu::Client`], nine |
 //!
-//! **This module speaks VUK 509**, and a caller on the other model wants none
-//! of it.
+//! **This module speaks VUK 509**, and a caller on the other model wants
+//! [`gmu`] instead.
 //!
 //! # What is here
 //!
@@ -44,20 +44,23 @@
 //!   once a day: until the batch is closed the day's sales are authorised and
 //!   not settled
 //!
+//! # And VUK 507, in [`gmu`]
+//!
+//! The other integration a merchant chooses instead of this one, all nine of
+//! it: the sale that issues the fiscal document, its refund by line, its void,
+//! its query, what of a sale is still returnable, its own end of day, and the
+//! three-step partial payment that settles one sale with several instruments.
+//!
+//! It is a module of its own rather than more methods here because it is the
+//! other product: its sale carries every line with its unit code and VAT
+//! group, the document type, and the buyer's tax office and number. A
+//! `paymentId` from one integration is not one the other knows.
+//!
 //! # What is not
 //!
-//! Nine of iyzico's fourteen `terminal-host` operations, and **all nine are
-//! VUK 507**. None is guessed at; each is left for something specific.
-//!
-//! | Not implemented | Why |
-//! |---|---|
-//! | `POST /v2/terminal-host/gmu/payment`, `…/refund`, `…/void`, `…/refundable-sale-info`, `…/eod` | VUK 507. A different integration a merchant chooses instead of this one, not a fallback within it. Its sale carries the fiscal document type, every line item with its unit code and VAT group, and the buyer's tax office and number — a receipt, not a payment |
-//! | `POST /v2/terminal-host/gmu/partial-payment/start`, `…/add-payment`, `…/complete` | VUK 507 as well, and a stateful flow on top of it: one sale settled by several instruments, held open across calls by a `saleNumber` |
-//! | `POST /v2/terminal-host/gmu/payment/query-transaction-status` | VUK 507's own status query. Its answer adds two fields to the VUK 507 sale shape, not this one's |
-//!
-//! All nine are VUK 507, which is not a gap in this module so much as the
-//! other product. They are worth adding together, with the sale-item and buyer
-//! types they all share, rather than one call at a time.
+//! Nothing, of the fourteen `terminal-host` operations iyzico documents.
+//! [`Client`] speaks the five of VUK 509 and [`gmu::Client`] the nine of
+//! VUK 507.
 //!
 //! # The login is at an address that names the wrong product
 //!
@@ -257,6 +260,7 @@
 
 mod client;
 mod errors;
+pub mod gmu;
 mod login;
 mod request;
 mod wire;
