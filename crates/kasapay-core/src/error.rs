@@ -68,7 +68,7 @@ impl ErrorKind {
     /// | | replaying a capture, with a key | replaying a capture, without one |
     /// |---|---|---|
     /// | Stripe | safe — sent as `Idempotency-Key`, same as a charge | **not safe** — a second PaymentIntent capture can take the funds twice |
-    /// | iyzico | n/a — neither `in_store` nor `classic` implements capture | n/a |
+    /// | iyzico | n/a — a key is refused outright, because iyzico accepts none | **not safe** — `classic`'s capture is `/payment/postauth`, and iyzico documents no idempotency mechanism for it |
     /// | PayTR | n/a — no capture step; the hosted form takes the money as it goes | n/a |
     /// | Mollie | safe — sent as `Idempotency-Key` on the captures endpoint, answered from the cache for an hour | **not safe** — a second capture against the same authorisation can take the funds twice |
     /// | PayPal | safe — sent as `PayPal-Request-Id`, same as opening an order | **not safe, and PayPal documents it** — a second capture of the same order can take the funds twice |

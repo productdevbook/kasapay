@@ -54,6 +54,10 @@ required-features = ["paytr"]
 name = "paypal_order"
 required-features = ["paypal"]
 
+[[example]]
+name = "webhook"
+required-features = ["paytr"]
+
 [package.metadata.docs.rs]
 all-features = true
 

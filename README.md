@@ -233,9 +233,16 @@ credentials, no network.
 `crates/kasapay/examples/` — a Stripe charge and refund, an iyzico hosted
 checkout form end to end, an iyzico Link sold and taken down, a PayTR hosted
 payment with the notice it posts back, a Mollie payment beside a Mollie hold,
-and a PayPal order opened and then captured once the payer has approved it.
-All six compile in CI, so they cannot drift from the API the way a README
-snippet can.
+a PayPal order opened and then captured once the payer has approved it, and a
+webhook handler answering three deliveries: one the provider signed, one nobody
+signed, and one carrying a status the provider does not document. All seven
+compile in CI, so they cannot drift from the API the way a README snippet can.
+
+The webhook one is the one to read before writing a handler. It needs no
+credentials and talks to nobody — `cargo run -p kasapay --features paytr
+--example webhook` — and the thing it is about is the line that looks like a
+missing error path: a delivery that does not verify is still answered `OK`,
+because the provider retries anything else for days.
 
 ```sh
 STRIPE_SECRET_KEY=sk_test_… cargo run -p kasapay --features stripe --example stripe_charge
