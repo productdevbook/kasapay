@@ -1379,22 +1379,35 @@ impl fmt::Display for ReasonCode {
 ///
 /// The amount is what was collected — `paidPrice` — falling back to the basket
 /// total where iyzico sent no collected figure, which is a payment nobody has
-/// taken money for yet. A payment with neither is a zero in the currency
-/// iyzico named, and it is `None` for the currency too that leaves lira: the
-/// classic API settles in one by default and reporting names it on every
-/// payment it has, so a missing one is a payment with no amounts to be in a
-/// currency at all.
-fn detail_into_charge(detail: reporting::PaymentDetail, order: &OrderRef) -> Charge {
-    let currency = detail
-        .paid_price
-        .or(detail.price)
-        .map_or(Currency::Try, Money::currency);
-    let amount = detail
-        .paid_price
-        .or(detail.price)
-        .unwrap_or_else(|| Money::from_minor_units(0, currency));
+/// taken money for yet.
+///
+/// # A payment with neither is [`ErrorKind::Malformed`], not a zero
+///
+/// It used to be a zero in lira, on the reading that a row with no amounts has
+/// no currency to be in either. That reading missed what
+/// [`reporting`](crate::reporting)'s own parse does: it answers `None` for an
+/// amount iyzico **sent** and this crate could not read — a currency
+/// [`Currency`] has no name for, or more decimal places than the currency has,
+/// which is not hypothetical here because iyzico writes decimals as
+/// `20.00000000` elsewhere in the same API.
+///
+/// So the zero was reachable for a real, captured payment, and
+/// [`Provider::lookup`] is the call a caller makes when a charge timed out and
+/// nobody knows whether the money moved. Answering *captured, nothing* there
+/// is the one shape this workspace refuses everywhere else. A payment whose
+/// amount cannot be read is a payment this crate will not describe —
+/// [`Client::payment`] has always taken that side for the same failure.
+fn detail_into_charge(detail: reporting::PaymentDetail, order: &OrderRef) -> Result<Charge, Error> {
+    let amount = detail.paid_price.or(detail.price).ok_or_else(|| {
+        Error::new(
+            ErrorKind::Malformed,
+            PROVIDER,
+            "iyzico reported a payment with no amount this crate could read; it is not \
+             reported as captured for nothing",
+        )
+    })?;
     let order_amount = detail.price.filter(|price| *price != amount);
-    Charge {
+    Ok(Charge {
         id: detail.payment_id,
         order: Some(order.clone()),
         amount,
@@ -1410,7 +1423,7 @@ fn detail_into_charge(detail: reporting::PaymentDetail, order: &OrderRef) -> Cha
         next_action: None,
         provider: PROVIDER,
         raw: detail.raw,
-    }
+    })
 }
 
 /// The shared reason in iyzico's own words.
@@ -2204,7 +2217,7 @@ impl Provider for Client {
         let Some(detail) = found.into_iter().next() else {
             return Ok(None);
         };
-        Ok(Some(detail_into_charge(detail, order)))
+        Ok(Some(detail_into_charge(detail, order)?))
     }
 
     /// Lists the cards stored under a `cardUserKey`.
