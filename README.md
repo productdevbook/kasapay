@@ -71,6 +71,15 @@ body never becomes an `Event`; an event type the library does not model is
 `EventKind::Other` and never an error, because refusing one earns days of
 redeliveries for something nobody wanted.
 
+**Four, not five: iyzico has no `Webhook` implementation**, and the reason is
+that there is nothing to implement it from. The sweep in `specs/iyzico/` is
+their whole documentation site in both languages, 96 operations, and not one
+of them documents a delivery iyzico posts or how it is signed. Verifying a
+body means knowing the mechanism, and inventing one would be the opposite of
+what this library is for. What iyzico does document is the callback its hosted
+form redirects to, which carries a token rather than a signed body —
+`classic::Client::checkout_result` is what reads that.
+
 **A refund is its own object, not a status on the payment.** `Status` has no
 `Refunded` and will not grow one: Stripe leaves a refunded PaymentIntent
 `succeeded`, so a caller branching on it would take the wrong path for every
