@@ -412,6 +412,75 @@ impl PayPal {
         Capture::read(&captured, authorization.clone(), raw)
     }
 
+    /// Releases a hold that will never be captured.
+    ///
+    /// `POST /v2/payments/authorizations/{id}/void`, keyed by the
+    /// [`AuthorizationId`] [`PayPal::authorize_order`] placed and
+    /// [`authorization_id`] reads off a [`Charge`]. **This is the only call in
+    /// this crate that gives a payer their limit back without money having
+    /// moved**, and until it existed the crate said so plainly:
+    /// [`Provider::cancel`] refuses, because Orders v2 has no operation that
+    /// withdraws an order by its own id, and a caller who needed to release a
+    /// hold had nothing here.
+    ///
+    /// It is still not [`Provider::cancel`], and cannot be: that signature
+    /// takes a [`PaymentId`], which names the order, and PayPal voids the
+    /// authorization. Reaching this from an order id means reading the order
+    /// back to find the hold — one request this method does not make on a
+    /// caller's behalf, the same line [`PayPal::capture_authorization`] draws.
+    ///
+    /// # A hold that has been captured is not voidable
+    ///
+    /// PayPal's own words: *"You cannot void an authorized payment that has
+    /// been fully captured."* That arrives as their 422, which is
+    /// [`ErrorKind::InvalidRequest`] — captured money goes back through
+    /// [`PayPal::refund`], which is a different act with a different entry in
+    /// a ledger.
+    ///
+    /// # `204 No Content` is a success, and this reads it as one
+    ///
+    /// PayPal documents two answers here: `204` with no body, and `200`
+    /// carrying the voided authorization when `Prefer: return=representation`
+    /// is sent. This sends that header, the way every other call in this crate
+    /// does — and still handles the empty body, because the header is a
+    /// preference rather than a demand and a `204` says the hold is released
+    /// just as clearly. What is lost with it is only what PayPal would have
+    /// echoed: [`Voided::amount`] is `None` and [`Voided::status`] is
+    /// [`Status::Canceled`] on the strength of the call having succeeded.
+    ///
+    /// No idempotency key: PayPal documents none for this call, and repeating
+    /// a void is not the failure repeating a capture is — the second one meets
+    /// a hold that is already released and answers their 422.
+    pub async fn void_authorization(
+        &self,
+        authorization: &AuthorizationId,
+    ) -> Result<Voided, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::POST,
+                &format!(
+                    "/v2/payments/authorizations/{}/void",
+                    authorization.as_str()
+                ),
+                None::<&()>,
+                true,
+                None,
+            )
+            .await?;
+        // PayPal's documented 204: the hold is released and there is nothing
+        // to read. Anything else is the representation the header asked for.
+        if raw.is_empty() {
+            return Ok(Voided {
+                authorization: authorization.clone(),
+                status: Status::Canceled,
+                amount: None,
+                raw,
+            });
+        }
+        let voided: wire::VoidedAuthorization = parse(&raw, "a voided authorization")?;
+        Voided::read(&voided, authorization.clone(), raw)
+    }
+
     /// Gives money back off a capture — **not off the order, and not off an
     /// authorization**.
     ///
@@ -949,6 +1018,67 @@ fn transport_error(error: &reqwest::Error) -> Error {
     Error::new(kind, PAYPAL, error.to_string())
 }
 
+/// A hold PayPal has released — [`PayPal::void_authorization`]'s own answer.
+///
+/// There is no money in this and that is the point: an authorization that is
+/// voided was never captured, so nothing goes back to anybody. What it gives
+/// back is the payer's limit.
+#[derive(Debug, Clone)]
+pub struct Voided {
+    /// The hold that was released.
+    ///
+    /// **Not read from PayPal's answer**, for the reason
+    /// [`Capture::authorization`] is not: this is the id the caller passed,
+    /// echoed back, and it is the only one there is when PayPal answers `204`
+    /// with no body at all.
+    pub authorization: AuthorizationId,
+    /// Where the authorization stands — [`Status::Canceled`] for a hold
+    /// PayPal has voided, read through the same `authorization_status`
+    /// mapping every other authorization answer goes through.
+    pub status: Status,
+    /// What the hold was for, where PayPal echoed it.
+    ///
+    /// `None` for the `204` answer, which carries no body — not zero, and not
+    /// a figure invented from the request, which carries none either.
+    pub amount: Option<Money>,
+    /// PayPal's own answer, kept whole. Empty for a `204`.
+    pub raw: Raw,
+}
+
+impl Voided {
+    fn read(
+        voided: &wire::VoidedAuthorization,
+        authorization: AuthorizationId,
+        raw: Raw,
+    ) -> Result<Self, Error> {
+        let amount = voided
+            .amount
+            .as_ref()
+            .map(|amount| convert::money(amount, "a voided authorization"))
+            .transpose()?;
+        // The id PayPal echoes is the one asked about; a body naming another
+        // hold is not this call's answer.
+        if let Some(id) = voided.id.as_deref()
+            && id != authorization.as_str()
+        {
+            return Err(Error::new(
+                ErrorKind::Malformed,
+                PAYPAL,
+                format!("asked to void {authorization} and PayPal answered about {id}"),
+            ));
+        }
+        Ok(Self {
+            authorization,
+            status: voided
+                .status
+                .as_deref()
+                .map_or(Status::Canceled, convert::authorization_status),
+            amount,
+            raw,
+        })
+    }
+}
+
 /// One capture PayPal has taken off an authorization —
 /// [`PayPal::capture_authorization`]'s own answer.
 ///
@@ -1140,16 +1270,13 @@ impl Provider for PayPal {
     /// aged, without naming a fixed duration in this crate's scope, and
     /// there is no call here to hurry that along.
     ///
-    /// **This is still true with `intent: AUTHORIZE` in the picture.** The
-    /// Authorizations resource this now reaches through
-    /// [`PayPal::authorize_order`] and [`PayPal::capture_authorization`]
-    /// does document `POST /v2/payments/authorizations/{id}/void`, which
-    /// releases a hold PayPal will not otherwise release — but it is keyed
-    /// by the authorization's own id, not the order's, and
-    /// [`Provider::cancel`]'s signature takes only a [`PaymentId`]. This
-    /// crate does not implement it: a caller who needs to release a hold
-    /// without capturing it has no call here, the same honest gap this
-    /// method already had for a plain `intent: CAPTURE` order.
+    /// **A hold is a different thing, and there is now a call for it.**
+    /// [`PayPal::void_authorization`] releases one — but it is keyed by the
+    /// authorization's own id rather than the order's, and this signature
+    /// takes only a [`PaymentId`], so it cannot be reached from here. What
+    /// this method still cannot do is withdraw an order: an unapproved one is
+    /// simply left, and PayPal's own prose says it is eligible for deletion
+    /// after it has aged.
     async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,

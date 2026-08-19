@@ -6,10 +6,10 @@
 //! `00_orders_authorize` — and from `payments_payment_v2.json`'s
 //! `authorizations/{id}/capture` operation —
 //! `authorizations_capture_empty_request`,
-//! `authorizations_capture_with_prefer_header`. Where PayPal documents no
-//! shape, there is no test for it: this crate does not call
-//! `/v2/payments/authorizations/{id}/void`, so there is nothing here for it
-//! either.
+//! `authorizations_capture_with_prefer_header` — and from its
+//! `authorizations/{id}/void` operation,
+//! `authorizations_void_200_idempotent_response`. Where PayPal documents no
+//! shape, there is no test for it.
 //!
 //! One exception, and it is deliberate: a test that exercises a branch taken
 //! only when PayPal answers something their examples never show cannot use a
@@ -384,4 +384,114 @@ async fn a_zero_amount_capture_never_reaches_the_wire() {
         .await
         .expect_err("zero is not a capturable amount");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// PayPal's `authorizations_void_200_idempotent_response` example.
+#[tokio::test]
+async fn voiding_a_hold_gives_the_payer_their_limit_back() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/authorizations/5C908745JK343851U/void"))
+        // Every call in this crate asks for the representation; a void is the
+        // one where PayPal's default is to send nothing back.
+        .and(header("Prefer", "return=representation"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "5C908745JK343851U",
+            "status": "VOIDED",
+            "amount": { "currency_code": "USD", "value": "100.00" },
+            "invoice_id": "OrderInvoice-10_10_2024_12_06_00_pm",
+            "expiration_time": "2024-11-08T09:06:03-08:00",
+            "create_time": "2024-10-10T10:06:03-07:00",
+        })))
+        .mount(&server)
+        .await;
+
+    let authorization = AuthorizationId::issued("5C908745JK343851U");
+    let voided = paypal
+        .void_authorization(&authorization)
+        .await
+        .expect("the hold is released");
+
+    assert_eq!(voided.authorization, authorization);
+    assert_eq!(voided.status, Status::Canceled);
+    // No money moved — this is what the hold was for, not what went anywhere.
+    assert_eq!(voided.amount.map(Money::minor_units), Some(10_000));
+}
+
+/// PayPal's documented default for this call: `204`, and no body at all.
+#[tokio::test]
+async fn a_void_answered_with_no_content_is_still_a_released_hold() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/authorizations/5C908745JK343851U/void"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+
+    let voided = paypal
+        .void_authorization(&AuthorizationId::issued("5C908745JK343851U"))
+        .await
+        .expect("204 is a success and says so");
+
+    assert_eq!(voided.status, Status::Canceled);
+    // Nothing was echoed, so nothing is claimed: not zero, and not a figure
+    // taken from a request that carries none either.
+    assert!(voided.amount.is_none());
+    assert!(voided.raw.is_empty());
+}
+
+/// PayPal's own words: "You cannot void an authorized payment that has been
+/// fully captured." Their 422, and captured money goes back through a refund.
+#[tokio::test]
+async fn a_hold_that_was_captured_cannot_be_voided() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/authorizations/5C908745JK343851U/void"))
+        .respond_with(ResponseTemplate::new(422).set_body_json(json!({
+            "name": "UNPROCESSABLE_ENTITY",
+            "details": [{
+                "issue": "AUTHORIZATION_ALREADY_CAPTURED",
+                "description": "Authorization has been captured; hence cannot be voided.",
+            }],
+            "message": "The requested action could not be performed.",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = paypal
+        .void_authorization(&AuthorizationId::issued("5C908745JK343851U"))
+        .await
+        .expect_err("captured money is refunded, not un-held");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// The body names the hold that was voided, and one naming another is not
+/// this call's answer.
+#[tokio::test]
+async fn an_answer_about_another_hold_is_not_this_ones() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+
+    // Built by hand: PayPal's examples never show this, because it should not
+    // happen. It tests this crate's own check, not a claim about PayPal.
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/authorizations/5C908745JK343851U/void"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "0AW2184448108334S",
+            "status": "VOIDED",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = paypal
+        .void_authorization(&AuthorizationId::issued("5C908745JK343851U"))
+        .await
+        .expect_err("that is another hold's answer");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
 }

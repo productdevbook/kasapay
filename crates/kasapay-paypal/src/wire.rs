@@ -91,6 +91,19 @@ pub(crate) struct AuthorizationCapture {
     pub amount: Option<AmountIn>,
 }
 
+/// What `POST /v2/payments/authorizations/{id}/void` answers with
+/// `Prefer: return=representation`: the authorization, now voided.
+///
+/// PayPal's default for this call is `204 No Content`, which carries no body
+/// at all — see [`PayPal::void_authorization`](crate::PayPal::void_authorization)
+/// for what is read when that is what arrives.
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct VoidedAuthorization {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    pub amount: Option<AmountIn>,
+}
+
 /// `POST /v2/payments/captures/{id}/refund`'s body. `amount` absent refunds
 /// the capture in full; PayPal's own `captures_refund_empty_request` example
 /// sends `{}` for that.

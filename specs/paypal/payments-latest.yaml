@@ -741,8 +741,420 @@ paths:
           $ref: '#/components/callbacks/capture_declined'
         capture_pending_kyc_incomplete:
           $ref: '#/components/callbacks/capture_pending_kyc_incomplete'
+  /v2/payments/authorizations/{authorization_id}/void:
+    post:
+      operationId: authorizations.void
+      summary: Void authorized payment
+      description: Voids, or cancels, an authorized payment, by ID. You cannot void an authorized payment
+        that has been fully captured.
+      tags:
+      - authorizations
+      security:
+      - Oauth2:
+        - https://uri.paypal.com/services/payments/payment/authcapture
+      parameters:
+      - name: authorization_id
+        description: The PayPal-generated ID for the authorized payment to void.
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+        examples:
+          authorizations_void:
+            summary: Void Authorized Payment
+            description: Voids an authorized PayPal account payment, by ID. You cannot void an authorized
+              payment that has been fully captured.
+            value: 0VF52814937998046
+          authorizations_void_200_idempotent_response:
+            summary: Void Authorized Payment
+            description: Voids an authorized PayPal account payment, by ID. You cannot void an authorized
+              payment that has been fully captured.
+            value: 5C908745JK343851U
+      - $ref: '#/components/parameters/authorization'
+      - $ref: '#/components/parameters/paypal_auth_assertion'
+      - $ref: '#/components/parameters/paypal_request_id'
+      - name: Prefer
+        description: The preferred server response upon successful completion of the request. Value is:<ul><li><code>return=minimal</code>.
+          The server returns a minimal response to optimize communication between the API caller and the
+          server. A minimal response includes the <code>id</code>, <code>status</code> and HATEOAS links.</li><li><code>return=representation</code>.
+          The server returns a complete resource representation, including the current state of the resource.</li></ul>
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 2147483647
+          pattern: ^[\S\s]*$
+          default: return=minimal
+      x-exampleFlows:
+      - title: Void authorized payment
+        description: Voids or cancels an authorized payment by ID. Returns minimal response with status
+          code 204 No Content.
+        parameter_examples:
+        - parameters/@name=='authorization_id'/examples/authorizations_void
+      - title: Void authorized payment with full representation (200 response)
+        description: Voids or cancels an authorized payment by ID. Returns full representation when Prefer
+          header is set to return=representation, resulting in 200 OK status code.
+        parameter_examples:
+        - parameters/@name=='authorization_id'/examples/authorizations_void_200_idempotent_response
+        response_example: responses/200/content/application~1json/examples/authorizations_void_200_idempotent_response
+      responses:
+        '200':
+          description: A successful request returns the HTTP <code>200 OK</code> status code and a JSON
+            response body that shows authorization details. This response is returned when the Prefer
+            header is set to return=representation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/authorization-2'
+              examples:
+                authorizations_void_200_idempotent_response:
+                  summary: Void Authorized Payment
+                  description: Voids an authorized PayPal account payment, by ID. You cannot void an authorized
+                    payment that has been fully captured.
+                  value:
+                    id: 5C908745JK343851U
+                    status: VOIDED
+                    amount:
+                      currency_code: USD
+                      value: '100.00'
+                    invoice_id: OrderInvoice-10_10_2024_12_06_00_pm
+                    seller_protection:
+                      status: ELIGIBLE
+                      dispute_categories:
+                      - ITEM_NOT_RECEIVED
+                      - UNAUTHORIZED_TRANSACTION
+                    expiration_time: '2024-11-08T09:06:03-08:00'
+                    create_time: '2024-10-10T10:06:03-07:00'
+                    update_time: '2024-10-10T10:06:19-07:00'
+                    links:
+                    - href: https://api.paypal.com/v2/payments/authorizations/5C908745JK343851U
+                      rel: self
+                      method: GET
+        '204':
+          $ref: '#/components/responses/204_response'
+        '401':
+          $ref: '#/components/responses/401_error_response'
+        '403':
+          $ref: '#/components/responses/403_error_response'
+        '404':
+          $ref: '#/components/responses/404_error_response'
+        '409':
+          description: The request failed because a previous call for the given resource is in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                authorizations_void_409_conflict:
+                  summary: Void Authorized Payment - 409 Conflict - Operation in Progress Error
+                  description: This code sample attempts to void an authorized payment but the request
+                    fails because a previous call for the given resource is in progress.
+                  value:
+                    name: RESOURCE_CONFLICT
+                    debug_id: b1d1f06c7246c
+                    message: The server has detected a conflict while processing this request.
+                    details:
+                    - issue: PREVIOUS_REQUEST_IN_PROGRESS
+                      description: A previous request on this resource is currently in progress. Please
+                        wait for sometime and try again. It is best to space out the initial and the subsequent
+                        request(s) to avoid receiving this error.
+        '422':
+          description: The request failed because it either is semantically incorrect or failed business
+            validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+              examples:
+                authorizations_void_422_already_captured:
+                  summary: Void Authorized Payment - 422 Unprocessable Entity - Authorization Previously
+                    Captured Error
+                  description: This code sample attempts to void an authorized payment but the request
+                    fails because has already been captured and cannot be voided.
+                  value:
+                    name: UNPROCESSABLE_ENTITY
+                    message: The requested action could not be performed, semantically incorrect, or failed
+                      business validation.
+                    debug_id: a7b0de7cb97ad
+                    details:
+                    - issue: PREVIOUSLY_CAPTURED
+                      description: Authorization has been previously captured and cannot be voided.
+                    links:
+                    - href: https://developer.paypal.com/docs/api/payments/v2/#error-PREVIOUSLY_CAPTURED
+                      rel: information_link
+        '500':
+          $ref: '#/components/responses/500_error_response'
+        default:
+          $ref: '#/components/responses/default_response'
+      callbacks:
+        authorization_voided:
+          $ref: '#/components/callbacks/authorization_voided'
+        authorization_voided_expired:
+          $ref: '#/components/callbacks/authorization_voided_expired'
 components:
   callbacks:
+    authorization_voided:
+      authorizations/{$request.path.authorization_id}/void:
+        post:
+          summary: Authorization voided notification
+          description: Notification sent when the authorization is voided.
+          operationId: authorizations.voided.callback
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  title: Authorization Voided Event
+                  description: Webhook event notification for authorization voided.
+                  properties:
+                    id:
+                      type: string
+                      description: The ID of the webhook event notification.
+                      minLength: 1
+                      maxLength: 255
+                      pattern: ^.*$
+                    event_version:
+                      type: string
+                      description: The version of the event.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    create_time:
+                      description: The date and time when the webhook event notification was created.
+                      allOf:
+                      - $ref: '#/components/schemas/date_time'
+                    resource_type:
+                      type: string
+                      description: The name of the resource related to the webhook notification event.
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^.*$
+                    resource_version:
+                      type: string
+                      description: The version of the resource.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    event_type:
+                      type: string
+                      description: The event that triggered the webhook event notification.
+                      enum:
+                      - PAYMENT.AUTHORIZATION.VOIDED
+                    summary:
+                      type: string
+                      description: A summary description for the event notification.
+                      minLength: 1
+                      maxLength: 500
+                      pattern: ^.*$
+                    resource:
+                      allOf:
+                      - $ref: '#/components/schemas/authorization-2'
+                    links:
+                      type: array
+                      description: An array of request-related HATEOAS links.
+                      minItems: 1
+                      maxItems: 10
+                      items:
+                        $ref: '#/components/schemas/link_description-2'
+                examples:
+                  authorization_voided:
+                    summary: Authorization voided event
+                    description: Webhook notification when the authorization is voided.
+                    value:
+                      id: WH-30Y09481LL7353048-6K675100AV972020E
+                      create_time: '2022-09-21T18:41:07.071Z'
+                      event_type: PAYMENT.AUTHORIZATION.VOIDED
+                      event_version: '1.0'
+                      resource_type: authorization
+                      resource_version: '2.0'
+                      summary: A payment authorization was voided
+                      resource:
+                        id: 3C679366HH908993F
+                        status: VOIDED
+                        amount:
+                          currency_code: USD
+                          value: '100.00'
+                        seller_protection:
+                          status: ELIGIBLE
+                          dispute_categories:
+                          - ITEM_NOT_RECEIVED
+                          - UNAUTHORIZED_TRANSACTION
+                        supplementary_data:
+                          related_ids:
+                            order_id: 6AY135578D653613P
+                        expiration_time: '2022-10-20T18:40:22Z'
+                        create_time: '2022-09-21T18:40:22Z'
+                        update_time: '2022-09-21T18:41:03Z'
+                        links:
+                        - href: https://api-m.paypal.com/v2/payments/captures/3C679366HH908993F
+                          rel: self
+                          method: GET
+                      links:
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-30Y09481LL7353048-6K675100AV972020E
+                        rel: self
+                        method: GET
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-30Y09481LL7353048-6K675100AV972020E/resend
+                        rel: resend
+                        method: POST
+          responses:
+            '204':
+              description: Your server implementation should return this HTTP status code if the data
+                was received successfully.
+            '400':
+              description: Your server should return this HTTP status code if the request is malformed.
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/error'
+                  examples:
+                    invalid_request:
+                      summary: Invalid webhook request.
+                      description: Request with malformed data.
+                      value:
+                        name: INVALID_REQUEST
+                        debug_id: b1d1f06c7246c
+                        message: Request is not well-formed, syntactically incorrect, or violates schema.
+                        details:
+                        - field: /event_type
+                          location: body
+                          issue: INVALID_PARAMETER_SYNTAX
+                          description: The value of a field does not conform to the expected format.
+            '500':
+              $ref: '#/components/responses/500_error_response'
+    authorization_voided_expired:
+      authorizations/{$request.path.authorization_id}/void-expired:
+        post:
+          summary: Authorization voided due to expiry notification
+          description: Notification sent when the authorization is voided due to expiry.
+          operationId: authorizations.voided.expired.callback
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  title: Authorization Voided Expired Event
+                  description: Webhook event notification for authorization voided due to expiry.
+                  properties:
+                    id:
+                      type: string
+                      description: The ID of the webhook event notification.
+                      minLength: 1
+                      maxLength: 255
+                      pattern: ^.*$
+                    event_version:
+                      type: string
+                      description: The version of the event.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    create_time:
+                      description: The date and time when the webhook event notification was created.
+                      allOf:
+                      - $ref: '#/components/schemas/date_time'
+                    resource_type:
+                      type: string
+                      description: The name of the resource related to the webhook notification event.
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^.*$
+                    resource_version:
+                      type: string
+                      description: The version of the resource.
+                      minLength: 1
+                      maxLength: 50
+                      pattern: ^.*$
+                    event_type:
+                      type: string
+                      description: The event that triggered the webhook event notification.
+                      enum:
+                      - PAYMENT.AUTHORIZATION.VOIDED
+                    summary:
+                      type: string
+                      description: A summary description for the event notification.
+                      minLength: 1
+                      maxLength: 500
+                      pattern: ^.*$
+                    resource:
+                      allOf:
+                      - $ref: '#/components/schemas/authorization-2'
+                    links:
+                      type: array
+                      description: An array of request-related HATEOAS links.
+                      minItems: 1
+                      maxItems: 10
+                      items:
+                        $ref: '#/components/schemas/link_description-2'
+                examples:
+                  authorization_voided_expired:
+                    summary: Authorization voided due to expiry event
+                    description: Webhook notification when the authorization is voided due to expiry.
+                    value:
+                      id: WH-30Y09481LL7353048-6K675100AV972020E
+                      create_time: '2022-09-21T18:41:07.071Z'
+                      event_type: PAYMENT.AUTHORIZATION.VOIDED
+                      event_version: '1.0'
+                      resource_type: authorization
+                      resource_version: '2.0'
+                      summary: A payment authorization was expired
+                      resource:
+                        id: 3C679366HH908993F
+                        status: VOIDED
+                        amount:
+                          currency_code: USD
+                          value: '100.00'
+                        seller_protection:
+                          status: ELIGIBLE
+                          dispute_categories:
+                          - ITEM_NOT_RECEIVED
+                          - UNAUTHORIZED_TRANSACTION
+                        supplementary_data:
+                          related_ids:
+                            order_id: 6AY135578D653613P
+                        expiration_time: '2022-10-20T18:40:22Z'
+                        create_time: '2022-09-21T18:40:22Z'
+                        update_time: '2022-09-21T18:41:03Z'
+                        links:
+                        - href: https://api-m.paypal.com/v2/payments/captures/3C679366HH908993F
+                          rel: self
+                          method: GET
+                      links:
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-30Y09481LL7353048-6K675100AV972020E
+                        rel: self
+                        method: GET
+                      - href: https://api-m.paypal.com/v1/notifications/webhooks-events/WH-30Y09481LL7353048-6K675100AV972020E/resend
+                        rel: resend
+                        method: POST
+          responses:
+            '204':
+              description: Your server implementation should return this HTTP status code if the data
+                was received successfully.
+            '400':
+              description: Your server should return this HTTP status code if the request is malformed.
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/error'
+                  examples:
+                    invalid_request:
+                      summary: Invalid webhook request.
+                      description: Request with malformed data.
+                      value:
+                        name: INVALID_REQUEST
+                        debug_id: b1d1f06c7246c
+                        message: Request is not well-formed, syntactically incorrect, or violates schema.
+                        details:
+                        - field: /event_type
+                          location: body
+                          issue: INVALID_PARAMETER_SYNTAX
+                          description: The value of a field does not conform to the expected format.
+            '500':
+              $ref: '#/components/responses/500_error_response'
     capture_completed:
       captures/{$request.path.capture_id}:
         post:
@@ -1366,6 +1778,8 @@ components:
           description: A paypal-request-id header with a randomized value.
           value: 17e81d06-77ab-11e8-adc0-fa71639ebebc
   responses:
+    204_response:
+      description: No Content.
     401_error_response:
       description: Unauthorized.
       content:
@@ -1520,6 +1934,115 @@ components:
         properties:
           breakdown:
             $ref: '#/components/schemas/amount_breakdown'
+    authorization:
+      title: authorization
+      description: The authorized payment transaction.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/authorization_status'
+      - type: object
+        properties:
+          id:
+            description: The PayPal-generated ID for the authorized payment.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          amount:
+            allOf:
+            - $ref: '#/components/schemas/amount_with_breakdown'
+            - description: The amount for this authorized payment.
+              readOnly: true
+          invoice_id:
+            description: The API caller-provided external invoice number for this order. Appears in both
+              the payer's transaction history and the emails that the payer receives.
+            type: string
+            minLength: 0
+            maxLength: 2147483647
+            pattern: ^[\S\s]*$
+            readOnly: true
+          custom_id:
+            description: The API caller-provided external ID. Used to reconcile API caller-initiated transactions
+              with PayPal transactions. Appears in transaction and settlement reports.
+            type: string
+            minLength: 0
+            maxLength: 255
+            pattern: ^[\S\s]*$
+          network_transaction_reference:
+            allOf:
+            - $ref: '#/components/schemas/network_transaction'
+          seller_protection:
+            allOf:
+            - $ref: '#/components/schemas/seller_protection'
+            - readOnly: true
+          expiration_time:
+            allOf:
+            - $ref: '#/components/schemas/date_time'
+            - description: The date and time when the authorized payment expires, in [Internet date and
+                time format](https://tools.ietf.org/html/rfc3339#section-5.6).
+              readOnly: true
+          links:
+            description: An array of related [HATEOAS links](/docs/api/reference/api-responses/#hateoas-links).
+            type: array
+            minItems: 0
+            maxItems: 32767
+            readOnly: true
+            items:
+              allOf:
+              - $ref: '#/components/schemas/link_description-2'
+              - title: link_description
+      - $ref: '#/components/schemas/activity_timestamps'
+    authorization-2:
+      title: Authorization
+      description: The authorized payment transaction.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/authorization'
+      - type: object
+        properties:
+          supplementary_data:
+            allOf:
+            - $ref: '#/components/schemas/supplementary_data'
+            - readOnly: true
+          payee:
+            allOf:
+            - $ref: '#/components/schemas/payee_base'
+            - readOnly: true
+    authorization_status:
+      title: authorization_status
+      description: The status fields and status details for an authorized payment.
+      type: object
+      properties:
+        status:
+          title: Authorization Status
+          description: The status for the authorized payment.
+          type: string
+          enum:
+          - CREATED
+          - CAPTURED
+          - DENIED
+          - PARTIALLY_CAPTURED
+          - VOIDED
+          - PENDING
+          readOnly: true
+        status_details:
+          allOf:
+          - $ref: '#/components/schemas/authorization_status_details'
+          - description: The details of the authorized order pending status.
+            readOnly: true
+    authorization_status_details:
+      title: authorization_status_details
+      description: The details of the authorized payment status.
+      type: object
+      properties:
+        reason:
+          title: Authorization Incomplete Reason
+          description: The reason why the authorized status is `PENDING`.
+          type: string
+          enum:
+          - PENDING_REVIEW
+          - DECLINED_BY_RISK_FRAUD_FILTERS
     capture:
       title: capture
       description: A captured payment.

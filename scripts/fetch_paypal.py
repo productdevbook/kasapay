@@ -77,13 +77,15 @@ DOCUMENTS = [
     Document(
         name="payments",
         src="https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/payments_payment_v2.json",
-        # refund a capture, capture an authorization directly. Not kept:
-        # reading a capture, an authorization or a refund back by id — this
-        # crate has no call that does — voiding or reauthorizing a hold, and
-        # find-eligible-methods, which is unrelated to any of the three.
+        # refund a capture, capture an authorization directly, release one
+        # that will not be captured. Not kept: reading a capture, an
+        # authorization or a refund back by id — this crate has no call that
+        # does — reauthorizing a hold, and find-eligible-methods, which is
+        # unrelated to any of the three.
         keep=[
             ("/v2/payments/captures/{capture_id}/refund", "post"),
             ("/v2/payments/authorizations/{authorization_id}/capture", "post"),
+            ("/v2/payments/authorizations/{authorization_id}/void", "post"),
         ],
     ),
 ]

@@ -1,0 +1,25 @@
+{
+  "source": "https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/payments_payment_v2.json",
+  "fetched": "2026-08-19",
+  "api_version": "2.12",
+  "licence": "Apache-2.0",
+  "document_kept": true,
+  "upstream_sha256": "ecd8bc60e133bd4bc54de10daae3011a451e3a69e971ddf19c09213aa0f15c21",
+  "kept_paths": [
+    "/v2/payments/captures/{capture_id}/refund",
+    "/v2/payments/authorizations/{authorization_id}/capture",
+    "/v2/payments/authorizations/{authorization_id}/void"
+  ],
+  "missing_paths": [],
+  "operations": [
+    "authorizations.capture",
+    "authorizations.void",
+    "captures.refund"
+  ],
+  "component_counts": {
+    "callbacks": 6,
+    "parameters": 3,
+    "responses": 6,
+    "schemas": 44
+  }
+}
