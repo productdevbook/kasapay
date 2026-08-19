@@ -3,7 +3,7 @@
 What changed, and what it costs a caller who upgrades. Kept by hand, in the
 order releases happen, newest first.
 
-## Unreleased
+## 0.0.3 — 2026-08-19
 
 ### Breaking
 
