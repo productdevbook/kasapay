@@ -294,11 +294,78 @@ impl Client {
         self.call("v2/terminal-host/payment/void", &body).await
     }
 
+    /// Closes the day's batch on one device.
+    ///
+    /// `POST /v2/terminal-host/eod`. A till does this once a day and the bank
+    /// expects it: until the batch is closed the day's sales are authorised
+    /// and not settled, and a device that never runs this is a shop wondering
+    /// where its money is.
+    ///
+    /// `summary_on_slip` is iyzico's `useSummary`: `true` prints every
+    /// transaction on the slip the device produces, `false` prints the totals
+    /// alone. It changes what comes out of the printer rather than what this
+    /// call answers.
+    ///
+    /// The answer is one [`EndOfDay`] carrying the batch number and a total
+    /// per acquiring bank — a device can be set up with more than one, and
+    /// each closes its own batch.
+    ///
+    /// # Not checked against a live till
+    ///
+    /// Like everything else in this module. See the module documentation for
+    /// what that means and what is most likely to be wrong.
+    pub async fn end_of_day(&self, reference: &EndOfDayRequest) -> Result<EndOfDay, Error> {
+        let body = wire::EndOfDayRequest {
+            conversation_id: &reference.conversation_id,
+            locale: self.locale(),
+            device_unique_id: &reference.device_unique_id,
+            use_summary: reference.summary_on_slip,
+        };
+        let (response, raw) = self
+            .post::<wire::EndOfDayResponse>("v2/terminal-host/eod", &body)
+            .await?;
+        Ok(EndOfDay {
+            batch_no: response.batch_no.map(String::into_boxed_str),
+            result_message: response.result_message.map(String::into_boxed_str),
+            conversation_id: response.conversation_id.map(String::into_boxed_str),
+            totals: response
+                .totals
+                .unwrap_or_default()
+                .into_iter()
+                .map(|total| BatchTotal {
+                    acquirer_id: total.acquirer_id.map(String::into_boxed_str),
+                    acquirer_name: total.acquirer_name.map(String::into_boxed_str),
+                    terminal_id: total.terminal_id.map(String::into_boxed_str),
+                    bank_merchant_id: total.bank_merchant_id.map(String::into_boxed_str),
+                    batch_no: total.batch_no.map(String::into_boxed_str),
+                    // Kept as iyzico wrote them: their schema types both as
+                    // strings and names no currency for the amount, so reading
+                    // either as a number here would be inventing one.
+                    total_amount: total.total_transaction_amount.map(String::into_boxed_str),
+                    total_count: total.total_transaction_count.map(String::into_boxed_str),
+                    response_code: total.response_code.map(String::into_boxed_str),
+                })
+                .collect(),
+            raw,
+        })
+    }
+
     fn locale(&self) -> &'static str {
         self.inner.config.locale.as_str()
     }
 
     async fn call<T: serde::Serialize>(&self, path: &str, body: &T) -> Result<Payment, Error> {
+        let (body, raw) = self.post::<wire::PaymentResponse>(path, body).await?;
+        Payment::read(body, raw)
+    }
+
+    /// Every Terminal Host call: the bearer token, the JSON, and iyzico's own
+    /// failure envelope read the same way whatever the operation answered.
+    async fn post<R: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> Result<(R, Raw), Error> {
         let token = self
             .inner
             .access_token
@@ -322,9 +389,12 @@ impl Client {
             .map_err(|e| transport_error(&e).with_source(e))?;
         let raw = Raw::from_text(String::from_utf8_lossy(&bytes).into_owned());
 
-        let parsed: Option<wire::PaymentResponse> = serde_json::from_slice(&bytes).ok();
+        // The failure envelope is the same shape for every operation, and it
+        // is read before the operation's own answer: a 400 carrying totals is
+        // not a batch that closed.
+        let failure: Option<wire::PaymentResponse> = serde_json::from_slice(&bytes).ok();
         if !status.is_success() {
-            return Err(match parsed {
+            return Err(match failure {
                 Some(body) => refused(body),
                 None => Error::new(
                     kind_for_status(status),
@@ -333,15 +403,121 @@ impl Client {
                 ),
             });
         }
-        let body = parsed.ok_or_else(|| {
+        // iyzico answers 200 with `status: FAILURE` as well, which is a
+        // refusal wearing a success's clothes — and an answer with no status
+        // at all has not been shown to have worked either. `Payment::read`
+        // makes the same two checks for the operations that answer one; this
+        // is where the ones that answer something else make them.
+        match failure {
+            Some(body)
+                if !body
+                    .status
+                    .as_deref()
+                    .is_some_and(|s| s.eq_ignore_ascii_case(SUCCESS)) =>
+            {
+                return Err(match body.status {
+                    Some(_) => refused(body),
+                    None => Error::new(
+                        ErrorKind::Malformed,
+                        PROVIDER,
+                        "a Terminal Host answer carried no status",
+                    ),
+                });
+            }
+            _ => {}
+        }
+        let parsed: R = serde_json::from_slice(&bytes).map_err(|e| {
             Error::new(
                 ErrorKind::Malformed,
                 PROVIDER,
                 "the answer was not the JSON this endpoint documents",
             )
+            .with_source(e)
         })?;
-        Payment::read(body, raw)
+        Ok((parsed, raw))
     }
+}
+
+/// What closing a day's batch names.
+///
+/// Three fields and no transaction: end of day is about the device rather than
+/// any one sale, which is why it takes this rather than a
+/// [`Reference`](crate::terminal::Reference).
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct EndOfDayRequest {
+    /// The caller's own id for the request, echoed back.
+    pub conversation_id: Box<str>,
+    /// The device whose batch is being closed.
+    pub device_unique_id: Box<str>,
+    /// Whether every transaction is printed on the slip, or the totals alone.
+    pub summary_on_slip: bool,
+}
+
+impl EndOfDayRequest {
+    /// Closes the batch on one device, printing the totals alone.
+    #[must_use]
+    pub fn new(
+        conversation_id: impl Into<Box<str>>,
+        device_unique_id: impl Into<Box<str>>,
+    ) -> Self {
+        Self {
+            conversation_id: conversation_id.into(),
+            device_unique_id: device_unique_id.into(),
+            summary_on_slip: false,
+        }
+    }
+
+    /// Prints every transaction on the slip rather than the totals alone.
+    #[must_use]
+    pub const fn detailed_slip(mut self) -> Self {
+        self.summary_on_slip = true;
+        self
+    }
+}
+
+/// A day's batch, closed.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct EndOfDay {
+    /// The batch number the closed transactions belong to.
+    pub batch_no: Option<Box<str>>,
+    /// iyzico's own words about how it went.
+    pub result_message: Option<Box<str>>,
+    /// The caller's id for the request, echoed back.
+    pub conversation_id: Option<Box<str>>,
+    /// One total per acquiring bank. A device can be set up with more than
+    /// one, and each closes its own batch.
+    pub totals: Vec<BatchTotal>,
+    /// iyzico's own answer, untouched.
+    pub raw: Raw,
+}
+
+/// What one acquiring bank settled in the batch just closed.
+///
+/// **The amounts are text.** iyzico types `totalTransactionAmount` and
+/// `totalTransactionCount` as strings and names no currency for the amount
+/// anywhere in this answer, so reading either as a number here would be
+/// inventing a unit iyzico did not send. What they wrote is what is here.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct BatchTotal {
+    /// The acquiring bank's own id.
+    pub acquirer_id: Option<Box<str>>,
+    /// Its name.
+    pub acquirer_name: Option<Box<str>>,
+    /// The terminal number.
+    pub terminal_id: Option<Box<str>>,
+    /// The terminal's number at the bank, which is a different number.
+    pub bank_merchant_id: Option<Box<str>>,
+    /// The batch this bank closed.
+    pub batch_no: Option<Box<str>>,
+    /// What the successful transactions in it came to, as iyzico wrote it.
+    pub total_amount: Option<Box<str>>,
+    /// How many there were, likewise.
+    pub total_count: Option<Box<str>>,
+    /// The bank's own result code for the close.
+    pub response_code: Option<Box<str>>,
 }
 
 /// One transaction, as every Terminal Host operation reports it.

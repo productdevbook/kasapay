@@ -7,6 +7,15 @@ order releases happen, newest first.
 
 ### Added
 
+- **`terminal::Client::end_of_day`**, `POST /v2/terminal-host/eod`. A till runs
+  this once a day and the bank expects it: until the batch is closed the day's
+  sales are authorised and not settled. It answers a batch number and a total
+  per acquiring bank, because a device can be set up with more than one.
+
+  Both figures are text. iyzico types them as strings and names no currency for
+  the amount anywhere in that answer, so reading either as a number would be
+  inventing a unit they did not send.
+
 - **iyzico's subscription module can subscribe somebody.** It had the
   catalogue — products and plans — and nothing that sold one. Thirteen
   operations: `start_subscription_form` and `subscription_form_result`,

@@ -229,3 +229,51 @@ pub(crate) struct PaymentResponse {
 pub(crate) fn text(value: &RawValue) -> &str {
     value.get().trim_matches('"')
 }
+
+/// `POST /v2/terminal-host/eod` — closing the day's batch on one device.
+#[derive(Debug, Serialize)]
+pub(crate) struct EndOfDayRequest<'a> {
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: &'a str,
+    pub(crate) locale: &'a str,
+    #[serde(rename = "deviceUniqueId")]
+    pub(crate) device_unique_id: &'a str,
+    #[serde(rename = "useSummary")]
+    pub(crate) use_summary: bool,
+}
+
+/// What that answers. The error fields are read through
+/// [`PaymentResponse`] like every other operation's; these are the ones only
+/// an end of day carries.
+#[derive(Debug, Deserialize)]
+pub(crate) struct EndOfDayResponse {
+    #[serde(rename = "conversationId")]
+    pub(crate) conversation_id: Option<String>,
+    #[serde(rename = "batchNo")]
+    pub(crate) batch_no: Option<String>,
+    #[serde(rename = "resultMessage")]
+    pub(crate) result_message: Option<String>,
+    pub(crate) totals: Option<Vec<EndOfDayTotal>>,
+}
+
+/// One acquiring bank's line on the batch. Every figure is a string, which is
+/// how iyzico types them.
+#[derive(Debug, Deserialize)]
+pub(crate) struct EndOfDayTotal {
+    #[serde(rename = "acquirerId")]
+    pub(crate) acquirer_id: Option<String>,
+    #[serde(rename = "acquirerName")]
+    pub(crate) acquirer_name: Option<String>,
+    #[serde(rename = "terminalId")]
+    pub(crate) terminal_id: Option<String>,
+    #[serde(rename = "bankMerchantId")]
+    pub(crate) bank_merchant_id: Option<String>,
+    #[serde(rename = "batchNo")]
+    pub(crate) batch_no: Option<String>,
+    #[serde(rename = "totalTransactionAmount")]
+    pub(crate) total_transaction_amount: Option<String>,
+    #[serde(rename = "totalTransactionCount")]
+    pub(crate) total_transaction_count: Option<String>,
+    #[serde(rename = "responseCode")]
+    pub(crate) response_code: Option<String>,
+}

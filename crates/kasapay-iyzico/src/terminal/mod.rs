@@ -40,22 +40,24 @@
 //! - [`Client::payment`] — `POST /v2/terminal-host/payment/query-transaction-status`
 //! - [`Client::refund`] — `POST /v2/terminal-host/payment/refund`
 //! - [`Client::void`] — `POST /v2/terminal-host/payment/void`
+//! - [`Client::end_of_day`] — `POST /v2/terminal-host/eod`, which a till runs
+//!   once a day: until the batch is closed the day's sales are authorised and
+//!   not settled
 //!
 //! # What is not
 //!
-//! Ten of iyzico's fourteen `terminal-host` operations. None is guessed at;
-//! each is left for something specific.
+//! Nine of iyzico's fourteen `terminal-host` operations, and **all nine are
+//! VUK 507**. None is guessed at; each is left for something specific.
 //!
 //! | Not implemented | Why |
 //! |---|---|
-//! | `POST /v2/terminal-host/eod` | VUK 509's end of day. It settles rather than pays: it closes the bank's batch for the terminal and answers a per-acquirer totals report, a shape nothing else here returns. Calling it is not undoable, and it belongs with the VUK 507 end of day it mirrors rather than in a first pass at payments |
 //! | `POST /v2/terminal-host/gmu/payment`, `…/refund`, `…/void`, `…/refundable-sale-info`, `…/eod` | VUK 507. A different integration a merchant chooses instead of this one, not a fallback within it. Its sale carries the fiscal document type, every line item with its unit code and VAT group, and the buyer's tax office and number — a receipt, not a payment |
 //! | `POST /v2/terminal-host/gmu/partial-payment/start`, `…/add-payment`, `…/complete` | VUK 507 as well, and a stateful flow on top of it: one sale settled by several instruments, held open across calls by a `saleNumber` |
 //! | `POST /v2/terminal-host/gmu/payment/query-transaction-status` | VUK 507's own status query. Its answer adds two fields to the VUK 507 sale shape, not this one's |
 //!
-//! Nine of the ten are VUK 507, which is not a gap in this module so much as
-//! the other product. They are worth adding together, with the sale-item and
-//! buyer types they all share, rather than one call at a time.
+//! All nine are VUK 507, which is not a gap in this module so much as the
+//! other product. They are worth adding together, with the sale-item and buyer
+//! types they all share, rather than one call at a time.
 //!
 //! # The login is at an address that names the wrong product
 //!
@@ -274,7 +276,9 @@ fn transport_error(error: &reqwest::Error) -> Error {
 }
 
 #[doc(inline)]
-pub use crate::terminal::client::{CardType, Client, Config, Payment, Timestamps};
+pub use crate::terminal::client::{
+    BatchTotal, CardType, Client, Config, EndOfDay, EndOfDayRequest, Payment, Timestamps,
+};
 #[doc(inline)]
 pub use crate::terminal::login::{AuthCode, Credentials, Login, Token};
 #[doc(inline)]
