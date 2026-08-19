@@ -143,11 +143,7 @@ impl Client {
             sale_app_version: &refund.sale_app.version,
             notification_phone: refund.notify_phone.as_deref(),
             notification_email: refund.notify_email.as_deref(),
-            sale_items: refund
-                .items
-                .iter()
-                .map(SaleItem::body)
-                .collect::<Result<Vec<_>, _>>()?,
+            sale_items: refund.items.iter().map(SaleItem::body).collect(),
         };
         self.call("v2/terminal-host/gmu/payment/refund", &body)
             .await
@@ -450,8 +446,8 @@ impl SaleItem {
         self
     }
 
-    fn body(&self) -> Result<wire::GmuSaleItem<'_>, Error> {
-        Ok(wire::GmuSaleItem {
+    fn body(&self) -> wire::GmuSaleItem<'_> {
+        wire::GmuSaleItem {
             name: &self.name,
             generic: self.generic,
             unit_code: &self.unit_code,
@@ -461,8 +457,8 @@ impl SaleItem {
             gross_price_amount: self.gross_price.to_decimal_string(),
             total_price_amount: self.total_price.to_decimal_string(),
             related_sale_item_id: self.returns.as_deref(),
-            return_amount: self.return_amount.map(|amount| amount.to_decimal_string()),
-        })
+            return_amount: self.return_amount.map(Money::to_decimal_string),
+        }
     }
 }
 
@@ -677,11 +673,7 @@ impl Sale {
             sale_document_type: self.document_type.code(),
             notification_phone: self.notify_phone.as_deref(),
             notification_email: self.notify_email.as_deref(),
-            sale_items: self
-                .items
-                .iter()
-                .map(SaleItem::body)
-                .collect::<Result<Vec<_>, _>>()?,
+            sale_items: self.items.iter().map(SaleItem::body).collect(),
             buyer_info: self.buyer.as_ref().map(Buyer::body),
         })
     }
