@@ -47,6 +47,10 @@ const PROVIDER: ProviderId = ProviderId::IYZICO;
 /// one, and a request naming only an amount answers the list of what every
 /// family the merchant is set up with would charge.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "five independent 0/1 flags iyzico sends as five fields; grouping them would invent a structure their answer does not have"
+)]
 pub struct Instalments {
     /// The BIN iyzico calculated with, where the request named one.
     pub bin: Option<Box<str>>,
