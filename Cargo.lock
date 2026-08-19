@@ -852,7 +852,9 @@ dependencies = [
  "kasapay-paypal",
  "kasapay-paytr",
  "kasapay-stripe",
+ "serde_json",
  "tokio",
+ "wiremock",
 ]
 
 [[package]]
