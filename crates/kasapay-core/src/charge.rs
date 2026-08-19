@@ -62,12 +62,12 @@ impl IdempotencyKey {
 /// |---|---|---|---|---|---|---|
 /// | Stripe | yes | yes | yes | yes | **no** | yes |
 /// | iyzico `in_store` | yes | yes | no | yes | yes | yes |
-/// | iyzico `classic` | yes | yes | no | yes | yes | no |
+/// | iyzico `classic` | yes | yes | yes | yes | yes | no |
 /// | PayTR | no | yes | no | yes | notice only | no |
 /// | Mollie | yes | yes | yes | yes | yes | yes |
 /// | PayPal | yes | yes | yes | yes | yes | read-only |
 ///
-/// Four of those cells are worth knowing about.
+/// Five of those cells are worth knowing about.
 ///
 /// **Stripe never reports `Failed`.** A PaymentIntent whose card was declined
 /// goes back to `requires_payment_method`, which arrives here as
@@ -87,6 +87,15 @@ impl IdempotencyKey {
 /// here. Both arrive as [`Status::Failed`], and which it was is in
 /// [`Charge::raw`]. A caller counting declines separately from abandoned
 /// checkouts reads it there.
+///
+/// **iyzico's classic API answers `Authorized` only for a payment it was asked
+/// to hold.** `classic::Client::start_checkout_form_preauth` and
+/// `preauth_with_saved_card` are what ask; the ordinary form and
+/// `/payment/auth` take the money as they go and answer [`Status::Captured`].
+/// One thing that cell hides: a payment *read back* after a hold reads as
+/// `Captured` too, because iyzico answers `paymentStatus: SUCCESS` for both
+/// and names no values for the field that would separate them. The adapter
+/// says so where a reader meets it.
 ///
 /// **PayPal's `Canceled` is read-only.** `VOIDED` is a real value of its
 /// `order_status` enum, but nothing `kasapay-paypal` calls ever produces one:
