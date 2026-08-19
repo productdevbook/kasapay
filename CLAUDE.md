@@ -167,10 +167,18 @@ from `specs/`.
 
 One trigger, and it is a person's decision rather than an agent's: run the
 **Cut a release** workflow with a version, `dry_run` off. It bumps the version
-everywhere it is written, dates the changelog's `Unreleased` section, commits
-to `main` and pushes the tag. The tag starts **Release**, which packages every
-crate, publishes to crates.io in dependency order, and writes the release note
-from the changelog's own section for that version.
+everywhere it is written, rewrites the lockfile's own entries, dates the
+changelog's `Unreleased` section, commits to `main`, pushes the tag — and then
+asks for **Release** at that tag, which packages every crate, publishes to
+crates.io in dependency order, and writes the release note from the changelog's
+own section for that version.
+
+**It asks rather than relying on the tag**, and that is not decoration: a tag
+pushed with a workflow's own `GITHUB_TOKEN` starts no other workflow, which is
+GitHub's guard against a workflow triggering itself for ever. `Release` still
+listens for a tag push — a tag pushed by a person does start it — but the one
+this workflow pushes never would. 0.0.3 was published by hand because that step
+did not exist yet.
 
 So the release note is never written twice. What a release says is what the
 changelog already said, which is why the changelog is kept in terms of what a
