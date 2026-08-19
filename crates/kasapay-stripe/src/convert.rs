@@ -30,11 +30,10 @@ pub(crate) fn currency(currency: Currency) -> Result<stripe_types::Currency, Err
             format!("Stripe does not settle in {currency}"),
         )
     };
-    // Reading one never fails: an unrecognised code becomes Unknown rather
-    // than an error, which is exactly the answer that must not be passed on.
-    let Ok(mapped) = stripe_types::Currency::from_str(&currency.code().to_ascii_lowercase()) else {
-        return Err(refuse());
-    };
+    // Irrefutable: the error type is Infallible, because an unrecognised code
+    // becomes Unknown rather than an error — which is the answer that must not
+    // be passed on.
+    let Ok(mapped) = stripe_types::Currency::from_str(&currency.code().to_ascii_lowercase());
     if matches!(mapped, stripe_types::Currency::Unknown(_)) {
         return Err(refuse());
     }
