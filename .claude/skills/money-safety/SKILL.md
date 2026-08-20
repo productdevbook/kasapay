@@ -79,9 +79,10 @@ match value {
 schemas give `fraudStatus` `enum: [0, -1, 1]` in six places and their prose
 says to ship only on 1, and the wildcard sent every fourth value to `Captured`.
 It was reachable through `Provider::charge` on the stored-card path — what a
-subscription bills on. Fixed in #200. Of eight fallback arms across five
-adapters it was the only one landing on a settled state; the other seven land
-on `Pending`, which is what made it invisible.
+subscription bills on. Fixed in #200. Of nine status fallbacks across five
+adapters it was the only one landing on a settled state — seven land on
+`Pending` and PayTR's refuses an undocumented status outright, which is the
+best answer of the three. Being the only one is what made it invisible.
 
 **What to check:** every status mapping's fallback arm. An unknown value is an
 open state — `Pending`, or `Other` — never a settled one. If a provider's
@@ -135,6 +136,15 @@ counter-intuitive:
 - **answer `200` anyway.** A provider retries anything else for days, and a
   handler returning 500 while it works out what to do is one that gets called
   again.
+
+**Unless `verify` reaches the network**, in which case its `Err` carries two
+different facts and only one of them is a 200. Mollie signs nothing, so
+verifying is a read-back — and `Err` there means either *this delivery is not
+worth acting on* or *the check did not finish*. Answering 200 to the second
+acknowledges a delivery nobody read, and on a payment method where the payer
+never returns that is money taken and never learned about.
+`Error::is_retryable` is the discrimination, and `kasapay-mollie`'s crate
+documentation is where it is spelled out.
 
 A delivery carrying *two* signature headers is refused rather than resolved —
 two claims about one delivery mean something in front of the verifier read it

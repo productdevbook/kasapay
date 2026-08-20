@@ -6,7 +6,7 @@
 # jobs that does it can write to this repository.
 #
 # The two packages actually asked for are PyYAML and openapi-spec-validator.
-# The other nineteen are what they pull, which is why naming only the two would
+# The other eighteen are what they pull, which is why naming only the two would
 # have left most of the surface floating.
 #
 # One file for every job, including the one that needs PyYAML alone: a second

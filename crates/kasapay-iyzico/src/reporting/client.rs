@@ -228,7 +228,7 @@ pub struct PaymentDetail {
     /// The `conversationId` the payment was made with.
     pub payment_conversation_id: Option<Box<str>>,
     /// What fraud review says about the payment, read the way
-    /// [`crate::classic`] has always read this field — the same `fraudStatus`
+    /// [`crate::classic`] reads this field — the same `fraudStatus`
     /// mapping its stored-card charge uses — applied only when iyzico sent a
     /// code at all. Unlike a stored-card charge, which never reaches that
     /// mapping without one, a payment read back here may carry no fraud

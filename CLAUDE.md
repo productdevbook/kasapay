@@ -159,7 +159,7 @@ clone:
 - **`.claude/skills/money-safety`** — the nine ways a payments library loses
   somebody money, each with the scenario. Read before writing or reviewing
   anything that touches an amount, a status, an idempotency key, a refund, a
-  webhook, or a value that ends up in a log or a URL. Four of the nine name
+  webhook, or a value that ends up in a log or a URL. Five of the nine name
   defects this workspace shipped, and the ninth names four of them.
 - **`.claude/skills/sandbox-verification`** — how an `UNVERIFIED.md` entry is
   closed against a provider's sandbox without taking anybody's money, and —

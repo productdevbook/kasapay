@@ -132,7 +132,7 @@ Named because each is tempting when a run is nearly finished:
   next person exactly where this one started.
 
 If a run cannot settle an entry, the entry stays. A register with every
-honest entries is worth more than one with four and a shrug.
+honest entry still open is worth more than a shorter one and a shrug.
 
 ## The report
 

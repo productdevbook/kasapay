@@ -22,6 +22,21 @@
 //! Both were run against the tree before the change they came from was fixed:
 //! the first found three, all real; the second found two of eighteen claims,
 //! both real. A rule that had found fifty would have been the wrong rule.
+//!
+//! # Why the first only sees adjacent lines
+//!
+//! It is a real limit and it is deliberate. A review asked for it to skip a
+//! bare `///` between the two blocks, since rustdoc takes the first paragraph
+//! as the summary either way. Widening it that far was measured before it was
+//! written and found **380** matches, because a summary line ending in a full
+//! stop, then a blank `///`, then a paragraph is the *correct* shape for a doc
+//! comment — the rule would have matched almost every well-formed one in the
+//! workspace.
+//!
+//! So the narrow rule is the right rule: two paragraphs with nothing between
+//! them is anomalous, and the same two with a blank line between them is
+//! ordinary rustdoc. What that leaves uncaught is a stale block separated by a
+//! blank line, which nothing here finds.
 
 #![allow(
     clippy::expect_used,
