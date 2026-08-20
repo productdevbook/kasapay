@@ -1215,7 +1215,7 @@ fn into_payment_charge(
     charge_from(response, raw, status)
 }
 
-/// Reads iyzico's `fraudStatus` the way this crate has always read it.
+/// Reads iyzico's `fraudStatus`.
 ///
 /// iyzico documents 1 as approved, 0 as under review and -1 as rejected —
 /// `enum: [0, -1, 1]` in every schema carrying the field — and its own prose

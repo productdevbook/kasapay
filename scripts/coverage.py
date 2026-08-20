@@ -19,7 +19,7 @@ Those two lists are what the exit code reports, and CI runs this on every push.
 That an operation with a call site is *correctly* implemented — only that some
 line in `crates/kasapay-iyzico/src` posts to that path. It reads endpoint
 strings at call sites, so a path assembled at runtime is invisible to it, and
-a path named in a comment is not a call. The other four providers' sections
+a path named in a comment is not a call. The other three providers' sections
 report and do not gate: they carry no written accounting to check against.
 
 ## What "documented" means

@@ -346,6 +346,22 @@ about, and the answer has to be a stored delivery replayed by hand instead.
 once and 200 once, recording which of the two is delivered again and how long
 Mollie waits.
 
+### D5. What a Mollie webhook may post as an `id` — from #183
+
+`Webhook::verify` refuses a posted `id` carrying anything outside
+`[A-Za-z0-9_-]`, because that string becomes a path segment on a request
+carrying the merchant's key and a `/` in it leaves `/v2/payments/`.
+
+The character class is a reading. Mollie's common-data-types page says their
+identifiers are a prefix and are at most 32 characters, and every prefix in
+evidence — `tr_`, `ord_`, `re_`, `cst_`, `sub_`, `chb_` — is followed by
+alphanumerics. What they do not publish is the character set. If the reading is
+too narrow the cost is a legitimate delivery refused before a socket opens,
+which is the opposite failure to the one the guard was written for.
+
+**To settle it**, one sandbox delivery of each resource type Mollie posts to a
+webhook address, with the `id` recorded verbatim.
+
 ---
 
 ## E. A Stripe test key

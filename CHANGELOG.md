@@ -218,7 +218,8 @@ order releases happen, newest first.
   for the three values iyzico documents, or for an absent field.
 
   It reached this through `Provider::charge` with an instrument set — the
-  stored-card path a subscription bills on — and again through
+  stored-card path a subscription bills on — through `Provider::capture`, whose
+  `/payment/postauth` answer carries the same field, and again through
   `reporting::PaymentDetail`.
 
 - **A payment iyzico answered for with no amount is refused rather than
@@ -226,13 +227,19 @@ order releases happen, newest first.
   to `Provider::lookup`; `Provider::charge`, `Provider::resume` and
   `Client::payment` all still substituted `0.00`. One response therefore read
   two ways in one crate: `Malformed` through the first and `Captured, 0.00 TRY`
-  through the rest, with the correct figure sitting unused in `price` one field
-  away.
+  through the rest.
 
   `paidPrice` is now read, then `price`, then — where the status says money
   moved, `Captured` or `Authorized` — the answer is `ErrorKind::Malformed`. A
   caller who was summing `Charge::amount` for reconciliation was previously
-  short by the payment and told nothing.
+  short by the whole payment and told nothing.
+
+  **`price` is the basket total, not what was collected.** They differ by an
+  instalment surcharge, which iyzico models and this crate carries as
+  `saved::Payment { price, paid_price }`. So the fallback answers the basket
+  total where iyzico sent only that, which is the reading `Provider::lookup`
+  has taken since #172 — it is not the figure collected, and #220 is where that
+  is argued rather than assumed.
 
   A charge that is `Pending`, `RequiresAction` or `Failed` still answers zero
   and is unchanged: a form the payer has not finished carries no amount because

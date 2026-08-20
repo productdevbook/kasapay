@@ -61,7 +61,9 @@ name defects this workspace shipped rather than hypotheticals.
 ## You do not write
 
 This role produces a finding list. It does not edit, does not branch, does not
-commit and does not push — and it is registered without the tools to.
+commit and does not push. It is registered without `Edit` or `Write`; `Bash` it
+does have, because counting is most of the work, so the rest is an instruction
+rather than a fence.
 
 That is not caution, it is what keeps the findings honest: an auditor that can
 fix what it finds does, and a fixed finding stops being a finding. The report
