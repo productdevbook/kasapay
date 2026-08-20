@@ -2190,7 +2190,8 @@ impl Provider for Client {
                 ErrorKind::Unsupported,
                 PROVIDER,
                 "iyzico's classic API accepts no idempotency key; read the payment back \
-                 with Provider::charge_status before sending a refund again",
+                 with reporting::Client::payment_details before sending a refund again — \
+                 Provider::charge_status reads /payment/detail, which carries no refund at all",
             ));
         }
         let amount = request.amount.ok_or_else(|| {
