@@ -10,8 +10,10 @@ MIT; `specs/mollie/` holds a dated meta and two hashes instead, and the section
 below says what that buys and what it costs. PayPal's document is Apache-2.0,
 permissive like Stripe's MIT, so its subset is kept the same way Stripe's is.
 
-`.github/workflows/spec-drift.yml` refetches weekly and opens a PR when
-anything moved.
+`.github/workflows/spec-drift.yml` refetches weekly and, when anything moved,
+pushes a dated branch and prints the link to open the pull request from. It
+does not open one itself, for the reason `lockfile.yml` gives: the repository
+setting that would let it also lets a workflow approve one.
 
 ## A dated record is written on the day it says something new
 
@@ -391,7 +393,7 @@ this as unverified.
 publishes a real OpenAPI 3.1 document — `specs.yaml` in
 [mollie/openapi](https://github.com/mollie/openapi) — so nothing is
 reassembled from documentation pages; `scripts/fetch_mollie.py` fetches it,
-cuts it to the five paths kasapay maps, checks it, records what it said, and
+cuts it to the eight paths kasapay maps, checks it, records what it said, and
 throws it away.
 
 ### Why no copy is kept
@@ -414,7 +416,7 @@ Subsetting does not change that. A cut-down copy is still a copy.
 | | moves when |
 |---|---|
 | `upstream_sha256` | anything in Mollie's whole 1.9MB document does |
-| `subset_sha256` | one of the five paths kasapay maps does |
+| `subset_sha256` | one of the eight paths kasapay maps does |
 
 The second is the sharper of the two and it is the reason both are there: the
 first moves whenever any of Mollie's eighty-seven paths changes, which is
@@ -422,7 +424,7 @@ often and mostly irrelevant.
 
 What this costs is the field-level diff `compare_specs.py` gives the others —
 it will not name a field Mollie withdrew, only say that something under the
-five paths moved. `compare_specs.py` says so out loud rather than staying
+eight paths moved. `compare_specs.py` says so out loud rather than staying
 silent about Mollie, because silence reads as "nothing changed".
 
 What it keeps is the weekly job noticing the version or a hash moved, which is
