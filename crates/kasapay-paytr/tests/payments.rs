@@ -796,3 +796,34 @@ async fn a_refund_paytr_will_never_accept_is_not_retryable() {
         assert!(!error.is_retryable(), "{code} will never be accepted");
     }
 }
+
+/// A refund entry with no amount is refused rather than summed as nothing.
+///
+/// The four field names in `returns` are read off PayTR's sample responses —
+/// their own tables document the array as one row and break out no fields, so
+/// `UNVERIFIED.md` B4 is the entry. A wrong name would make every amount
+/// absent, and summing those as zero is how a fully refunded payment reads as
+/// unrefunded to the caller this method exists for.
+#[tokio::test]
+async fn a_refund_entry_with_no_amount_is_not_summed_as_nothing() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/odeme/durum-sorgu"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "payment_amount": "149.90",
+            "payment_total": "149.90",
+            "currency": "TL",
+            // What a name PayTR does not use looks like: the entry is there
+            // and the figure is not.
+            "returns": [{ "iade_tutari": "149.90", "return_date": "2026-08-14 10:00:00" }],
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .refunds(&OrderRef::new("ord-1"))
+        .await
+        .expect_err("a refund with no amount is not a refund of nothing");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}

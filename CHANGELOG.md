@@ -88,6 +88,18 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **`PayTr::refunds` refuses a refund entry with no amount instead of summing
+  it as nothing.** The four field names it reads inside PayTR's `returns` array
+  are a reading, not a document: PayTR's status-query tables give the array one
+  row and break out no fields in either language, and `return_amount` appears
+  in their documentation only on the refund endpoint. If any of the four is
+  wrong, every amount is absent — and the method's own purpose is to be summed,
+  so a fully refunded payment read as `0.00` is one a caller gives money back
+  on twice.
+
+  An absent amount is now `ErrorKind::Malformed`. The reading is
+  `UNVERIFIED.md` B4, with the one response that settles all four.
+
 - **`kasapay-mollie` no longer tells a handler to acknowledge a delivery it did
   not read.** Mollie signs nothing, so its `Webhook::verify` is the only one in
   the workspace that makes a network call — and its `Err` means either *this is
