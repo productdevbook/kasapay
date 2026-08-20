@@ -519,11 +519,21 @@ fn terminal_currency(currency: Currency) -> Result<(), RequestError> {
 /// iyzico documents. The field is required on a refund and on a void, so
 /// getting it wrong is a refusal at best.
 fn payment_date(value: &str) -> Result<(), RequestError> {
-    if value.len() == 8 && value.bytes().all(|b| b.is_ascii_digit()) {
+    if is_payment_date(value) {
         Ok(())
     } else {
         Err(RequestError::PaymentDate(value.into()))
     }
+}
+
+/// The shape iyzico wants a posting date in: eight digits, `YYYYMMDD`.
+///
+/// Shared with [`crate::terminal::gmu`], which answers an [`Error`] rather
+/// than a [`RequestError`] and so cannot use the check above.
+///
+/// [`Error`]: kasapay_core::Error
+pub(super) fn is_payment_date(value: &str) -> bool {
+    value.len() == 8 && value.bytes().all(|b| b.is_ascii_digit())
 }
 
 #[cfg(test)]

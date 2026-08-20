@@ -50,7 +50,7 @@
 use kasapay_core::{Currency, Error, ErrorKind, Money};
 
 use crate::terminal::client::{Client as Terminal, EndOfDay, EndOfDayRequest};
-use crate::terminal::request::Reference;
+use crate::terminal::request::{Reference, is_payment_date};
 use crate::terminal::{PROVIDER, wire};
 
 /// Talks VUK 507 over a Terminal API client.
@@ -132,6 +132,7 @@ impl Client {
                 "a VUK 507 refund names the lines being returned, and this named none",
             ));
         }
+        posting_date(&refund.payment_date)?;
         let body = wire::GmuRefundRequest {
             locale: self.terminal.locale(),
             conversation_id: Some(&refund.reference.conversation_id),
@@ -143,7 +144,11 @@ impl Client {
             sale_app_version: &refund.sale_app.version,
             notification_phone: refund.notify_phone.as_deref(),
             notification_email: refund.notify_email.as_deref(),
-            sale_items: refund.items.iter().map(SaleItem::body).collect(),
+            sale_items: refund
+                .items
+                .iter()
+                .map(SaleItem::body)
+                .collect::<Result<Vec<_>, Error>>()?,
         };
         self.call("v2/terminal-host/gmu/payment/refund", &body)
             .await
@@ -155,6 +160,7 @@ impl Client {
     /// back is [`Client::refund`] — and a refund here names lines where a void
     /// takes the whole sale.
     pub async fn void(&self, void: &Void) -> Result<Payment, Error> {
+        posting_date(&void.payment_date)?;
         let body = wire::GmuVoidRequest {
             locale: self.terminal.locale(),
             conversation_id: Some(&void.reference.conversation_id),
@@ -446,8 +452,28 @@ impl SaleItem {
         self
     }
 
-    fn body(&self) -> wire::GmuSaleItem<'_> {
-        wire::GmuSaleItem {
+    /// The line as iyzico wants it.
+    ///
+    /// Fallible because the request names no currency: iyzico reads every
+    /// amount here as being in the sale's own, so a line denominated in
+    /// another is not a rejected request but a different number. A `Money` in
+    /// a currency with a different exponent is that number out by a factor.
+    fn body(&self) -> Result<wire::GmuSaleItem<'_>, Error> {
+        for amount in [self.unit_price, self.gross_price, self.total_price] {
+            currency_code(amount.currency())?;
+        }
+        if let Some(returning) = self.return_amount {
+            currency_code(returning.currency())?;
+            returning.require_positive().map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    PROVIDER,
+                    "a returned line gives back an amount above zero",
+                )
+                .with_source(e)
+            })?;
+        }
+        Ok(wire::GmuSaleItem {
             name: &self.name,
             generic: self.generic,
             unit_code: &self.unit_code,
@@ -458,7 +484,7 @@ impl SaleItem {
             total_price_amount: self.total_price.to_decimal_string(),
             related_sale_item_id: self.returns.as_deref(),
             return_amount: self.return_amount.map(Money::to_decimal_string),
-        }
+        })
     }
 }
 
@@ -673,7 +699,11 @@ impl Sale {
             sale_document_type: self.document_type.code(),
             notification_phone: self.notify_phone.as_deref(),
             notification_email: self.notify_email.as_deref(),
-            sale_items: self.items.iter().map(SaleItem::body).collect(),
+            sale_items: self
+                .items
+                .iter()
+                .map(SaleItem::body)
+                .collect::<Result<Vec<_>, Error>>()?,
             buyer_info: self.buyer.as_ref().map(Buyer::body),
         })
     }
@@ -958,6 +988,22 @@ pub struct RefundableSale {
     /// iyzico's own answer, untouched. The per-line returnable quantities and
     /// amounts are in here.
     pub raw: kasapay_core::Raw,
+}
+
+/// Refuses a posting date iyzico's own schemas cannot read.
+///
+/// The 509 path checks this in [`crate::terminal::request`]; the GMU path sends
+/// the same field to the same host and did not.
+fn posting_date(value: &str) -> Result<(), Error> {
+    if is_payment_date(value) {
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorKind::InvalidRequest,
+            PROVIDER,
+            format!("a posting date is eight digits, `YYYYMMDD`, and this is `{value}`"),
+        ))
+    }
 }
 
 /// The three currencies this API's own schemas name.

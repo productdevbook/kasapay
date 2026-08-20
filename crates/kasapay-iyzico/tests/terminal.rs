@@ -905,3 +905,109 @@ async fn a_vuk_507_query_names_at_least_one_of_the_three() {
         .expect_err("nothing to ask about");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }
+
+/// A refund line in a currency the Terminal API does not transact in.
+///
+/// The GMU refund request names no currency at all — iyzico reads every amount
+/// on it as being in the original sale's — so a line denominated in another is
+/// not a rejected request but a different number. `Money::from_minor_units(5000,
+/// Jpy)` renders as `"5000"`, which against a lira sale is five thousand lira.
+/// The VUK 509 path has always refused this; the GMU path did not.
+#[tokio::test]
+async fn a_refund_line_in_another_currency_opens_no_socket() {
+    // No mock is mounted: a request that reached the network would fail this.
+    let server = MockServer::start().await;
+
+    let refund = gmu::Refund::new(
+        Reference::new("conv-2", DEVICE, "txn-2"),
+        "P-1",
+        "20260819",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+        vec![
+            gmu::SaleItem::new(
+                "Kahve",
+                "C62",
+                "KDV20",
+                1,
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+                Money::parse("41.67", Currency::Try).expect("valid amount"),
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+            )
+            .returning("item-1", Money::from_minor_units(5000, Currency::Jpy)),
+        ],
+    );
+
+    let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .refund(&refund)
+        .await
+        .expect_err("the Terminal API settles in three currencies, and yen is not one");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// A returned line gives back an amount, and zero is not one.
+#[tokio::test]
+async fn a_returned_line_of_nothing_opens_no_socket() {
+    let server = MockServer::start().await;
+
+    let refund = gmu::Refund::new(
+        Reference::new("conv-2", DEVICE, "txn-2"),
+        "P-1",
+        "20260819",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+        vec![
+            gmu::SaleItem::new(
+                "Kahve",
+                "C62",
+                "KDV20",
+                1,
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+                Money::parse("41.67", Currency::Try).expect("valid amount"),
+                Money::parse("50.00", Currency::Try).expect("valid amount"),
+            )
+            .returning("item-1", Money::from_minor_units(0, Currency::Try)),
+        ],
+    );
+
+    let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .refund(&refund)
+        .await
+        .expect_err("nothing is not an amount to return");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+}
+
+/// The posting date the 509 path checks, checked on the path that sends the
+/// same field to the same host.
+#[tokio::test]
+async fn a_posting_date_that_is_not_eight_digits_opens_no_socket() {
+    let server = MockServer::start().await;
+
+    for date in ["2026-08-19", "20260819 ", "202608", ""] {
+        let refund = gmu::Refund::new(
+            Reference::new("conv-2", DEVICE, "txn-2"),
+            "P-1",
+            date,
+            gmu::SaleApp::new("Kasa", "1.0.0"),
+            vec![
+                gmu::SaleItem::new(
+                    "Kahve",
+                    "C62",
+                    "KDV20",
+                    1,
+                    Money::parse("50.00", Currency::Try).expect("valid amount"),
+                    Money::parse("41.67", Currency::Try).expect("valid amount"),
+                    Money::parse("50.00", Currency::Try).expect("valid amount"),
+                )
+                .returning(
+                    "item-1",
+                    Money::parse("50.00", Currency::Try).expect("valid amount"),
+                ),
+            ],
+        );
+
+        let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+            .refund(&refund)
+            .await
+            .expect_err("a posting date is eight digits");
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest, "for {date:?}");
+    }
+}
