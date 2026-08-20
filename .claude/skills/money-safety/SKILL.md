@@ -28,7 +28,7 @@ asymmetry is the whole reason this file exists.
 Its corollary is the one that gets forgotten: **a field accepted and dropped is
 worse than a field refused.** Accepting it says the guarantee was given.
 
-## The eight
+## The nine
 
 ### 1. Charged twice, because a retry was safe and was not
 
@@ -75,6 +75,14 @@ match value {
 }
 ```
 
+**This shipped.** iyzico's `fraud_status` was that block, arm for arm. Their
+schemas give `fraudStatus` `enum: [0, -1, 1]` in six places and their prose
+says to ship only on 1, and the wildcard sent every fourth value to `Captured`.
+It was reachable through `Provider::charge` on the stored-card path — what a
+subscription bills on. Fixed in #200. Of eight fallback arms across five
+adapters it was the only one landing on a settled state; the other seven land
+on `Pending`, which is what made it invisible.
+
 **What to check:** every status mapping's fallback arm. An unknown value is an
 open state — `Pending`, or `Other` — never a settled one. If a provider's
 documentation genuinely says the remaining values all mean success, that is a
@@ -102,7 +110,15 @@ The same shape as #1 and worse, because a refund has no payer to notice.
 
 **What to check:** an adapter that cannot honour a refund key refuses. And
 before resending a refund whose answer never arrived, read the provider's own
-list of refunds already taken; every adapter here has one.
+list of refunds already taken.
+
+**That remedy is only safe if the list read is complete.** A paginated read
+that stops early answers "no prior refund" and licenses exactly the duplicate
+this section exists to prevent — #144 fixed one that could not terminate, and a
+short answer is the quieter half of the same bug. A list whose entries can be
+read as zero does the same thing: PayTR's refund records carry four field names
+PayTR documents nowhere, and an absent amount used to sum as nothing, so a
+fully refunded payment read as unrefunded (#187).
 
 ### 6. A hold nobody releases
 
@@ -130,6 +146,39 @@ A currency `match` may carry a wildcard arm **only where that arm refuses.**
 Mapping an unknown currency onto something is the thing that was never allowed.
 `conformance.rs` walks every currency past every adapter to prove each is
 settled or refused before a socket opens.
+
+### 9. Written into a log that outlives the request
+
+None of this is money leaving. All of it is the thing a shop cannot take back
+once it has left: an IBAN, a national identity number, a masked card, a payer's
+address, a whole provider response body.
+
+Two shapes. The first is a derived `Debug` on a type that holds a provider's
+answer or a payer's details. The second is a value in a **URL path** rather
+than a body — which reaches every proxy and access log on the way, rather than
+sitting somewhere somebody has to go looking for.
+
+**This has shipped four times.** `Raw` derived `Debug`, so one
+`tracing::debug!("{charge:?}")` printed an IBAN, a masked card number, an
+address and an identity number (#109) — *"the leak was not that module's: it
+was every module's."* `mass::Recipient` did the same with an IBAN and an
+identity number (#111), and its own commit message says *"the same defect as
+`Raw`'s, found the same way."* A card number could reach Mollie's mandate path,
+because the Luhn guard existed twice privately and a third adapter had neither
+(#177). And Mollie's webhook took an unauthenticated stranger's string straight
+into `/v2/payments/{id}`, where `..` walked out of that path into any other GET
+the merchant's key could reach (#183).
+
+The rule was earned at #111 and not written down, so #177 found the class again
+in a worse sink four days later. That is the whole argument for writing it down
+now.
+
+**What to check:** every type holding a provider's answer or a payer's details
+has a hand-written `Debug` — a length, or the last four, never the value.
+Every value that becomes a URL path segment rather than a body field, and
+whether the value came from a caller or from a stranger. And a guard that
+exists twice privately is one crate away from existing nowhere:
+`kasapay_core::looks_like_a_card_number` is public for that reason.
 
 ## Two habits that catch these and reading does not
 

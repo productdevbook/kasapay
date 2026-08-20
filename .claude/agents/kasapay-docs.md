@@ -23,7 +23,7 @@ The standard, which is higher than it sounds:
   belongs, next to the call that returns it.
 - The CHANGELOG's format is what a change **costs a caller who upgrades**, not
   what was done. Breaking, Added, Fixed. No changelog inside code comments.
-- Read `~/.claude/CLAUDE.md`'s comment rule and follow it: comments explain
+- Follow the repository's comment rule: comments explain
   what cannot be read off the code, in one line. No change logs in comments, no
   measurement dumps, no apologetic notes.
 - Follow M-NO-META-DESIGN-DOCUMENTATION: document the end state, never the

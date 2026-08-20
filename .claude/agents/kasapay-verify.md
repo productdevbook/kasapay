@@ -80,8 +80,25 @@ instead: `grep -rn` for call sites, and remember doctests inside `//!`.
 
 **Never push to `main`.** A branch and a pull request, always.
 
-**CI does the verifying.** Write, format, commit, push, read the run. Poll with
-a shell loop; report once, at the end. "Still running" is not a progress report.
+**CI does the verifying.** Write, format, commit, push, read the run. Check
+`gh pr checks` a couple of times; if it is still running, write your report and
+stop. "Still running" is not a progress report, and neither is a shell loop
+waiting for one.
+
+**After rewriting a branch, account for every removed line.**
+
+    git diff origin/main...HEAD | grep '^-' | grep -v '^---'
+
+Every one should be a line you meant to remove. A verification run rebuilds a
+branch as entries move out of `UNVERIFIED.md`, and `git reset --mixed` leaves
+the working tree alone — so a paragraph that landed while you were working is
+simply not there, and committing takes it out. Nothing catches this: it is not
+a conflict, the tests pass, and CI has no opinion about a paragraph that used
+to exist.
+
+**One worktree each.**
+
+    git worktree add ../kasapay-<what-you-are-doing> -b <branch> origin/main
 
 **Four ways of turning a build green are ways of hiding a bug**, and all four
 are forbidden: adding an entry to a tolerated list, relaxing a constraint

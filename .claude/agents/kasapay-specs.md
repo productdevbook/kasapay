@@ -15,10 +15,20 @@ What is there:
   languages, keeps the fuller fragment per operation, and **grafts on every
   field and constraint the other documents**. Both of those rules exist because
   the earlier ones silently dropped documented facts.
-- `fetch_stripe.py`, `fetch_paytr.py`, `fetch_mollie.py` — one per provider,
-  each shaped by what that provider publishes. PayTR publishes nothing
-  machine-readable, so theirs records field tables. Mollie's document is
-  CC-BY-NC-SA and is **deliberately not kept** — only a dated meta.
+- `fetch_stripe.py`, `fetch_paypal.py`, `fetch_paytr.py`, `fetch_mollie.py` —
+  one per provider, each shaped by what that provider publishes. PayPal's comes
+  from **two** upstream documents. PayTR publishes nothing machine-readable, so
+  theirs records field tables. Mollie's document is CC-BY-NC-SA and is
+  **deliberately not kept** — only a dated meta.
+- `coverage.py` counts what the adapters reach against what the specs document,
+  and gates on two lists: an operation nothing calls and nothing explains, and
+  an explanation that no longer describes anything. `currency_enums.py`,
+  `dated.py` and `release_notes.py` are the smaller ones.
+- `compare_specs.py` pairs each provider's current document against the one at
+  a revision **by what `latest.yaml` names on each side**, not by path. iyzico
+  and PayTR write a new dated file and repoint the symlink; pairing by path
+  found no counterpart and printed `0 lost` for a field that really went. Do
+  not undo that.
 - `compare_specs.py` says what a change did to the fields and constraints the
   specs carry. It exists because a lost field looks exactly like a change to
   nothing: same operation count, thousands of reordered YAML lines.
@@ -82,6 +92,23 @@ taking every core has taken it off the air before.
 CI is what verifies. You cannot compile, so read instead: `grep -rn` for every
 call site, and remember doctests inside `//!` blocks. Pushing something that
 fails CI is expected and cheap; running a workspace build here is not.
+
+## The workflows are yours too, and they are a token surface
+
+`.github/workflows/` is in your scope and most of what can go wrong there is
+not about YAML.
+
+- Every `uses:` is a **full commit SHA** with the tag in a trailing comment. A
+  tag is a mutable pointer whoever owns the action can move.
+- `dtolnay/rust-toolchain` and `taiki-e/install-action` read their own ref name
+  to decide what to install, so pinning the ref means passing `toolchain:` or
+  `tool:` explicitly. Pinning without that silently installs the wrong thing.
+- `release.yml` holds the crates.io token and `cut-release.yml` can dispatch
+  it. Scope `permissions:` per workflow to the narrowest that works, and give a
+  new job nothing by default.
+- Anything installed in a job that can write to the repository is pinned the
+  same way an action is. A floating `pip install` is the same mutable pointer
+  under a different name.
 
 ## Standing rules
 

@@ -20,6 +20,25 @@ it.
 
 This is how one leaves the file.
 
+## Before the entry is worked at all
+
+**Confirm it still describes the code**, before a credential is touched and
+before a call is spent. An entry is a reading of a *document*, pinned to a
+*call site* — and the call site moves.
+
+Open the function the entry names and check it still sends what the entry says
+it sends. A stale entry is worse than a missing one: verifying it settles the
+wrong thing and closes the register on a reading nobody looked at.
+
+`UNVERIFIED.md`'s D1 named `Provider::cancel` as Mollie's
+`DELETE /v2/payments/{id}` for two changes after it had become
+`POST .../release-authorization`. A run following this file as it was written
+would have sent the delete, met the documented 422, closed the entry — and left
+the call that actually releases a payer's hold unobserved.
+
+If the entry has gone stale, fix the entry first and say so. That is a pull
+request of its own and it costs nothing.
+
 ## Before any credential is used
 
 **Sandbox only, and prove it is a sandbox.** Every adapter takes a base URL —

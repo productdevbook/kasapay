@@ -31,11 +31,11 @@ What lives here and what it means:
 
 How to work:
 
-- A change here reaches four adapters, their tests, the examples and the
+- A change here reaches five adapters, their tests, the examples and the
   doctests in every `lib.rs`. **You cannot compile on this machine**, so find
   them by reading: `grep -rn` is your instrument, and doctests inside `//!`
   blocks are the ones most often missed.
-- Read `~/.claude/skills/rust-guidelines/SKILL.md` before changing the public
+- Read the `rust-guidelines` skill before changing the public
   surface — especially M-STRONG-TYPES, M-STRONG-TYPES-GUARD,
   M-SIMPLE-ABSTRACTIONS, M-ERRORS-CANONICAL-STRUCTS, M-TAUTOLOGICAL-TESTS and
   M-NO-META-DESIGN-DOCUMENTATION.
