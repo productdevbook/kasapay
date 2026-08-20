@@ -246,7 +246,9 @@ impl fmt::Debug for NextAction {
         match self {
             Self::Redirect { url, continuation } => f
                 .debug_struct("Redirect")
-                .field("url", url)
+                // Display, not Debug: `Url`'s own Debug takes the address apart
+                // into scheme, host and path, and the address whole is the point.
+                .field("url", &format_args!("{url}"))
                 .field("continuation", &Held(continuation.as_deref()))
                 .finish(),
             Self::ConfirmOnClient { client_secret } => f
