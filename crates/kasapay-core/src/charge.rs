@@ -196,7 +196,21 @@ impl Status {
 }
 
 /// What the payer has to do before the payment can go on.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// # It does not print its handles
+///
+/// [`Debug`] is written rather than derived, for the reason [`Raw`]'s is: one
+/// `tracing::debug!("{charge:?}")` puts whatever it prints into a file that
+/// outlives the request. Both handles here are values a provider says to keep
+/// to itself — Stripe's `client_secret` confirms or cancels the payment from a
+/// browser, and iyzico's In-Store `paymentSessionToken` decrypts the callback
+/// — so both are shown as a length.
+///
+/// The address is printed whole. It is where the payer is sent, so a caller
+/// who cannot log it cannot log the one thing this variant is for. A provider
+/// that puts a token *inside* that address — iyzico's hosted form does — has
+/// made that a decision for the caller rather than for this type.
+#[derive(Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum NextAction {
     /// Send the payer to this address — a hosted page, or an app deep link.
@@ -225,6 +239,36 @@ pub enum NextAction {
         /// The provider's client-side handle for the payment.
         client_secret: Box<str>,
     },
+}
+
+impl fmt::Debug for NextAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Redirect { url, continuation } => f
+                .debug_struct("Redirect")
+                // Display, not Debug: `Url`'s own Debug takes the address apart
+                // into scheme, host and path, and the address whole is the point.
+                .field("url", &format_args!("{url}"))
+                .field("continuation", &Held(continuation.as_deref()))
+                .finish(),
+            Self::ConfirmOnClient { client_secret } => f
+                .debug_struct("ConfirmOnClient")
+                .field("client_secret", &Held(Some(client_secret)))
+                .finish(),
+        }
+    }
+}
+
+/// A value whose length is worth seeing and whose contents are not.
+struct Held<'a>(Option<&'a str>);
+
+impl fmt::Debug for Held<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Some(held) => write!(f, "<{} chars>", held.chars().count()),
+            None => f.write_str("None"),
+        }
+    }
 }
 
 /// A charge, as the provider currently sees it.
