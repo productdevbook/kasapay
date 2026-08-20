@@ -164,17 +164,14 @@ impl Stripe {
         if let Some(asked) = request.amount
             && asked.currency() != refunded.currency()
         {
-            let named = refund.id.as_ref().map_or_else(
-                || "a refund Stripe did not name".to_owned(),
-                |id| format!("`{}`", id.as_str()),
-            );
             return Err(Error::new(
                 ErrorKind::Malformed,
                 convert::PROVIDER,
                 format!(
-                    "asked to refund {asked} and Stripe refunded {refunded} as {named}: \
+                    "asked to refund {asked} and Stripe refunded {refunded} as `{id}`: \
                      the payment was not in the currency the caller thought. The money \
-                     has moved, and that is the handle to it"
+                     has moved, and that is the handle to it",
+                    id = refund.id,
                 ),
             ));
         }
