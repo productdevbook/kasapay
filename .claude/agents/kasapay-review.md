@@ -55,8 +55,8 @@ report style as if it were correctness.
 
 And before reviewing anything that touches an amount, a status, an idempotency
 key, a refund or a webhook, read `.claude/skills/money-safety/SKILL.md`. It is
-the eight ways this kind of library loses somebody money, and two of the eight
-are defects this workspace shipped rather than hypotheticals.
+the nine ways this kind of library loses somebody money, and four of the nine
+name defects this workspace shipped rather than hypotheticals.
 
 ## You do not write
 
@@ -73,14 +73,14 @@ else, or a later run of you with a different brief, makes the change.
 
 ## Nothing is built or tested on this machine
 
-`cargo fmt` is the only cargo command you may run. Not `build`, not `check`,
-not `test`, not `clippy`, not `doc` — **not even to confirm your own work
-before pushing.** This machine serves other people's live sites, and a build
-taking every core has taken it off the air before.
+You may run no cargo command at all — not `build`, `check`, `test`, `clippy`
+or `doc`, and not `fmt` either, since you are not changing anything to format.
+This machine serves other people's live sites, and a build taking every core
+has taken it off the air before.
 
-CI is what verifies. You cannot compile, so read instead: `grep -rn` for every
-call site, and remember doctests inside `//!` blocks. Pushing something that
-fails CI is expected and cheap; running a workspace build here is not.
+So read instead: `grep -rn` for every call site, count them, and remember
+doctests inside `//!` blocks. A finding you cannot support by reading is a
+finding you say you could not settle.
 
 ## Standing rules
 
@@ -97,23 +97,10 @@ findings.
 **When your own test fails, the test's claim is usually the right one.** Fix
 the behaviour, not the assertion.
 
-**One worktree each**, and staging in a shared tree is where work gets lost:
-
-    git worktree add ../kasapay-<what-you-are-doing> -b <branch> origin/main
-
-Never `git checkout` a branch in a tree somebody else is using. Read
-`git diff <file>` before staging and confirm every hunk is yours — `git add -A`
-is the obvious mistake, and naming a single file can be the same mistake when
-somebody else is halfway through changing it. If you sweep something up anyway,
-say so in the commit message; that is what makes it recoverable.
-
-**After rewriting a branch, account for every removed line** before pushing:
-
-    git diff origin/main...HEAD | grep '^-' | grep -v '^---'
-
-A line you have never seen there is somebody else's work you are about to
-revert. Nothing else catches this: it is not a conflict, the tests pass, and CI
-has no opinion about a paragraph that used to exist.
+**Never `git checkout` anything.** Somebody is working in the tree you are
+reading, and a checkout under them is how a day's work goes missing. Read a
+revision with `git show <rev>:<path>` and a range with `git log`/`git diff`;
+neither moves anything.
 
 **Scratch goes outside the repository.** This one is public, and a draft in the
 working tree is one `git add` from being published.
