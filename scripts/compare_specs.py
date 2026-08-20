@@ -18,6 +18,7 @@ takes documentation away without somebody saying that is what they meant.
 
 import argparse
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -102,8 +103,8 @@ def fields(document: dict) -> dict[str, set[str]]:
     return out
 
 
-def latest_at(directory: pathlib.Path, revision: str | None) -> pathlib.Path | None:
-    """What `latest.yaml` in this directory names, now or at a revision.
+def latest_at(link: pathlib.Path, revision: str | None) -> pathlib.Path | None:
+    """What a `…latest.yaml` names, now or at a revision.
 
     Two shapes live under `specs/`. Stripe and PayPal roll `latest.yaml`
     forward in place, so the path is the same on both sides. iyzico and PayTR
@@ -114,7 +115,6 @@ def latest_at(directory: pathlib.Path, revision: str | None) -> pathlib.Path | N
     That is not a hypothetical: it is why a removed field reported `0 lost` for
     the provider this script's own docstring says it was written for.
     """
-    link = directory / "latest.yaml"
     if revision is None:
         if not link.exists():
             return None
@@ -139,7 +139,7 @@ def latest_at(directory: pathlib.Path, revision: str | None) -> pathlib.Path | N
     )
     if target.returncode != 0:
         return None
-    return directory / target.stdout.strip()
+    return link.parent / target.stdout.strip()
 
 
 def load(path: pathlib.Path, revision: str | None) -> dict:
@@ -185,15 +185,20 @@ def main() -> int:
     unpaired: list[str] = []
     if args.against_git:
         pairs = []
-        for link in sorted(SPECS.rglob("latest.yaml")):
-            now = latest_at(link.parent, None)
-            then = latest_at(link.parent, args.against_git)
+        # `*latest.yaml`, not `latest.yaml`: PayPal keeps two documents in one
+        # directory and tells them apart with `payments-` in front. Matching the
+        # bare filename stopped comparing the half that carries capture, void
+        # and refund, and said `0 lost` about it.
+        for link in sorted(SPECS.rglob("*latest.yaml")):
+            now = latest_at(link, None)
+            then = latest_at(link, args.against_git)
             if now is None:
                 continue
             if then is None:
-                unpaired.append(str(link.parent.relative_to(SPECS)))
+                unpaired.append(str(link.relative_to(SPECS)))
                 continue
             pairs.append((now, (then, args.against_git), (now, None)))
+        unpaired.extend(str(p.relative_to(SPECS)) for p in unwalked(pairs))
     elif args.before:
         after = args.after
         pairs = []
@@ -240,7 +245,7 @@ def main() -> int:
     # A pair that could not be formed is not a pair that came back clean, and
     # printing nothing about it reads as the second.
     if unpaired:
-        print("nothing to compare against for: " + ", ".join(sorted(set(unpaired))))
+        print("nothing compared for: " + ", ".join(sorted(set(unpaired))))
     # Silence about a provider is not the same as nothing having moved there,
     # and a reader will take it that way unless it is said. PayTR publishes no
     # API description for this to walk, and Mollie's is licensed so that no
@@ -258,6 +263,28 @@ def main() -> int:
             "that both sides carry as an API description"
         )
     return 1 if lost_total else 0
+
+
+DATED = re.compile(r"(?:.*-)?\d{4}-\d{2}-\d{2}\.yaml")
+
+
+def unwalked(pairs: list) -> list[pathlib.Path]:
+    """API descriptions under `specs/` that nothing in this run compares.
+
+    The walk finds documents through their `…latest.yaml`. A document no such
+    link names is invisible to it — which is not hypothetical: matching the
+    bare name `latest.yaml` silently dropped `payments-latest.yaml`, and the
+    report went on saying `0 field(s) gained, 0 lost`.
+
+    Dated records are expected to be unwalked; the newest of each is what a
+    link points at, and the older ones are history.
+    """
+    walked = {shown for shown, _, _ in pairs}
+    return [
+        path
+        for path in sorted(SPECS.rglob("*.yaml"))
+        if not path.is_symlink() and not DATED.fullmatch(path.name) and path not in walked
+    ]
 
 
 def providers() -> list[str]:
