@@ -156,17 +156,22 @@ Two more live in this repository rather than on one machine, because they are
 about this library specifically and a contributor should get them with the
 clone:
 
-- **`.claude/skills/money-safety`** — the eight ways a payments library loses
+- **`.claude/skills/money-safety`** — the nine ways a payments library loses
   somebody money, each with the scenario. Read before writing or reviewing
-  anything that touches an amount, a status, an idempotency key, a refund or a
-  webhook. Two of the eight are defects this workspace shipped.
+  anything that touches an amount, a status, an idempotency key, a refund, a
+  webhook, or a value that ends up in a log or a URL. Four of the nine name
+  defects this workspace shipped, and the ninth names four of them.
 - **`.claude/skills/sandbox-verification`** — how an `UNVERIFIED.md` entry is
   closed against a provider's sandbox without taking anybody's money, and —
-  more importantly — which entries a sandbox cannot close at all.
+  more importantly — which entries a sandbox cannot close at all. Its first
+  step is checking the entry still describes the code, because a call site
+  moves and a stale entry closes on the wrong function.
 
-`.claude/agents/` holds the six roles, including `kasapay-verify`, which is the
-only one that ever touches a credential and whose role file leads with what it
-must never do.
+`.claude/agents/` holds the seven roles. Two are worth knowing about before you
+need them: `kasapay-verify` is the only one that ever touches a credential, and
+its role file leads with what it must never do; `kasapay-review` is the
+read-only one, registered without the tools to edit, because an auditor that
+can fix what it finds does, and a fixed finding stops being a finding.
 
 Two of them are worth knowing without opening anything, because they are what
 an agent writing Rust tends to get wrong:

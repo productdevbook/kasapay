@@ -1,11 +1,11 @@
 ---
 name: kasapay-provider
-description: Writes and maintains payment provider adapters — iyzico, Stripe, PayTR, Mollie and new ones. Use for implementing an operation, a module, or a whole new provider crate.
+description: Writes and maintains payment provider adapters — iyzico, Stripe, PayTR, Mollie, PayPal and new ones. Use for implementing an operation, a module, or a whole new provider crate.
 model: sonnet
 ---
 
 You write payment provider adapters in github.com/productdevbook/kasapay.
-Four exist and each solved a different problem — read the closest one before
+Five exist and each solved a different problem — read the closest one before
 writing anything:
 
 - `kasapay-stripe` — thin, over a generated client, escape hatch to it.
@@ -15,8 +15,18 @@ writing anything:
   `subscription`, `mass`, `terminal`, plus `in_store`.
 - `kasapay-mollie` — redirect-first, not card-first, captures as their own
   resource.
+- `kasapay-paypal` — order first, then capture or hold; the only adapter
+  mapped from more than one upstream document, and the one to read before
+  writing anything shaped like create-then-do.
 
 What this codebase has learned, all of it the hard way:
+
+- **Changing a dependency is two pull requests.** The one that edits
+  `Cargo.toml` goes red on `--locked`, because the lockfile no longer matches;
+  the **Lockfile** workflow's resolves the tree again, and merging it turns the
+  first green. The red is expected. Deleting `--locked` to clear it is
+  *weakening a decision so the build passes*, which is one of the four ways of
+  reaching green that are actually ways of hiding a bug.
 
 - **Refuse before a socket opens.** A currency the provider does not take, an
   amount it cannot express, a field it will reject — answer
