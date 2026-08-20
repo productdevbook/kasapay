@@ -1217,11 +1217,16 @@ fn into_payment_charge(
 
 /// Reads iyzico's `fraudStatus` the way this crate has always read it.
 ///
-/// iyzico documents 1 as approved, 0 as under review and -1 as rejected, and a
-/// payment under review is money not yet taken rather than money taken.
+/// iyzico documents 1 as approved, 0 as under review and -1 as rejected —
+/// `enum: [0, -1, 1]` in every schema carrying the field — and its own prose
+/// says to ship only on 1. A payment under review is money not yet taken
+/// rather than money taken.
+///
 /// `None` — no fraud check ran, or the field was simply absent — is read the
 /// same as approved, which is what a stored-card charge means by getting this
-/// far at all.
+/// far at all. A **fourth** value is not read that way: iyzico has never
+/// named one, so nothing here can know it means taken, and shipping against
+/// money nobody has is the more expensive way to be wrong.
 ///
 /// Shared with [`crate::reporting`], which answers the same three codes about
 /// a payment already made rather than one just taken. Its own `paymentStatus`
@@ -1229,9 +1234,11 @@ fn into_payment_charge(
 /// for why.
 pub(crate) const fn fraud_status(value: Option<i64>) -> Status {
     match value {
-        Some(0) => Status::Pending,
+        Some(1) | None => Status::Captured,
         Some(-1) => Status::Failed,
-        _ => Status::Captured,
+        // 0 is under review, and a value iyzico has never named cannot be
+        // known to mean taken. Both are open rather than settled.
+        _ => Status::Pending,
     }
 }
 
@@ -1248,20 +1255,28 @@ fn charge_from(
         .map_err(|e: kasapay_core::UnknownCurrency| {
             Error::new(ErrorKind::Malformed, PROVIDER, e.to_string())
         })?;
+    let order_total = response
+        .price
+        .as_deref()
+        .map(|price| Money::parse(price, currency))
+        .transpose()
+        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?;
     let amount = response
         .paid_price
         .as_deref()
         .map(|price| Money::parse(price, currency))
         .transpose()
         .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
-        .unwrap_or_else(|| Money::from_minor_units(0, currency));
-    let order_amount = response
-        .price
-        .as_deref()
-        .map(|price| Money::parse(price, currency))
-        .transpose()
-        .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
-        .filter(|basket| *basket != amount);
+        .or(order_total)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::Malformed,
+                PROVIDER,
+                "iyzico reported a payment with no amount this crate could read; it is not \
+                 reported as captured for nothing",
+            )
+        })?;
+    let order_amount = order_total.filter(|basket| *basket != amount);
 
     Ok(Charge {
         // A form the payer has not finished has no paymentId, and an empty one

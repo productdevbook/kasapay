@@ -88,6 +88,29 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **A `fraudStatus` iyzico has never named no longer reads as money taken.**
+  Their schemas give the field `enum: [0, -1, 1]` and their own prose says a
+  merchant should ship only on 1 — so a fourth value is one nothing here can
+  read. It answered `Status::Captured`, which is the shape a shop acts on by
+  shipping. It now answers `Status::Pending`, which is open. Nothing changes
+  for the three values iyzico documents, or for an absent field.
+
+  It reached this through `Provider::charge` with an instrument set — the
+  stored-card path a subscription bills on — and again through
+  `reporting::PaymentDetail`.
+
+- **A payment iyzico answered for with no amount is refused rather than
+  reported as captured for nothing.** #172 established that rule and applied it
+  to `Provider::lookup`; `Provider::charge`, `Provider::resume` and
+  `Client::payment` all still substituted `0.00`. One response therefore read
+  two ways in one crate: `Malformed` through the first and `Captured, 0.00 TRY`
+  through the rest, with the correct figure sitting unused in `price` one field
+  away.
+
+  `paidPrice` is now read, then `price`, then the answer is `ErrorKind::Malformed`.
+  A caller who was summing `Charge::amount` for reconciliation was previously
+  short by the payment and told nothing.
+
 - **A Mollie webhook's `id` is refused unless it is an identifier.** Mollie
   signs nothing, so `Webhook::verify` reads the posted `id` back over the
   merchant's own authenticated connection — and that string reached
