@@ -150,8 +150,23 @@ on taste:
   than judges; its second is how to write a check that reads the codebase's own
   source so a rule is enforced instead of remembered.
 - **`agent-briefs`** — writing the role files and the task briefs for a
-  multi-agent run. The five roles in `~/.claude/agents/kasapay-*.md` are
-  written to it.
+  multi-agent run. The roles in `.claude/agents/` are written to it.
+
+Two more live in this repository rather than on one machine, because they are
+about this library specifically and a contributor should get them with the
+clone:
+
+- **`.claude/skills/money-safety`** — the eight ways a payments library loses
+  somebody money, each with the scenario. Read before writing or reviewing
+  anything that touches an amount, a status, an idempotency key, a refund or a
+  webhook. Two of the eight are defects this workspace shipped.
+- **`.claude/skills/sandbox-verification`** — how an `UNVERIFIED.md` entry is
+  closed against a provider's sandbox without taking anybody's money, and —
+  more importantly — which entries a sandbox cannot close at all.
+
+`.claude/agents/` holds the six roles, including `kasapay-verify`, which is the
+only one that ever touches a credential and whose role file leads with what it
+must never do.
 
 Two of them are worth knowing without opening anything, because they are what
 an agent writing Rust tends to get wrong:
