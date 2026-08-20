@@ -104,7 +104,7 @@ impl Card {
             return Err(CardError::NoToken);
         }
         for (field, value) in [("cardUserKey", &*user_key), ("cardToken", token.as_str())] {
-            if is_card_number(value) {
+            if kasapay_core::looks_like_a_card_number(value) {
                 return Err(CardError::CardNumber { field });
             }
         }
@@ -147,36 +147,6 @@ pub enum CardError {
         /// Which of the two, named as iyzico names it.
         field: &'static str,
     },
-}
-
-/// Whether a value is a card number by shape.
-///
-/// Twelve to nineteen digits and nothing else, passing the Luhn check — which
-/// is what every scheme's number is and what none of iyzico's handles is. It
-/// catches a field wired to the wrong source; it is not a security control, and
-/// nothing about it makes the rest of a caller's process safe to hold a number
-/// in.
-fn is_card_number(value: &str) -> bool {
-    let digits = value.as_bytes();
-    if !(12..=19).contains(&digits.len()) || !digits.iter().all(u8::is_ascii_digit) {
-        return false;
-    }
-    let sum: u32 = digits
-        .iter()
-        .rev()
-        .enumerate()
-        .map(|(place, digit)| {
-            let value = u32::from(*digit - b'0');
-            if place % 2 == 0 {
-                value
-            } else if value > 4 {
-                value * 2 - 9
-            } else {
-                value * 2
-            }
-        })
-        .sum();
-    sum.is_multiple_of(10)
 }
 
 /// A payment to take against a card iyzico already holds.
@@ -366,26 +336,7 @@ pub enum PaymentError {
 mod tests {
     use kasapay_core::InstrumentId;
 
-    use super::{Card, CardError, is_card_number};
-
-    #[test]
-    fn a_card_number_is_not_a_handle_on_a_card() {
-        // iyzico's own sandbox Mastercard, and the Visa beside it.
-        for number in ["5528790000000008", "4766620000000001"] {
-            assert!(is_card_number(number), "{number}");
-        }
-        // What iyzico actually answers, and the shapes near a card number that
-        // are not one: too short, too long, and sixteen digits Luhn refuses.
-        for handle in [
-            "card-token-1",
-            "8f2c1c5d4e6a4b0f9d3a7c1e2b5f8a04",
-            "55287900000",
-            "55287900000000081234",
-            "5528790000000009",
-        ] {
-            assert!(!is_card_number(handle), "{handle}");
-        }
-    }
+    use super::{Card, CardError};
 
     #[test]
     fn the_error_never_repeats_the_number_it_refused() {

@@ -129,6 +129,7 @@ mod error;
 mod id;
 mod instrument;
 mod money;
+mod pan;
 mod party;
 mod provider;
 mod raw;
@@ -150,6 +151,8 @@ pub use crate::id::{EventId, Id, IdKind, IdSource, InstrumentId, PaymentId, Refu
 pub use crate::instrument::Instrument;
 #[doc(inline)]
 pub use crate::money::{Currency, Money, MoneyError, UnknownCurrency};
+#[doc(inline)]
+pub use crate::pan::looks_like_a_card_number;
 #[doc(inline)]
 pub use crate::party::{Address, BasketItem, Buyer, ItemKind};
 #[doc(inline)]
