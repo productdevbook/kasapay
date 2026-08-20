@@ -132,6 +132,54 @@ matches, and the Lockfile workflow's, which resolves the tree again. Merge the
 second and the first goes green. Anything else is a lockfile that says one
 thing while CI checks another.
 
+## A claim is the part nothing compiles
+
+This workspace is a third prose by line: 10,939 of its 31,615 non-blank source
+lines are doc comments, and that is before `CLAUDE.md`, the changelog, the
+register and the skills. The compiler has an opinion about none of it.
+
+It shows. In one audit of seventeen merges, twelve defects were found in the
+work itself: **eight were prose**, three were code and one was process. The
+three code defects were all caught within minutes — by the compiler, by an
+existing test, by a new test. None of the eight was caught by anything but
+somebody reading.
+
+So four rules, in the order they pay.
+
+**One claim, one home.** `Provider::cancel` said the opposite of what it did in
+six places at once, because the same fact had been written six times. Every
+copy is a thing that can rot on its own. A second place cites the first.
+
+**A claim that can be checked becomes a check.** Not a promise to remember it.
+`conformance.rs` counts its own roster against `impl Provider for` in the
+source; `documentation.rs` reads the doc comments; `compare_specs.py` names any
+description nothing compared. Each of those replaced a sentence somebody had to
+keep true by hand.
+
+**A number in a sentence is a claim nothing compiles.** Every one that has gone
+stale here went stale the same way — the ninth thing landed and the sentence
+still said eight. Most of them carry nothing a word does not: "a change here
+reaches **every** adapter" says what "five adapters" said and cannot go wrong.
+Where the number is genuinely informative, it goes in `scripts/counts.py`,
+which reads the source for the fact and the prose for the claim, and CI runs it.
+
+That list is hand-kept and may only shrink, and the reason is measured: 112
+(number + countable noun) pairs live in this repository's prose, and almost all
+are rhetorical — "four ways of reaching green", "six currencies iyzico settles
+in". A check over all of them would be ninety false positives, which is a check
+people learn to route around.
+
+**A claim that cannot be checked goes in `UNVERIFIED.md`.** Not into a doc
+comment where it reads as settled. That file is the register, and an entry
+there is the honest shape for something read off a document rather than
+observed.
+
+**And measure a rule before you write it.** Twice in one day a fix that sounded
+right was refused by its own measurement: widening the doc-seam detector to
+skip a blank `///` matched **380** comments, because that is the *correct*
+shape for one. A handful means land it. Fifty means the rule is wrong
+somewhere, and knowing that before it becomes a test is the whole point.
+
 ## The standards this repository is written against
 
 Four skills, and which one to open depends on what you are doing rather than
@@ -167,7 +215,7 @@ clone:
   step is checking the entry still describes the code, because a call site
   moves and a stale entry closes on the wrong function.
 
-`.claude/agents/` holds the seven roles. Two are worth knowing about before you
+`.claude/agents/` holds the roles. Two are worth knowing about before you
 need them: `kasapay-verify` is the only one that ever touches a credential, and
 its role file leads with what it must never do; `kasapay-review` is the
 read-only one, registered without the tools to edit, because an auditor that

@@ -55,7 +55,7 @@ report style as if it were correctness.
 
 And before reviewing anything that touches an amount, a status, an idempotency
 key, a refund or a webhook, read `.claude/skills/money-safety/SKILL.md`. It is
-the nine ways this kind of library loses somebody money, and four of the nine
+the nine ways this kind of library loses somebody money, and five of the nine
 name defects this workspace shipped rather than hypotheticals.
 
 ## You do not write
