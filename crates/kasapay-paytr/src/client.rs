@@ -234,6 +234,18 @@ impl PayTr {
     /// fully refunded" — a payment's status cannot say it, and
     /// deliberately so.
     ///
+    /// # The field names in each entry are a reading, not a document
+    ///
+    /// PayTR's status-query tables list the array as one row — `returns(Array)`
+    /// — and break out none of its fields, in either language. So the four
+    /// names read here come from their sample responses rather than from
+    /// anything they publish, and `UNVERIFIED.md` B4 is the entry for it.
+    ///
+    /// A wrong name fails loudly rather than quietly: an entry carrying no
+    /// amount is [`ErrorKind::Malformed`], not a zero. Summing a refund as
+    /// nothing is how a fully refunded payment reads as unrefunded, and the
+    /// caller this method exists for refunds it a second time.
+    ///
     /// [`charge_status`]: kasapay_core::Provider::charge_status
     pub async fn refunds(&self, order: &OrderRef) -> Result<Vec<RefundRecord>, Error> {
         let (response, _) = self.status(order.as_str()).await?;
@@ -248,10 +260,19 @@ impl PayTr {
                 let amount = item
                     .return_amount
                     .as_deref()
-                    .map(|value| Money::parse(value, currency))
-                    .transpose()
-                    .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))?
-                    .unwrap_or_else(|| Money::from_minor_units(0, currency));
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::Malformed,
+                            PAYTR,
+                            "PayTR reported a refund with no amount; it is not summed as \
+                             nothing, because a payment that reads as unrefunded is one a \
+                             caller refunds again",
+                        )
+                    })
+                    .and_then(|value| {
+                        Money::parse(value, currency)
+                            .map_err(|e| Error::new(ErrorKind::Malformed, PAYTR, e.to_string()))
+                    })?;
                 Ok(RefundRecord {
                     amount,
                     requested: item.return_date.clone().map(String::into_boxed_str),

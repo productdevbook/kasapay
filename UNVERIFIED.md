@@ -181,6 +181,29 @@ is keyed by `merchant_oid`, so a caller can ask. An answer would still be worth
 having: it decides whether `Ok(None)` is the only safe licence to retry or
 merely the simplest one.
 
+### B4. What the status query calls the fields inside `returns` — from #187
+
+`PayTr::refunds` reads four names off each entry — `return_amount`,
+`return_date`, `date_completed` and `return_ref_num` — and PayTR documents none
+of them. Their status-query tables give the array a single row, `returns(Array)`
+/ *"Eğer ilgili sipariş içerisinde iade varsa dönecek değer"*, and break out no
+fields in either language. `return_amount` appears in their documentation only
+on the refund endpoint's own tables, which is a different call.
+
+So all four come from their sample responses. `wire::ReturnItem` says so where
+a reader meets it.
+
+A wrong name now fails loudly: an entry with no `return_amount` is
+`ErrorKind::Malformed` rather than a refund of zero. That matters because the
+method exists to be summed — a fully refunded payment that sums to zero reads
+as unrefunded, and the caller refunds it again. The three date and reference
+fields fail quietly, as `None`, which is the right side for a field nothing is
+decided on.
+
+**To settle it**, read back one order that has a refund against it with
+`/odeme/durum-sorgu` and paste the whole `returns` array into `specs/paytr/`.
+One response settles all four.
+
 ---
 
 ## C. A Terminal API merchant agreement and a Pavo device — from #96

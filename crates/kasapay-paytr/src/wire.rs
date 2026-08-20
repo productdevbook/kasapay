@@ -33,6 +33,11 @@ pub(crate) struct StatusResponse {
 }
 
 /// One refund, as the status query reports it.
+///
+/// **Every name here is a reading.** PayTR's own tables give the array a
+/// single row, `returns(Array)`, and document none of its fields in either
+/// language; `return_amount` appears in their documentation only on the refund
+/// endpoint. See `UNVERIFIED.md` B4.
 #[derive(Debug, Deserialize)]
 pub(crate) struct ReturnItem {
     pub(crate) return_amount: Option<String>,
