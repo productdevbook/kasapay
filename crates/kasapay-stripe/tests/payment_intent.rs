@@ -679,3 +679,78 @@ async fn capabilities_say_stripe_separates_authorisation_from_capture() {
         .expect_err("lookup_by_order is false");
     assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
+
+/// Stripe's capture takes a bare integer with no currency beside it, so a
+/// currency Stripe cannot settle has nowhere to be rejected on the wire. It is
+/// refused here instead, the way `Provider::charge` already refuses it.
+#[tokio::test]
+async fn a_capture_in_a_currency_stripe_cannot_settle_opens_no_socket() {
+    // No mock is mounted: a request that reached the network would fail this.
+    let server = MockServer::start().await;
+
+    let error = client(&server)
+        .capture(
+            &PaymentId::issued("pi_kasapay1"),
+            // Three decimal places; Stripe names no such currency.
+            Some(Money::parse("10.000", Currency::Kwd).expect("valid amount")),
+            None,
+        )
+        .await
+        .expect_err("Stripe does not settle in dinars");
+
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// The half a pre-flight check cannot catch: two currencies Stripe settles in
+/// are indistinguishable until Stripe answers. `Provider::refund` has reported
+/// this since it was written; `capture` reported nothing and handed back a
+/// `Charge` in the payment's own currency, which reads as consistent.
+#[tokio::test]
+async fn capturing_in_a_currency_the_payment_was_not_in_is_caught() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents/pi_kasapay1/capture"))
+        // The caller asked in lira; the intent is in dollars.
+        .respond_with(ResponseTemplate::new(200).set_body_json(captured_intent(1200)))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .capture(
+            &PaymentId::issued("pi_kasapay1"),
+            Some(Money::parse("12.00", Currency::Try).expect("valid amount")),
+            None,
+        )
+        .await
+        .expect_err("the currencies do not match");
+
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+    assert!(error.to_string().contains("was not in the currency"));
+}
+
+/// A refund refused for a currency mismatch has already happened, so the error
+/// carries Stripe's own name for it. Without that the caller holds a failure
+/// and no handle to the money that moved — and through `dyn Provider` there is
+/// no inherent `Stripe::refunds` to go looking with.
+#[tokio::test]
+async fn a_refund_caught_in_the_wrong_currency_names_the_refund_it_made() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/refunds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(refund_body(500, "succeeded")))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .refund(
+            &PaymentId::issued("pi_kasapay1"),
+            Some(Money::parse("5.00", Currency::Try).expect("valid amount")),
+        )
+        .await
+        .expect_err("the currencies do not match");
+
+    assert!(
+        error.to_string().contains("re_kasapay1"),
+        "the refund that happened is not named: {error}"
+    );
+}
