@@ -88,6 +88,25 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **Every amount on an iyzico Terminal GMU document is checked against the
+  currency it is denominated in.** The GMU refund request names no currency at
+  all, so iyzico reads each amount as being in the original sale's — meaning a
+  line carrying a `Money` in another currency is not a rejected request but a
+  different number. `Money::from_minor_units(5000, Currency::Jpy)` went on the
+  wire as `"5000"` and was read as five thousand lira.
+
+  `gmu::Client::refund` and `gmu::Client::pay` now answer
+  `ErrorKind::Unsupported` for any line amount outside TRY, USD and EUR — the
+  three this API's own schemas name — before a socket opens. The check sits
+  where an amount becomes a string, so a `SaleItem` whose public fields were
+  assigned after the builder ran is covered too. This also closes the sale
+  path, where only the total was checked and the per-line `unitPrice`,
+  `grossPrice` and `totalPrice` were not.
+
+  Two smaller refusals arrive with it, both of which the VUK 509 path has
+  always made: a returned line of zero, and a posting date that is not eight
+  digits.
+
 - **Stripe's `capture` and `refund` refuse a currency Stripe cannot settle, and
   report one the payment was not in.** Both calls put a bare integer of minor
   units on the wire with no currency beside it — Stripe's API has no field for
