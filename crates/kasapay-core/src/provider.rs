@@ -315,9 +315,15 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// one thing the caller asked for.
     ///
     /// **A refund that cannot be replayed safely is read back, not resent.**
-    /// Each adapter has a call that lists what has already gone back —
-    /// `Stripe::refunds`, `PayTr::refunds`, Mollie's `amountRefunded` — and
-    /// reading is always safe.
+    /// Reading is always safe. Where to read is not the same everywhere, and
+    /// the differences are the point: `Stripe::refunds`, `PayTr::refunds` and
+    /// `Mollie::refunds` each list what has gone back; iyzico's classic list is
+    /// `reporting::ItemTransaction::refunds`, on a different module from the
+    /// one that took the payment, so `Provider::charge_status` is not where to
+    /// look; PayPal has no typed listing at all, and what it has is the
+    /// capture's own status and the breakdown on [`Charge::raw`]; iyzico's
+    /// In-Store API has neither, which is why its `repeated_refund` is
+    /// `false`.
     async fn refund(&self, request: &RefundRequest) -> Result<Refund, Error>;
 
     /// Asks what became of a request the caller sent under this reference.
