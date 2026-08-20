@@ -15,6 +15,12 @@ name: Lockfile
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "resolve: the whole tree, every pin moves. workspace: only this workspace's own entries."
+        type: choice
+        options: [resolve, workspace]
+        default: resolve
   schedule:
     # The 1st, early, well away from the weekly spec refetch.
     - cron: "23 5 1 * *"
@@ -32,9 +38,25 @@ jobs:
       - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
         with:
           toolchain: stable
-      # Resolves the tree and writes Cargo.lock. It compiles nothing, which is
-      # why this is one step and not a build.
-      - run: cargo generate-lockfile
+      # Both compile nothing, which is why this is one step and not a build.
+      #
+      # `resolve` is the monthly sweep: every dependency moves to the newest
+      # version its requirement allows, and the pull request's own CI run says
+      # whether that tree is any good.
+      #
+      # `workspace` is for a change that only moved this workspace's own
+      # entries — a crate added, a dependency dropped from one of them. It is
+      # what `cut-release.yml` already runs after a version bump, for the same
+      # reason: a two-line edit should not have to drag every third-party pin
+      # forward with it, and until this input existed there was no way to say
+      # so.
+      - name: Write the lockfile
+        run: |
+          if [ "${{ inputs.scope }}" = "workspace" ]; then
+            cargo update --workspace
+          else
+            cargo generate-lockfile
+          fi
       - name: What resolved, for the pull request to carry
         id: resolved
         run: |
@@ -51,7 +73,7 @@ jobs:
           commit-message: "build: resolve the dependency tree"
           add-paths: Cargo.lock
           body: |
-            `cargo generate-lockfile`, run where a lockfile can be produced.
+            Scope: `${{ inputs.scope || 'resolve' }}`.
 
             **What this is for.** Nobody working on this project can build it —
             CI is the only place the code is ever compiled — so an unpinned
@@ -60,12 +82,14 @@ jobs:
             way to reproduce it. A committed `Cargo.lock` makes that failure
             the same failure twice.
 
-            **Read the diff before merging.** This resolves from scratch rather
-            than adding what is missing, so every dependency moves to the
-            newest version its requirement allows. The CI run on this pull
-            request is what says whether that tree still builds, still passes
-            and still satisfies `deny.toml` — a red run here is the point of
-            the job, not a fault in it.
+            **Read the diff before merging.** At `resolve` this starts from
+            scratch rather than adding what is missing, so every dependency
+            moves to the newest version its requirement allows. At `workspace`
+            only this workspace's own entries move and every third-party pin
+            stays where it was. Either way the CI run on this pull request is
+            what says whether the tree still builds, still passes and still
+            satisfies `deny.toml` — a red run here is the point of the job, not
+            a fault in it.
 
             ```
             ${{ steps.resolved.outputs.summary }}
