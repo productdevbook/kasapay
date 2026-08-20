@@ -92,12 +92,22 @@ to read back, and PayPal verifies a delivery over its own API.
 
 `capabilities()` answers this at runtime, and
 [`crates/kasapay/tests/conformance.rs`](crates/kasapay/tests/conformance.rs)
-asserts every cell against the behaviour underneath it: a `false` pairs with
-`ErrorKind::Unsupported` raised before a socket opens, a `true` pairs with a
-request on the wire.
+asserts six of the seven flags against the behaviour underneath them: a `false`
+pairs with `ErrorKind::Unsupported` raised before a socket opens, a `true` pairs
+with a request on the wire. The seventh, `repeated_refund`, needs a first
+refund to have succeeded and so cannot be asked of a server that answers 500 to
+everything; the file says so rather than leaving it silent.
 
-iyzico has no `Webhook` implementation because iyzico documents no delivery it
-posts and no signature over one. Verifying a body means knowing the mechanism.
+The `Webhook` column is a separate trait, walked by
+[`webhook_conformance.rs`](crates/kasapay/tests/webhook_conformance.rs) for the
+rule that decides whether a delivery may be acted on at all.
+
+iyzico has no `Webhook` implementation because the trait cannot express what
+its callback needs: `verify` takes headers and bytes, and In-Store's delivery
+is an encrypted blob that only opens with the `paymentSessionToken` the
+merchant stored when the payment was opened — a value the delivery does not
+carry. So it is `in_store::Client::decrypt_callback` instead. iyzico does sign
+elsewhere; that callback is encrypted rather than signed.
 
 ## Crates
 

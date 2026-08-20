@@ -18,50 +18,21 @@
 //!
 //! That asymmetry is deliberate: the refusal claim is the one a caller builds
 //! a fallback around, and it is the one that was wrong.
-
-#![allow(
-    clippy::expect_used,
-    reason = "a source tree that cannot be read is a failed test"
-)]
 //!
 //! Both were run against the tree before the change they came from was fixed:
 //! the first found three, all real; the second found two of eighteen claims,
 //! both real. A rule that had found fifty would have been the wrong rule.
 
+#![allow(
+    clippy::expect_used,
+    reason = "a source tree that cannot be read is a failed test"
+)]
+
+mod source_tree;
+
 use std::fs;
-use std::path::{Path, PathBuf};
 
-/// Every `.rs` file under a crate's `src/`, which is where doc comments live.
-fn adapter_sources() -> Vec<PathBuf> {
-    let crates = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("crates/ is the parent of this crate");
-    let mut found = Vec::new();
-    for entry in fs::read_dir(crates).expect("crates/ is readable") {
-        let src = entry.expect("a readable entry").path().join("src");
-        if src.is_dir() {
-            collect(&src, &mut found);
-        }
-    }
-    assert!(
-        found.len() > 50,
-        "only {} source files found; the walk is looking in the wrong place",
-        found.len()
-    );
-    found.sort();
-    found
-}
-
-fn collect(dir: &Path, into: &mut Vec<PathBuf>) {
-    for entry in fs::read_dir(dir).expect("a readable directory") {
-        let path = entry.expect("a readable entry").path();
-        if path.is_dir() {
-            collect(&path, into);
-        } else if path.extension().is_some_and(|e| e == "rs") {
-            into.push(path);
-        }
-    }
-}
+use source_tree::files as adapter_sources;
 
 /// The text of a `///` line, or `None` for anything else.
 fn doc_text(line: &str) -> Option<&str> {

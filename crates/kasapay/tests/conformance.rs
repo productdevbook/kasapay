@@ -16,6 +16,13 @@
 //! 3. A refusal costs nothing: not one byte reaches the network.
 //! 4. Every error names the provider it came from.
 //! 5. A charge in a currency the provider settles in is never `Unsupported`.
+//! 6. Every `impl Provider` in the workspace is one of the six asked.
+//!
+//! Six of the seven `Capabilities` flags are paired with the call they
+//! describe. `repeated_refund` is not, and cannot be here: it is a claim about
+//! what happens after a refund has already succeeded, and this server answers
+//! 500 to everything. Saying so is the point — a suite that leaves it silent
+//! reads as covering it.
 //!
 //! The mock server answers 500 to everything, which is the point: a call that
 //! is genuinely implemented fails *there*, and one that is refused never
@@ -36,6 +43,8 @@
     clippy::expect_used,
     reason = "a fixture that cannot be built is a failed test"
 )]
+
+mod source_tree;
 
 use kasapay::{
     ChargeRequest, ChargeRequestBuilder, Currency, ErrorKind, IdempotencyKey, InstrumentId, Money,
@@ -848,5 +857,130 @@ async fn a_charge_missing_fields_is_an_invalid_request_rather_than_an_unsupporte
             ErrorKind::Unsupported,
             "{who} cannot start a payment at all through the trait"
         );
+    }
+}
+
+/// Every `Provider` in the workspace is one of the six walked above.
+///
+/// `every_adapter` is a hand-written roster. It has been complete because
+/// somebody remembered, not because anything checked — and `kasapay-iyzico`
+/// alone has ten client modules, two of which implement this trait. The day a
+/// third does, or a seventh crate lands, it would skip every rule in this file
+/// **green and without a message**: the idempotency rule money-safety names as
+/// the fix for a defect that shipped twice, the currency walk CLAUDE.md says
+/// replaced the compiler, and all four capability pairs.
+///
+/// # What this does not prove
+///
+/// Only that the counts agree. It cannot say *which* implementation is missing
+/// — it prints both lists and leaves that to a reader — and it cannot see a
+/// `Provider` implemented outside this workspace, which is the case the trait
+/// exists for.
+#[tokio::test]
+async fn every_provider_in_the_workspace_is_walked() {
+    let written = source_tree::implementations_of("Provider");
+    let walked: Vec<&str> = every_adapter().await.iter().map(|s| s.label).collect();
+    assert_eq!(
+        written.len(),
+        walked.len(),
+        "{} `impl Provider` in the workspace, {} walked by this file.\n\nwritten:\n  {}\n\nwalked:\n  {}",
+        written.len(),
+        walked.len(),
+        written.join("\n  "),
+        walked.join("\n  "),
+    );
+}
+
+/// A capture of part of an authorisation, against the flag that promises it.
+///
+/// `capture_answers_the_flag_that_describes_it` passes `None` for the amount,
+/// so the axis it is named after was never exercised: an adapter declaring
+/// `partial_capture: false` that quietly captured the whole authorisation when
+/// given `Some` would pass every test in this suite. A shop making a partial
+/// shipment would have the lot taken, and the over-capture surfaces as a
+/// chargeback.
+#[tokio::test]
+async fn a_partial_capture_answers_the_flag_that_describes_it() {
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let capabilities = subject.provider.capabilities();
+        let part = Money::from_minor_units(500, subject.currency);
+        let error = subject
+            .provider
+            .capture(&a_payment(), Some(part), None)
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+
+        assert_eq!(
+            error.provider(),
+            subject.provider.id(),
+            "{who} answered for somebody else"
+        );
+        if capabilities.partial_capture {
+            assert_ne!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} says it captures part of an authorisation and then refuses to"
+            );
+        } else if capabilities.separate_capture {
+            // It captures, but not partly. Refusing before the wire is the
+            // point: the alternative is the whole hold taken.
+            assert_eq!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} does not do partial capture and did not refuse one"
+            );
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused a partial capture and sent something anyway"
+            );
+        }
+    }
+}
+
+/// The same question on the way back out.
+///
+/// `partial_refund` is `true` at five of the six and nothing asked any of them.
+/// A refund of part against a provider that only refunds the lot is money the
+/// caller did not mean to give back.
+#[tokio::test]
+async fn a_partial_refund_answers_the_flag_that_describes_it() {
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let capabilities = subject.provider.capabilities();
+        let request = RefundRequest::builder(a_payment())
+            .amount(Money::from_minor_units(500, subject.currency))
+            .build()
+            .expect("a refund of part");
+        let error = subject
+            .provider
+            .refund(&request)
+            .await
+            .expect_err("the server answers 500 to everything it is asked");
+
+        assert_eq!(
+            error.provider(),
+            subject.provider.id(),
+            "{who} answered for somebody else"
+        );
+        if capabilities.partial_refund {
+            assert_ne!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} says it refunds part of a payment and then refuses to"
+            );
+        } else {
+            assert_eq!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} does not do partial refunds and did not refuse one"
+            );
+            assert_eq!(
+                subject.reached().await,
+                0,
+                "{who} refused a partial refund and sent something anyway"
+            );
+        }
     }
 }
