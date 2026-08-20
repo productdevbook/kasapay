@@ -25,9 +25,11 @@ on:
     # The 1st, early, well away from the weekly spec refetch.
     - cron: "23 5 1 * *"
 
+# `contents: write` and nothing else. This pushes a branch; it does not open a
+# pull request, and the permission that would let it also lets a workflow
+# approve one.
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   regenerate:
@@ -57,42 +59,60 @@ jobs:
           else
             cargo generate-lockfile
           fi
-      - name: What resolved, for the pull request to carry
-        id: resolved
+      # It pushes a branch and hands back a link, rather than opening the
+      # pull request itself.
+      #
+      # `peter-evans/create-pull-request` did open one, and failed every time:
+      # "GitHub Actions is not permitted to create or approve pull requests."
+      # The setting that would allow it also allows a workflow to **approve**
+      # one, and this repository pins every `uses:` to a commit and keeps the
+      # crates.io token in `release.yml` — granting that to fix a convenience
+      # is the wrong trade. So the branch is the deliverable and a person opens
+      # the pull request, which is one click and no new permission.
+      #
+      # What does not change is the part that matters: the resolution is not
+      # trusted until CI has run on it, and CI runs when the pull request is
+      # opened.
+      - name: Push the branch and say where to open the pull request
+        env:
+          SCOPE: ${{ inputs.scope || 'resolve' }}
         run: |
+          set -euo pipefail
+          if git diff --quiet -- Cargo.lock; then
+            echo "The lockfile did not move at scope \`$SCOPE\`." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          branch="lockfile/$SCOPE-$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add Cargo.lock
+          git commit -m "build: resolve the dependency tree at scope $SCOPE"
+          git push origin "$branch"
+
           {
-            echo 'summary<<SUMMARY'
-            git diff --stat -- Cargo.lock || true
-            echo SUMMARY
-          } >> "$GITHUB_OUTPUT"
-      - name: Open a pull request if the resolution moved
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
-        with:
-          branch: lockfile
-          title: "build: resolve the dependency tree"
-          commit-message: "build: resolve the dependency tree"
-          add-paths: Cargo.lock
-          body: |
-            Scope: `${{ inputs.scope || 'resolve' }}`.
-
-            **What this is for.** Nobody working on this project can build it —
-            CI is the only place the code is ever compiled — so an unpinned
-            tree means a pull request that touched nothing related can go red
-            because a dependency published that morning, and its author has no
-            way to reproduce it. A committed `Cargo.lock` makes that failure
-            the same failure twice.
-
-            **Read the diff before merging.** At `resolve` this starts from
-            scratch rather than adding what is missing, so every dependency
-            moves to the newest version its requirement allows. At `workspace`
-            only this workspace's own entries move and every third-party pin
-            stays where it was. Either way the CI run on this pull request is
-            what says whether the tree still builds, still passes and still
-            satisfies `deny.toml` — a red run here is the point of the job, not
-            a fault in it.
-
-            ```
-            ${{ steps.resolved.outputs.summary }}
-            ```
-          labels: dependencies
-          delete-branch: true
+            echo "## The lockfile moved"
+            echo
+            echo "Scope: \`$SCOPE\`. Branch: \`$branch\`."
+            echo
+            echo "**[Open the pull request]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$branch?expand=1)**"
+            echo
+            echo "Nothing here is trusted until CI has run on it, and CI runs when that"
+            echo "pull request is opened. A red run there is the point of this job rather"
+            echo "than a fault in it."
+            echo
+            echo "**What this is for.** Nobody working on this project can build it — CI is"
+            echo "the only place the code is ever compiled — so an unpinned tree means a"
+            echo "pull request that touched nothing related can go red because a dependency"
+            echo "published that morning, and its author has no way to reproduce it."
+            echo
+            echo "**Read the diff before merging.** At \`resolve\` this starts from scratch,"
+            echo "so every dependency moves to the newest version its requirement allows. At"
+            echo "\`workspace\` only this workspace's own entries move and every third-party"
+            echo "pin stays where it was."
+            echo
+            echo '```'
+            git diff --stat -- Cargo.lock
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
