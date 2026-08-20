@@ -1011,3 +1011,70 @@ async fn a_posting_date_that_is_not_eight_digits_opens_no_socket() {
         assert_eq!(error.kind(), ErrorKind::InvalidRequest, "for {date:?}");
     }
 }
+
+/// The amount the payer is actually charged is gated like the rest.
+///
+/// `paidPrice` is iyzico's "Ödenecek nihai tutar" and `SaleBuilder::paid_price`
+/// exists to make it larger than the basket — an instalment surcharge. So a
+/// caller reaching for it is exactly the caller who can get it wrong, and it
+/// was the one amount on a GMU document that nothing checked.
+#[tokio::test]
+async fn a_sale_charging_in_another_currency_opens_no_socket() {
+    // No mock is mounted: a request that reached the network would fail this.
+    let server = MockServer::start().await;
+
+    let sale = gmu::Sale::builder(
+        Reference::new("conv-1", DEVICE, "txn-1"),
+        Money::parse("500.00", Currency::Try).expect("valid amount"),
+        "CREDITCARD",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+    )
+    .paid_price(Money::from_minor_units(50_000, Currency::Jpy))
+    .item(gmu::SaleItem::new(
+        "Kahve",
+        "C62",
+        "KDV20",
+        1,
+        Money::parse("500.00", Currency::Try).expect("valid amount"),
+        Money::parse("416.67", Currency::Try).expect("valid amount"),
+        Money::parse("500.00", Currency::Try).expect("valid amount"),
+    ))
+    .build();
+
+    let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .pay(&sale)
+        .await
+        .expect_err("the charge is not in the currency the document names");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
+
+/// A euro line on a lira sale is inside the three the API settles in, and is
+/// still a different number. Membership was not the question.
+#[tokio::test]
+async fn a_line_in_another_settled_currency_opens_no_socket() {
+    let server = MockServer::start().await;
+
+    let sale = gmu::Sale::builder(
+        Reference::new("conv-1", DEVICE, "txn-1"),
+        Money::parse("500.00", Currency::Try).expect("valid amount"),
+        "CREDITCARD",
+        gmu::SaleApp::new("Kasa", "1.0.0"),
+    )
+    .item(gmu::SaleItem::new(
+        "Kahve",
+        "C62",
+        "KDV20",
+        1,
+        // EUR is one of the three; it is not this document's.
+        Money::parse("500.00", Currency::Eur).expect("valid amount"),
+        Money::parse("416.67", Currency::Try).expect("valid amount"),
+        Money::parse("500.00", Currency::Try).expect("valid amount"),
+    ))
+    .build();
+
+    let error = gmu::Client::new(Client::new(config(&server), TOKEN).expect("client builds"))
+        .pay(&sale)
+        .await
+        .expect_err("the line is not in the currency the document names");
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+}
