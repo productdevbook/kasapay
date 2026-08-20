@@ -88,6 +88,23 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **`kasapay-mollie` no longer tells a handler to acknowledge a delivery it did
+  not read.** Mollie signs nothing, so its `Webhook::verify` is the only one in
+  the workspace that makes a network call — and its `Err` means either *this is
+  not worth acting on* or *the check did not finish*. The crate's guidance said
+  "answer 200 either way", which for the second acknowledges a delivery nobody
+  read and gives Mollie no reason to send it again.
+
+  On a card payment that self-heals: the payer returns to the `redirectUrl` and
+  the shop reads the payment anyway. On a bank transfer or a direct debit
+  nobody comes back, and it is a payment taken that the shop never hears about.
+
+  The rule is now `Error::is_retryable` — non-2xx where it is true, 200
+  otherwise — which is the discrimination the type already exposed. No code
+  changed; the guidance and the shipped `webhook` example did, and there are
+  now tests for both sides of the branch. What Mollie does with either answer
+  is `UNVERIFIED.md` D4.
+
 - **`Provider::cancel`'s documentation says what it does.** #169 and #176 gave
   it a real implementation at every provider that holds funds and left the
   pre-change paragraph in place above the new one at three adapters, with no

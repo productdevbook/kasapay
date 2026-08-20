@@ -21,6 +21,19 @@
 //! `verify` says whether this may be **acted on**, and the reply body says
 //! whether the provider should **stop sending it**. Only the first is a
 //! `Result`.
+//!
+//! # Why this handler can answer `OK` to every error, and one that cannot
+//!
+//! PayTR's `verify` is an HMAC over bytes already in hand. It reaches nothing,
+//! so it cannot fail transiently: every `Err` it produces means the delivery
+//! is not worth acting on, and acknowledging it is right.
+//!
+//! `kasapay_mollie::Mollie` is the exception in this workspace. Mollie signs
+//! nothing, so its `verify` reads the payment back over the network — and an
+//! `Err` there may mean the check did not finish rather than that the delivery
+//! was bad. Copied as written, this catch-all would acknowledge a delivery
+//! nobody read. `Error::is_retryable` is what separates them; `kasapay-mollie`'s
+//! own crate documentation says which way to answer.
 
 use std::error::Error;
 
