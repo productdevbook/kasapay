@@ -114,3 +114,32 @@ async fn a_body_that_is_not_the_form_mollie_posts_is_malformed() {
         .expect_err("a body with no id in it");
     assert_eq!(error.kind(), ErrorKind::Malformed);
 }
+
+/// An `id` that is not an identifier never reaches Mollie.
+///
+/// The posted string becomes a path segment on a request carrying the
+/// merchant's key, so the assertion that matters is not the error kind but
+/// that no request was made at all.
+#[tokio::test]
+async fn an_id_that_is_not_an_identifier_opens_no_socket() {
+    let server = MockServer::start().await;
+
+    for posted in [
+        "../settlements/next",
+        "..%2Fsettlements%2Fnext",
+        "tr_1/../../v2/settlements/open",
+        "tr_1?embed=refunds",
+        "tr 1",
+        "",
+    ] {
+        let body = format!("id={posted}");
+        let error = client(&server)
+            .verify(&Delivery::new(&[], body.as_bytes()))
+            .await
+            .expect_err("an id that is not an identifier is refused");
+        assert_eq!(error.kind(), ErrorKind::Malformed, "for {posted:?}");
+    }
+
+    let seen = server.received_requests().await.expect("requests recorded");
+    assert!(seen.is_empty(), "refusing must cost no request: {seen:?}");
+}
