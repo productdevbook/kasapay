@@ -8,7 +8,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
-    RefundStatus, Sequence, Status,
+    RefundStatus, Release, Sequence, Status,
 };
 use url::Url;
 
@@ -792,7 +792,7 @@ impl Provider for PayTr {
     ///
     /// Giving the money back is [`PayTr::refund`], which takes an order
     /// reference and an amount.
-    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+    async fn cancel(&self, _id: &PaymentId) -> Result<Release, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PAYTR,

@@ -8,7 +8,8 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Delivery, Error, ErrorKind, Event, EventId, EventKind,
     IdempotencyKey, Instrument, InstrumentId, Money, NextAction, OrderRef, PaymentId, Provider,
-    ProviderId, Raw, RefundReason, RefundRequest, RefundStatus, Secret, Sequence, Status, Webhook,
+    ProviderId, Raw, RefundReason, RefundRequest, RefundStatus, Release, ReleaseState, Secret,
+    Sequence, Status, Webhook,
 };
 use url::Url;
 
@@ -552,6 +553,11 @@ impl Mollie {
     /// already authorised is not cancelled that way, and Mollie answers 422 for
     /// it.
     pub async fn release_authorization(&self, payment: &PaymentId) -> Result<(), Error> {
+        self.release_hold(payment).await.map(|_| ())
+    }
+
+    /// The same call, keeping what Mollie sent for [`Release::raw`].
+    async fn release_hold(&self, payment: &PaymentId) -> Result<Raw, Error> {
         self.send(
             reqwest::Method::POST,
             &format!("/v2/payments/{}/release-authorization", payment.as_str()),
@@ -559,7 +565,24 @@ impl Mollie {
             None,
         )
         .await
-        .map(|_| ())
+    }
+
+    /// Withdraws a payment the payer has not finished — `DELETE /v2/payments/{id}`.
+    ///
+    /// Not a hold: Mollie answers 422 for an authorised payment here, and
+    /// releasing one is [`Provider::cancel`]. This is the call for a checkout
+    /// the payer walked away from.
+    pub async fn cancel_payment(&self, payment: &PaymentId) -> Result<Charge, Error> {
+        let raw = self
+            .send(
+                reqwest::Method::DELETE,
+                &format!("/v2/payments/{}", payment.as_str()),
+                None::<&()>,
+                None,
+            )
+            .await?;
+        let parsed: wire::Payment = parse(&raw, "a payment")?;
+        into_charge(&parsed, raw)
     }
 
     async fn create(
@@ -1288,17 +1311,34 @@ impl Provider for Mollie {
     /// Mollie answers it with no body at all. Cancelling a payment that is
     /// already authorised, or already paid, is Mollie's 422 and arrives as
     /// [`ErrorKind::InvalidRequest`].
-    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
-        let raw = self
-            .send(
-                reqwest::Method::DELETE,
-                &format!("/v2/payments/{}", id.as_str()),
-                None::<&()>,
-                None,
-            )
-            .await?;
-        let payment: wire::Payment = parse(&raw, "a payment")?;
-        into_charge(&payment, raw)
+    /// Releases a hold, through [`Mollie::release_authorization`].
+    ///
+    /// [`ReleaseState::Accepted`], never `Released`: Mollie answers
+    /// `202 Accepted` with no body, says it will try, and leaves the issuing
+    /// bank to decide if and when the money is freed. A shop that tells a
+    /// payer the hold is gone on the strength of this will be arguing about
+    /// it — read the payment back with [`Provider::charge_status`], where a
+    /// released payment with no captures becomes `canceled`.
+    ///
+    /// [`Release::amount`] is `None` for the same reason: there is no body to
+    /// read one from.
+    ///
+    /// # Withdrawing a payment the payer never finished is a different call
+    ///
+    /// That is `DELETE /v2/payments/{id}`, which is
+    /// [`Mollie::cancel_payment`], and Mollie answers 422 for it on a payment
+    /// that is already authorised. The two are disjoint, and this trait method
+    /// is the one its own documentation describes: releasing an authorisation
+    /// that will never be taken.
+    async fn cancel(&self, id: &PaymentId) -> Result<Release, Error> {
+        let raw = self.release_hold(id).await?;
+        Ok(Release {
+            payment: Some(id.clone()),
+            amount: None,
+            state: ReleaseState::Accepted,
+            provider: MOLLIE,
+            raw,
+        })
     }
 
     /// Gives money back off a payment.

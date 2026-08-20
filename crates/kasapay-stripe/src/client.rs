@@ -7,7 +7,7 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, Instrument, InstrumentId, Money,
     NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundId, RefundReason,
-    RefundRequest, RefundStatus, Secret, Sequence,
+    RefundRequest, RefundStatus, Release, ReleaseState, Secret, Sequence,
 };
 use stripe::{IdempotencyKey, RequestStrategy, StripeRequest};
 use stripe_client_core::{RequestBuilder, StripeMethod};
@@ -552,8 +552,21 @@ impl Provider for Stripe {
         into_charge(&intent)
     }
 
-    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
-        Stripe::cancel(self, id).await
+    /// Cancels a PaymentIntent, through [`Stripe::cancel`].
+    ///
+    /// Stripe is the one provider here that answers a whole payment object for
+    /// this, so [`Release::payment`] and [`Release::amount`] are both `Some`
+    /// and the state is [`ReleaseState::Released`]. The intent itself, if a
+    /// caller wants it, is the inherent [`Stripe::cancel`].
+    async fn cancel(&self, id: &PaymentId) -> Result<Release, Error> {
+        let charge = Stripe::cancel(self, id).await?;
+        Ok(Release {
+            payment: charge.id,
+            amount: Some(charge.amount),
+            state: ReleaseState::Released,
+            provider: convert::PROVIDER,
+            raw: charge.raw,
+        })
     }
 
     /// Gives money back off a payment, through [`Stripe::refund`]'s own

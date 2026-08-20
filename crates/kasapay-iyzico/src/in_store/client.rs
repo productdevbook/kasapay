@@ -6,7 +6,7 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
-    RefundStatus, Secret, Sequence, Status,
+    RefundStatus, Release, Secret, Sequence, Status,
 };
 use url::Url;
 
@@ -445,7 +445,7 @@ impl Provider for Client {
     /// Giving back money the payer has already handed over is a refund, and
     /// that is [`Client::refund`] — which needs a callback address, because
     /// iyzico makes the payer approve it too.
-    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+    async fn cancel(&self, _id: &PaymentId) -> Result<Release, Error> {
         Err(Error::new(
             ErrorKind::Unsupported,
             PROVIDER,

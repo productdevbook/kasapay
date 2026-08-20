@@ -66,7 +66,7 @@ wants the payer in its own app — so `charge` answers a `Status` and a
 | `resume` | Finishes a redirect flow from the token it handed over. |
 | `charge_status` | Reads a payment back by the provider's own identifier. |
 | `capture` | Takes funds an authorisation is holding. |
-| `cancel` | Releases an authorisation that will never be taken. |
+| `cancel` | Releases an authorisation that will never be taken, answering a `Release`. |
 | `refund` | Gives money back, answering a `Refund` rather than a status. |
 | `lookup` | Finds a payment by the caller's own order reference. |
 | `instruments` | Lists what a customer has saved. |
@@ -135,6 +135,14 @@ before a socket opens, never a field quietly dropped.
 
 **`Charge::raw` keeps the provider's own answer whole**, so everything kasapay
 does not model is still reachable.
+
+**A release is its own act, not a payment state.** `cancel` answers a
+`Release` rather than a `Charge`, because three of the four providers that
+hold funds answer no payment at all — Mollie `202 Accepted` with no body,
+PayPal `204` with no body, iyzico a reversal carrying the bank's own
+reference. `ReleaseState` says whether the money is gone or the provider has
+only taken the request, which is the difference between telling a payer their
+hold is released and being wrong about it.
 
 **Differences are stated rather than smoothed over.** `Status`, `Capabilities`
 and each adapter's own documentation carry the per-provider tables: which

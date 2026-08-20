@@ -133,6 +133,7 @@ mod party;
 mod provider;
 mod raw;
 mod refund;
+mod release;
 mod secret;
 mod webhook;
 
@@ -159,6 +160,8 @@ pub use crate::raw::Raw;
 pub use crate::refund::{
     Refund, RefundReason, RefundRequest, RefundRequestBuilder, RefundRequestError, RefundStatus,
 };
+#[doc(inline)]
+pub use crate::release::{Release, ReleaseState};
 #[doc(inline)]
 pub use crate::secret::Secret;
 #[doc(inline)]

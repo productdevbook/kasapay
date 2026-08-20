@@ -8,7 +8,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use kasapay_core::{
     Address, BasketItem, Buyer, Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind,
     IdempotencyKey, Instrument, InstrumentId, ItemKind, Money, NextAction, OrderRef, PaymentId,
-    Provider, ProviderId, Raw, Refund, RefundReason, RefundRequest, RefundStatus, Sequence, Status,
+    Provider, ProviderId, Raw, Refund, RefundReason, RefundRequest, RefundStatus, Release,
+    ReleaseState, Sequence, Status,
 };
 use serde_json::value::RawValue;
 use url::Url;
@@ -2095,13 +2096,32 @@ impl Provider for Client {
     /// [`Client::cancel`] is the call, and what it returns is what iyzico
     /// signs — or does not sign, which is the reason it cannot be flattened
     /// into a [`Charge`] here.
-    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            PROVIDER,
-            "voiding a classic payment answers a Reversal rather than a charge; \
-             call Client::cancel",
-        ))
+    /// Voids a payment iyzico has not settled, through [`Client::cancel`].
+    ///
+    /// Same-day only and all of it — iyzico has no partial cancel, and after
+    /// settlement the answer is a refund instead.
+    ///
+    /// [`Release::amount`] is what iyzico said it took back. The bank's own
+    /// reference, which a reconciliation against a statement needs, is on the
+    /// [`Reversal`] the inherent [`Client::cancel`] answers; it is in
+    /// [`Release::raw`] here.
+    ///
+    /// **iyzico's cancel response carries no signature**, so unlike a refund
+    /// it cannot be shown to have come from them — the same caveat
+    /// [`Client::cancel`] states. Read the payment back afterwards if that
+    /// matters to a ledger.
+    ///
+    /// No [`Reason`] is sent: the trait has nowhere to carry one. Naming it is
+    /// [`Client::cancel`].
+    async fn cancel(&self, id: &PaymentId) -> Result<Release, Error> {
+        let reversal = Client::cancel(self, id, None).await?;
+        Ok(Release {
+            payment: reversal.payment,
+            amount: Some(reversal.amount),
+            state: ReleaseState::Released,
+            provider: PROVIDER,
+            raw: reversal.raw,
+        })
     }
 
     /// Gives money back off a payment, through [`Client::refund`].

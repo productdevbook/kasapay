@@ -515,12 +515,18 @@ async fn resume_answers_the_flag_that_describes_it() {
     }
 }
 
-/// A refusal that costs a request costs a timeout too, in the retry path where
-/// that matters most.
+/// `separate_capture` says there is a hold, and a hold that cannot be released
+/// is money against a payer's limit with no way to give it back.
+///
+/// This pair used to be the one a capability could get wrong unnoticed: the
+/// check below asserted only that a refusal is free, and never asked whether
+/// the provider claiming a hold could release one. Three of the four that
+/// claimed it could not.
 #[tokio::test]
-async fn a_refused_cancel_never_reaches_the_network() {
+async fn cancel_answers_the_flag_that_describes_it() {
     for subject in every_adapter().await {
         let who = subject.label;
+        let capable = subject.provider.capabilities().separate_capture;
         let error = subject
             .provider
             .cancel(&a_payment())
@@ -531,7 +537,23 @@ async fn a_refused_cancel_never_reaches_the_network() {
             subject.provider.id(),
             "{who} answered for somebody else"
         );
-        if error.kind() == ErrorKind::Unsupported {
+
+        if capable {
+            assert_ne!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} says it holds funds and then cannot release the hold"
+            );
+            assert!(
+                subject.reached().await > 0,
+                "{who} says it holds funds and never asked to release one"
+            );
+        } else {
+            assert_eq!(
+                error.kind(),
+                ErrorKind::Unsupported,
+                "{who} has no hold to release and did not say so"
+            );
             assert_eq!(
                 subject.reached().await,
                 0,

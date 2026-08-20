@@ -16,7 +16,7 @@ use std::sync::Mutex;
 use kasapay::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId,
-    RefundRequest, RefundStatus, Status, async_trait,
+    RefundRequest, RefundStatus, Release, ReleaseState, Status, async_trait,
 };
 
 /// A provider that stalls on a redirect and settles when asked a second time.
@@ -120,14 +120,11 @@ impl Provider for Kumbara {
         })
     }
 
-    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error> {
-        Ok(Charge {
-            id: Some(id.clone()),
-            order: None,
-            amount: Money::from_minor_units(1000, Currency::Try),
-            order_amount: None,
-            status: Status::Canceled,
-            next_action: None,
+    async fn cancel(&self, id: &PaymentId) -> Result<Release, Error> {
+        Ok(Release {
+            payment: Some(id.clone()),
+            amount: Some(Money::from_minor_units(1000, Currency::Try)),
+            state: ReleaseState::Released,
             provider: Self::ID,
             raw: Raw::default(),
         })
@@ -261,9 +258,10 @@ async fn a_provider_outside_the_workspace_can_hold_funds_and_take_part_of_them()
     assert_eq!(captured.status, Status::Captured);
     assert_eq!(captured.amount.minor_units(), 400);
 
-    let canceled = kumbara.cancel(&id).await.expect("the hold is released");
-    assert_eq!(canceled.status, Status::Canceled);
-    assert!(!canceled.status.is_open());
+    let released = kumbara.cancel(&id).await.expect("the hold is released");
+    assert_eq!(released.state, ReleaseState::Released);
+    assert!(!released.state.is_open());
+    assert_eq!(released.payment.as_ref(), Some(&id));
 }
 
 #[tokio::test]
@@ -371,7 +369,7 @@ impl Provider for Yastik {
         Err(Self::unnamed())
     }
 
-    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
+    async fn cancel(&self, _id: &PaymentId) -> Result<Release, Error> {
         Err(Self::unnamed())
     }
 
