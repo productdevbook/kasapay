@@ -173,12 +173,18 @@ order releases happen, newest first.
   wire as `"5000"` and was read as five thousand lira.
 
   `gmu::Client::refund` and `gmu::Client::pay` now answer
-  `ErrorKind::Unsupported` for any line amount outside TRY, USD and EUR — the
-  three this API's own schemas name — before a socket opens. The check sits
-  where an amount becomes a string, so a `SaleItem` whose public fields were
-  assigned after the builder ran is covered too. This also closes the sale
-  path, where only the total was checked and the per-line `unitPrice`,
-  `grossPrice` and `totalPrice` were not.
+  `ErrorKind::Unsupported` before a socket opens for any amount that is not in
+  the currency the document itself names — not merely one outside TRY, USD and
+  EUR, because a euro line on a lira sale is inside that set and is still a
+  different number. A refund names no currency, so its lines are read against
+  each other.
+
+  The check sits where an amount becomes a string, so a `SaleItem` whose public
+  fields were assigned after the builder ran is covered too. That covers
+  `paidPrice` — iyzico's "final amount to be collected", which
+  `SaleBuilder::paid_price` exists to make larger than the basket — and the
+  per-line `unitPrice`, `grossPrice` and `totalPrice`, none of which was
+  checked for currency or for sign.
 
   Two smaller refusals arrive with it, both of which the VUK 509 path has
   always made: a returned line of zero, and a posting date that is not eight

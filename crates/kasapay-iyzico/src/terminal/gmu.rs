@@ -125,14 +125,19 @@ impl Client {
     /// this model's document says what was returned, not only how much.
     /// [`Client::refundable_sale`] is what says which lines still can be.
     pub async fn refund(&self, refund: &Refund) -> Result<Payment, Error> {
-        if refund.items.is_empty() {
+        // The first line is what the rest are read against: a refund request
+        // carries no currency field, so there is nothing on the wire for a
+        // line to disagree with. iyzico reads them all as one currency, so two
+        // that differ is a document that cannot be right whichever it means.
+        let Some(first) = refund.items.first() else {
             return Err(Error::new(
                 ErrorKind::InvalidRequest,
                 PROVIDER,
                 "a VUK 507 refund names the lines being returned, and this named none",
             ));
-        }
+        };
         posting_date(&refund.payment_date)?;
+        let currency = first.unit_price.currency();
         let body = wire::GmuRefundRequest {
             locale: self.terminal.locale(),
             conversation_id: Some(&refund.reference.conversation_id),
@@ -147,7 +152,7 @@ impl Client {
             sale_items: refund
                 .items
                 .iter()
-                .map(SaleItem::body)
+                .map(|item| item.body(currency))
                 .collect::<Result<Vec<_>, Error>>()?,
         };
         self.call("v2/terminal-host/gmu/payment/refund", &body)
@@ -452,18 +457,30 @@ impl SaleItem {
         self
     }
 
-    /// The line as iyzico wants it.
+    /// The line as iyzico wants it, in the currency the document is in.
     ///
-    /// Fallible because the request names no currency: iyzico reads every
-    /// amount here as being in the sale's own, so a line denominated in
-    /// another is not a rejected request but a different number. A `Money` in
-    /// a currency with a different exponent is that number out by a factor.
-    fn body(&self) -> Result<wire::GmuSaleItem<'_>, Error> {
-        for amount in [self.unit_price, self.gross_price, self.total_price] {
-            currency_code(amount.currency())?;
+    /// Fallible because the request names one currency for the whole document:
+    /// iyzico reads every amount on it as being in that one, so a line
+    /// denominated in another is not a rejected request but a different
+    /// number. A `Money` whose exponent differs is that number out by a
+    /// factor.
+    ///
+    /// `expected` rather than a membership test, because the Terminal API
+    /// settles in three currencies and a euro line on a lira sale is inside
+    /// that set.
+    fn body(&self, expected: Currency) -> Result<wire::GmuSaleItem<'_>, Error> {
+        for amount in [
+            Some(self.unit_price),
+            Some(self.gross_price),
+            Some(self.total_price),
+            self.return_amount,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            in_the_documents_currency(amount, expected)?;
         }
         if let Some(returning) = self.return_amount {
-            currency_code(returning.currency())?;
             returning.require_positive().map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidRequest,
@@ -676,14 +693,22 @@ impl Sale {
                 "a VUK 507 sale is made of lines, and this one has none",
             ));
         }
-        self.price.require_positive().map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidRequest,
-                PROVIDER,
-                "a sale takes an amount above zero",
-            )
-            .with_source(e)
-        })?;
+        // `paidPrice` is iyzico's "Ödenecek nihai tutar" — the figure the payer
+        // is actually charged, which `SaleBuilder::paid_price` exists to make
+        // larger than the basket. It is the one amount on this document that
+        // must be right, and it was the one nothing checked.
+        for amount in [self.price, self.paid_price] {
+            amount.require_positive().map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    PROVIDER,
+                    "a sale takes an amount above zero",
+                )
+                .with_source(e)
+            })?;
+        }
+        let currency = self.price.currency();
+        in_the_documents_currency(self.paid_price, currency)?;
         Ok(wire::GmuPaymentRequest {
             locale,
             conversation_id: Some(&self.reference.conversation_id),
@@ -702,7 +727,7 @@ impl Sale {
             sale_items: self
                 .items
                 .iter()
-                .map(SaleItem::body)
+                .map(|item| item.body(currency))
                 .collect::<Result<Vec<_>, Error>>()?,
             buyer_info: self.buyer.as_ref().map(Buyer::body),
         })
@@ -988,6 +1013,28 @@ pub struct RefundableSale {
     /// iyzico's own answer, untouched. The per-line returnable quantities and
     /// amounts are in here.
     pub raw: kasapay_core::Raw,
+}
+
+/// Refuses an amount that is not in the currency the document is in.
+///
+/// `currency_code` answers whether the Terminal API settles in a currency at
+/// all. That is not the question a document asks: it names **one** currency and
+/// iyzico reads every figure on it as being in that one, so a euro line on a
+/// lira sale passes a membership test and is still a different number.
+fn in_the_documents_currency(amount: Money, expected: Currency) -> Result<(), Error> {
+    currency_code(expected)?;
+    if amount.currency() == expected {
+        return Ok(());
+    }
+    Err(Error::new(
+        ErrorKind::Unsupported,
+        PROVIDER,
+        format!(
+            "this document is in {expected} and carries an amount in {}; \
+             iyzico reads every figure on it as the first",
+            amount.currency()
+        ),
+    ))
 }
 
 /// Refuses a posting date iyzico's own schemas cannot read.
