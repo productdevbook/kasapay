@@ -86,6 +86,23 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **`NextAction` and `Delivery` no longer print what they hold.** Both derived
+  `Debug`, so one `tracing::debug!("{charge:?}")` put a live Stripe
+  `client_secret` into a log file, and one `tracing::debug!("{delivery:?}")`
+  put a provider's signature and the whole body it signed into the same place.
+  Stripe's own documentation says a client secret "should not be stored,
+  logged, or exposed to anyone other than the customer" — anybody holding one
+  can confirm or cancel that payment from a browser.
+
+  Both are written rather than derived now, the way `Raw` already was: the two
+  handles show as a length, a delivery names which headers arrived and counts
+  its body, and the redirect address is still printed whole because a caller
+  who cannot log it cannot log the one thing that variant is for.
+
+  **`Debug` output changed**, so a test asserting on the old text will fail.
+  Nothing else about either type moved. `Charge` derives `Debug` and holds both
+  a `NextAction` and a `Raw`, so `{charge:?}` is now safe throughout.
+
 - **A stored-card charge at Stripe carries the caller's `return_url`.**
   `Stripe::charge_saved_card` sends `confirm: true`, which is the one create
   Stripe documents the field as usable on — and `saved::Payment` had no such

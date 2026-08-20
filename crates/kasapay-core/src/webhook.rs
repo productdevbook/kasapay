@@ -30,10 +30,32 @@ pub struct RepeatedHeader {
 ///
 /// Header names are matched without regard to case, because HTTP/2 lowercases
 /// them and HTTP/1.1 does not.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Delivery<'a> {
     headers: &'a [(&'a str, &'a str)],
     body: &'a [u8],
+}
+
+/// Names the headers and counts the body, and prints neither.
+///
+/// A delivery holds the provider's signature and the whole payload. Deriving
+/// this put both wherever a handler logged the delivery it was handed — which
+/// is the first thing anybody does while a webhook is not working. Which
+/// headers arrived is the useful half and is safe; what they say is not.
+impl fmt::Debug for Delivery<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Delivery")
+            .field(
+                "headers",
+                &self
+                    .headers
+                    .iter()
+                    .map(|(name, _)| *name)
+                    .collect::<Vec<_>>(),
+            )
+            .field("body", &format_args!("{} bytes", self.body.len()))
+            .finish()
+    }
 }
 
 impl<'a> Delivery<'a> {
