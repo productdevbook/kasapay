@@ -862,7 +862,6 @@ name = "kasapay-core"
 version = "0.0.5"
 dependencies = [
  "async-trait",
- "serde",
  "serde_json",
  "thiserror",
  "url",
@@ -883,7 +882,6 @@ dependencies = [
  "subtle",
  "thiserror",
  "tokio",
- "tracing",
  "url",
  "wiremock",
 ]

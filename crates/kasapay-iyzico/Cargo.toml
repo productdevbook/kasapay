@@ -21,7 +21,6 @@ subtle.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true
-tracing.workspace = true
 url.workspace = true
 
 [dev-dependencies]
