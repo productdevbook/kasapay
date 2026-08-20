@@ -8,7 +8,7 @@ use crate::id::PaymentId;
 use crate::instrument::Instrument;
 use crate::money::Money;
 use crate::refund::{Refund, RefundRequest};
-use crate::release::{Release, ReleaseState};
+use crate::release::Release;
 
 /// Names a provider.
 ///
@@ -263,7 +263,8 @@ pub trait Provider: fmt::Debug + Send + Sync {
     ///
     /// Read [`Release::state`] before telling a payer the money is back:
     /// Mollie's `202` means the request was taken and the issuing bank decides
-    /// if and when, which is [`ReleaseState::Accepted`].
+    /// if and when, which is
+    /// [`ReleaseState::Accepted`](crate::ReleaseState::Accepted).
     ///
     /// Cancelling a payment whose funds are already captured is
     /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest) rather
