@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Error, ErrorKind, IdempotencyKey, Instrument, Money,
     NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, RefundReason, RefundRequest,
-    RefundStatus, Secret, Sequence, Status,
+    RefundStatus, Release, ReleaseState, Secret, Sequence, Status,
 };
 use url::Url;
 
@@ -1315,12 +1315,52 @@ impl Provider for PayPal {
     /// this method still cannot do is withdraw an order: an unapproved one is
     /// simply left, and PayPal's own prose says it is eligible for deletion
     /// after it has aged.
-    async fn cancel(&self, _id: &PaymentId) -> Result<Charge, Error> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            PAYPAL,
-            "PayPal's Orders v2 API has no operation that cancels or voids an order by its own id",
-        ))
+    /// Voids the hold on an order, through [`PayPal::void_authorization`].
+    ///
+    /// # Two calls, for the reason [`Provider::refund`] is two
+    ///
+    /// PayPal's void is keyed by an [`AuthorizationId`] and this trait names a
+    /// payment by its order, so the order is read first and its authorization
+    /// found on it — exactly what [`Provider::refund`] does to find the
+    /// capture. That is why `cancel` used to refuse: not because PayPal has no
+    /// operation, but because the one it has is keyed by something the
+    /// signature does not carry, and reading the order for it was never tried.
+    ///
+    /// An order with no authorization on it is
+    /// [`ErrorKind::InvalidRequest`]: an order created with `intent: CAPTURE`
+    /// holds nothing to release, and [`PayPal::authorize`] is what places a
+    /// hold.
+    ///
+    /// # What comes back
+    ///
+    /// PayPal answers `204` with no body, so [`Release::payment`] is the order
+    /// this was asked about and [`Release::amount`] is whatever PayPal echoed,
+    /// which is usually nothing. The state is [`ReleaseState::Released`]:
+    /// unlike Mollie, PayPal's void is the hold being gone rather than a
+    /// request to release it.
+    async fn cancel(&self, id: &PaymentId) -> Result<Release, Error> {
+        let charge = self.charge_status(id).await?;
+        // authorization_id answers Malformed, which is right for its own use —
+        // a response not shaped the way PayPal documents. An order that simply
+        // holds nothing is well shaped and the caller's mistake, so the kind
+        // changes here and the cause travels with it.
+        let authorization = authorization_id(&charge).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                PAYPAL,
+                "this order holds nothing to release; an order created with intent: CAPTURE \
+                 never places a hold, and PayPal::authorize is what does",
+            )
+            .with_source(e)
+        })?;
+        let voided = self.void_authorization(&authorization).await?;
+        Ok(Release {
+            payment: Some(id.clone()),
+            amount: voided.amount,
+            state: ReleaseState::Released,
+            provider: PAYPAL,
+            raw: voided.raw,
+        })
     }
 
     /// Gives money back off an order — and reads the order first, because

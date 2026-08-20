@@ -38,6 +38,40 @@ order releases happen, newest first.
   refuse rather than answering a request for a guarantee with an ordinary
   payment that might happen to leave a card behind.
 
+### Changed
+
+- **`Provider::cancel` answers a `Release` rather than a `Charge`, and now
+  works everywhere a hold exists** (#169). It was `ErrorKind::Unsupported` at
+  three of the four providers whose `Capabilities::separate_capture` is
+  `true` — code written once against `dyn Provider` could authorise on PayPal,
+  decide not to capture, and have no portable way to release the hold.
+
+  The obstruction was the return type at every one of them, not the operation.
+  Mollie answers `202 Accepted` with no body, PayPal `204` with no body, and
+  iyzico a reversal carrying the bank's own reference and no payment state, so
+  each refused rather than invent a `Charge` — the honest answer to the wrong
+  question. Mollie's source said so in as many words: *"this is what
+  `Provider::cancel` would be if the trait could express it, and it cannot."*
+
+  New in `kasapay-core` and re-exported from `kasapay`: `Release` and
+  `ReleaseState`. `ReleaseState::Accepted` is Mollie's `202` — the request
+  taken, the issuing bank deciding if and when — and a shop that reads it as
+  released will be arguing with a payer about a hold still on their card.
+
+  PayPal needed no new identifier after all: its void is keyed by an
+  authorization, and the order carries one, so `cancel` reads the order first
+  exactly as `refund` already reads it to find the capture.
+
+  **Breaking**, three ways. `cancel`'s return type changes. Mollie's
+  `Provider::cancel` is now `release-authorization`; withdrawing a payment the
+  payer never finished is `Mollie::cancel_payment`, which is the same
+  `DELETE /v2/payments/{id}` under a name that says which act it is. And an
+  adapter outside this workspace must change one signature.
+
+  `separate_capture` now pairs with behaviour, asserted for all six clients in
+  `conformance.rs` — the check there previously asked only whether a refusal
+  was free, never whether a provider claiming a hold could release one.
+
 ### Fixed
 
 - **Two recorded reasons had gone stale.** `Provider::instruments` and

@@ -186,7 +186,7 @@ async fn cancelling_a_payment_that_cannot_be_cancelled_is_a_bad_request() {
         .await;
 
     let error = client(&server)
-        .cancel(&PaymentId::issued("tr_WDqYK6vllg"))
+        .cancel_payment(&PaymentId::issued("tr_WDqYK6vllg"))
         .await
         .expect_err("it cannot be cancelled");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);

@@ -14,7 +14,7 @@
 
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdSource, IdempotencyKey, Money, NextAction, OrderRef,
-    PaymentId, Provider, Secret, Status,
+    PaymentId, Provider, ReleaseState, Secret, Status,
 };
 use kasapay_paypal::{Config, PayPal};
 use serde_json::json;
@@ -427,28 +427,84 @@ async fn a_partial_capture_is_refused_before_it_is_sent() {
     assert_eq!(error.kind(), ErrorKind::Unsupported);
 }
 
-/// `/v2/checkout/orders` itself has no cancel or void operation, and the
-/// Authorizations resource's own void is keyed by the authorization's id
-/// rather than the order's — see `Provider::cancel`'s own documentation on
-/// `PayPal` for why that keeps this refused rather than reachable.
+/// `/v2/checkout/orders` has no void of its own, but the Authorizations
+/// resource does — and the order carries the authorization's id, so the two
+/// calls together are what `Provider::cancel` is.
 #[tokio::test]
-async fn cancel_is_always_refused() {
+async fn cancelling_reads_the_order_to_find_the_hold_and_voids_it() {
     let server = MockServer::start().await;
-    let paypal = PayPal::new(
-        Config::at(
-            &server.uri(),
-            Secret::new("client-id"),
-            Secret::new("client-secret"),
-        )
-        .expect("valid base"),
-    )
-    .expect("client builds");
+    let paypal = client(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/v2/checkout/orders/5O190127TN364715T"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "5O190127TN364715T",
+            "status": "COMPLETED",
+            "purchase_units": [{
+                "amount": { "currency_code": "USD", "value": "100.00" },
+                "payments": {
+                    "authorizations": [{
+                        "id": "3C679366HH908993F",
+                        "status": "CREATED",
+                        "amount": { "currency_code": "USD", "value": "100.00" }
+                    }]
+                }
+            }]
+        })))
+        .mount(&server)
+        .await;
+    // PayPal's documented 204: the hold is gone and there is nothing to say.
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/authorizations/3C679366HH908993F/void"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+
+    let released = paypal
+        .cancel(&PaymentId::issued("5O190127TN364715T"))
+        .await
+        .expect("the hold is voided");
+
+    // PayPal's void is the hold being gone, not a request to release it —
+    // which is what separates it from Mollie's 202.
+    assert_eq!(released.state, ReleaseState::Released);
+    assert!(!released.state.is_open());
+    assert_eq!(
+        released.payment.as_ref().map(PaymentId::as_str),
+        Some("5O190127TN364715T")
+    );
+}
+
+/// An order created with `intent: CAPTURE` holds nothing, so there is no
+/// authorization on it to void — and that is the caller's mistake to hear
+/// about rather than a capability PayPal lacks.
+#[tokio::test]
+async fn cancelling_an_order_that_holds_nothing_says_so() {
+    let server = MockServer::start().await;
+    let paypal = client(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/v2/checkout/orders/5O190127TN364715T"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "5O190127TN364715T",
+            "status": "COMPLETED",
+            "purchase_units": [{
+                "amount": { "currency_code": "USD", "value": "100.00" },
+                "payments": {
+                    "captures": [{
+                        "id": "8MC585209K746392H",
+                        "status": "COMPLETED",
+                        "amount": { "currency_code": "USD", "value": "100.00" }
+                    }]
+                }
+            }]
+        })))
+        .mount(&server)
+        .await;
 
     let error = paypal
         .cancel(&PaymentId::issued("5O190127TN364715T"))
         .await
-        .expect_err("there is no cancel operation to call");
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+        .expect_err("a captured order holds nothing to release");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
 }
 
 /// Vaulting is a separate API this crate does not implement.

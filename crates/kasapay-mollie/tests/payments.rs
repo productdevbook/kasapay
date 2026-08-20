@@ -12,7 +12,7 @@
 
 use kasapay_core::{
     ChargeRequest, Currency, ErrorKind, IdSource, IdempotencyKey, Money, NextAction, OrderRef,
-    PaymentId, Provider, RefundReason, RefundRequest, RefundStatus, Secret, Status,
+    PaymentId, Provider, RefundReason, RefundRequest, RefundStatus, ReleaseState, Secret, Status,
 };
 use kasapay_mollie::{CaptureState, Config, Mollie, RefundState};
 use serde_json::json;
@@ -312,7 +312,7 @@ async fn cancelling_a_payment_answers_the_cancelled_payment() {
         .await;
 
     let charge = client(&server)
-        .cancel(&kasapay_core::PaymentId::issued("tr_WDqYK6vllg"))
+        .cancel_payment(&kasapay_core::PaymentId::issued("tr_WDqYK6vllg"))
         .await
         .expect("the payment cancels");
 
@@ -844,4 +844,30 @@ async fn what_the_client_says_it_will_do() {
     // `charge_with_mandate`, in tests/mandates.rs.
     assert!(capabilities.saved_instruments);
     assert_eq!(client(&server).id().as_str(), "mollie");
+}
+/// `Provider::cancel` releases a hold, and Mollie says only that it will try.
+///
+/// The distinction is money on a payer's card: `202 Accepted` is Mollie taking
+/// the request, with the issuing bank deciding if and when. A shop that reads
+/// this as "released" and tells the payer so will be arguing about it.
+#[tokio::test]
+async fn releasing_a_hold_through_the_trait_is_accepted_rather_than_done() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v2/payments/tr_WDqYK6vllg/release-authorization"))
+        .respond_with(ResponseTemplate::new(202))
+        .mount(&server)
+        .await;
+
+    let released = Provider::cancel(
+        &client(&server),
+        &kasapay_core::PaymentId::issued("tr_WDqYK6vllg"),
+    )
+    .await
+    .expect("Mollie takes the request");
+
+    assert_eq!(released.state, ReleaseState::Accepted);
+    assert!(released.state.is_open(), "the money may still be held");
+    // No body, so nothing to read an amount from — and none is invented.
+    assert!(released.amount.is_none());
 }

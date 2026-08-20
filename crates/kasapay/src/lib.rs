@@ -91,8 +91,8 @@ pub use kasapay_core::{
     ChargeRequestError, Currency, Delivery, Error, ErrorKind, Event, EventId, EventKind, Id,
     IdKind, IdSource, IdempotencyKey, Instrument, InstrumentId, ItemKind, Money, MoneyError,
     NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundId, RefundReason,
-    RefundRequest, RefundRequestBuilder, RefundRequestError, RefundStatus, RepeatedHeader, Secret,
-    Sequence, Status, UnknownCurrency, Webhook, async_trait, kind,
+    RefundRequest, RefundRequestBuilder, RefundRequestError, RefundStatus, Release, ReleaseState,
+    RepeatedHeader, Secret, Sequence, Status, UnknownCurrency, Webhook, async_trait, kind,
 };
 
 #[cfg(feature = "iyzico")]

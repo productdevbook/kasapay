@@ -8,6 +8,7 @@ use crate::id::PaymentId;
 use crate::instrument::Instrument;
 use crate::money::Money;
 use crate::refund::{Refund, RefundRequest};
+use crate::release::{Release, ReleaseState};
 
 /// Names a provider.
 ///
@@ -244,6 +245,26 @@ pub trait Provider: fmt::Debug + Send + Sync {
 
     /// Releases an authorisation that will never be taken.
     ///
+    /// Every provider whose [`Capabilities::separate_capture`] is true can do
+    /// this, and one whose is false answers
+    /// [`ErrorKind::Unsupported`](crate::ErrorKind::Unsupported): there is no
+    /// hold to release where the money was taken at authorisation. That pair
+    /// is asserted for every adapter in
+    /// `crates/kasapay/tests/conformance.rs`.
+    ///
+    /// # Why this answers a [`Release`] rather than a [`Charge`]
+    ///
+    /// Because three of the four providers that hold funds do not answer a
+    /// payment. Mollie sends `202 Accepted` with no body, PayPal `204` with no
+    /// body, and iyzico a reversal carrying the bank's own reference and no
+    /// payment state. Asking them for a `Charge` is what kept this method from
+    /// doing its one documented job at three of the four — each refused rather
+    /// than inventing one, which was the honest answer to the wrong question.
+    ///
+    /// Read [`Release::state`] before telling a payer the money is back:
+    /// Mollie's `202` means the request was taken and the issuing bank decides
+    /// if and when, which is [`ReleaseState::Accepted`].
+    ///
     /// Cancelling a payment whose funds are already captured is
     /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest) rather
     /// than a silent success: giving that money back is a refund, a different
@@ -254,7 +275,7 @@ pub trait Provider: fmt::Debug + Send + Sync {
     /// [`ErrorKind::InvalidRequest`](crate::ErrorKind::InvalidRequest) rather
     /// than releasing anything twice, which is the whole reason
     /// [`Provider::capture`] carries a key and this does not.
-    async fn cancel(&self, id: &PaymentId) -> Result<Charge, Error>;
+    async fn cancel(&self, id: &PaymentId) -> Result<Release, Error>;
 
     /// Gives money back off a payment.
     ///
