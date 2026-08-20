@@ -36,7 +36,7 @@ def refs(node):
             yield from refs(v)
 
 if __name__ == "__main__":
-    raw = subprocess.run(["curl", "-sSL", SRC], capture_output=True, check=True).stdout
+    raw = subprocess.run(["curl", "-fsSL", SRC], capture_output=True, check=True).stdout
     spec = json.loads(raw)
     paths = {p: spec["paths"][p] for p in KEEP if p in spec["paths"]}
     missing = [p for p in KEEP if p not in spec["paths"]]

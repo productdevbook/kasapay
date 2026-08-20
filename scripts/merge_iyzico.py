@@ -54,7 +54,7 @@ DESCRIPTIONS = {
 
 def fetch(url: str) -> str:
     return subprocess.run(
-        ["curl", "-sSL", "--max-time", "30", url],
+        ["curl", "-fsSL", "--max-time", "30", url],
         capture_output=True,
         text=True,
         check=True,
@@ -556,8 +556,42 @@ def authentication(spec: dict) -> dict:
     }
 
 
-def main() -> None:
-    day = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().isoformat()
+def shrinkage(previous: pathlib.Path | None, index: dict) -> list[str]:
+    """Where this sweep found less than the last one recorded.
+
+    `curl --fail` catches an HTTP error. What it cannot catch is iyzico serving
+    a page that no longer carries the fragment — a moved URL answered by a
+    landing page, a reformatted embed — and that is swept as a page with
+    nothing on it. The area then sheds operations into a **new dated file**,
+    which is the one shape `compare_specs.py` reads as the truth rather than as
+    a loss, and `coverage.py` gates only on the operations that carry a written
+    reason. So nothing downstream sees it, and `specs/` quietly says iyzico's
+    API is smaller than it is.
+
+    A sweep that really did find less says so with `--allow-shrink`.
+    """
+    if previous is None:
+        return []
+    was = json.loads(previous.read_text(encoding="utf-8"))
+    lost = []
+    for key, name in (("fragments", "fragments"), ("pages_with_fragments", "pages carrying fragments")):
+        if index[key] < was.get(key, 0):
+            lost.append(f"{name}: {was[key]} -> {index[key]}")
+    for area, before in sorted(was.get("areas", {}).items()):
+        now = index["areas"].get(area)
+        if now is None:
+            lost.append(f"{area}: the whole area is gone")
+            continue
+        missing = sorted(set(before["operations"]) - set(now["operations"]))
+        if missing:
+            lost.append(f"{area}: no longer documents {', '.join(missing)}")
+    return lost
+
+
+def main() -> int:
+    allow_shrink = "--allow-shrink" in sys.argv[1:]
+    given = [a for a in sys.argv[1:] if not a.startswith("-")]
+    day = given[0] if given else datetime.date.today().isoformat()
     urls = pages()
     with ThreadPoolExecutor(max_workers=8) as pool:
         bodies = list(pool.map(fetch, urls))
@@ -604,19 +638,13 @@ def main() -> None:
         "areas": {},
     }
 
-    unchanged = []
+    merged = {}
     for area_name, found in sorted(by_area.items()):
         spec, notes = merge(area_name, found)
-        directory = OUT / area_name
-        directory.mkdir(parents=True, exist_ok=True)
-        # A record is written on the day it says something new; an area that
-        # has not moved keeps the date it last moved on. See scripts/dated.py.
-        previous = dated.newest_dated(directory, ".yaml")
-        body = yaml.safe_dump(spec, allow_unicode=True, sort_keys=False, width=100)
-        if dated.write_if_moved(directory / f"{day}.yaml", body, previous):
-            dated.point_latest_at(directory, f"{day}.yaml")
-        else:
-            unchanged.append(area_name)
+        merged[area_name] = (
+            spec,
+            yaml.safe_dump(spec, allow_unicode=True, sort_keys=False, width=100),
+        )
         index["areas"][area_name] = {
             "authentication": authentication(spec),
             "operations": sorted(
@@ -627,6 +655,31 @@ def main() -> None:
             "schemas": len(spec["components"]["schemas"]),
             "notes": notes,
         }
+
+    # Before anything is written, because a record that has already shed half
+    # an area is not made safer by exiting after writing it.
+    lost = shrinkage(dated.newest_dated(OUT, ".index.json"), index)
+    if lost and not allow_shrink:
+        print("this sweep found less than the last one, and nothing was written:", file=sys.stderr)
+        for line in lost:
+            print(f"  {line}", file=sys.stderr)
+        print(
+            "\nIf iyzico really did withdraw these, say so with --allow-shrink.",
+            file=sys.stderr,
+        )
+        return 1
+
+    unchanged = []
+    for area_name, (_, body) in merged.items():
+        directory = OUT / area_name
+        directory.mkdir(parents=True, exist_ok=True)
+        # A record is written on the day it says something new; an area that
+        # has not moved keeps the date it last moved on. See scripts/dated.py.
+        previous = dated.newest_dated(directory, ".yaml")
+        if dated.write_if_moved(directory / f"{day}.yaml", body, previous):
+            dated.point_latest_at(directory, f"{day}.yaml")
+        else:
+            unchanged.append(area_name)
 
     OUT.mkdir(parents=True, exist_ok=True)
     dated.write_if_moved(
@@ -640,7 +693,8 @@ def main() -> None:
         print(f"unchanged, so not written again: {', '.join(unchanged)}")
     for name, a in sorted(index["areas"].items()):
         print(f"  {len(a['operations']):3d}  {name}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
