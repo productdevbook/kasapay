@@ -295,9 +295,12 @@ that would separate them. One sandbox pre-authorisation settles both.
 
 iyzico's `/payment/auth` status mapping, for the same reason: the documented
 response has no `paymentStatus`, so `fraudStatus` is what
-`read_payment_answer` reads — 0 is `Pending`, -1 is `Failed`, anything else is
-`Captured`, and a pre-authorisation's `Captured` is `Authorized` instead. What has not been seen is whether a fraud rejection arrives as
-`status: "failure"` or as a success carrying -1.
+`read_payment_answer` reads — 1 and an absent field are `Captured`, -1 is
+`Failed`, and 0 and anything iyzico has not named are `Pending`, since their
+schemas give the field `enum: [0, -1, 1]` and their prose says to ship only on
+1. A pre-authorisation's `Captured` is `Authorized` instead. What has not been
+seen is whether a fraud rejection arrives as `status: "failure"` or as a
+success carrying -1.
 
 Two things about Mollie, both read off their prose rather than an example.
 `Mollie::cancel_payment` is `DELETE /v2/payments/{id}`, and the crate documents
