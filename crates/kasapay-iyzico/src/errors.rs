@@ -10,7 +10,7 @@
 //! # iyzico's own `Retry` column is not this
 //!
 //! Their error list has a `Retry` flag, and it says `true` for
-//! "Email is mandatory". It means *the shopper can correct this and try
+//! "Email is mandatory". It means *the payer can correct this and try
 //! again*, not *this same request may succeed*. Mapping it onto
 //! [`Error::is_retryable`](kasapay_core::Error::is_retryable) would tell a
 //! caller's retry loop to hammer a request that will fail identically forever.
@@ -35,8 +35,8 @@ const RETRYABLE: &[&str] = &[
 
 /// The bank understood and said no.
 ///
-/// A caller shows these to the shopper: try another card, ring your bank. They
-/// are not a fault in the request, and telling a shopper their details were
+/// A caller shows these to the payer: try another card, ring your bank. They
+/// are not a fault in the request, and telling a payer their details were
 /// invalid when their limit was exceeded sends them round a loop that cannot end.
 const DECLINED: &[&str] = &[
     "10034", // FRAUD_SUSPECT
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn a_declined_card_is_a_decline_and_not_a_bad_request() {
-        // 10051 is NOT_SUFFICIENT_FUNDS. Telling a shopper their details were
+        // 10051 is NOT_SUFFICIENT_FUNDS. Telling a payer their details were
         // invalid sends them round a loop that cannot end.
         let kind = kind_for(Some("10051"), ErrorKind::InvalidRequest);
         assert_eq!(kind, ErrorKind::Declined);

@@ -1,6 +1,6 @@
 //! iyzico's Terminal API — a cash register driving a physical POS device.
 //!
-//! Nothing else in this crate looks like this. There is no shopper with a
+//! Nothing else in this crate looks like this. There is no payer with a
 //! browser and no callback address: a till sends a request, a person standing
 //! at a counter presents a card to a terminal named by `deviceUniqueId`, and
 //! the answer to that same request says whether the bank approved it. iyzico

@@ -178,7 +178,7 @@ async fn a_refused_card_becomes_a_decline() {
 
     assert_eq!(error.kind(), ErrorKind::Declined);
     assert!(!error.is_retryable());
-    // The specific reason, which is what a shop shows the shopper — not the
+    // The specific reason, which is what a shop shows the payer — not the
     // general `card_declined`.
     assert_eq!(error.code(), Some("insufficient_funds"));
     // Stripe's own sentence, not a Debug dump of their error struct.

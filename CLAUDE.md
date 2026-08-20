@@ -149,6 +149,11 @@ So four rules, in the order they pay.
 **One claim, one home.** `Provider::cancel` said the opposite of what it did in
 six places at once, because the same fact had been written six times. Every
 copy is a thing that can rot on its own. A second place cites the first.
+Which *word* to use is the same rule one level down, and its home is
+[`CONTEXT.md`](CONTEXT.md): not what a type does, which the type says, but
+which of several circulating words to reach for — a payer rather than a
+shopper, a `Buyer` being the details where a `customer` is the provider's
+handle, releasing a hold rather than voiding it.
 
 **A claim that can be checked becomes a check.** Not a promise to remember it.
 `conformance.rs` counts its own roster against `impl Provider for` in the

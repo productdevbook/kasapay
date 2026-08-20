@@ -207,7 +207,7 @@ pub struct PaymentDetail {
     /// two cannot be the same field.
     pub payment_status: Option<PaymentStatus>,
     /// How much of it has been refunded.
-    pub refund_status: Option<RefundStatus>,
+    pub refund_status: Option<PaymentRefundStatus>,
     /// The basket total.
     pub price: Option<Money>,
     /// What was actually collected.
@@ -300,7 +300,7 @@ impl PaymentDetail {
             refund_status: item
                 .payment_refund_status
                 .as_deref()
-                .map(RefundStatus::from),
+                .map(PaymentRefundStatus::from),
             price: money(item.price.as_deref(), currency),
             paid_price: money(item.paid_price.as_deref(), currency),
             installment: item.installment,
@@ -759,7 +759,7 @@ impl From<i64> for PaymentStatus {
 /// runs anywhere else. This is that fact, kept as its own field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum RefundStatus {
+pub enum PaymentRefundStatus {
     /// Nothing has been refunded.
     NotRefunded,
     /// Part of the payment has been refunded.
@@ -770,7 +770,7 @@ pub enum RefundStatus {
     Other(Box<str>),
 }
 
-impl RefundStatus {
+impl PaymentRefundStatus {
     /// The word iyzico uses on the wire.
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -783,13 +783,13 @@ impl RefundStatus {
     }
 }
 
-impl fmt::Display for RefundStatus {
+impl fmt::Display for PaymentRefundStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-impl From<&str> for RefundStatus {
+impl From<&str> for PaymentRefundStatus {
     fn from(value: &str) -> Self {
         match value {
             "NOT_REFUNDED" => Self::NotRefunded,
@@ -905,8 +905,8 @@ fn money(value: Option<&str>, currency: Option<Currency>) -> Option<Money> {
 #[cfg(test)]
 mod tests {
     use super::{
-        PaymentQuery, PaymentStatus, RefundStatus, TransactionApprovalStatus, TransactionType,
-        money, query_value,
+        PaymentQuery, PaymentRefundStatus, PaymentStatus, TransactionApprovalStatus,
+        TransactionType, money, query_value,
     };
     use kasapay_core::{Currency, Money};
 
@@ -969,21 +969,36 @@ mod tests {
     }
 
     #[test]
-    fn the_words_iyzico_uses_round_trip_and_the_rest_are_kept() {
-        for name in ["NOT_REFUNDED", "PARTIALLY_REFUNDED", "TOTALLY_REFUNDED"] {
-            assert_eq!(RefundStatus::from(name).to_string(), name);
-        }
+    fn the_words_iyzico_uses_are_read_and_the_rest_are_kept() {
+        // Not a round-trip: `Other` echoes an unknown word, so one passes with every arm below deleted.
         assert_eq!(
-            RefundStatus::from("WRITTEN_OFF"),
-            RefundStatus::Other("WRITTEN_OFF".into())
+            PaymentRefundStatus::from("NOT_REFUNDED"),
+            PaymentRefundStatus::NotRefunded
         );
-        for name in ["CANCEL", "PAYMENT", "REFUND"] {
-            assert_eq!(TransactionType::from(name).to_string(), name);
-        }
         assert_eq!(
-            TransactionType::from("CHARGEBACK").to_string(),
-            "CHARGEBACK"
+            PaymentRefundStatus::from("PARTIALLY_REFUNDED"),
+            PaymentRefundStatus::PartiallyRefunded
         );
+        assert_eq!(
+            PaymentRefundStatus::from("TOTALLY_REFUNDED"),
+            PaymentRefundStatus::TotallyRefunded
+        );
+        assert_eq!(
+            PaymentRefundStatus::from("WRITTEN_OFF"),
+            PaymentRefundStatus::Other("WRITTEN_OFF".into())
+        );
+
+        assert_eq!(TransactionType::from("CANCEL"), TransactionType::Cancel);
+        assert_eq!(TransactionType::from("PAYMENT"), TransactionType::Payment);
+        assert_eq!(TransactionType::from("REFUND"), TransactionType::Refund);
+        assert_eq!(
+            TransactionType::from("CHARGEBACK"),
+            TransactionType::Other("CHARGEBACK".into())
+        );
+
+        // The words still have to reach the wire unchanged.
+        assert_eq!(PaymentRefundStatus::NotRefunded.to_string(), "NOT_REFUNDED");
+        assert_eq!(TransactionType::Refund.to_string(), "REFUND");
     }
 
     #[test]
