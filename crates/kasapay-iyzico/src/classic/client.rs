@@ -2113,11 +2113,6 @@ impl Provider for Client {
         self.read_payment_answer(response, raw, false)
     }
 
-    /// Always [`ErrorKind::Unsupported`]: a void answers a `Reversal`, not a charge.
-    ///
-    /// [`Client::cancel`] is the call, and what it returns is what iyzico
-    /// signs — or does not sign, which is the reason it cannot be flattened
-    /// into a [`Charge`] here.
     /// Voids a payment iyzico has not settled, through [`Client::cancel`].
     ///
     /// Same-day only and all of it — iyzico has no partial cancel, and after

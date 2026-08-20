@@ -1325,18 +1325,6 @@ impl Provider for Mollie {
             .map(Capture::into_charge)
     }
 
-    /// Withdraws a payment the payer has not finished.
-    ///
-    /// Mollie's `DELETE /v2/payments/{id}`, which answers the cancelled
-    /// payment. Whether a payment can be cancelled at all depends on the
-    /// method the payer chose, and Mollie says which on the payment's own
-    /// `isCancelable` — readable from [`Charge::raw`].
-    ///
-    /// **This is not how an authorised payment is released.** That is
-    /// [`Mollie::release_authorization`], and it is a different call because
-    /// Mollie answers it with no body at all. Cancelling a payment that is
-    /// already authorised, or already paid, is Mollie's 422 and arrives as
-    /// [`ErrorKind::InvalidRequest`].
     /// Releases a hold, through [`Mollie::release_authorization`].
     ///
     /// [`ReleaseState::Accepted`], never `Released`: Mollie answers

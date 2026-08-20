@@ -88,6 +88,21 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **`Provider::cancel`'s documentation says what it does.** #169 and #176 gave
+  it a real implementation at every provider that holds funds and left the
+  pre-change paragraph in place above the new one at three adapters, with no
+  item between them — so rustdoc concatenated both and the summary line said
+  the method always refused.
+
+  A shop reading PayPal's or iyzico's either wrote its own release path or left
+  holds outstanding until the provider expired them. Mollie's was worse in the
+  other direction: its two paragraphs named two different endpoints, and a shop
+  wanting to *keep* a hold was told `cancel` would refuse an authorised payment
+  with a 422 — it releases it, asynchronously and irreversibly.
+
+  Corrected in all six places it was written, including `Status`'s own table in
+  `kasapay-core`, which said PayPal never produces `Canceled`.
+
 - **Every amount on an iyzico Terminal GMU document is checked against the
   currency it is denominated in.** The GMU refund request names no currency at
   all, so iyzico reads each amount as being in the original sale's — meaning a

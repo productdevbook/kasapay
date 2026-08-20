@@ -135,12 +135,12 @@ pub enum Sequence {
 /// and names no values for the field that would separate them. The adapter
 /// says so where a reader meets it.
 ///
-/// **PayPal's `Canceled` is read-only.** `VOIDED` is a real value of its
-/// `order_status` enum, but nothing `kasapay-paypal` calls ever produces one:
-/// its `Provider::cancel` always refuses, because PayPal's Orders v2 API has
-/// no operation that withdraws an order. The only way this crate ever answers
-/// `Canceled` for PayPal is `Provider::charge_status` reading an order some
-/// other integration voided.
+/// **PayPal's `Canceled` is a released hold, not a withdrawn order.** `VOIDED`
+/// is a real value of its `order_status` enum, and `kasapay-paypal` produces it
+/// from `PayPal::void_authorization` — which `Provider::cancel` reaches by
+/// reading the order for its authorization. What PayPal's Orders v2 API has no
+/// operation for is withdrawing an order by its own id, so an order the payer
+/// never approved is left rather than cancelled.
 ///
 /// Each adapter's own documentation says the same thing where a reader will
 /// meet it.
