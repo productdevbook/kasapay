@@ -20,6 +20,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Nothing here writes anything: it checks out, compiles and reads. Every other
+# workflow scopes its token and this one ran on every push to main with
+# whatever the repository default is.
+permissions:
+  contents: read
+
 jobs:
   check:
     name: fmt, clippy, docs

@@ -41,6 +41,12 @@ def main() -> int:
     if body is None:
         print(f"CHANGELOG.md has no section for {version}", file=sys.stderr)
         return 1
+    # A heading with nothing under it is not a section to publish. `section`
+    # answers "" for one, which is not None, so the check above let it through
+    # and `gh release create` was handed an empty note.
+    if not body.strip():
+        print(f"CHANGELOG.md's section for {version} is empty", file=sys.stderr)
+        return 1
     print(body)
     return 0
 

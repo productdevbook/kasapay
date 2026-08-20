@@ -72,8 +72,6 @@ order releases happen, newest first.
   `conformance.rs` — the check there previously asked only whether a refusal
   was free, never whether a provider claiming a hold could release one.
 
-### Changed
-
 - **Two dependencies dropped from published crates** (#175). `kasapay-core`
   declared `serde` and used it nowhere — no `serde::`, no derive, no
   attribute; `serde_json` is its own declaration and is used. `kasapay-iyzico`

@@ -50,6 +50,16 @@ jobs:
       - name: Package every crate
         run: cargo package --locked --workspace --all-features
 
+      # What a half-finished publish leaves, because a second run does not
+      # repair it. crates.io's index is append-only: a version that went up
+      # cannot be replaced, only yanked, and `cargo publish --workspace` that
+      # fails on the fourth crate leaves the first three published. Re-running
+      # this job then fails on the first of them rather than resuming.
+      #
+      # The way out is by hand, in this order: publish the remaining crates
+      # individually with `cargo publish -p <crate> --locked`, in dependency
+      # order, from the tag; then `gh release create` for the note, which is
+      # its own step below and also refuses to run twice.
       - name: Publish
         if: github.event_name == 'push' || inputs.dry_run == false
         env:

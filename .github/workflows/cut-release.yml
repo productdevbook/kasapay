@@ -38,6 +38,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: main
+          # Without these the tree holds no tags at all — checkout fetches
+          # `--no-tags` at depth 1 — and the "must not already exist" guard
+          # below can never fire. It never has.
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
@@ -127,7 +132,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "chore: release $VERSION"
           git tag -a "v$VERSION" -m "v$VERSION"
-          git push origin main "refs/tags/v$VERSION"
+          # --atomic, because without it git updates each ref on its own: a
+          # main that moved since checkout is rejected while the tag lands, and
+          # the tag is then invisible to a re-run of the guard above.
+          git push --atomic origin main "refs/tags/v$VERSION"
 
       # `release.yml` listens for a tag push and will not hear this one: a tag
       # pushed with GITHUB_TOKEN starts no workflow, which is GitHub's guard
