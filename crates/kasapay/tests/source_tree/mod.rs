@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 /// `src/` only: what lives under `tests/` and `examples/` is not the library,
 /// and a fixture that deliberately shows a broken shape must not be read as
 /// the workspace doing it.
-pub fn files() -> Vec<PathBuf> {
+pub(crate) fn files() -> Vec<PathBuf> {
     let crates = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("crates/ is the parent of this crate");
@@ -54,7 +54,7 @@ fn collect(dir: &Path, into: &mut Vec<PathBuf>) {
 /// Names the site rather than the type: `Client` and `Webhooks` each name two
 /// different things in two different crates, so a type name alone does not
 /// identify an implementation.
-pub fn implementations_of(name: &str) -> Vec<String> {
+pub(crate) fn implementations_of(name: &str) -> Vec<String> {
     let opening = format!("impl {name} for ");
     let mut found = Vec::new();
     for file in files() {
