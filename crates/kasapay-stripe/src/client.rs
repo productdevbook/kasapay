@@ -128,6 +128,9 @@ impl Stripe {
     async fn create_refund(&self, request: &RefundRequest) -> Result<Refund, Error> {
         let mut create = CreateRefund::new().payment_intent(request.payment.as_str().to_owned());
         if let Some(amount) = request.amount {
+            // As on `capture`: a bare integer goes on the wire, so a currency
+            // Stripe cannot settle is refused here rather than after.
+            convert::currency(amount.currency())?;
             create = create.amount(amount.minor_units());
         }
         if let Some(reason) = request.reason.as_ref().and_then(refund_reason) {
@@ -165,8 +168,10 @@ impl Stripe {
                 ErrorKind::Malformed,
                 convert::PROVIDER,
                 format!(
-                    "asked to refund {asked} and Stripe refunded {refunded}: \
-                     the payment was not in the currency the caller thought"
+                    "asked to refund {asked} and Stripe refunded {refunded} as `{id}`: \
+                     the payment was not in the currency the caller thought. The money \
+                     has moved, and that is the handle to it",
+                    id = refund.id,
                 ),
             ));
         }
@@ -529,6 +534,10 @@ impl Provider for Stripe {
                 )
                 .with_source(e)
             })?;
+            // Stripe's capture carries no currency, so nothing on the wire
+            // can contradict a wrong one. This refuses what it can before the
+            // socket opens; the rest is checked against the answer below.
+            convert::currency(amount.currency())?;
             capture = capture.amount_to_capture(amount.minor_units());
         }
         let intent = match idempotency {
@@ -549,7 +558,22 @@ impl Provider for Stripe {
             }
         }
         .map_err(|e| convert::error(&e).with_source(e))?;
-        into_charge(&intent)
+
+        let charge = into_charge(&intent)?;
+        if let Some(asked) = amount
+            && asked.currency() != charge.amount.currency()
+        {
+            let captured = charge.amount;
+            return Err(Error::new(
+                ErrorKind::Malformed,
+                convert::PROVIDER,
+                format!(
+                    "asked to capture {asked} from {id} and Stripe captured {captured}: \
+                     the payment was not in the currency the caller thought"
+                ),
+            ));
+        }
+        Ok(charge)
     }
 
     /// Cancels a PaymentIntent, through [`Stripe::cancel`].

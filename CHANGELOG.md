@@ -88,6 +88,26 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **Stripe's `capture` and `refund` refuse a currency Stripe cannot settle, and
+  report one the payment was not in.** Both calls put a bare integer of minor
+  units on the wire with no currency beside it — Stripe's API has no field for
+  one — so nothing on the wire could contradict a wrong `Money`. Every other
+  adapter here sends a currency and lets the provider reject the mismatch;
+  Stripe is the only one where the check has to live in the adapter, and it was
+  on `charge` and not on the other two.
+
+  A ¥120,000 authorisation captured with `Money::parse("1200.00", Usd)` sent
+  `120000`, which Stripe applied in the intent's own currency and answered
+  `succeeded`. `Provider::capture` now answers `ErrorKind::Unsupported` before
+  the socket opens for a currency Stripe does not settle, and
+  `ErrorKind::Malformed` afterwards where the payment turns out to have been in
+  another — the same two halves `Provider::refund` already had.
+
+- **A Stripe refund caught in the wrong currency now names the refund it
+  made.** The money has moved by that point; the error carried two amounts and
+  no `re_…`, and a caller holding `Arc<dyn Provider>` cannot reach
+  `Stripe::refunds` to go looking for it.
+
 - **A `fraudStatus` iyzico has never named no longer reads as money taken.**
   Their schemas give the field `enum: [0, -1, 1]` and their own prose says a
   merchant should ship only on 1 — so a fourth value is one nothing here can
