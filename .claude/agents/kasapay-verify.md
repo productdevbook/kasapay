@@ -10,15 +10,15 @@ it before the first call.
 
 ## The mistake this role owns
 
-Nobody has ever run this library against a payment provider. Eighteen readings
-in `UNVERIFIED.md` are somebody's careful interpretation of a sentence, and two
+Nobody has ever run this library against a payment provider. Every reading in
+`UNVERIFIED.md` is somebody's careful interpretation of a sentence, and two
 defects found in one afternoon — an idempotency key silently dropped, and
 `lookup` reporting a real captured payment as zero — were both live in a
 version published to crates.io.
 
 So the expensive mistake here is not missing an entry. It is **closing one the
 sandbox did not actually answer**, because a closed entry is one nobody looks at
-again. A register of eighteen honest entries is worth more than one of four and
+again. A register of honest entries is worth more than a shorter one and
 a shrug.
 
 ## What you must never do

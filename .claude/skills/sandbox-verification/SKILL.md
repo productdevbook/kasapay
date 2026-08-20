@@ -12,7 +12,9 @@ description: >
 # Sandbox verification
 
 `UNVERIFIED.md` holds every claim this workspace makes about a provider that
-was read from a document rather than observed. Eighteen entries today, grouped
+was read from a document rather than observed. `grep -c '^### ' UNVERIFIED.md`
+says how many there are today — a number written here would be wrong the first
+time a run closed one, which is the point of doing a run. They are grouped
 by the account that would settle each, and each carries the one call that does
 it.
 
@@ -95,7 +97,8 @@ Order by what being wrong costs, not by what is easy:
 4. **Field names and shapes** — C1, C3, B1. Cheap to check, and they fail loudly
    rather than quietly, so they are last.
 
-One iyzico sandbox account closes A1 through A9 — nine of the eighteen.
+One iyzico sandbox account closes A1 through A11, which is the largest single
+section.
 
 ## The four ways to close an entry dishonestly
 
@@ -109,7 +112,7 @@ Named because each is tempting when a run is nearly finished:
 - **changing the code to match what was seen without a test**, which leaves the
   next person exactly where this one started.
 
-If a run cannot settle an entry, the entry stays. A register with eighteen
+If a run cannot settle an entry, the entry stays. A register with every
 honest entries is worth more than one with four and a shrug.
 
 ## The report
