@@ -111,8 +111,13 @@ matrix — `cargo hack --no-dev-deps` rewrites the manifests, which is what
 `cargo generate-lockfile` resolves dependencies and compiles nothing, which is
 cheap — but the rule is "cargo fmt only" rather than "only what is cheap", so
 the **Lockfile** workflow is what runs it: by hand after a dependency changes,
-monthly on its own, and it opens a pull request whose own CI run says whether
-the tree it resolved is any good. The point of pinning it is that a red run on
+monthly on its own. It pushes a branch and prints a link to open the pull
+request from, because a workflow that opens one itself needs a repository
+setting that also lets a workflow *approve* one — and this repository pins
+every action to a commit and keeps the crates.io token in `release.yml`, so
+that is the wrong trade for a convenience. The click is a person's; what it
+buys is unchanged, because the resolution is not trusted until CI has run on
+the pull request. The point of pinning it is that a red run on
 a pull request that touched nothing related can be reproduced at all.
 
 Cutting a release writes the lockfile too: **Cut a release** runs
