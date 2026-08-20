@@ -1487,6 +1487,26 @@ struct WebhookBody {
     id: String,
 }
 
+/// The posted identifier, refused unless it is one.
+///
+/// Mollie signs nothing, so this string is a stranger's and it is about to
+/// become a path segment on a request carrying the merchant's key: a `/` in it
+/// leaves `/v2/payments/` for whatever else that key can read.
+fn posted_id(posted: &str) -> Result<PaymentId, Error> {
+    let shaped = !posted.is_empty()
+        && posted
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-');
+    if !shaped {
+        return Err(Error::new(
+            ErrorKind::Malformed,
+            MOLLIE,
+            "a delivery whose `id` is not an identifier",
+        ));
+    }
+    Ok(PaymentId::issued(posted))
+}
+
 /// Mollie signs nothing, so the payment is read back instead.
 ///
 /// This is why [`Webhook::verify`] is `async`. Mollie's own documentation is
@@ -1495,9 +1515,11 @@ struct WebhookBody {
 /// carries one field, `id`, and no signature, no timestamp and no secret.
 ///
 /// **The delivery is a hint; the answer is Mollie's.** Anybody who knows the
-/// address can post an identifier to it, and all that can do is have one of
-/// the merchant's own payments read back and reported truthfully. What cannot
-/// happen is a payment being reported as paid because somebody said so.
+/// address can post an identifier to it, so it is refused unless it is an
+/// identifier: it becomes a path segment on an authenticated request, and a
+/// `/` in it names something that is not a payment. What is left is having one
+/// of the merchant's own payments read back and reported truthfully. What
+/// cannot happen is a payment being reported as paid because somebody said so.
 #[async_trait::async_trait]
 impl Webhook for Mollie {
     fn provider(&self) -> ProviderId {
@@ -1533,7 +1555,7 @@ impl Webhook for Mollie {
             .with_source(e)
         })?;
 
-        let payment = PaymentId::issued(posted.id);
+        let payment = posted_id(&posted.id)?;
         let charge = self.charge_status(&payment).await?;
         let status = charge
             .raw

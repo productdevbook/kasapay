@@ -88,6 +88,25 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **A Mollie webhook's `id` is refused unless it is an identifier.** Mollie
+  signs nothing, so `Webhook::verify` reads the posted `id` back over the
+  merchant's own authenticated connection — and that string reached
+  `/v2/payments/{id}` unchecked. A `/` or a `..` in it left that path: one
+  unauthenticated POST to the webhook address bought one authenticated `GET`
+  to whatever else on `api.mollie.com` the merchant's key could read, and the
+  answer came back to the shop's handler as a payment event.
+
+  `verify` now answers `ErrorKind::Malformed` for an `id` carrying anything
+  outside `[A-Za-z0-9_-]`, before a socket opens. A caller handed a real Mollie
+  identifier sees no change. The guard is on the delivery and not on
+  `Provider::charge_status`: a `PaymentId` the caller built is the caller's to
+  choose, and only the webhook takes one from a stranger.
+
+  This is #170's shape one sink over — an untrusted value reaching a URL path
+  rather than a request body. What made it look considered was the paragraph
+  above `impl Webhook for Mollie`, which said the worst a stranger could do was
+  have "one of the merchant's own payments read back and reported truthfully".
+
 - **One card-number guard instead of two copies and a gap** (#170). The
   workspace's headline principle is that no type here can hold a card number,
   and it was held up by a Luhn shape test written **byte for byte twice** —
