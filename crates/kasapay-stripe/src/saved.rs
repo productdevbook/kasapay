@@ -301,7 +301,7 @@ impl PaymentBuilder {
             ("customer", &*self.customer),
             ("payment_method", self.instrument.as_str()),
         ] {
-            if looks_like_a_card_number(value) {
+            if kasapay_core::looks_like_a_card_number(value) {
                 return Err(PaymentError::CardNumber { field });
             }
         }
@@ -345,40 +345,11 @@ pub enum PaymentError {
     Amount(#[from] MoneyError),
 }
 
-/// Whether a value is a card number by shape.
-///
-/// Twelve to nineteen digits and nothing else, passing the Luhn check — the
-/// same test `kasapay_iyzico::classic::saved` runs, for the same reason: it
-/// catches a field wired to the wrong source, and proves nothing about
-/// security on its own.
-fn looks_like_a_card_number(value: &str) -> bool {
-    let digits = value.as_bytes();
-    if !(12..=19).contains(&digits.len()) || !digits.iter().all(u8::is_ascii_digit) {
-        return false;
-    }
-    let sum: u32 = digits
-        .iter()
-        .rev()
-        .enumerate()
-        .map(|(place, digit)| {
-            let value = u32::from(*digit - b'0');
-            if place % 2 == 0 {
-                value
-            } else if value > 4 {
-                value * 2 - 9
-            } else {
-                value * 2
-            }
-        })
-        .sum();
-    sum.is_multiple_of(10)
-}
-
 #[cfg(test)]
 mod tests {
     use kasapay_core::{Currency, InstrumentId, Money, OrderRef};
 
-    use super::{Brand, Funding, Payment, PaymentError, looks_like_a_card_number};
+    use super::{Brand, Funding, Payment, PaymentError};
 
     fn ten_dollars() -> Money {
         Money::parse("10.00", Currency::Usd).expect("valid amount")
@@ -412,16 +383,6 @@ mod tests {
             assert_eq!(Funding::from(name).to_string(), name);
         }
         assert_eq!(Funding::from("giro"), Funding::Other("giro".into()));
-    }
-
-    #[test]
-    fn a_card_number_is_not_a_handle_on_one() {
-        for number in ["4242424242424242", "5555555555554444"] {
-            assert!(looks_like_a_card_number(number), "{number}");
-        }
-        for handle in ["pm_1Pgc75B7WZ01zgkWlHVgdEGJ", "cus_Kasapay1", "424242424"] {
-            assert!(!looks_like_a_card_number(handle), "{handle}");
-        }
     }
 
     #[test]

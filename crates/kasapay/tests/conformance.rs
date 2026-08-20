@@ -588,6 +588,68 @@ async fn a_refused_instrument_list_never_reaches_the_network() {
     }
 }
 
+/// A card number handed in where a handle belongs never reaches the wire.
+///
+/// The workspace's headline principle is that no type here can hold a card
+/// number, and every adapter takes payments in a way that never sends one.
+/// What remains is a field wired to the wrong source — a caller passing a PAN
+/// as `ChargeRequest::instrument` — and until this was a check it was a
+/// convention two of the three adapters with a vault happened to follow.
+///
+/// Mollie was the third, and had the worst sink: it names a mandate in the
+/// URL path, and a card number in a path is in every proxy log on the way
+/// rather than in a body somebody has to go looking for.
+///
+/// # What this does not prove
+///
+/// That a card number cannot reach a provider by some other route — only that
+/// this one is closed. It uses a published test number, so a real PAN is never
+/// written down here, and the shape test behind it is deliberately narrow:
+/// digits with a space in them are not caught, which
+/// `looks_like_a_card_number` says of itself.
+#[tokio::test]
+async fn a_card_number_where_a_handle_belongs_never_reaches_the_wire() {
+    // Stripe's published test Visa. Not a real card, and Luhn-valid, which is
+    // what the guard keys on.
+    const PAN: &str = "4242424242424242";
+
+    for subject in every_adapter().await {
+        let who = subject.label;
+        let request = complete_request(subject.currency)
+            .customer(PAN)
+            .instrument(InstrumentId::issued(PAN))
+            .build()
+            .expect("valid request");
+
+        let error = subject
+            .provider
+            .charge(&request)
+            .await
+            .expect_err("a card number is not a handle on one");
+        assert_eq!(
+            error.provider(),
+            subject.provider.id(),
+            "{who} answered for somebody else"
+        );
+
+        let sent = subject
+            .server
+            .received_requests()
+            .await
+            .expect("the mock server records requests");
+        for request in &sent {
+            assert!(
+                !request.url.as_str().contains(PAN),
+                "{who} put a card number in a URL"
+            );
+            assert!(
+                !String::from_utf8_lossy(&request.body).contains(PAN),
+                "{who} put a card number in a request body"
+            );
+        }
+    }
+}
+
 /// `saved_instruments` is what a checkout reads before it offers "use my saved
 /// card". Getting it wrong costs a payer a button that does nothing, or a shop
 /// a payment it thinks it took and did not.

@@ -186,13 +186,15 @@ impl Mollie {
         request: &ChargeRequest,
         mandate: &InstrumentId,
     ) -> Result<Charge, Error> {
-        if request.customer.is_none() {
+        let Some(customer) = request.customer.as_deref() else {
             return Err(Error::new(
                 ErrorKind::InvalidRequest,
                 MOLLIE,
                 "a recurring payment is charged against a customer's mandate; set ChargeRequest::customer",
             ));
-        }
+        };
+        not_a_card_number("a mandate id", mandate.as_str())?;
+        not_a_card_number("a customer id", customer)?;
         self.create(request, None, Some("recurring"), Some(mandate.as_str()))
             .await
     }
@@ -225,6 +227,7 @@ impl Mollie {
     /// why that matters more than it looks. Each [`Mandate::raw`] is that
     /// mandate's own object out of the list, not the list body it arrived in.
     pub async fn mandates(&self, customer: &CustomerId) -> Result<Vec<Mandate>, Error> {
+        not_a_card_number("a customer id", customer.as_str())?;
         let items = self
             .list(
                 &format!("/v2/customers/{}/mandates", customer.as_str()),
@@ -372,6 +375,8 @@ impl Mollie {
         customer: &CustomerId,
         mandate: &InstrumentId,
     ) -> Result<Mandate, Error> {
+        not_a_card_number("a mandate id", mandate.as_str())?;
+        not_a_card_number("a customer id", customer.as_str())?;
         let raw = self
             .send(
                 reqwest::Method::GET,
@@ -694,6 +699,27 @@ impl Mollie {
 /// A state this build has not met reads as [`RefundStatus::Pending`], the same
 /// way an unknown payment status reads as [`Status::Pending`]: it says the
 /// refund may still change, so a caller asks again rather than writing it off.
+/// Refuses a handle that is a card number by shape, before it reaches a URL.
+///
+/// Mollie names a mandate in the path — `/v2/customers/{c}/mandates/{m}` — and
+/// a card number in a path is the one that ends up in every proxy log and
+/// access log on the way, rather than in a request body somebody has to go
+/// looking for. Stripe's and iyzico's saved-instrument builders have refused
+/// this since they were written; this crate had no such check and the worst
+/// sink for one.
+fn not_a_card_number(field: &'static str, value: &str) -> Result<(), Error> {
+    if kasapay_core::looks_like_a_card_number(value) {
+        return Err(Error::new(
+            ErrorKind::InvalidRequest,
+            MOLLIE,
+            format!(
+                "{field} is a card number by shape; Mollie names a saved instrument by a mandate id"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 fn refund_status(state: &RefundState) -> RefundStatus {
     match state {
         RefundState::Queued

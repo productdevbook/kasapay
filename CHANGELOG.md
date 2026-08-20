@@ -74,6 +74,25 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **One card-number guard instead of two copies and a gap** (#170). The
+  workspace's headline principle is that no type here can hold a card number,
+  and it was held up by a Luhn shape test written **byte for byte twice** —
+  `kasapay-stripe` and `kasapay-iyzico`, each under its own private name, one
+  crate's copy naming the other's in a comment. `kasapay-mollie` had neither
+  copy and the worst sink for one: it names a mandate in the URL path, and a
+  card number in a path reaches every proxy log on the way rather than a
+  request body somebody has to go looking for.
+
+  `kasapay_core::looks_like_a_card_number` is now the one implementation, and
+  public, because an adapter written outside this repository carries the same
+  obligation and should not need a third copy. Mollie guards its three
+  instrument paths with it.
+
+  And it is a check rather than a convention:
+  `crates/kasapay/tests/conformance.rs` hands every adapter a published test
+  PAN as both halves of a saved-instrument name and asserts those digits reach
+  neither a URL nor a body.
+
 - **Two recorded reasons had gone stale.** `Provider::instruments` and
   `kasapay-core`'s own crate documentation both said charging a saved
   instrument stayed off the trait because iyzico wanted a buyer and a basket
@@ -81,8 +100,6 @@ order releases happen, newest first.
   of that sentence had been describing an older type. What is still each
   adapter's own is *forgetting* an instrument, and the documentation now says
   only that.
-
-### Fixed
 
 - **Eight published claims that a crate could not do something it now does**
   (#171). Every one was accurate when written and went stale underneath: Mollie
