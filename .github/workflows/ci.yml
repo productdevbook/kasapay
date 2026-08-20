@@ -84,6 +84,15 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install pyyaml openapi-spec-validator
+      # TEMPORARY, for one run: the exact closure to write into
+      # scripts/requirements.txt. Removed in the next commit on this branch.
+      - name: What that resolved to
+        run: |
+          python3 -m venv /tmp/pin
+          /tmp/pin/bin/pip install --quiet pyyaml openapi-spec-validator
+          echo "----- BEGIN CLOSURE -----"
+          /tmp/pin/bin/pip freeze
+          echo "----- END CLOSURE -----"
       - run: python3 scripts/validate_specs.py --strict
       # A field this branch stopped documenting, said out loud. Not a failure:
       # upstream is allowed to withdraw a field, and only a person can tell that
