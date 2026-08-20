@@ -8,7 +8,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
-    RefundStatus, Sequence, Status,
+    RefundStatus, Release, Sequence, Status,
 };
 use url::Url;
 

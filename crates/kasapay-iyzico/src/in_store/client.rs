@@ -6,7 +6,7 @@ use std::time::Duration;
 use kasapay_core::{
     Capabilities, Charge, ChargeRequest, Currency, Error, ErrorKind, IdempotencyKey, Instrument,
     Money, NextAction, OrderRef, PaymentId, Provider, ProviderId, Raw, Refund, RefundRequest,
-    RefundStatus, Secret, Sequence, Status,
+    RefundStatus, Release, Secret, Sequence, Status,
 };
 use url::Url;
 
