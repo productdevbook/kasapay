@@ -57,7 +57,7 @@ HEADING = re.compile(r"<h[1-3][^>]*>(.*?)</h[1-3]>", re.S)
 
 def fetch(url: str) -> str:
     return subprocess.run(
-        ["curl", "-sSL", "--max-time", "30", url],
+        ["curl", "-fsSL", "--max-time", "30", url],
         capture_output=True,
         text=True,
         check=True,

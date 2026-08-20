@@ -126,7 +126,7 @@ def resolve(spec, wanted):
 
 
 def fetch_one(document: Document, day: str, directory: pathlib.Path) -> tuple[str, int, int, list[str]]:
-    raw = subprocess.run(["curl", "-sSL", document.src], capture_output=True, check=True).stdout
+    raw = subprocess.run(["curl", "-fsSL", document.src], capture_output=True, check=True).stdout
     spec = json.loads(raw)
 
     paths = {}

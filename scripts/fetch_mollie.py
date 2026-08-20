@@ -206,7 +206,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    raw = subprocess.run(["curl", "-sSL", SRC], capture_output=True, check=True).stdout
+    raw = subprocess.run(["curl", "-fsSL", SRC], capture_output=True, check=True).stdout
     spec = yaml.load(raw.decode("utf-8"), Loader=Loader)
 
     paths = {p: spec["paths"][p] for p in KEEP if p in spec["paths"]}
