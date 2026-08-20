@@ -123,7 +123,7 @@
 //! to a PHP file.
 //!
 //! One real answer from PayTR — the formula, or one signed request to read it
-//! off — turns nine operations from blocked into ordinary work.
+//! off — turns eleven operations from blocked into ordinary work.
 //!
 //! # Retrying a payment is not documented as safe
 //!

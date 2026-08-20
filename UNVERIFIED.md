@@ -153,6 +153,34 @@ whatever comes back.
 
 ---
 
+### A10. Does `/payment/preauth` accept a tokenised card — from #198
+
+`Client::preauth_with_saved_card` sends `/payment/preauth` the same body
+`/payment/auth` takes, `{cardUserKey, cardToken}` inside `paymentCard`. The
+specs disagree with that: `/payment/auth` is documented with
+`PaymentCardSaved`, which defines both fields, and `/payment/preauth`'s inline
+body uses `PaymentCard`, which **requires** `cardHolderName`, `cardNumber`,
+`expireYear`, `expireMonth` and `cvc` and defines neither token field.
+
+This is not spec silence — it is a different schema. And every hold this crate
+can take goes through here: `Capabilities::separate_capture`,
+`partial_capture`, and entries A7 and A8 all rest on it succeeding.
+
+**To settle it**, one pre-authorisation against a stored card. Paste the
+request and the answer.
+
+### A11. `paidPrice` on a hold nobody has captured — from #198
+
+`Provider::capture` with no amount reads the payment back and captures what
+`/payment/detail` reports. iyzico's word for that field is **"Total collected
+amount"**, not the authorised one — and for a hold nobody has captured, "total
+collected" plausibly reads zero.
+
+**To settle it**, authorise without capturing, read the payment back, and paste
+`paidPrice`. This settles alongside A8 in the same pre-authorisation.
+
+---
+
 ## B. A PayTR merchant account
 
 ### B1. The instalment rates' shape — from #73
@@ -180,6 +208,20 @@ As with iyzico, `Provider::lookup` makes this survivable — PayTR's status quer
 is keyed by `merchant_oid`, so a caller can ask. An answer would still be worth
 having: it decides whether `Ok(None)` is the only safe licence to retry or
 merely the simplest one.
+
+### B3. The token hash PayTR documents as "see the sample code" — from #148
+
+Eleven operations are blocked on one formula: the card vault's five calls,
+the Link API's four, and the Havale/EFT iframe's two are each documented to the
+field and then say of `paytr_token` only *"örnek kodları inceleyin"*. A
+signature guessed from a field table passes a mock and fails every real
+merchant, so none of them is implemented — `kasapay-paytr`'s own documentation
+says so where a reader meets it.
+
+**To settle it**, send one signed request from a merchant account for any of
+them — the Link API's create is the smallest — and paste the fields and the
+token it carried. One formula unblocks all eleven, and PayTR's own support can
+answer it without an account being used at all.
 
 ### B4. What the status query calls the fields inside `returns` — from #187
 
@@ -247,20 +289,6 @@ same documented failure shape.
 
 ---
 
-### B3. The token hash PayTR documents as "see the sample code" — new
-
-Nine operations are blocked on one formula: the card vault's five calls, the
-Link API's four, and the Havale/EFT iframe's two are each documented to the
-field and then say of `paytr_token` only *"örnek kodları inceleyin"*. A
-signature guessed from a field table passes a mock and fails every real
-merchant, so none of them is implemented — `kasapay-paytr`'s own documentation
-says so where a reader meets it.
-
-**To settle it**, send one signed request from a merchant account for any of
-them — the Link API's create is the smallest — and paste the fields and the
-token it carried. One formula unblocks all nine, and PayTR's own support can
-answer it without an account being used at all.
-
 ## D. Read off prose rather than an example
 
 These need no account — they need a maintainer to decide the reading is wrong.
@@ -276,30 +304,13 @@ hold is what `release-authorization` is for, not that the delete refuses one.
 so verifying what it said would have settled the wrong function and left the
 one that actually releases a payer's hold unobserved.
 
-### D4. What Mollie does with the answer to a webhook — from #196
-
-`kasapay-mollie`'s crate documentation tells a handler to answer 200 for a
-delivery it read and a non-2xx for one where the read-back did not finish, so
-Mollie redelivers. Both halves rest on one unsourced sentence: that Mollie
-retries a webhook that is not acknowledged, and therefore that a 200 stops it.
-Nothing in `specs/mollie/` says so — by licence it is a dated meta and two
-hashes — and Mollie's own retry schedule is not recorded anywhere here.
-
-If a 200 does **not** stop redelivery, the guidance costs nothing. If a non-2xx
-does not start one, a transient failure is still a payment the shop never hears
-about, and the answer has to be a stored delivery replayed by hand instead.
-
-**What settles it:** one sandbox payment whose webhook endpoint answers 500
-once and 200 once, recording which of the two is delivered again and how long
-Mollie waits.
-
-### D2. Yen on the wire
+### D2. Yen on the wire — from #134
 
 Mollie's multicurrency table gives JPY zero decimal places, so `1200` goes out
 with no decimal point. No example anywhere shows a payment in a currency that
 has none.
 
-### D3. A recurring payment is refused here without a `redirectUrl`
+### D3. A recurring payment is refused here without a `redirectUrl` — from #161
 
 `Mollie::charge_with_mandate` — and so `Provider::charge` with
 `ChargeRequest::instrument` set — refuses a request with no
@@ -317,6 +328,23 @@ What settles it: create a payment with `sequenceType: recurring`, a `mandateId`
 and no `redirectUrl`, against a sandbox key. A `201` means the requirement here
 can go; a `422` naming `redirectUrl` means it stays and this entry becomes a
 comment.
+
+### D4. What Mollie does with the answer to a webhook — from #196
+
+`kasapay-mollie`'s crate documentation tells a handler to answer 200 for a
+delivery it read and a non-2xx for one where the read-back did not finish, so
+Mollie redelivers. Both halves rest on one unsourced sentence: that Mollie
+retries a webhook that is not acknowledged, and therefore that a 200 stops it.
+Nothing in `specs/mollie/` says so — by licence it is a dated meta and two
+hashes — and Mollie's own retry schedule is not recorded anywhere here.
+
+If a 200 does **not** stop redelivery, the guidance costs nothing. If a non-2xx
+does not start one, a transient failure is still a payment the shop never hears
+about, and the answer has to be a stored delivery replayed by hand instead.
+
+**What settles it:** one sandbox payment whose webhook endpoint answers 500
+once and 200 once, recording which of the two is delivered again and how long
+Mollie waits.
 
 ---
 
@@ -348,6 +376,72 @@ sends `confirm: true`, so `return_url` belongs there and is sent there now.
 `return_url`, no `confirm`, against a test key. A `200` means Stripe ignores it
 and this becomes a sentence in the crate docs; a `400` means the hosted-form
 path must stop sending it, and the README example needs rewriting.
+
+---
+
+## F. A PayPal sandbox account
+
+Every one of these is in `kasapay-paypal`'s own crate documentation, where
+`kasapay-verify`'s work list cannot see it. This section is that list, in the
+order `sandbox-verification` asks for: retry safety first.
+
+### F1. A retried refund with no amount, against a partly refunded capture — from #198
+
+PayPal documents each half and never the combination. Their `refund_request`
+schema says an omitted `amount` refunds *captured amount minus previous
+refunds*, **computed when the request is processed**. Their `PayPal-Request-Id`
+prose says a repeated key answers the same cached response rather than
+processing again.
+
+So when a caller retries an omitted-amount refund after some other refund has
+landed in between, one of two things happens and PayPal says which nowhere: the
+retry replays the first request's own computed amount, or it is treated as a
+fresh request and recomputes against a smaller remainder. `PayPal::refund`
+passes `request_id` straight through either way and does not guess.
+
+This is the most expensive entry in this file: the wrong reading is money out
+twice, and it is reachable by an ordinary retry loop.
+
+**To settle it**, capture, refund part of it, then send an omitted-amount
+refund and repeat it with the same `PayPal-Request-Id`. Paste both answers.
+
+### F2. The order in which a status is resolved — from #198
+
+`resolve_status` reads the order, then its capture, then its authorization,
+then falls back. That order is read off PayPal's prose rather than any
+documented example of an order carrying more than one of them.
+
+**To settle it**, read back an order that has been authorised and then
+partially captured, and paste the whole body.
+
+### F3. `403` reading as `ErrorKind::Auth` — from #198
+
+PayPal's error document does not say what a 403 means for these endpoints, and
+the adapter reads it as a credentials problem rather than a refusal of its own
+kind. A caller retrying on `Auth` after rotating a secret would be retrying
+something that is not going to change.
+
+**To settle it**, ask for an operation the sandbox account is not entitled to
+and paste the status and body.
+
+### F4. The account-level default `return_url` and `cancel_url` — from #198
+
+Leaving `ChargeRequest::return_url` unset sends no `experience_context`, on the
+reading that PayPal then uses the account's own configured URLs. Nothing in
+their document says what happens when neither is set.
+
+**To settle it**, create an order with no `experience_context` and follow the
+approval link.
+
+### F5. Four calls nobody has made — from #198
+
+`PayPal::authorize`, `PayPal::authorize_order`, `PayPal::capture_authorization`
+and `PayPal::refund` use request and response shapes that are documented
+examples, so this is weaker than the entries above — but none of the four has
+been called against a sandbox account. `Capabilities::separate_capture` is
+`true` on the strength of them.
+
+**To settle it**, one authorise-then-void and one authorise-then-capture.
 
 ---
 
