@@ -7,7 +7,8 @@
 //! answers, and a flag flipped in one file while the method below it kept
 //! doing what it always did would have passed every one of them.
 //!
-//! So this asks the same questions of all six clients, through nothing but
+//! So this asks the same questions of every client in the roster, through
+//! nothing but
 //! `dyn Provider`:
 //!
 //! 1. Where a capability is `false`, the paired call answers `Unsupported`.

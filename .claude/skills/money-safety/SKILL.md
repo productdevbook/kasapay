@@ -7,7 +7,7 @@ description: >
   idempotency key, a refund, a webhook, or a value that ends up in a log or a
   URL — and before deciding that an unknown value from a provider is safe to
   map onto something. Carries the rule that decides every one of these
-  arguments, and the four defects this workspace actually shipped.
+  arguments, and the five defects this workspace actually shipped.
 ---
 
 # Money safety
@@ -106,8 +106,12 @@ without that reading.
 ### 5. Refunded twice
 
 The same shape as #1 and worse, because a refund has no payer to notice.
-`RefundRequest::idempotency_key` documented the opposite rule to
-`Provider::refund` — *ignore* rather than *refuse* — until #168.
+**This shipped, twice.** `RefundRequest::idempotency_key` documented the
+opposite rule to `Provider::refund` — *ignore* rather than *refuse* — until
+#168, so the guarantee a caller read was the opposite of the one the adapters
+kept. And `PayTr::refunds` summed a refund whose amount it could not find as
+nothing, so a fully refunded payment read as unrefunded to the caller the
+method exists for, until #210.
 
 **What to check:** an adapter that cannot honour a refund key refuses. And
 before resending a refund whose answer never arrived, read the provider's own

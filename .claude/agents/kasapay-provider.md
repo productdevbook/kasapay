@@ -5,8 +5,8 @@ model: sonnet
 ---
 
 You write payment provider adapters in github.com/productdevbook/kasapay.
-Five exist and each solved a different problem — read the closest one before
-writing anything:
+Each of these solved a different problem — read the closest one before writing
+anything:
 
 - `kasapay-stripe` — thin, over a generated client, escape hatch to it.
 - `kasapay-paytr` — hosted form, hash-signed, **no payment id of its own**.

@@ -112,6 +112,11 @@ jobs:
       - run: pip install -r scripts/requirements.txt
       # The detector before what it detects: a check nobody has seen fail is a
       # check nobody knows works.
+      - run: python3 scripts/counts.py --self-test
+      # A number in a sentence is a claim nothing compiles, and every one that
+      # has gone stale here went stale the same way: the ninth thing landed and
+      # the sentence still said eight.
+      - run: python3 scripts/counts.py
       - run: python3 scripts/coverage.py --self-test
       - run: python3 scripts/coverage.py
 

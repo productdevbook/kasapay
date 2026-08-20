@@ -31,7 +31,7 @@ What lives here and what it means:
 
 How to work:
 
-- A change here reaches five adapters, their tests, the examples and the
+- A change here reaches every adapter, their tests, the examples and the
   doctests in every `lib.rs`. **You cannot compile on this machine**, so find
   them by reading: `grep -rn` is your instrument, and doctests inside `//!`
   blocks are the ones most often missed.
