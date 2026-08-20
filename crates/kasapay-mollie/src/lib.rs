@@ -90,9 +90,33 @@
 //!   [`ErrorKind::NotFound`](kasapay_core::ErrorKind::NotFound) for one that is
 //!   not on this account.
 //!
-//! Answer 200 either way. Mollie retries a webhook that does not, and a
+//! Answer 200 for both of those. Mollie retries a webhook that does not, and a
 //! handler that returns 500 while it works out what to do is one Mollie will
 //! call again.
+//!
+//! # An `Err` here has two meanings, and only one of them is a 200
+//!
+//! [`Webhook::verify`](kasapay_core::Webhook::verify) is the only one in this
+//! workspace that makes a network call, because Mollie signs nothing and the
+//! answer has to come from them. So its `Err` says either *this delivery is
+//! not worth acting on* — an id Mollie does not know, a body that is not the
+//! form they post — or *the check did not finish*, which is Mollie answering
+//! `429` or `503` to the read-back.
+//!
+//! Answering 200 to the second acknowledges a delivery nobody read, and Mollie
+//! has no reason to send it again. On a card payment the payer comes back to
+//! the `redirectUrl` and the shop reads the payment anyway; on a bank transfer
+//! or a direct debit nobody comes back, and that is a payment taken and never
+//! learned about.
+//!
+//! [`Error::is_retryable`](kasapay_core::Error::is_retryable) is the
+//! discrimination, and it is already exactly the right set: true for
+//! `RateLimited`, `Transport` and `Provider`, false for `NotFound`,
+//! `Malformed` and `Untrusted`. **Answer non-2xx where it is true** and let
+//! Mollie redeliver; answer 200 for everything else.
+//!
+//! What Mollie does with a 200 is read off their prose rather than observed —
+//! see `UNVERIFIED.md`.
 //!
 //! So [`Webhook::verify`](kasapay_core::Webhook::verify) here does not check a
 //! signature — there is none to check. It reads the id out of the form body

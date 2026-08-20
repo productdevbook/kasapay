@@ -143,3 +143,60 @@ async fn an_id_that_is_not_an_identifier_opens_no_socket() {
     let seen = server.received_requests().await.expect("requests recorded");
     assert!(seen.is_empty(), "refusing must cost no request: {seen:?}");
 }
+
+/// A read-back that did not finish is not a delivery that failed to verify.
+///
+/// Mollie signs nothing, so `verify` asks Mollie what the payment is — and
+/// when Mollie answers 429 or 503, nothing was read. The kind has to say so,
+/// because the handler's whole decision is `Error::is_retryable`: acknowledge
+/// what was read, and let Mollie redeliver what was not. Answering 200 here
+/// is a payment taken that the shop never hears about.
+#[tokio::test]
+async fn a_read_back_that_did_not_finish_is_retryable() {
+    for (code, kind) in [(429, ErrorKind::RateLimited), (503, ErrorKind::Provider)] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v2/payments/tr_5B8cwPMGnU6qLbRvo7qEZo"))
+            .respond_with(ResponseTemplate::new(code))
+            .mount(&server)
+            .await;
+
+        let error = client(&server)
+            .verify(&Delivery::new(&[], b"id=tr_5B8cwPMGnU6qLbRvo7qEZo"))
+            .await
+            .expect_err("Mollie did not answer");
+
+        assert_eq!(error.kind(), kind, "for HTTP {code}");
+        assert!(
+            error.kind().is_retryable(),
+            "HTTP {code} must not be acknowledged as a delivery that was read"
+        );
+    }
+}
+
+/// The other half, so the pair is a rule rather than one example.
+///
+/// An id Mollie has never heard of *was* read: Mollie answered, and the answer
+/// is that there is no such payment. Acknowledging it is right, and
+/// `is_retryable` is what says so.
+#[tokio::test]
+async fn an_id_mollie_does_not_know_is_not_retryable() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/payments/tr_invented"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({
+            "status": 404,
+            "title": "Not Found",
+            "detail": "No payment exists with token tr_invented.",
+        })))
+        .mount(&server)
+        .await;
+
+    let error = client(&server)
+        .verify(&Delivery::new(&[], b"id=tr_invented"))
+        .await
+        .expect_err("Mollie has no such payment");
+
+    assert_eq!(error.kind(), ErrorKind::NotFound);
+    assert!(!error.kind().is_retryable());
+}

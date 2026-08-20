@@ -253,6 +253,23 @@ hold is what `release-authorization` is for, not that the delete refuses one.
 so verifying what it said would have settled the wrong function and left the
 one that actually releases a payer's hold unobserved.
 
+### D4. What Mollie does with the answer to a webhook — from #196
+
+`kasapay-mollie`'s crate documentation tells a handler to answer 200 for a
+delivery it read and a non-2xx for one where the read-back did not finish, so
+Mollie redelivers. Both halves rest on one unsourced sentence: that Mollie
+retries a webhook that is not acknowledged, and therefore that a 200 stops it.
+Nothing in `specs/mollie/` says so — by licence it is a dated meta and two
+hashes — and Mollie's own retry schedule is not recorded anywhere here.
+
+If a 200 does **not** stop redelivery, the guidance costs nothing. If a non-2xx
+does not start one, a transient failure is still a payment the shop never hears
+about, and the answer has to be a stored delivery replayed by hand instead.
+
+**What settles it:** one sandbox payment whose webhook endpoint answers 500
+once and 200 once, recording which of the two is delivered again and how long
+Mollie waits.
+
 ### D2. Yen on the wire
 
 Mollie's multicurrency table gives JPY zero decimal places, so `1200` goes out
