@@ -969,21 +969,36 @@ mod tests {
     }
 
     #[test]
-    fn the_words_iyzico_uses_round_trip_and_the_rest_are_kept() {
-        for name in ["NOT_REFUNDED", "PARTIALLY_REFUNDED", "TOTALLY_REFUNDED"] {
-            assert_eq!(PaymentRefundStatus::from(name).to_string(), name);
-        }
+    fn the_words_iyzico_uses_are_read_and_the_rest_are_kept() {
+        // Not a round-trip: `Other` echoes an unknown word, so one passes with every arm below deleted.
+        assert_eq!(
+            PaymentRefundStatus::from("NOT_REFUNDED"),
+            PaymentRefundStatus::NotRefunded
+        );
+        assert_eq!(
+            PaymentRefundStatus::from("PARTIALLY_REFUNDED"),
+            PaymentRefundStatus::PartiallyRefunded
+        );
+        assert_eq!(
+            PaymentRefundStatus::from("TOTALLY_REFUNDED"),
+            PaymentRefundStatus::TotallyRefunded
+        );
         assert_eq!(
             PaymentRefundStatus::from("WRITTEN_OFF"),
             PaymentRefundStatus::Other("WRITTEN_OFF".into())
         );
-        for name in ["CANCEL", "PAYMENT", "REFUND"] {
-            assert_eq!(TransactionType::from(name).to_string(), name);
-        }
+
+        assert_eq!(TransactionType::from("CANCEL"), TransactionType::Cancel);
+        assert_eq!(TransactionType::from("PAYMENT"), TransactionType::Payment);
+        assert_eq!(TransactionType::from("REFUND"), TransactionType::Refund);
         assert_eq!(
-            TransactionType::from("CHARGEBACK").to_string(),
-            "CHARGEBACK"
+            TransactionType::from("CHARGEBACK"),
+            TransactionType::Other("CHARGEBACK".into())
         );
+
+        // The words still have to reach the wire unchanged.
+        assert_eq!(PaymentRefundStatus::NotRefunded.to_string(), "NOT_REFUNDED");
+        assert_eq!(TransactionType::Refund.to_string(), "REFUND");
     }
 
     #[test]
