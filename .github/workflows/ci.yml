@@ -83,16 +83,7 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
-      - run: pip install pyyaml openapi-spec-validator
-      # TEMPORARY, for one run: the exact closure to write into
-      # scripts/requirements.txt. Removed in the next commit on this branch.
-      - name: What that resolved to
-        run: |
-          python3 -m venv /tmp/pin
-          /tmp/pin/bin/pip install --quiet pyyaml openapi-spec-validator
-          echo "----- BEGIN CLOSURE -----"
-          /tmp/pin/bin/pip freeze
-          echo "----- END CLOSURE -----"
+      - run: pip install -r scripts/requirements.txt
       - run: python3 scripts/validate_specs.py --strict
       # A field this branch stopped documenting, said out loud. Not a failure:
       # upstream is allowed to withdraw a field, and only a person can tell that
@@ -118,7 +109,7 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
-      - run: pip install pyyaml
+      - run: pip install -r scripts/requirements.txt
       # The detector before what it detects: a check nobody has seen fail is a
       # check nobody knows works.
       - run: python3 scripts/coverage.py --self-test
