@@ -40,6 +40,19 @@ order releases happen, newest first.
 
 ### Changed
 
+- **`kasapay_iyzico::reporting::RefundStatus` is now `PaymentRefundStatus`.** A
+  rename and nothing else: the variants, the words it reads off the wire and
+  everything it does are unchanged, so a caller who names the type changes the
+  name and stops there.
+
+  `kasapay-iyzico` held both meanings of the word at once. `classic` and
+  `in_store` import `kasapay_core::RefundStatus`, which is where one refund has
+  got to — pending, succeeded, failed. `reporting` exported its own, which is
+  not a refund's status at all but how much of a *payment* has gone back:
+  `NotRefunded`, `PartiallyRefunded`, `TotallyRefunded`. One crate, one word,
+  two concepts, and a reader with the first in scope meeting the second gets no
+  warning. The new name is iyzico's own for the field, `paymentRefundStatus`.
+
 - **`Provider::cancel` answers a `Release` rather than a `Charge`, and now
   works everywhere a hold exists** (#169). It was `ErrorKind::Unsupported` at
   three of the four providers whose `Capabilities::separate_capture` is

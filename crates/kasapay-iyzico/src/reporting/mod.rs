@@ -78,6 +78,6 @@ mod wire;
 #[doc(inline)]
 pub use crate::reporting::client::{
     Cancel, Client, ConvertedPayout, DailyTransactionItem, DailyTransactions, ItemTransaction,
-    PaymentDetail, PaymentQuery, PaymentStatus, Refund, RefundStatus, TransactionApprovalStatus,
-    TransactionType,
+    PaymentDetail, PaymentQuery, PaymentRefundStatus, PaymentStatus, Refund,
+    TransactionApprovalStatus, TransactionType,
 };
