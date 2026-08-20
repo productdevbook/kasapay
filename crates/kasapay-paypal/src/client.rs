@@ -1299,23 +1299,15 @@ impl Provider for PayPal {
         self.capture_order(id, idempotency).await
     }
 
-    /// Always refused. **`/v2/checkout/orders` itself has no cancel or void
-    /// operation** — `POST` to create, `GET` to read, `PATCH` to edit,
-    /// `POST .../confirm-payment-source`, `POST .../authorize` and
-    /// `POST .../capture`, and nothing that withdraws an order by its own
-    /// id. An order the payer never approves is simply left: PayPal's own
-    /// prose says an unapproved order is eligible for deletion after it has
-    /// aged, without naming a fixed duration in this crate's scope, and
-    /// there is no call here to hurry that along.
-    ///
-    /// **A hold is a different thing, and there is now a call for it.**
-    /// [`PayPal::void_authorization`] releases one — but it is keyed by the
-    /// authorization's own id rather than the order's, and this signature
-    /// takes only a [`PaymentId`], so it cannot be reached from here. What
-    /// this method still cannot do is withdraw an order: an unapproved one is
-    /// simply left, and PayPal's own prose says it is eligible for deletion
-    /// after it has aged.
     /// Voids the hold on an order, through [`PayPal::void_authorization`].
+    ///
+    /// What this does **not** do is withdraw an order. `/v2/checkout/orders`
+    /// has no operation for that — `POST` to create, `GET` to read, `PATCH` to
+    /// edit, `POST .../confirm-payment-source`, `POST .../authorize` and
+    /// `POST .../capture`, and nothing keyed by an order's own id that
+    /// withdraws it. An order the payer never approves is simply left; PayPal
+    /// says it is eligible for deletion once it has aged, without naming a
+    /// duration.
     ///
     /// # Two calls, for the reason [`Provider::refund`] is two
     ///

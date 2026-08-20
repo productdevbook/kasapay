@@ -300,9 +300,10 @@ response has no `paymentStatus`, so `fraudStatus` is what
 `status: "failure"` or as a success carrying -1.
 
 Two things about Mollie, both read off their prose rather than an example.
-`Provider::cancel` is `DELETE /v2/payments/{id}`, and the crate documents an
-authorised payment as their 422 there — their words are that releasing a hold
-is what `release-authorization` is for, not that the delete refuses one. And
-yen goes on the wire as `1200` with no decimal point, because their
-multicurrency table gives JPY zero decimal places; no example anywhere shows a
-payment in a currency that has none.
+`Mollie::cancel_payment` is `DELETE /v2/payments/{id}`, and the crate documents
+an authorised payment as their 422 there — their words are that releasing a
+hold is what `release-authorization` is for, not that the delete refuses one.
+`Provider::cancel` is the other call, `release-authorization` itself. And yen
+goes on the wire as `1200` with no decimal point, because their multicurrency
+table gives JPY zero decimal places; no example anywhere shows a payment in a
+currency that has none.

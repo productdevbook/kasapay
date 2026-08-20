@@ -242,11 +242,16 @@ answer it without an account being used at all.
 
 These need no account — they need a maintainer to decide the reading is wrong.
 
-### D1. Mollie's cancel on an authorised payment
+### D1. Mollie's `DELETE` on an authorised payment — from #192
 
-`Provider::cancel` is `DELETE /v2/payments/{id}`, and the crate documents an
-authorised payment as Mollie's 422 there. Their words are that releasing a hold
-is what `release-authorization` is for, not that the delete refuses one.
+`Mollie::cancel_payment` is `DELETE /v2/payments/{id}`, and the crate documents
+an authorised payment as Mollie's 422 there. Their words are that releasing a
+hold is what `release-authorization` is for, not that the delete refuses one.
+
+**Check the call before spending anything on this.** The entry used to name
+`Provider::cancel`, which has been `POST .../release-authorization` since #176 —
+so verifying what it said would have settled the wrong function and left the
+one that actually releases a payer's hold unobserved.
 
 ### D2. Yen on the wire
 

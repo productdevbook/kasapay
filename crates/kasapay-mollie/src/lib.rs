@@ -57,15 +57,18 @@
 //!
 //! # Cancelling and releasing are two different calls
 //!
-//! [`Provider::cancel`](kasapay_core::Provider::cancel) withdraws a payment the
-//! payer has not finished — Mollie's `DELETE /v2/payments/{id}`, which answers
-//! the cancelled payment.
+//! [`Provider::cancel`](kasapay_core::Provider::cancel) releases a hold —
+//! Mollie's `POST /v2/payments/{id}/release-authorization`, which answers
+//! `202 Accepted` with no body. It says Mollie will try; whether the hold
+//! actually lifts is the issuing bank's decision, which is why the trait
+//! answers [`ReleaseState::Accepted`](kasapay_core::ReleaseState) rather than
+//! `Released` and why the payment is read back afterwards.
 //!
-//! Releasing a hold is [`Mollie::release_authorization`], and it is not on the
-//! trait because it cannot be: **Mollie answers it `202 Accepted` with no body**,
-//! and says outright that whether the hold actually lifts is the issuing bank's
-//! decision. There is no [`Charge`](kasapay_core::Charge) to return, so that
-//! call returns `Ok(())` and the payment is read back afterwards.
+//! Withdrawing a payment the payer never finished is the other call:
+//! [`Mollie::cancel_payment`], `DELETE /v2/payments/{id}`, which answers the
+//! cancelled payment. Whether a payment can be withdrawn at all depends on the
+//! method the payer chose, and Mollie says which on `isCancelable`. Asking it
+//! of a payment that is already authorised, or already paid, is Mollie's 422.
 //!
 //! # The webhook carries no signature, so the id must be fetched
 //!
