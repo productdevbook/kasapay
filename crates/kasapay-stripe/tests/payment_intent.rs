@@ -754,3 +754,37 @@ async fn a_refund_caught_in_the_wrong_currency_names_the_refund_it_made() {
         "the refund that happened is not named: {error}"
     );
 }
+
+/// A stored-card charge carries the caller's `return_url`.
+///
+/// This is the create Stripe documents the field as usable on: it sends
+/// `confirm: true`, and a confirmation that cannot finish without the payer —
+/// a redirect method, or 3-D Secure on an `off_session` charge — has nowhere
+/// to send them without it. `saved::Payment` had no such field at all, so a
+/// caller who set one on the `ChargeRequest` had it discarded.
+#[tokio::test]
+async fn a_stored_card_charge_carries_the_return_url() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/payment_intents"))
+        .and(body_string_contains("confirm=true"))
+        .and(body_string_contains("return_url=https"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(payment_intent("succeeded", None)))
+        .mount(&server)
+        .await;
+
+    let request = ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("19.99", Currency::Usd).expect("valid amount"),
+    )
+    .customer("cus_kasapay1")
+    .instrument(kasapay_core::InstrumentId::issued("pm_kasapay1"))
+    .return_url("https://merchant.test/back".parse().expect("valid url"))
+    .build()
+    .expect("valid request");
+
+    client(&server)
+        .charge(&request)
+        .await
+        .expect("the stored card is charged");
+}

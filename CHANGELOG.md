@@ -86,6 +86,24 @@ order releases happen, newest first.
 
 ### Fixed
 
+- **A stored-card charge at Stripe carries the caller's `return_url`.**
+  `Stripe::charge_saved_card` sends `confirm: true`, which is the one create
+  Stripe documents the field as usable on — and `saved::Payment` had no such
+  field at all, so a caller who set `ChargeRequest::return_url` beside an
+  `instrument` had it discarded. When the confirmation cannot finish without
+  the payer — a redirect method, or 3-D Secure on an `off_session` charge —
+  Stripe had nowhere to send them.
+
+  **`kasapay_stripe::saved::Payment` gains a `return_url` field**, so code
+  building one with a struct literal rather than `Payment::builder` no longer
+  compiles. The builder is unchanged apart from the new
+  `PaymentBuilder::return_url`.
+
+  The hosted-form path still sends the field on an unconfirmed create, which
+  Stripe's document says is not where it belongs and does not say what happens
+  when it is sent anyway. That is `UNVERIFIED.md` E1 rather than a change made
+  on a reading.
+
 - **`PayTr::refunds` refuses a refund entry with no amount instead of summing
   it as nothing.** The four field names it reads inside PayTR's `returns` array
   are a reading, not a document: PayTR's status-query tables give the array one

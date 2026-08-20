@@ -310,6 +310,9 @@ impl Stripe {
         .payment_method(payment.instrument.as_str().to_owned())
         .confirm(true)
         .metadata(saved_metadata(payment));
+        if let Some(return_url) = &payment.return_url {
+            create = create.return_url(return_url.to_string());
+        }
         if payment.off_session {
             create = create.off_session(CreatePaymentIntentOffSession::Bool(true));
         }
@@ -445,6 +448,9 @@ impl Provider for Stripe {
             }
             if let Some(description) = &request.description {
                 payment = payment.description(description.clone());
+            }
+            if let Some(return_url) = &request.return_url {
+                payment = payment.return_url(return_url.clone());
             }
             if let Some(key) = &request.idempotency_key {
                 payment = payment.idempotency_key(key.clone());
