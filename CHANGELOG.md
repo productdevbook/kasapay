@@ -72,6 +72,20 @@ order releases happen, newest first.
   `conformance.rs` — the check there previously asked only whether a refusal
   was free, never whether a provider claiming a hold could release one.
 
+### Changed
+
+- **Two dependencies dropped from published crates** (#175). `kasapay-core`
+  declared `serde` and used it nowhere — no `serde::`, no derive, no
+  attribute; `serde_json` is its own declaration and is used. `kasapay-iyzico`
+  declared `tracing`, whose only mention anywhere in its source is inside a
+  doc comment naming `tracing::debug!` as an example of a thing that would
+  leak a config.
+
+  Both are weight every consumer compiles and `deny.toml` audits nightly. The
+  `tracing` one was also misleading: there is no telemetry anywhere in this
+  workspace, so a declared `tracing` implied a crate that emits something.
+  Either the dependency goes or the telemetry arrives, and it was neither.
+
 ### Fixed
 
 - **One card-number guard instead of two copies and a gap** (#170). The
