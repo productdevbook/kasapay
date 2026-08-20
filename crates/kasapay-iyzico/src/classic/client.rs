@@ -1267,15 +1267,22 @@ fn charge_from(
         .map(|price| Money::parse(price, currency))
         .transpose()
         .map_err(|e| Error::new(ErrorKind::Malformed, PROVIDER, e.to_string()))?
-        .or(order_total)
-        .ok_or_else(|| {
-            Error::new(
+        .or(order_total);
+    let amount = match amount {
+        Some(amount) => amount,
+        // Only where iyzico says money moved. A form the payer has not
+        // finished, and a payment that failed, both carry no amount because
+        // there is no payment — and nobody ships on either.
+        None if matches!(status, Status::Captured | Status::Authorized) => {
+            return Err(Error::new(
                 ErrorKind::Malformed,
                 PROVIDER,
                 "iyzico reported a payment with no amount this crate could read; it is not \
                  reported as captured for nothing",
-            )
-        })?;
+            ));
+        }
+        None => Money::from_minor_units(0, currency),
+    };
     let order_amount = order_total.filter(|basket| *basket != amount);
 
     Ok(Charge {

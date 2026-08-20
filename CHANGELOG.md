@@ -107,9 +107,14 @@ order releases happen, newest first.
   through the rest, with the correct figure sitting unused in `price` one field
   away.
 
-  `paidPrice` is now read, then `price`, then the answer is `ErrorKind::Malformed`.
-  A caller who was summing `Charge::amount` for reconciliation was previously
+  `paidPrice` is now read, then `price`, then — where the status says money
+  moved, `Captured` or `Authorized` — the answer is `ErrorKind::Malformed`. A
+  caller who was summing `Charge::amount` for reconciliation was previously
   short by the payment and told nothing.
+
+  A charge that is `Pending`, `RequiresAction` or `Failed` still answers zero
+  and is unchanged: a form the payer has not finished carries no amount because
+  there is no payment, and nobody ships on one.
 
 - **A Mollie webhook's `id` is refused unless it is an identifier.** Mollie
   signs nothing, so `Webhook::verify` reads the posted `id` back over the
