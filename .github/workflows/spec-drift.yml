@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   refetch:
@@ -53,37 +52,67 @@ jobs:
             python3 scripts/compare_specs.py --against-git HEAD || true
             echo REPORT
           } >> "$GITHUB_OUTPUT"
-      - name: Open a pull request if anything moved
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
-        with:
-          branch: spec-drift
-          title: "specs: upstream API descriptions moved"
-          commit-message: "specs: refetch provider API descriptions"
-          body: |
-            The scheduled refetch found a change in at least one provider's API
-            description — this pull request exists only because something moved,
-            since a refetch that finds the same document writes nothing. Read
-            the diff under `specs/` before merging: a changed operation or
-            schema is a change the adapters may need.
+      # It pushes a branch and hands back a link, rather than opening the
+      # pull request itself.
+      #
+      # `peter-evans/create-pull-request` did open one, and failed every time
+      # it ran: "GitHub Actions is not permitted to create or approve pull
+      # requests." `lockfile.yml` met the same wall and says why the setting
+      # that would allow it is the wrong trade — it also lets a workflow
+      # **approve** one, in a repository that pins every `uses:` to a commit
+      # and keeps the crates.io token in `release.yml`.
+      #
+      # The branch is dated rather than fixed. The old one was called
+      # `spec-drift` and was force-pushed on every run, so a week's detection
+      # that nobody had opened was overwritten by the next week's — and the
+      # change was then re-dated to the day it was overwritten, which is the
+      # one thing specs/README.md's dates are supposed to mean.
+      - name: Push the branch and say where to open the pull request
+        env:
+          MOLLIE: ${{ steps.mollie.outcome }}
+          REPORT: ${{ steps.moved.outputs.report }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- specs; then
+            echo "No provider's description moved this week." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
-            A **lost** field is the line to read first. It means either that the
-            provider withdrew it, or that `merge_iyzico.py` dropped it — those
-            look identical in the diff and only one of them is fine.
+          branch="spec-drift/$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add specs
+          git commit -m "specs: refetch provider API descriptions"
+          git push origin "$branch"
 
-            **Mollie's diff is one JSON file and no fields**, by design: their
-            document is licensed so that no copy of it is kept here, so what
-            moved is a version string or a hash. `subset_sha256` is the one to
-            read — it moves only for the five paths kasapay maps, where
-            `upstream_sha256` moves for any of their eighty-seven. Fetch the
-            document with `python3 scripts/fetch_mollie.py --write-document` to
-            see what actually changed. `specs/README.md` says why.
-
-            Mollie's own check: **${{ steps.mollie.outcome }}**. A failure there
-            means their document did not validate, `specs/mollie/` is unchanged
-            in this pull request, and the job log is where the reason is.
-
-            ```
-            ${{ steps.moved.outputs.report }}
-            ```
-          labels: specs
-          delete-branch: true
+          {
+            echo "## Something moved"
+            echo
+            echo "Branch: \`$branch\`."
+            echo
+            echo "**[Open the pull request]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$branch?expand=1)**"
+            echo "— label it \`specs\`, and read the diff under \`specs/\` before merging."
+            echo "A changed operation or schema is a change the adapters may need."
+            echo
+            echo "A **lost** field is the line to read first. It means either that the"
+            echo "provider withdrew it, or that a fetcher dropped it — those look"
+            echo "identical in the diff and only one of them is fine."
+            echo
+            echo "**Mollie's diff is one JSON file and no fields**, by design: their"
+            echo "document is licensed so that no copy of it is kept here, so what moved"
+            echo "is a version string or a hash. \`subset_sha256\` is the one to read — it"
+            echo "moves only for the eight paths kasapay maps, where \`upstream_sha256\`"
+            echo "moves for any of theirs. Fetch the document with"
+            echo "\`python3 scripts/fetch_mollie.py --write-document\` to see what actually"
+            echo "changed, to a path this repository does not track. \`specs/README.md\`"
+            echo "says why."
+            echo
+            echo "Mollie's own check: **$MOLLIE**. A failure there means their document"
+            echo "did not validate, \`specs/mollie/\` is unchanged on this branch, and the"
+            echo "job log is where the reason is."
+            echo
+            echo '```'
+            echo "$REPORT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

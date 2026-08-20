@@ -16,7 +16,7 @@ What that costs is the field-level diff `compare_specs.py` gives the others.
 What it keeps is the weekly job noticing that the version moved or a hash
 changed, which is most of why `specs/` exists — and `subset_sha256` is the
 sharper of the two, because `upstream_sha256` moves when any of Mollie's
-eighty-seven paths does and the subset's moves only for the five that matter.
+eighty-seven paths does and the subset's moves only for the eight that matter.
 
 Three things differ from fetch_stripe.py.
 
