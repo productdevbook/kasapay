@@ -39,6 +39,7 @@
 use std::fmt;
 
 use kasapay_core::{Error, ErrorKind, IdempotencyKey, InstrumentId, Money, MoneyError, OrderRef};
+use url::Url;
 
 use crate::convert::PROVIDER;
 
@@ -224,6 +225,17 @@ pub struct Payment {
     pub off_session: bool,
     /// Free text shown on statements or in Stripe's dashboard.
     pub description: Option<Box<str>>,
+    /// Where Stripe should send the payer back to, if it has to send them
+    /// anywhere.
+    ///
+    /// This call confirms as it creates, and Stripe documents `return_url` as
+    /// usable **only** with `confirm: true` — so this is the path it belongs
+    /// on. It matters where the confirmation cannot finish without the payer:
+    /// a redirect-based payment method, or a card whose issuer asks for 3-D
+    /// Secure on an `off_session` charge.
+    ///
+    /// `None` is the ordinary case, a card that authenticates without them.
+    pub return_url: Option<Url>,
     /// A key that makes replaying this request safe.
     pub idempotency_key: Option<IdempotencyKey>,
 }
@@ -244,6 +256,7 @@ impl Payment {
             instrument,
             off_session: false,
             description: None,
+            return_url: None,
             idempotency_key: None,
         }
     }
@@ -258,6 +271,7 @@ pub struct PaymentBuilder {
     instrument: InstrumentId,
     off_session: bool,
     description: Option<Box<str>>,
+    return_url: Option<Url>,
     idempotency_key: Option<IdempotencyKey>,
 }
 
@@ -269,6 +283,18 @@ impl PaymentBuilder {
     #[must_use]
     pub const fn off_session(mut self) -> Self {
         self.off_session = true;
+        self
+    }
+
+    /// Sets where Stripe should send the payer back to.
+    ///
+    /// Only reached when the confirmation cannot finish without the payer.
+    /// Stripe's own document gives `return_url` as usable only with
+    /// `confirm: true`, which this call sends and the hosted-form create does
+    /// not — so this is where `Provider::charge` carries the field to.
+    #[must_use]
+    pub fn return_url(mut self, return_url: Url) -> Self {
+        self.return_url = Some(return_url);
         self
     }
 
@@ -313,6 +339,7 @@ impl PaymentBuilder {
             instrument: self.instrument,
             off_session: self.off_session,
             description: self.description,
+            return_url: self.return_url,
             idempotency_key: self.idempotency_key,
         })
     }

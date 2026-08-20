@@ -320,6 +320,37 @@ comment.
 
 ---
 
+## E. A Stripe test key
+
+### E1. Whether a hosted-form create may carry a `return_url` — from #194
+
+`Provider::charge` with no `instrument` creates an unconfirmed PaymentIntent
+and sends `ChargeRequest::return_url` with it. Stripe's own document gives that
+property as one that "can only be used with `confirm=true`", which this create
+does not send.
+
+What the document never says is what happens when it is sent anyway. The same
+sentence is Stripe's boilerplate for confirm-gated parameters and appears four
+times in `specs/stripe/latest.yaml` — on `error_on_requires_action`, inside
+`mandate_data`, on `off_session` and here — never with a stated consequence.
+The document does say "is ignored" elsewhere when it means it, which is
+suggestive and is not evidence.
+
+If Stripe **rejects** it, every Stripe charge written the way `README.md`
+teaches returns `invalid_request_error` and no payment is created. If Stripe
+**ignores** it, the field is accepted and dropped, which costs nothing but
+should be said out loud.
+
+The confirmed path is settled and needs no call: `Stripe::charge_saved_card`
+sends `confirm: true`, so `return_url` belongs there and is sent there now.
+
+**To settle it**, `POST /v1/payment_intents` with `amount`, `currency` and
+`return_url`, no `confirm`, against a test key. A `200` means Stripe ignores it
+and this becomes a sentence in the crate docs; a `400` means the hosted-form
+path must stop sending it, and the README example needs rewriting.
+
+---
+
 ## What to do with an answer
 
 Paste the body into a new issue that names the entry — "A3: iyzico opens a

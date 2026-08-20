@@ -23,6 +23,12 @@
 //!   arrives as [`Status::RequiresAction`](kasapay_core::Status::RequiresAction)
 //!   — honest, because the payer can try another card, but a caller waiting
 //!   for `Failed` from Stripe waits forever.
+//! - `ChargeRequest::return_url` goes where Stripe documents it: onto the
+//!   stored-card create, which sends `confirm: true`. On the hosted-form path
+//!   the payer is confirmed in the browser, where Stripe.js takes a
+//!   `return_url` of its own — what Stripe does with the one sent on an
+//!   unconfirmed create is `UNVERIFIED.md` E1. `ChargeRequest::failure_url`
+//!   is not sent on either: Stripe has one address for both outcomes.
 //! - Anything this crate does not model is reachable through
 //!   [`Stripe::client`], which hands back the `async-stripe` client itself.
 //! - A saved card is a `pm_…`, which stands alone rather than needing a
