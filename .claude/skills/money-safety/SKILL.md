@@ -1,13 +1,13 @@
 ---
 name: money-safety
 description: >
-  The eight ways a payments library loses somebody money, each with the
+  The nine ways a payments library loses somebody money, each with the
   scenario that produces it and the direction to err in. Read before writing
   or reviewing anything in kasapay that touches an amount, a status, an
-  idempotency key, a refund or a webhook — and before deciding that an unknown
-  value from a provider is safe to map onto something. Carries the rule that
-  decides every one of these arguments, and the two defects this workspace
-  actually shipped.
+  idempotency key, a refund, a webhook, or a value that ends up in a log or a
+  URL — and before deciding that an unknown value from a provider is safe to
+  map onto something. Carries the rule that decides every one of these
+  arguments, and the four defects this workspace actually shipped.
 ---
 
 # Money safety
