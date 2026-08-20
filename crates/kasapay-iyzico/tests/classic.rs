@@ -2347,3 +2347,125 @@ async fn a_payment_signed_as_though_it_were_a_form_is_untrusted() {
         .expect_err("a signature over the wrong fields is not a payment");
     assert_eq!(error.kind(), ErrorKind::Untrusted);
 }
+
+/// The stored-card order `saved_card_response` answers for.
+fn saved_card_request() -> kasapay_core::ChargeRequest {
+    kasapay_core::ChargeRequest::builder(
+        OrderRef::new("ord-1"),
+        Money::parse("149.90", Currency::Try).expect("valid amount"),
+    )
+    .customer("card-user-key-1")
+    .instrument(InstrumentId::issued("card-token-1"))
+    .sequence(Sequence::Unattended)
+    .buyer(core_buyer())
+    .item(
+        kasapay_core::BasketItem::new(
+            "item-1",
+            "Kahve",
+            Money::parse("149.90", Currency::Try).expect("valid amount"),
+        )
+        .category("Icecek"),
+    )
+    .build()
+    .expect("valid request")
+}
+
+/// A client that reads an answer iyzico did not sign, for the fixtures below
+/// that leave a signed field out.
+fn unsigned_client(server: &MockServer) -> Client {
+    let config = Config::new(&server.uri(), Credentials::new("api-key", "secret-key"))
+        .expect("valid base")
+        .allow_unsigned();
+    Client::new(config).expect("client builds")
+}
+
+/// Every `fraudStatus` iyzico documents, and one it does not.
+///
+/// Their schemas give the field `enum: [0, -1, 1]` and their own prose says a
+/// merchant should ship only on 1. So a fourth value is one nothing here can
+/// read, and reading it as money taken is how a shop ships against a payment
+/// iyzico is still deciding about.
+#[tokio::test]
+async fn a_fraud_status_iyzico_has_never_named_is_not_a_capture() {
+    for (fraud_status, expected) in [
+        (1, Status::Captured),
+        (0, Status::Pending),
+        (-1, Status::Failed),
+        (2, Status::Pending),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/payment/auth"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(saved_card_response(fraud_status)),
+            )
+            .mount(&server)
+            .await;
+
+        let charge = client(&server)
+            .charge(&saved_card_request())
+            .await
+            .expect("iyzico answered");
+        assert_eq!(charge.status, expected, "for fraudStatus {fraud_status}");
+    }
+}
+
+/// #172's rule, at the reader #172 did not reach.
+///
+/// `Provider::lookup` has answered [`ErrorKind::Malformed`] for a payment with
+/// no readable amount since #172; `Provider::charge` substituted a zero for the
+/// same answer, so one response read two ways in one crate. A settled status
+/// beside an amount the provider never stated is the shape this workspace
+/// refuses everywhere else.
+#[tokio::test]
+async fn a_payment_answer_with_no_amount_is_not_captured_for_nothing() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "fraudStatus": 1,
+        })))
+        .mount(&server)
+        .await;
+
+    let error = unsigned_client(&server)
+        .charge(&saved_card_request())
+        .await
+        .expect_err("a payment with no amount is not described");
+    assert_eq!(error.kind(), ErrorKind::Malformed);
+}
+
+/// `paidPrice` is what was collected and `price` is the basket total. An answer
+/// carrying only the second reports that figure, not nothing.
+#[tokio::test]
+async fn an_answer_with_only_a_basket_total_reports_that_total() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payment/auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "success",
+            "paymentId": "12345678",
+            "currency": "TRY",
+            "basketId": "ord-1",
+            "price": "149.90",
+            "fraudStatus": 1,
+        })))
+        .mount(&server)
+        .await;
+
+    let charge = unsigned_client(&server)
+        .charge(&saved_card_request())
+        .await
+        .expect("iyzico answered");
+    assert_eq!(charge.status, Status::Captured);
+    assert_eq!(
+        charge.amount,
+        Money::parse("149.90", Currency::Try).expect("valid amount")
+    );
+    // The two figures agree, so there is no separate order total to report.
+    assert_eq!(charge.order_amount, None);
+}
