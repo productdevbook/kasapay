@@ -1,0 +1,36 @@
+# What the spec tooling runs on, pinned to a resolution rather than a guess.
+#
+# Every `uses:` in .github/workflows is a full commit SHA, because a tag is a
+# mutable pointer whoever owns it can move. A floating `pip install` executing
+# on the same runner is that pointer under a different name — and one of the
+# jobs that does it can write to this repository.
+#
+# The two packages actually asked for are PyYAML and openapi-spec-validator.
+# The other nineteen are what they pull, which is why naming only the two would
+# have left most of the surface floating.
+#
+# One file for every job, including the one that needs PyYAML alone: a second
+# list is a second thing to keep in step, and the seconds it saves are not
+# worth that. To move it, add `pip freeze` to a run in a fresh venv and paste
+# what it prints — the numbers here came from run 32353300009.
+
+annotated-types==0.8.0
+attrs==26.1.0
+jsonschema==4.26.0
+jsonschema-path==0.5.0
+jsonschema-specifications==2025.9.1
+lazy-object-proxy==1.12.0
+openapi-schema-validator==0.9.0
+openapi-spec-validator==0.9.0
+pathable==0.6.0
+pydantic==2.13.4
+pydantic-settings==2.15.0
+pydantic_core==2.46.4
+python-dotenv==1.2.3
+PyYAML==6.0.3
+referencing==0.37.0
+rfc3339-validator==0.1.4
+rpds-py==2026.6.3
+six==1.17.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
