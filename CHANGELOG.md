@@ -101,8 +101,6 @@ order releases happen, newest first.
   adapter's own is *forgetting* an instrument, and the documentation now says
   only that.
 
-### Fixed
-
 - **Eight published claims that a crate could not do something it now does**
   (#171). Every one was accurate when written and went stale underneath: Mollie
   and PayPal saying they have no webhooks, when both implement `Webhook`;
